@@ -63,6 +63,10 @@ void main() {
     precipitation: Precipitation.lightRain,
     humidity: 70,
     weatherDescription: 'Sunny',
+    diveOperator: 'Buddy Dive',
+    boatName: 'Bonaire Breeze',
+    boatCaptain: 'Rik',
+    surfaceConditions: 'Calm',
     // Not in alphabetical order, which is the per-key columns' order.
     customFields: const [
       DiveCustomField(id: 'cf-1', key: 'zulu', value: '  GoPro 12  '),
@@ -165,6 +169,10 @@ void main() {
     expect(d['precipitation'], 'lightRain');
     expect(d['humidity'], 70.0);
     expect(d['weatherDescription'], 'Sunny');
+    expect(d['diveOperator'], 'Buddy Dive');
+    expect(d['boatName'], 'Bonaire Breeze');
+    expect(d['boatCaptain'], 'Rik');
+    expect(d['surfaceConditions'], 'Calm');
     // From the Custom Fields column: the dive's own order, empty value kept.
     expect(d['customFields'], [
       {'key': 'zulu', 'value': '  GoPro 12  '},
