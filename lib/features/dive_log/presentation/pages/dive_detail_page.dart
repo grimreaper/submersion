@@ -3244,6 +3244,17 @@ class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
             ),
             if (dive.trip != null) _buildTripRow(context, dive),
             if (dive.diveCenter != null) _buildDiveCenterRow(context, dive),
+            // Free text from the editor or a MacDive/UDDF import (#3229).
+            for (final (label, value) in [
+              (
+                context.l10n.diveLog_detail_label_diveOperator,
+                dive.diveOperator,
+              ),
+              (context.l10n.diveLog_detail_label_boatName, dive.boatName),
+              (context.l10n.diveLog_detail_label_boatCaptain, dive.boatCaptain),
+            ])
+              if (_hasText(value))
+                _buildDetailRow(context, label, value!.trim()),
             if (dive.courseId != null) _buildCourseRow(context, ref, dive),
             if (formatDiveVisibility(
                   meters: dive.visibilityMeters,
@@ -3343,8 +3354,12 @@ class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
     );
   }
 
+  /// Whether free text [s] holds anything once trimmed (#3229).
+  bool _hasText(String? s) => s != null && s.trim().isNotEmpty;
+
   bool _hasEnvironmentData(Dive dive) {
-    return dive.airTemp != null ||
+    return _hasText(dive.surfaceConditions) ||
+        dive.airTemp != null ||
         dive.surfacePressure != null ||
         dive.windSpeed != null ||
         dive.windDirection != null ||
@@ -3392,6 +3407,7 @@ class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
         dive.weatherDescription != null;
 
     final hasDiveConditions =
+        _hasText(dive.surfaceConditions) ||
         dive.currentDirection != null ||
         dive.currentStrength != null ||
         dive.swellHeight != null ||
@@ -3530,6 +3546,12 @@ class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
                   context,
                   context.l10n.diveLog_detail_label_swellHeight,
                   units.formatDepth(dive.swellHeight, decimals: 1),
+                ),
+              if (_hasText(dive.surfaceConditions))
+                _buildDetailRow(
+                  context,
+                  context.l10n.diveLog_detail_label_surfaceConditions,
+                  dive.surfaceConditions!.trim(),
                 ),
               // Effective, so a dive that never had an entry method of its
               // own still shows the one its site carries (issue #1427).
