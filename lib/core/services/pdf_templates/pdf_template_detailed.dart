@@ -34,6 +34,9 @@ import 'package:submersion/features/equipment/presentation/utils/equipment_enum_
 import 'package:submersion/features/weight_planner/presentation/widgets/weight_enum_display.dart';
 import 'package:submersion/features/certification_agencies/domain/certification_catalog.dart';
 
+/// Whether free text [s] holds anything once trimmed (#3229).
+bool _hasText(String? s) => s != null && s.trim().isNotEmpty;
+
 /// Detailed PDF template: one dive per page with the full field set.
 ///
 /// Carries the depth profile chart plus every group #1017 asks for. Each
@@ -497,6 +500,8 @@ class PdfTemplateDetailed extends PdfTemplateBuilder {
           l10n.pdf_currentDirection,
           dive.currentDirection!.localizedName(l10n),
         ),
+      if (_hasText(dive.surfaceConditions))
+        _Field(l10n.pdf_surfaceConditions, dive.surfaceConditions!.trim()),
       if (dive.effectiveWaterType != null)
         _Field(
           l10n.pdf_waterType,
@@ -538,6 +543,12 @@ class PdfTemplateDetailed extends PdfTemplateBuilder {
         _Field(l10n.pdf_diveMaster, dive.diveMaster!),
       if (dive.diveCenter != null)
         _Field(l10n.pdf_diveCenter, dive.diveCenter!.name),
+      if (_hasText(dive.diveOperator))
+        _Field(l10n.pdf_diveOperator, dive.diveOperator!.trim()),
+      if (_hasText(dive.boatName))
+        _Field(l10n.pdf_boatName, dive.boatName!.trim()),
+      if (_hasText(dive.boatCaptain))
+        _Field(l10n.pdf_boatCaptain, dive.boatCaptain!.trim()),
       if (dive.trip != null) _Field(l10n.pdf_trip, dive.trip!.name),
     ];
   }
