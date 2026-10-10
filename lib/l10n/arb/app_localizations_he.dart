@@ -6666,6 +6666,15 @@ class AppLocalizationsHe extends AppLocalizations {
   String get diveLog_detail_label_diveMaster => 'דייבמאסטר';
 
   @override
+  String get diveLog_detail_label_diveOperator => 'מפעיל';
+
+  @override
+  String get diveLog_detail_label_boatName => 'סירה';
+
+  @override
+  String get diveLog_detail_label_boatCaptain => 'רב החובל';
+
+  @override
   String get diveLog_detail_label_diveType => 'סוג צלילה';
 
   @override
@@ -6715,6 +6724,9 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get diveLog_detail_label_swellHeight => 'גובה גלים';
+
+  @override
+  String get diveLog_detail_label_surfaceConditions => 'תנאי פני השטח';
 
   @override
   String get diveLog_detail_label_total => 'סה\"כ:';
@@ -7140,6 +7152,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get diveLog_edit_label_swellHeight => 'גובה גלים';
 
   @override
+  String get diveLog_edit_label_surfaceConditions => 'תנאי פני השטח';
+
+  @override
   String get diveLog_edit_label_type => 'סוג';
 
   @override
@@ -7221,6 +7236,15 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get diveLog_edit_row_diveCenter => 'מרכז צלילה';
+
+  @override
+  String get diveLog_edit_row_diveOperator => 'מפעיל';
+
+  @override
+  String get diveLog_edit_row_boatName => 'סירה';
+
+  @override
+  String get diveLog_edit_row_boatCaptain => 'רב החובל';
 
   @override
   String get diveLog_edit_row_diveProfile => 'פרופיל צלילה';
@@ -13521,6 +13545,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get pdf_currentDirection => 'כיוון זרם';
 
   @override
+  String get pdf_surfaceConditions => 'פני המים';
+
+  @override
   String get pdf_waterType => 'סוג מים';
 
   @override
@@ -13540,6 +13567,15 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get pdf_diveCenter => 'מרכז צלילה';
+
+  @override
+  String get pdf_diveOperator => 'מפעיל';
+
+  @override
+  String get pdf_boatName => 'סירה';
+
+  @override
+  String get pdf_boatCaptain => 'רב החובל';
 
   @override
   String get pdf_trip => 'טיול';
@@ -36325,6 +36361,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get enum_diveField_weatherDescription => 'מזג אוויר';
 
   @override
+  String get enum_diveField_surfaceConditions => 'תנאי פני השטח';
+
+  @override
   String get enum_diveField_primaryGas => 'גז ראשי';
 
   @override
@@ -36398,6 +36437,15 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get enum_diveField_diveCenterName => 'מרכז צלילה';
+
+  @override
+  String get enum_diveField_diveOperator => 'מפעיל צלילה';
+
+  @override
+  String get enum_diveField_boatName => 'סירה';
+
+  @override
+  String get enum_diveField_boatCaptain => 'רב החובל';
 
   @override
   String get enum_diveField_siteLatitude => 'קו רוחב';
@@ -36502,6 +36550,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get enum_diveField_weatherDescription_short => 'מזג אוויר';
 
   @override
+  String get enum_diveField_surfaceConditions_short => 'פני המים';
+
+  @override
   String get enum_diveField_primaryGas_short => 'גז';
 
   @override
@@ -36575,6 +36626,15 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get enum_diveField_diveCenterName_short => 'מרכז';
+
+  @override
+  String get enum_diveField_diveOperator_short => 'מפעיל';
+
+  @override
+  String get enum_diveField_boatName_short => 'סירה';
+
+  @override
+  String get enum_diveField_boatCaptain_short => 'רב החובל';
 
   @override
   String get enum_diveField_siteLatitude_short => 'רוחב';
@@ -48036,6 +48096,9 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get query_dives_boatName => 'סירה';
+
+  @override
+  String get query_dives_boatCaptain => 'רב החובל';
 
   @override
   String get query_dives_bottomTime => 'זמן קרקעית';

@@ -6796,6 +6796,15 @@ class AppLocalizationsHu extends AppLocalizations {
   String get diveLog_detail_label_diveMaster => 'Divemaster';
 
   @override
+  String get diveLog_detail_label_diveOperator => 'Szolgáltató';
+
+  @override
+  String get diveLog_detail_label_boatName => 'Hajó';
+
+  @override
+  String get diveLog_detail_label_boatCaptain => 'Kapitány';
+
+  @override
   String get diveLog_detail_label_diveType => 'Merülés típusa';
 
   @override
@@ -6845,6 +6854,9 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get diveLog_detail_label_swellHeight => 'Hullámmagasság';
+
+  @override
+  String get diveLog_detail_label_surfaceConditions => 'Felszíni körülmények';
 
   @override
   String get diveLog_detail_label_total => 'Összes:';
@@ -7278,6 +7290,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get diveLog_edit_label_swellHeight => 'Hullámmagasság';
 
   @override
+  String get diveLog_edit_label_surfaceConditions => 'Felszíni körülmények';
+
+  @override
   String get diveLog_edit_label_type => 'Típus';
 
   @override
@@ -7362,6 +7377,15 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get diveLog_edit_row_diveCenter => 'Búvárközpont';
+
+  @override
+  String get diveLog_edit_row_diveOperator => 'Szolgáltató';
+
+  @override
+  String get diveLog_edit_row_boatName => 'Hajó';
+
+  @override
+  String get diveLog_edit_row_boatCaptain => 'Kapitány';
 
   @override
   String get diveLog_edit_row_diveProfile => 'Merülési profil';
@@ -13777,6 +13801,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get pdf_currentDirection => 'Áramlat iránya';
 
   @override
+  String get pdf_surfaceConditions => 'Felszín';
+
+  @override
   String get pdf_waterType => 'Víz típusa';
 
   @override
@@ -13796,6 +13823,15 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get pdf_diveCenter => 'Búvárközpont';
+
+  @override
+  String get pdf_diveOperator => 'Szolgáltató';
+
+  @override
+  String get pdf_boatName => 'Hajó';
+
+  @override
+  String get pdf_boatCaptain => 'Kapitány';
 
   @override
   String get pdf_trip => 'Utazás';
@@ -37039,6 +37075,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get enum_diveField_weatherDescription => 'Időjárás';
 
   @override
+  String get enum_diveField_surfaceConditions => 'Felszíni körülmények';
+
+  @override
   String get enum_diveField_primaryGas => 'Fő gáz';
 
   @override
@@ -37112,6 +37151,15 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get enum_diveField_diveCenterName => 'Búvárközpont';
+
+  @override
+  String get enum_diveField_diveOperator => 'Merülésszervező';
+
+  @override
+  String get enum_diveField_boatName => 'Hajó';
+
+  @override
+  String get enum_diveField_boatCaptain => 'Kapitány';
 
   @override
   String get enum_diveField_siteLatitude => 'Szélesség';
@@ -37216,6 +37264,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get enum_diveField_weatherDescription_short => 'Időjárás';
 
   @override
+  String get enum_diveField_surfaceConditions_short => 'Felszín';
+
+  @override
   String get enum_diveField_primaryGas_short => 'Gáz';
 
   @override
@@ -37289,6 +37340,15 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get enum_diveField_diveCenterName_short => 'Központ';
+
+  @override
+  String get enum_diveField_diveOperator_short => 'Szolgáltató';
+
+  @override
+  String get enum_diveField_boatName_short => 'Hajó';
+
+  @override
+  String get enum_diveField_boatCaptain_short => 'Kapitány';
 
   @override
   String get enum_diveField_siteLatitude_short => 'Lat';
@@ -48807,6 +48867,9 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get query_dives_boatName => 'Hajó';
+
+  @override
+  String get query_dives_boatCaptain => 'Kapitány';
 
   @override
   String get query_dives_bottomTime => 'Fenékidő';

@@ -395,6 +395,7 @@ final QueryEntity diveQueryEntity = QueryEntity(
     _text('legacyBuddy', 'buddy'),
     _text('diveMaster', 'dive_master'),
     _text('boatName', 'boat_name'),
+    _text('boatCaptain', 'boat_captain'),
     _text('diveOperator', 'dive_operator'),
     _text('surfaceConditions', 'surface_conditions'),
     _enum(
