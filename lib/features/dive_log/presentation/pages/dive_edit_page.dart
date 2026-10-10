@@ -1422,6 +1422,31 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
                       : () => setState(() => _selectedDiveCenter = null),
                 ),
               ),
+              for (final (field, label, controller) in [
+                (
+                  BulkField.diveOperator,
+                  l10n.diveLog_edit_row_diveOperator,
+                  _diveOperatorController,
+                ),
+                (
+                  BulkField.boatName,
+                  l10n.diveLog_edit_row_boatName,
+                  _boatNameController,
+                ),
+                (
+                  BulkField.boatCaptain,
+                  l10n.diveLog_edit_row_boatCaptain,
+                  _boatCaptainController,
+                ),
+              ])
+                _gatedRow(
+                  field,
+                  FormRow.text(
+                    label: label,
+                    controller: controller,
+                    alwaysEditing: true,
+                  ),
+                ),
               _gatedRow(
                 BulkField.trip,
                 FormRow.picker(
@@ -1528,6 +1553,9 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
     // High-value Logistics + notes fields. Extended per group in later tasks.
     return BulkScalarInputs(
       diveCenterId: _selectedDiveCenter?.id,
+      diveOperator: _trimmedOrNull(_diveOperatorController),
+      boatName: _trimmedOrNull(_boatNameController),
+      boatCaptain: _trimmedOrNull(_boatCaptainController),
       tripId: _selectedTrip?.id,
       courseId: _selectedCourse?.id,
       rating: _rating > 0 ? _rating : null,
@@ -1541,6 +1569,7 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
       swellHeight: _savedNumber(
         _swellHeightController,
       ).map(units.depthToMeters),
+      surfaceConditions: _trimmedOrNull(_surfaceConditionsController),
       entryMethod: _entryMethod?.name,
       exitMethod: _exitMethod?.name,
       altitude: _savedNumber(_altitudeController).map(units.altitudeToMeters),
@@ -2083,6 +2112,14 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
             keyboardType: TextInputType.number,
             alwaysEditing: true,
             inputValidator: _bulkValidator(BulkField.swellHeight),
+          ),
+        ),
+        _gatedRow(
+          BulkField.surfaceConditions,
+          FormRow.text(
+            label: context.l10n.diveLog_edit_label_surfaceConditions,
+            controller: _surfaceConditionsController,
+            alwaysEditing: true,
           ),
         ),
         _gatedRow(
