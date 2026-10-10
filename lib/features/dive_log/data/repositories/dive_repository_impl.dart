@@ -28,6 +28,7 @@ import 'package:submersion/features/dive_log/domain/codecs/tank_pressure_series_
 import 'package:submersion/features/dive_log/domain/entities/bulk_edit_request.dart'
     as domain;
 import 'package:submersion/features/dive_log/domain/entities/computer_tissue_snapshot.dart';
+import 'package:submersion/features/dive_log/domain/entities/dive_text_suggestion_field.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart'
     as domain;
 import 'package:submersion/features/dive_log/domain/entities/tank_shared_computers.dart';
@@ -2825,6 +2826,32 @@ class DiveRepository {
         )
         .get();
     return rows.map((r) => r.read<String>('buddy')).toList();
+  }
+
+  /// The diver's distinct non-blank values of one free-text column, most
+  /// recently used first, for the dive editor's suggestions (#3229). Values
+  /// that differ only by surrounding whitespace collapse into one.
+  // stats-scope-exempt: a suggestion list, not an aggregate; an excluded
+  // dive's boat is still one the diver may type again.
+  Future<List<String>> getRecentTextValues(
+    DiveTextSuggestionField field, {
+    String? diverId,
+    int limit = 50,
+  }) async {
+    final column = field.column;
+    final diverFilter = diverId != null ? 'AND diver_id = ?' : '';
+    final rows = await _db
+        .customSelect(
+          'SELECT TRIM($column) AS value FROM dives '
+          "WHERE $column IS NOT NULL AND TRIM($column) <> '' $diverFilter "
+          'GROUP BY TRIM($column) '
+          'ORDER BY MAX(dive_date_time) DESC, value '
+          'LIMIT ?',
+          variables: [if (diverId != null) Variable(diverId), Variable(limit)],
+          readsFrom: {_db.dives},
+        )
+        .get();
+    return rows.map((r) => r.read<String>('value')).toList();
   }
 
   /// Drift tables by their SQL names, for `readsFrom` and [watchTables].
