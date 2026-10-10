@@ -5,6 +5,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/rendering.dart';
 import 'package:flutter/services.dart';
 import 'package:go_router/go_router.dart';
+import 'package:submersion/core/text/blank_text.dart';
 import 'package:submersion/core/services/export/csv/codec/csv_export_units.dart';
 import 'package:submersion/core/services/export/uddf/uddf_dives_extras.dart';
 import 'package:submersion/core/services/export/uddf/uddf_source_fetch.dart';
@@ -3253,8 +3254,8 @@ class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
               (context.l10n.diveLog_detail_label_boatName, dive.boatName),
               (context.l10n.diveLog_detail_label_boatCaptain, dive.boatCaptain),
             ])
-              if (_hasText(value))
-                _buildDetailRow(context, label, value!.trim()),
+              if (trimmedOrNull(value) case final text?)
+                _buildDetailRow(context, label, text),
             if (dive.courseId != null) _buildCourseRow(context, ref, dive),
             if (formatDiveVisibility(
                   meters: dive.visibilityMeters,
@@ -3354,11 +3355,8 @@ class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
     );
   }
 
-  /// Whether free text [s] holds anything once trimmed (#3229).
-  bool _hasText(String? s) => s != null && s.trim().isNotEmpty;
-
   bool _hasEnvironmentData(Dive dive) {
-    return _hasText(dive.surfaceConditions) ||
+    return trimmedOrNull(dive.surfaceConditions) != null ||
         dive.airTemp != null ||
         dive.surfacePressure != null ||
         dive.windSpeed != null ||
@@ -3407,7 +3405,7 @@ class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
         dive.weatherDescription != null;
 
     final hasDiveConditions =
-        _hasText(dive.surfaceConditions) ||
+        trimmedOrNull(dive.surfaceConditions) != null ||
         dive.currentDirection != null ||
         dive.currentStrength != null ||
         dive.swellHeight != null ||
@@ -3547,11 +3545,11 @@ class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
                   context.l10n.diveLog_detail_label_swellHeight,
                   units.formatDepth(dive.swellHeight, decimals: 1),
                 ),
-              if (_hasText(dive.surfaceConditions))
+              if (trimmedOrNull(dive.surfaceConditions) case final surface?)
                 _buildDetailRow(
                   context,
                   context.l10n.diveLog_detail_label_surfaceConditions,
-                  dive.surfaceConditions!.trim(),
+                  surface,
                 ),
               // Effective, so a dive that never had an entry method of its
               // own still shows the one its site carries (issue #1427).

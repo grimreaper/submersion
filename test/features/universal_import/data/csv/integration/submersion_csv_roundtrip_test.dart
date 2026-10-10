@@ -214,6 +214,11 @@ void main() {
         DiveCsvColumns.hePercent,
         DiveCsvColumns.customFields,
         DiveCsvColumns.diveTypeIds,
+        // Added later still (#3229), so a pre-#1814 file lacks them too.
+        DiveCsvColumns.diveOperator,
+        DiveCsvColumns.boatName,
+        DiveCsvColumns.boatCaptain,
+        DiveCsvColumns.surfaceConditions,
       };
       final rows = const CsvToListConverter(
         shouldParseNumbers: false,
@@ -245,6 +250,44 @@ void main() {
       ]);
     },
   );
+
+  test('a pre-#3229 export without the boat columns still imports', () async {
+    // The Submersion preset's signature is DiveCsvColumns.fixed, which #3229
+    // grew by four; a diver's older export must still be recognised.
+    const newColumns = {
+      DiveCsvColumns.diveOperator,
+      DiveCsvColumns.boatName,
+      DiveCsvColumns.boatCaptain,
+      DiveCsvColumns.surfaceConditions,
+    };
+    final rows = const CsvToListConverter(
+      shouldParseNumbers: false,
+    ).convert(csv);
+    final legacy = const ListToCsvConverter().convert([
+      for (final row in rows)
+        [
+          for (var i = 0; i < row.length; i++)
+            if (!newColumns.contains(headers[i])) row[i],
+        ],
+    ]);
+
+    final matches = PresetRegistry(
+      builtInPresets: builtInCsvPresets,
+    ).detectPreset(headersOf(legacy));
+    expect(matches.first.preset.id, 'submersion_native');
+
+    final d = (await parse(legacy)).entitiesOf(ImportEntityType.dives).single;
+    expect(d['name'], 'Probe dive');
+    expect(d['weatherDescription'], 'Sunny');
+    for (final key in [
+      'diveOperator',
+      'boatName',
+      'boatCaptain',
+      'surfaceConditions',
+    ]) {
+      expect(d[key], isNull, reason: key);
+    }
+  });
 
   group('custom dive types (#1834)', () {
     DiveTypeEntity type(String id, String name) => DiveTypeEntity(

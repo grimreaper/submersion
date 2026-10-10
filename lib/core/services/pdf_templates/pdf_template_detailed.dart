@@ -7,6 +7,7 @@ import 'package:pdf/widgets.dart' as pw;
 import 'package:submersion/features/dive_roles/domain/entities/dive_role.dart';
 import 'package:submersion/features/dive_roles/presentation/dive_role_list_display.dart';
 import 'package:submersion/features/dive_types/presentation/dive_type_display.dart';
+import 'package:submersion/core/text/blank_text.dart';
 import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/features/equipment/domain/models/equipment_arrangement.dart';
 import 'package:submersion/features/equipment/domain/services/equipment_arranger.dart';
@@ -33,9 +34,6 @@ import 'package:submersion/features/dive_log/presentation/widgets/tank_enum_disp
 import 'package:submersion/features/equipment/presentation/utils/equipment_enum_display.dart';
 import 'package:submersion/features/weight_planner/presentation/widgets/weight_enum_display.dart';
 import 'package:submersion/features/certification_agencies/domain/certification_catalog.dart';
-
-/// Whether free text [s] holds anything once trimmed (#3229).
-bool _hasText(String? s) => s != null && s.trim().isNotEmpty;
 
 /// Detailed PDF template: one dive per page with the full field set.
 ///
@@ -500,8 +498,8 @@ class PdfTemplateDetailed extends PdfTemplateBuilder {
           l10n.pdf_currentDirection,
           dive.currentDirection!.localizedName(l10n),
         ),
-      if (_hasText(dive.surfaceConditions))
-        _Field(l10n.pdf_surfaceConditions, dive.surfaceConditions!.trim()),
+      if (trimmedOrNull(dive.surfaceConditions) case final text?)
+        _Field(l10n.pdf_surfaceConditions, text),
       if (dive.effectiveWaterType != null)
         _Field(
           l10n.pdf_waterType,
@@ -543,12 +541,12 @@ class PdfTemplateDetailed extends PdfTemplateBuilder {
         _Field(l10n.pdf_diveMaster, dive.diveMaster!),
       if (dive.diveCenter != null)
         _Field(l10n.pdf_diveCenter, dive.diveCenter!.name),
-      if (_hasText(dive.diveOperator))
-        _Field(l10n.pdf_diveOperator, dive.diveOperator!.trim()),
-      if (_hasText(dive.boatName))
-        _Field(l10n.pdf_boatName, dive.boatName!.trim()),
-      if (_hasText(dive.boatCaptain))
-        _Field(l10n.pdf_boatCaptain, dive.boatCaptain!.trim()),
+      if (trimmedOrNull(dive.diveOperator) case final text?)
+        _Field(l10n.pdf_diveOperator, text),
+      if (trimmedOrNull(dive.boatName) case final text?)
+        _Field(l10n.pdf_boatName, text),
+      if (trimmedOrNull(dive.boatCaptain) case final text?)
+        _Field(l10n.pdf_boatCaptain, text),
       if (dive.trip != null) _Field(l10n.pdf_trip, dive.trip!.name),
     ];
   }

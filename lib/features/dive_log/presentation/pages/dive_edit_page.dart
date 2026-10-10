@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart' show listEquals;
 import 'package:flutter/material.dart' hide Visibility;
 import 'package:go_router/go_router.dart';
+import 'package:submersion/core/text/blank_text.dart';
 import 'package:submersion/core/built_ins/built_in_catalog.dart';
 import 'package:submersion/features/dive_log/data/services/derived_metrics_scheduler.dart';
 import 'package:submersion/features/equipment/presentation/utils/usable_set_items.dart';
@@ -84,7 +85,6 @@ import 'package:submersion/features/dive_log/domain/entities/dive_weight.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_data_source.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_mirror_providers.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_providers.dart';
-import 'package:submersion/features/dive_log/presentation/providers/dive_text_suggestion_providers.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_text_suggestion_field.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/mirror_dive_dialog.dart';
 import 'package:submersion/features/dive_log/presentation/providers/outlier_suggestion_provider.dart';
@@ -105,6 +105,7 @@ import 'package:submersion/features/cylinder_configs/presentation/widgets/apply_
 import 'package:submersion/features/dive_log/presentation/widgets/edit_sections/statistics_section.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/edit_sections/tank_row.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/edit_sections/the_dive_section.dart';
+import 'package:submersion/features/dive_log/presentation/widgets/edit_sections/suggested_text_row.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/edit_sections/trip_section.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/pickers/computer_source_sheet.dart';
 import 'package:submersion/features/weight_presets/domain/entities/weight_preset.dart';
@@ -142,7 +143,6 @@ import 'package:submersion/shared/widgets/forms/form_caption.dart';
 import 'package:submersion/shared/widgets/forms/form_empty_row.dart';
 import 'package:submersion/shared/widgets/forms/form_overline.dart';
 import 'package:submersion/shared/widgets/forms/form_row.dart';
-import 'package:submersion/shared/widgets/forms/suggestion_form_row.dart';
 import 'package:submersion/shared/widgets/forms/form_section.dart';
 import 'package:submersion/shared/widgets/forms/responsive_form_columns.dart';
 import 'package:submersion/features/dive_log/domain/entities/bulk_edit_request.dart';
@@ -1553,9 +1553,9 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
     // High-value Logistics + notes fields. Extended per group in later tasks.
     return BulkScalarInputs(
       diveCenterId: _selectedDiveCenter?.id,
-      diveOperator: _trimmedOrNull(_diveOperatorController),
-      boatName: _trimmedOrNull(_boatNameController),
-      boatCaptain: _trimmedOrNull(_boatCaptainController),
+      diveOperator: trimmedOrNull(_diveOperatorController.text),
+      boatName: trimmedOrNull(_boatNameController.text),
+      boatCaptain: trimmedOrNull(_boatCaptainController.text),
       tripId: _selectedTrip?.id,
       courseId: _selectedCourse?.id,
       rating: _rating > 0 ? _rating : null,
@@ -1569,7 +1569,7 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
       swellHeight: _savedNumber(
         _swellHeightController,
       ).map(units.depthToMeters),
-      surfaceConditions: _trimmedOrNull(_surfaceConditionsController),
+      surfaceConditions: trimmedOrNull(_surfaceConditionsController.text),
       entryMethod: _entryMethod?.name,
       exitMethod: _exitMethod?.name,
       altitude: _savedNumber(_altitudeController).map(units.altitudeToMeters),
@@ -2929,9 +2929,9 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
       isEmpty:
           _selectedTrip == null &&
           _selectedDiveCenter == null &&
-          _trimmedOrNull(_diveOperatorController) == null &&
-          _trimmedOrNull(_boatNameController) == null &&
-          _trimmedOrNull(_boatCaptainController) == null,
+          trimmedOrNull(_diveOperatorController.text) == null &&
+          trimmedOrNull(_boatNameController.text) == null &&
+          trimmedOrNull(_boatCaptainController.text) == null,
       logisticsRows: _logisticsRows(),
       tripName: _selectedTrip?.name,
       tripCaption: _selectedTrip != null
@@ -2963,52 +2963,29 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
     );
   }
 
-  /// [c]'s text without surrounding whitespace, or null when nothing is
-  /// left, so a cleared free-text field stores NULL (#3229).
-  String? _trimmedOrNull(TextEditingController c) {
-    final text = c.text.trim();
-    return text.isEmpty ? null : text;
-  }
-
   String _tripSummary() => [
     if (_selectedTrip != null) _selectedTrip!.name,
     if (_selectedDiveCenter != null) _selectedDiveCenter!.name,
-    ?_trimmedOrNull(_boatNameController),
+    ?trimmedOrNull(_boatNameController.text),
   ].join(' · ');
-
-  /// A free-text row that suggests the diver's earlier values of [field].
-  Widget _suggestedTextRow(
-    String label,
-    TextEditingController controller,
-    DiveTextSuggestionField field, {
-    TextCapitalization capitalization = TextCapitalization.words,
-  }) {
-    return SuggestionFormRow(
-      label: label,
-      controller: controller,
-      suggestions:
-          ref.watch(diveTextSuggestionsProvider(field)).value ?? const [],
-      textCapitalization: capitalization,
-    );
-  }
 
   List<Widget> _logisticsRows() {
     final l10n = context.l10n;
     return [
-      _suggestedTextRow(
-        l10n.diveLog_edit_row_diveOperator,
-        _diveOperatorController,
-        DiveTextSuggestionField.diveOperator,
+      SuggestedTextRow(
+        label: l10n.diveLog_edit_row_diveOperator,
+        controller: _diveOperatorController,
+        field: DiveTextSuggestionField.diveOperator,
       ),
-      _suggestedTextRow(
-        l10n.diveLog_edit_row_boatName,
-        _boatNameController,
-        DiveTextSuggestionField.boatName,
+      SuggestedTextRow(
+        label: l10n.diveLog_edit_row_boatName,
+        controller: _boatNameController,
+        field: DiveTextSuggestionField.boatName,
       ),
-      _suggestedTextRow(
-        l10n.diveLog_edit_row_boatCaptain,
-        _boatCaptainController,
-        DiveTextSuggestionField.boatCaptain,
+      SuggestedTextRow(
+        label: l10n.diveLog_edit_row_boatCaptain,
+        controller: _boatCaptainController,
+        field: DiveTextSuggestionField.boatCaptain,
       ),
     ];
   }
@@ -4924,7 +4901,7 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
       else if (_selectedVisibility != Visibility.unknown)
         formatLegacyVisibilityBand(_selectedVisibility, context.l10n, units) ??
             '',
-      ?_trimmedOrNull(_surfaceConditionsController),
+      ?trimmedOrNull(_surfaceConditionsController.text),
     ].join(' · ');
   }
 
@@ -5004,10 +4981,10 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
         inputFormatters: numberInputFormatters(),
         inputValidator: numberValidator(context),
       ),
-      _suggestedTextRow(
-        l10n.diveLog_edit_label_surfaceConditions,
-        _surfaceConditionsController,
-        DiveTextSuggestionField.surfaceConditions,
+      SuggestedTextRow(
+        label: l10n.diveLog_edit_label_surfaceConditions,
+        controller: _surfaceConditionsController,
+        field: DiveTextSuggestionField.surfaceConditions,
         capitalization: TextCapitalization.sentences,
       ),
       Column(
@@ -6036,10 +6013,10 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
             widget.prefill?.importSource ?? _existingDive?.importSource,
         trip: _selectedTrip,
         diveCenter: _selectedDiveCenter,
-        diveOperator: _trimmedOrNull(_diveOperatorController),
-        boatName: _trimmedOrNull(_boatNameController),
-        boatCaptain: _trimmedOrNull(_boatCaptainController),
-        surfaceConditions: _trimmedOrNull(_surfaceConditionsController),
+        diveOperator: trimmedOrNull(_diveOperatorController.text),
+        boatName: trimmedOrNull(_boatNameController.text),
+        boatCaptain: trimmedOrNull(_boatCaptainController.text),
+        surfaceConditions: trimmedOrNull(_surfaceConditionsController.text),
         courseId: _selectedCourse?.id,
         tanks: _tanks,
         gear: gearLinksFor(_selectedEquipment, _gearRows),
