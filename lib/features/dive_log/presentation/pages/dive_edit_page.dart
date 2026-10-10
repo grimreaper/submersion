@@ -84,6 +84,8 @@ import 'package:submersion/features/dive_log/domain/entities/dive_weight.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_data_source.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_mirror_providers.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_providers.dart';
+import 'package:submersion/features/dive_log/presentation/providers/dive_text_suggestion_providers.dart';
+import 'package:submersion/features/dive_log/domain/entities/dive_text_suggestion_field.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/mirror_dive_dialog.dart';
 import 'package:submersion/features/dive_log/presentation/providers/outlier_suggestion_provider.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/custom_field_input_row.dart';
@@ -140,6 +142,7 @@ import 'package:submersion/shared/widgets/forms/form_caption.dart';
 import 'package:submersion/shared/widgets/forms/form_empty_row.dart';
 import 'package:submersion/shared/widgets/forms/form_overline.dart';
 import 'package:submersion/shared/widgets/forms/form_row.dart';
+import 'package:submersion/shared/widgets/forms/suggestion_form_row.dart';
 import 'package:submersion/shared/widgets/forms/form_section.dart';
 import 'package:submersion/shared/widgets/forms/responsive_form_columns.dart';
 import 'package:submersion/features/dive_log/domain/entities/bulk_edit_request.dart';
@@ -375,6 +378,10 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
   final _windSpeedController = TextEditingController();
   final _humidityController = TextEditingController();
   final _weatherDescriptionController = TextEditingController();
+  final _diveOperatorController = TextEditingController();
+  final _boatNameController = TextEditingController();
+  final _boatCaptainController = TextEditingController();
+  final _surfaceConditionsController = TextEditingController();
   bool _isFetchingWeather = false;
 
   // Weight fields - multiple weight entries per dive
@@ -669,6 +676,10 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
       _windSpeedController,
       _humidityController,
       _weatherDescriptionController,
+      _diveOperatorController,
+      _boatNameController,
+      _boatCaptainController,
+      _surfaceConditionsController,
     ]) {
       controller.addListener(_markDirty);
     }
@@ -1011,6 +1022,10 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
               ? _seedDecimal(dive.humidity!, 0)
               : '';
           _weatherDescriptionController.text = dive.weatherDescription ?? '';
+          _diveOperatorController.text = dive.diveOperator ?? '';
+          _boatNameController.text = dive.boatName ?? '';
+          _boatCaptainController.text = dive.boatCaptain ?? '';
+          _surfaceConditionsController.text = dive.surfaceConditions ?? '';
 
           // Load weight entries (weights already stored in kg, conversion happens in display)
           // Migrate legacy single weight to weights list if needed
@@ -1180,6 +1195,10 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
     _windSpeedController.dispose();
     _humidityController.dispose();
     _weatherDescriptionController.dispose();
+    _diveOperatorController.dispose();
+    _boatNameController.dispose();
+    _boatCaptainController.dispose();
+    _surfaceConditionsController.dispose();
     _weightingFeedbackAmountController.dispose();
     super.dispose();
   }
@@ -2870,7 +2889,13 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
       expanded: _isExpanded('trip', defaultValue: false),
       onToggle: () => _toggleSection('trip', defaultValue: false),
       summary: _tripSummary(),
-      isEmpty: _selectedTrip == null && _selectedDiveCenter == null,
+      isEmpty:
+          _selectedTrip == null &&
+          _selectedDiveCenter == null &&
+          _trimmedOrNull(_diveOperatorController) == null &&
+          _trimmedOrNull(_boatNameController) == null &&
+          _trimmedOrNull(_boatCaptainController) == null,
+      logisticsRows: _logisticsRows(),
       tripName: _selectedTrip?.name,
       tripCaption: _selectedTrip != null
           ? units.formatDateRange(
@@ -2901,10 +2926,55 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
     );
   }
 
+  /// [c]'s text without surrounding whitespace, or null when nothing is
+  /// left, so a cleared free-text field stores NULL (#3229).
+  String? _trimmedOrNull(TextEditingController c) {
+    final text = c.text.trim();
+    return text.isEmpty ? null : text;
+  }
+
   String _tripSummary() => [
     if (_selectedTrip != null) _selectedTrip!.name,
     if (_selectedDiveCenter != null) _selectedDiveCenter!.name,
+    ?_trimmedOrNull(_boatNameController),
   ].join(' · ');
+
+  /// A free-text row that suggests the diver's earlier values of [field].
+  Widget _suggestedTextRow(
+    String label,
+    TextEditingController controller,
+    DiveTextSuggestionField field, {
+    TextCapitalization capitalization = TextCapitalization.words,
+  }) {
+    return SuggestionFormRow(
+      label: label,
+      controller: controller,
+      suggestions:
+          ref.watch(diveTextSuggestionsProvider(field)).value ?? const [],
+      textCapitalization: capitalization,
+    );
+  }
+
+  List<Widget> _logisticsRows() {
+    final l10n = context.l10n;
+    return [
+      _suggestedTextRow(
+        l10n.diveLog_edit_row_diveOperator,
+        _diveOperatorController,
+        DiveTextSuggestionField.diveOperator,
+      ),
+      _suggestedTextRow(
+        l10n.diveLog_edit_row_boatName,
+        _boatNameController,
+        DiveTextSuggestionField.boatName,
+      ),
+      _suggestedTextRow(
+        l10n.diveLog_edit_row_boatCaptain,
+        _boatCaptainController,
+        DiveTextSuggestionField.boatCaptain,
+      ),
+    ];
+  }
 
   Widget _buildTripSuggestion(DateTime diveDateTime) {
     final suggestedTripAsync = ref.watch(tripForDateProvider(diveDateTime));
@@ -4817,6 +4887,7 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
       else if (_selectedVisibility != Visibility.unknown)
         formatLegacyVisibilityBand(_selectedVisibility, context.l10n, units) ??
             '',
+      ?_trimmedOrNull(_surfaceConditionsController),
     ].join(' · ');
   }
 
@@ -4836,7 +4907,8 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
       _windSpeedController.text.isEmpty &&
       _cloudCover == null &&
       _precipitation == null &&
-      _weatherDescriptionController.text.isEmpty;
+      _weatherDescriptionController.text.isEmpty &&
+      _surfaceConditionsController.text.trim().isEmpty;
 
   List<Widget> _environmentRows(UnitFormatter units) {
     final l10n = context.l10n;
@@ -4894,6 +4966,12 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
         keyboardType: const TextInputType.numberWithOptions(decimal: true),
         inputFormatters: numberInputFormatters(),
         inputValidator: numberValidator(context),
+      ),
+      _suggestedTextRow(
+        l10n.diveLog_edit_label_surfaceConditions,
+        _surfaceConditionsController,
+        DiveTextSuggestionField.surfaceConditions,
+        capitalization: TextCapitalization.sentences,
       ),
       Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
@@ -5921,6 +5999,10 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
             widget.prefill?.importSource ?? _existingDive?.importSource,
         trip: _selectedTrip,
         diveCenter: _selectedDiveCenter,
+        diveOperator: _trimmedOrNull(_diveOperatorController),
+        boatName: _trimmedOrNull(_boatNameController),
+        boatCaptain: _trimmedOrNull(_boatCaptainController),
+        surfaceConditions: _trimmedOrNull(_surfaceConditionsController),
         courseId: _selectedCourse?.id,
         tanks: _tanks,
         gear: gearLinksFor(_selectedEquipment, _gearRows),
@@ -5994,10 +6076,6 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
         gradientFactorHigh: _existingDive?.gradientFactorHigh,
         computerTissue: _existingDive?.computerTissue,
         weatherCode: _existingDive?.weatherCode,
-        diveOperator: _existingDive?.diveOperator,
-        boatName: _existingDive?.boatName,
-        boatCaptain: _existingDive?.boatCaptain,
-        surfaceConditions: _existingDive?.surfaceConditions,
         importId: _existingDive?.importId,
         surfaceInterval: _existingDive?.surfaceInterval,
         diverRoleIds: _diverRoleIds,
