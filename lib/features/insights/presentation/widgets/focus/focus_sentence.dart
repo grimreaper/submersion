@@ -151,7 +151,9 @@ class _FocusSentenceState extends ConsumerState<FocusSentence> {
       return;
     }
     final n = await showFocusCountDialog(context, initial: selection.count);
-    if (n != null) _set(selection.copyWith(count: n));
+    // The page can be popped under the dialog; ref is gone with the State.
+    if (!mounted || n == null) return;
+    _set(selection.copyWith(count: n));
   }
 
   void _onThreshold(

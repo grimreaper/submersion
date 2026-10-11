@@ -14,16 +14,11 @@ import 'package:submersion/l10n/l10n_extension.dart';
 
 /// The page's answer: the strongest standouts as plain sentences.
 class FocusStandoutsCard extends ConsumerWidget {
-  const FocusStandoutsCard({
-    super.key,
-    required this.report,
-    required this.groupSize,
-  });
+  const FocusStandoutsCard({super.key, required this.report});
 
   static const int maxFindings = 5;
 
   final FocusFactorReport report;
-  final int groupSize;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {

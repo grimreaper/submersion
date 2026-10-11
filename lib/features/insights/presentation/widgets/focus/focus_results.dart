@@ -101,6 +101,8 @@ class _FocusResultsState extends ConsumerState<FocusResults> {
                       .toList(growable: false);
             final hidden = group.members.length - members.length;
             final threshold = selection.threshold;
+            // Built once: the getter makes a fresh Set on every call.
+            final memberIds = group.memberIds;
             return SliverMainAxisGroup(
               slivers: [
                 SliverToBoxAdapter(
@@ -117,10 +119,7 @@ class _FocusResultsState extends ConsumerState<FocusResults> {
                           title: l10n.insights_focus_standouts_title,
                           child: Text(l10n.insights_focus_error),
                         ),
-                        data: (r) => FocusStandoutsCard(
-                          report: r,
-                          groupSize: group.members.length,
-                        ),
+                        data: (r) => FocusStandoutsCard(report: r),
                       ),
                       const SizedBox(height: 16),
                       StatSectionCard(
@@ -140,7 +139,7 @@ class _FocusResultsState extends ConsumerState<FocusResults> {
                               chartId: 'focus',
                               points: [
                                 for (final p in group.population)
-                                  if (!group.memberIds.contains(p.diveId)) p,
+                                  if (!memberIds.contains(p.diveId)) p,
                               ],
                               secondarySeries: [
                                 TrendSeries(

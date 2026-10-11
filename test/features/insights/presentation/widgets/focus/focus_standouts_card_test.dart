@@ -50,11 +50,7 @@ void main() {
   setUp(() async => setUpTestDatabase());
   tearDown(() async => tearDownTestDatabase());
 
-  Future<void> pump(
-    WidgetTester tester,
-    FocusFactorReport report, {
-    int groupSize = 10,
-  }) async {
+  Future<void> pump(WidgetTester tester, FocusFactorReport report) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: await getBaseOverrides(),
@@ -62,9 +58,7 @@ void main() {
           locale: const Locale('en'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: Scaffold(
-            body: FocusStandoutsCard(report: report, groupSize: groupSize),
-          ),
+          home: Scaffold(body: FocusStandoutsCard(report: report)),
         ),
       ),
     );
@@ -174,11 +168,7 @@ void main() {
   });
 
   testWidgets('too few dives asks for more', (tester) async {
-    await pump(
-      tester,
-      const FocusFactorReport(factors: [], tooFewDives: true),
-      groupSize: 2,
-    );
+    await pump(tester, const FocusFactorReport(factors: [], tooFewDives: true));
     expect(
       find.text('Pick at least 3 dives to see what they share'),
       findsOneWidget,

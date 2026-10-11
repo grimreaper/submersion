@@ -314,6 +314,8 @@ class _DiveTrendChartState extends State<DiveTrendChart> {
       ...allBuckets.expand((b) => [b.min, b.max]),
       ...smoothed.map((p) => p.value),
       if (fit != null) ...[fit.valueAt(firstDate), fit.valueAt(lastDate)],
+      // A threshold outside the data would otherwise sit off the plot.
+      ?widget.referenceLine?.value,
     ]);
 
     // Only rebuilt when what it is drawn from changes: pan and zoom rebuild

@@ -47,6 +47,21 @@ void main() {
     expect(line.label.labelResolver(line), '12.5 L/min');
   });
 
+  testWidgets('the y axis stretches to keep a reference line on the plot', (
+    tester,
+  ) async {
+    // Data runs 10 to 14; a line at 40 must still be inside the axis.
+    await tester.pumpWidget(
+      host(
+        DiveTrendChart(
+          points: series(5),
+          referenceLine: const TrendReferenceLine(value: 40, label: '40 m'),
+        ),
+      ),
+    );
+    expect(readData(tester).maxY, greaterThanOrEqualTo(40));
+  });
+
   testWidgets('no reference line draws no extra lines', (tester) async {
     await tester.pumpWidget(host(DiveTrendChart(points: series(5))));
     expect(readData(tester).extraLinesData.horizontalLines, isEmpty);
