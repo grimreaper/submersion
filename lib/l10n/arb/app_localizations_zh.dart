@@ -44010,6 +44010,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get diveLog_sources_detail_imported => '导入时间';
 
   @override
+  String get diveLog_sources_detail_times => '时间';
+
+  @override
+  String get diveLog_sources_detail_file => '文件';
+
+  @override
+  String diveLog_sources_timeRange(String start, String end) {
+    return '$start–$end';
+  }
+
+  @override
+  String get diveLog_sources_sectionMenuTooltip => '数据来源操作';
+
+  @override
   String diveLog_detail_semantics_viewDiveComputer(String name) {
     return '查看潜水电脑 $name';
   }

@@ -45884,6 +45884,20 @@ class AppLocalizationsHe extends AppLocalizations {
   String get diveLog_sources_detail_imported => 'יובא';
 
   @override
+  String get diveLog_sources_detail_times => 'זמנים';
+
+  @override
+  String get diveLog_sources_detail_file => 'קובץ';
+
+  @override
+  String diveLog_sources_timeRange(String start, String end) {
+    return '$start–$end';
+  }
+
+  @override
+  String get diveLog_sources_sectionMenuTooltip => 'פעולות מקורות הנתונים';
+
+  @override
   String diveLog_detail_semantics_viewDiveComputer(String name) {
     return 'הצגת מחשב הצלילה $name';
   }
