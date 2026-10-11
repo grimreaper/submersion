@@ -236,6 +236,35 @@ void main() {
     expect(c.read(focusSelectionProvider).threshold, -2);
   });
 
+  testWidgets('a failing default leaves the threshold empty, no exception', (
+    tester,
+  ) async {
+    final overrides = await getBaseOverrides();
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [
+          ...overrides,
+          focusSelectionProvider.overrideWith(
+            (ref) => const FocusSelection(mode: FocusMode.above),
+          ),
+          focusThresholdDefaultProvider.overrideWith(
+            (ref) async => throw StateError('series failed'),
+          ),
+        ],
+        child: const MaterialApp(
+          locale: Locale('en'),
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          home: Scaffold(body: FocusSentence()),
+        ),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(fieldWidget(tester).controller!.text, '');
+    expect(tester.takeException(), isNull);
+  });
+
   testWidgets('the sentence wraps on a phone', (tester) async {
     await pump(tester, width: 360);
     expect(tester.takeException(), isNull);

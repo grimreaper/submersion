@@ -147,8 +147,9 @@ final focusFactorReportProvider = FutureProvider<FocusFactorReport>((
 ) async {
   final selection = ref.watch(focusSelectionProvider);
   final group = await ref.watch(focusGroupProvider.future);
-  final rows = await ref.watch(focusFactorRowsProvider.future);
-  final byId = {for (final r in rows) r.diveId: r};
+  // Awaited so the map below holds the loaded rows, not a prior load's.
+  await ref.watch(focusFactorRowsProvider.future);
+  final byId = ref.watch(focusFactorRowsByIdProvider);
   List<FocusFactorRow> pick(Iterable<TrendDataPoint> points) => [
     for (final p in points) ?byId[p.diveId],
   ];

@@ -40,10 +40,9 @@ class _FocusResultsState extends ConsumerState<FocusResults> {
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     // A new selection is a new group, so the list folds again.
-    ref.listen(
-      focusSelectionProvider,
-      (_, _) => setState(() => _showAll = false),
-    );
+    ref.listen(focusSelectionProvider, (_, _) {
+      if (_showAll) setState(() => _showAll = false);
+    });
     final selection = ref.watch(focusSelectionProvider);
     final units = UnitFormatter(ref.watch(settingsProvider));
     final metricUnits = FocusMetricUnits(selection.metric, units);
