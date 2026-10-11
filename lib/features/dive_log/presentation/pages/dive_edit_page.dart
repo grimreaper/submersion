@@ -1445,6 +1445,7 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
                     label: label,
                     controller: controller,
                     alwaysEditing: true,
+                    textCapitalization: TextCapitalization.words,
                   ),
                 ),
               _gatedRow(
@@ -2120,6 +2121,7 @@ class _DiveEditPageState extends ConsumerState<DiveEditPage> {
             label: context.l10n.diveLog_edit_label_surfaceConditions,
             controller: _surfaceConditionsController,
             alwaysEditing: true,
+            textCapitalization: TextCapitalization.sentences,
           ),
         ),
         _gatedRow(

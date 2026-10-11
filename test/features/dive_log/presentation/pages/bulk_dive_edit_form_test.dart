@@ -1524,6 +1524,34 @@ void main() {
       await tester.pumpAndSettle();
     }
 
+    testWidgets('bulk boat rows capitalize like the single editor', (
+      tester,
+    ) async {
+      final d1 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(id: 'caps-1'),
+      );
+      final d2 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(id: 'caps-2'),
+      );
+      await pumpBulkDives(tester, [d1.id, d2.id]);
+
+      TextCapitalization capitalizationOf(String label) => tester
+          .widget<TextField>(
+            find.descendant(
+              of: gateOf(label),
+              matching: find.byType(TextField),
+            ),
+          )
+          .textCapitalization;
+      expect(capitalizationOf('Operator'), TextCapitalization.words);
+      expect(capitalizationOf('Boat'), TextCapitalization.words);
+      expect(capitalizationOf('Captain'), TextCapitalization.words);
+      expect(
+        capitalizationOf('Surface Conditions'),
+        TextCapitalization.sentences,
+      );
+    });
+
     testWidgets('the Captain gate sets every selected dive (#3229)', (
       tester,
     ) async {
