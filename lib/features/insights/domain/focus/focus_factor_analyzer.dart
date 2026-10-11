@@ -47,10 +47,12 @@ abstract final class FocusFactorAnalyzer {
 
   static FocusFactorId? _selfFactor(FocusMetric metric) => switch (metric) {
     FocusMetric.maxDepth => FocusFactorId.maxDepth,
+    FocusMetric.avgDepth => FocusFactorId.avgDepth,
     FocusMetric.bottomTime => FocusFactorId.duration,
     FocusMetric.weight => FocusFactorId.weight,
     FocusMetric.waterTemp => FocusFactorId.waterTemp,
-    FocusMetric.rmv || FocusMetric.sac => null,
+    FocusMetric.visibility => FocusFactorId.visibility,
+    _ => null,
   };
 
   static double? _number(FocusFactorId id, FocusFactorRow r) => switch (id) {

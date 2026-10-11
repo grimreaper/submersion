@@ -210,4 +210,18 @@ void main() {
     expect(byKey['reef']!.groupShare, 1.0);
     expect(byKey['night']!.groupShare, closeTo(1 / 3, 1e-9));
   });
+
+  test('ranking by average depth or visibility omits that factor', () {
+    for (final (metric, id) in [
+      (FocusMetric.avgDepth, FocusFactorId.avgDepth),
+      (FocusMetric.visibility, FocusFactorId.visibility),
+    ]) {
+      final report = FocusFactorAnalyzer.analyze(
+        group: baseline.take(3).toList(),
+        baseline: baseline,
+        metric: metric,
+      );
+      expect(report.factors.map((f) => f.id), isNot(contains(id)));
+    }
+  });
 }

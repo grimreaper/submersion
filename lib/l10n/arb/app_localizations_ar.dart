@@ -26387,6 +26387,45 @@ class AppLocalizationsAr extends AppLocalizations {
   String get insights_focus_metric_waterTemp => 'حرارة الماء';
 
   @override
+  String get insights_focus_metric_gasUsed => 'Gas used';
+
+  @override
+  String get insights_focus_metric_avgDepth => 'Average depth';
+
+  @override
+  String get insights_focus_metric_surfaceInterval => 'Surface interval';
+
+  @override
+  String get insights_focus_metric_airTemp => 'Air temp';
+
+  @override
+  String get insights_focus_metric_visibility => 'Visibility';
+
+  @override
+  String get insights_focus_metric_altitude => 'Altitude';
+
+  @override
+  String get insights_focus_metric_cns => 'CNS at end';
+
+  @override
+  String get insights_focus_metric_otu => 'OTU';
+
+  @override
+  String get insights_focus_metricGroup_gas => 'Gas';
+
+  @override
+  String get insights_focus_metricGroup_depthTime => 'Depth and time';
+
+  @override
+  String get insights_focus_metricGroup_conditions => 'Conditions';
+
+  @override
+  String get insights_focus_metricGroup_exposure => 'Exposure';
+
+  @override
+  String get insights_focus_metricGroup_kit => 'Kit';
+
+  @override
   String get insights_focus_mode_best => 'الأفضل';
 
   @override

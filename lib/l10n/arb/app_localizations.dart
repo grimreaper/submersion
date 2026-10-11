@@ -42452,6 +42452,84 @@ abstract class AppLocalizations {
   /// **'Water temp'**
   String get insights_focus_metric_waterTemp;
 
+  /// No description provided for @insights_focus_metric_gasUsed.
+  ///
+  /// In en, this message translates to:
+  /// **'Gas used'**
+  String get insights_focus_metric_gasUsed;
+
+  /// No description provided for @insights_focus_metric_avgDepth.
+  ///
+  /// In en, this message translates to:
+  /// **'Average depth'**
+  String get insights_focus_metric_avgDepth;
+
+  /// No description provided for @insights_focus_metric_surfaceInterval.
+  ///
+  /// In en, this message translates to:
+  /// **'Surface interval'**
+  String get insights_focus_metric_surfaceInterval;
+
+  /// No description provided for @insights_focus_metric_airTemp.
+  ///
+  /// In en, this message translates to:
+  /// **'Air temp'**
+  String get insights_focus_metric_airTemp;
+
+  /// No description provided for @insights_focus_metric_visibility.
+  ///
+  /// In en, this message translates to:
+  /// **'Visibility'**
+  String get insights_focus_metric_visibility;
+
+  /// No description provided for @insights_focus_metric_altitude.
+  ///
+  /// In en, this message translates to:
+  /// **'Altitude'**
+  String get insights_focus_metric_altitude;
+
+  /// No description provided for @insights_focus_metric_cns.
+  ///
+  /// In en, this message translates to:
+  /// **'CNS at end'**
+  String get insights_focus_metric_cns;
+
+  /// No description provided for @insights_focus_metric_otu.
+  ///
+  /// In en, this message translates to:
+  /// **'OTU'**
+  String get insights_focus_metric_otu;
+
+  /// No description provided for @insights_focus_metricGroup_gas.
+  ///
+  /// In en, this message translates to:
+  /// **'Gas'**
+  String get insights_focus_metricGroup_gas;
+
+  /// No description provided for @insights_focus_metricGroup_depthTime.
+  ///
+  /// In en, this message translates to:
+  /// **'Depth and time'**
+  String get insights_focus_metricGroup_depthTime;
+
+  /// No description provided for @insights_focus_metricGroup_conditions.
+  ///
+  /// In en, this message translates to:
+  /// **'Conditions'**
+  String get insights_focus_metricGroup_conditions;
+
+  /// No description provided for @insights_focus_metricGroup_exposure.
+  ///
+  /// In en, this message translates to:
+  /// **'Exposure'**
+  String get insights_focus_metricGroup_exposure;
+
+  /// No description provided for @insights_focus_metricGroup_kit.
+  ///
+  /// In en, this message translates to:
+  /// **'Kit'**
+  String get insights_focus_metricGroup_kit;
+
   /// No description provided for @insights_focus_mode_best.
   ///
   /// In en, this message translates to:

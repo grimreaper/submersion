@@ -37,6 +37,16 @@ final focusMetricSeriesProvider =
           return ref.watch(weightTrendProvider.future);
         case FocusMetric.waterTemp:
           return ref.watch(waterTempTrendProvider.future);
+        case FocusMetric.gasUsed:
+        case FocusMetric.avgDepth:
+        case FocusMetric.surfaceInterval:
+        case FocusMetric.airTemp:
+        case FocusMetric.visibility:
+        case FocusMetric.altitude:
+        case FocusMetric.cns:
+        case FocusMetric.otu:
+          // Series land with the repository methods in the next step.
+          throw UnimplementedError('series for $metric');
         case FocusMetric.rmv:
         case FocusMetric.sac:
           final repository = ref.watch(insightsRepositoryProvider);
