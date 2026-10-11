@@ -998,6 +998,39 @@ void main() {
       expect(find.text('Times'), findsNothing);
     });
 
+    testWidgets('a lone exit time keeps the Exit label', (tester) async {
+      final source = _makeSource();
+      final withoutEntry = DiveDataSource(
+        id: source.id,
+        diveId: source.diveId,
+        computerId: source.computerId,
+        isPrimary: source.isPrimary,
+        computerModel: source.computerModel,
+        exitTime: DateTime(2026, 3, 20, 10, 50),
+        importedAt: source.importedAt,
+        createdAt: source.createdAt,
+      );
+
+      await tester.pumpWidget(
+        testApp(
+          child: SingleChildScrollView(
+            child: DataSourcesSection(
+              dataSources: [withoutEntry],
+              diveCreatedAt: DateTime(2026, 3, 20, 10, 0),
+              diveId: 'dive-1',
+              units: _units,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      expect(find.text('Exit'), findsOneWidget);
+      expect(find.text('10:50 AM'), findsOneWidget);
+      expect(find.text('Times'), findsNothing);
+      expect(find.text('Entry'), findsNothing);
+    });
+
     testWidgets('file name gets its own labelled row', (tester) async {
       await tester.pumpWidget(
         testApp(
