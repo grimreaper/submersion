@@ -1,11 +1,14 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/constants/dive_field.dart';
+import 'package:submersion/core/constants/enums.dart';
+import 'package:submersion/core/constants/gas_model.dart';
 import 'package:submersion/core/constants/list_view_mode.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_summary.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
+import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_providers.dart';
 import 'package:submersion/features/dive_log/presentation/providers/highlight_providers.dart';
 import 'package:submersion/features/dive_log/presentation/providers/view_config_providers.dart';
@@ -68,6 +71,57 @@ void main() {
 
     expect(find.text('Reef Divers'), findsOneWidget);
     expect(find.textContaining('Blue Marlin'), findsOneWidget);
+  });
+
+  testWidgets('an RMV slot follows the diver\'s gas model', (tester) async {
+    final tankDive = Dive(
+      id: 'd2',
+      dateTime: DateTime(2026, 7, 1, 10),
+      avgDepth: 18.2,
+      runtime: const Duration(minutes: 52),
+      tanks: const [
+        DiveTank(
+          id: 't1',
+          volume: 12,
+          startPressure: 200,
+          endPressure: 50,
+          gasMix: GasMix(o2: 32, he: 0),
+          role: TankRole.backGas,
+        ),
+      ],
+    );
+    const settings = AppSettings(
+      hasAcceptedPlanningDisclaimer: true,
+      gasModel: GasModel.ideal,
+    );
+    final units = UnitFormatter(settings);
+    final ideal = DiveField.rmv.formatValue(
+      tankDive.rmvFor(GasModel.ideal),
+      units,
+    );
+    final real = DiveField.rmv.formatValue(
+      tankDive.rmvFor(GasModel.real),
+      units,
+    );
+    expect(ideal, isNot(real), reason: 'the two models must differ here');
+
+    await tester.pumpWidget(
+      testApp(
+        overrides: await getBaseOverrides(
+          settingsNotifier: MockSettingsNotifier(settings),
+        ),
+        child: CompactDiveListTile(
+          diveId: tankDive.id,
+          diveNumber: 8,
+          dateTime: tankDive.dateTime,
+          summary: DiveSummary.fromDive(tankDive),
+          fullDive: tankDive,
+          stat1Field: DiveField.rmv,
+        ),
+      ),
+    );
+
+    expect(find.textContaining(ideal), findsOneWidget);
   });
 
   testWidgets('the list loads full dives for a compact slot that needs one', (

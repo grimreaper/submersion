@@ -115,10 +115,14 @@ class CompactDiveListTile extends ConsumerWidget {
   bool get _hasSlotData => fullDive != null || summary != null;
 
   /// The raw value of [field] from [fullDive] when there is one, else from
-  /// [summary]; null when neither is set.
-  dynamic _extract(DiveField field) {
+  /// [summary]; null when neither is set. RMV follows the diver's gas model.
+  dynamic _extract(DiveField field, UnitFormatter units) {
     if (fullDive case final dive?) {
-      return field.extractFromDive(dive, diveTypeLabel: diveTypeLabelResolver);
+      return field.extractFromDive(
+        dive,
+        gasModel: units.settings.gasModel,
+        diveTypeLabel: diveTypeLabelResolver,
+      );
     }
     return summary == null
         ? null
@@ -145,7 +149,7 @@ class CompactDiveListTile extends ConsumerWidget {
   /// Returns the display string for the title slot.
   String _buildTitleText(UnitFormatter units, BuildContext context) {
     if (_hasSlotData && titleField != DiveField.siteName) {
-      final value = _extract(titleField);
+      final value = _extract(titleField, units);
       return titleField.formatValue(value, units);
     }
     return siteName ?? context.l10n.diveLog_listPage_unknownSite;
@@ -154,7 +158,7 @@ class CompactDiveListTile extends ConsumerWidget {
   /// Returns the display string for the date slot.
   String _buildDateText(UnitFormatter units) {
     if (_hasSlotData && dateField != DiveField.dateTime) {
-      final value = _extract(dateField);
+      final value = _extract(dateField, units);
       return dateField.formatValue(value, units);
     }
     return units.formatDateTime(dateTime, l10n: null);
@@ -167,7 +171,7 @@ class CompactDiveListTile extends ConsumerWidget {
     UnitFormatter units,
   ) {
     if (_hasSlotData && field != defaultField) {
-      final value = _extract(field);
+      final value = _extract(field, units);
       return field.formatValue(value, units);
     }
     // Use legacy parameters for default fields
@@ -178,7 +182,7 @@ class CompactDiveListTile extends ConsumerWidget {
       return duration != null ? '${duration!.inMinutes} min' : '--';
     }
     // Fallback for any other field value
-    final value = _extract(field);
+    final value = _extract(field, units);
     return field.formatValue(value, units);
   }
 
@@ -269,12 +273,12 @@ class CompactDiveListTile extends ConsumerWidget {
 
     // Determine if stat values are present (non-null raw values)
     final stat1HasValue = _hasSlotData
-        ? _extract(stat1Field) != null
+        ? _extract(stat1Field, units) != null
         : (stat1Field == DiveField.maxDepth
               ? maxDepth != null
               : duration != null);
     final stat2HasValue = _hasSlotData
-        ? _extract(stat2Field) != null
+        ? _extract(stat2Field, units) != null
         : (stat2Field == DiveField.bottomTime
               ? duration != null
               : maxDepth != null);
