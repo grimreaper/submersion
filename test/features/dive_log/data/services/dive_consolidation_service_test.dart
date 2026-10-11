@@ -1531,6 +1531,79 @@ void main() {
     });
   });
 
+  // #2932: every other scalar column on the dives row is lost the same way
+  // when its secondary is tombstoned, so the fold fills the target's empty
+  // columns from the secondaries (dive_consolidation_field_fill.dart covers
+  // the per-column rules).
+  group('apply scalar field fill (#2932)', () {
+    Future<Dive> targetRow() =>
+        (db.select(db.dives)..where((t) => t.id.equals('t'))).getSingle();
+
+    Future<void> seedPair() async {
+      await seedDive(
+        't',
+        entry: DateTime.utc(2026, 7, 1, 9),
+        computerId: 'comp-t',
+        serial: 'SER-T',
+      );
+      await seedDive(
+        's',
+        entry: DateTime.utc(2026, 7, 1, 9, 1),
+        computerId: 'comp-s',
+        serial: 'SER-S',
+      );
+      await (db.update(db.dives)..where((t) => t.id.equals('s'))).write(
+        const DivesCompanion(
+          airTemp: Value(29),
+          currentStrength: Value('strong'),
+          boatName: Value('Sea Lion'),
+          notes: Value('Turtle at the wall'),
+          excludedFromStats: Value(true),
+        ),
+      );
+    }
+
+    test('a target lacking them adopts the secondary\'s, and undo restores '
+        'the original', () async {
+      await seedPair();
+
+      final outcome = await service.apply(
+        targetDiveId: 't',
+        secondaryDiveIds: ['s'],
+      );
+
+      final target = await targetRow();
+      expect(target.airTemp, 29);
+      expect(target.currentStrength, 'strong');
+      expect(target.boatName, 'Sea Lion');
+      expect(target.notes, 'Turtle at the wall');
+      expect(target.excludedFromStats, isTrue);
+
+      await service.undo(outcome.snapshot);
+
+      final restored = await targetRow();
+      expect(restored.airTemp, isNull);
+      expect(restored.currentStrength, isNull);
+      expect(restored.boatName, isNull);
+      expect(restored.notes, isEmpty);
+      expect(restored.excludedFromStats, isFalse);
+    });
+
+    test('a target that has them keeps its own', () async {
+      await seedPair();
+      await (db.update(db.dives)..where((t) => t.id.equals('t'))).write(
+        const DivesCompanion(airTemp: Value(25), notes: Value('Mine')),
+      );
+
+      await service.apply(targetDiveId: 't', secondaryDiveIds: ['s']);
+
+      final target = await targetRow();
+      expect(target.airTemp, 25);
+      expect(target.notes, 'Mine');
+      expect(target.boatName, 'Sea Lion');
+    });
+  });
+
   group('consolidate then re-parse (#1177)', () {
     test('the secondary strand stays aligned with the primary across a '
         're-parse of the consolidated dive', () async {
