@@ -42670,6 +42670,123 @@ abstract class AppLocalizations {
   /// **'{covered} of {total, plural, =1{1 dive} other{{total} dives}}'**
   String insights_focus_factors_coverage(int covered, int total);
 
+  /// No description provided for @insights_focus_standouts_title.
+  ///
+  /// In en, this message translates to:
+  /// **'What stands out'**
+  String get insights_focus_standouts_title;
+
+  /// No description provided for @insights_focus_standouts_none.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing stands out about these dives.'**
+  String get insights_focus_standouts_none;
+
+  /// No description provided for @insights_focus_standouts_tooFew.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick at least 3 dives to see what they share'**
+  String get insights_focus_standouts_tooFew;
+
+  /// No description provided for @insights_focus_standouts_more.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{and 1 more in the full comparison} other{and {count} more in the full comparison}}'**
+  String insights_focus_standouts_more(int count);
+
+  /// No description provided for @insights_focus_standouts_categoryAll.
+  ///
+  /// In en, this message translates to:
+  /// **'All {count} were {value} ({baseline} of all your dives)'**
+  String insights_focus_standouts_categoryAll(
+    int count,
+    String value,
+    String baseline,
+  );
+
+  /// No description provided for @insights_focus_standouts_categorySome.
+  ///
+  /// In en, this message translates to:
+  /// **'{count} of {total} were {value}, against {baseline} of all your dives'**
+  String insights_focus_standouts_categorySome(
+    int count,
+    int total,
+    String value,
+    String baseline,
+  );
+
+  /// No description provided for @insights_focus_standouts_numeric.
+  ///
+  /// In en, this message translates to:
+  /// **'{factor} {difference} {direction} ({group} vs {baseline})'**
+  String insights_focus_standouts_numeric(
+    String factor,
+    String difference,
+    String direction,
+    String group,
+    String baseline,
+  );
+
+  /// No description provided for @insights_focus_direction_deeper.
+  ///
+  /// In en, this message translates to:
+  /// **'deeper'**
+  String get insights_focus_direction_deeper;
+
+  /// No description provided for @insights_focus_direction_shallower.
+  ///
+  /// In en, this message translates to:
+  /// **'shallower'**
+  String get insights_focus_direction_shallower;
+
+  /// No description provided for @insights_focus_direction_longer.
+  ///
+  /// In en, this message translates to:
+  /// **'longer'**
+  String get insights_focus_direction_longer;
+
+  /// No description provided for @insights_focus_direction_shorter.
+  ///
+  /// In en, this message translates to:
+  /// **'shorter'**
+  String get insights_focus_direction_shorter;
+
+  /// No description provided for @insights_focus_direction_warmer.
+  ///
+  /// In en, this message translates to:
+  /// **'warmer'**
+  String get insights_focus_direction_warmer;
+
+  /// No description provided for @insights_focus_direction_colder.
+  ///
+  /// In en, this message translates to:
+  /// **'colder'**
+  String get insights_focus_direction_colder;
+
+  /// No description provided for @insights_focus_direction_larger.
+  ///
+  /// In en, this message translates to:
+  /// **'larger'**
+  String get insights_focus_direction_larger;
+
+  /// No description provided for @insights_focus_direction_smaller.
+  ///
+  /// In en, this message translates to:
+  /// **'smaller'**
+  String get insights_focus_direction_smaller;
+
+  /// No description provided for @insights_focus_direction_moreLead.
+  ///
+  /// In en, this message translates to:
+  /// **'more lead'**
+  String get insights_focus_direction_moreLead;
+
+  /// No description provided for @insights_focus_direction_lessLead.
+  ///
+  /// In en, this message translates to:
+  /// **'less lead'**
+  String get insights_focus_direction_lessLead;
+
   /// No description provided for @insights_focus_factorGroup_diveShape.
   ///
   /// In en, this message translates to:

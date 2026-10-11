@@ -24894,6 +24894,88 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get insights_focus_standouts_title => 'What stands out';
+
+  @override
+  String get insights_focus_standouts_none =>
+      'Nothing stands out about these dives.';
+
+  @override
+  String get insights_focus_standouts_tooFew =>
+      'Pick at least 3 dives to see what they share';
+
+  @override
+  String insights_focus_standouts_more(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'and $count more in the full comparison',
+      one: 'and 1 more in the full comparison',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String insights_focus_standouts_categoryAll(
+    int count,
+    String value,
+    String baseline,
+  ) {
+    return 'All $count were $value ($baseline of all your dives)';
+  }
+
+  @override
+  String insights_focus_standouts_categorySome(
+    int count,
+    int total,
+    String value,
+    String baseline,
+  ) {
+    return '$count of $total were $value, against $baseline of all your dives';
+  }
+
+  @override
+  String insights_focus_standouts_numeric(
+    String factor,
+    String difference,
+    String direction,
+    String group,
+    String baseline,
+  ) {
+    return '$factor $difference $direction ($group vs $baseline)';
+  }
+
+  @override
+  String get insights_focus_direction_deeper => 'deeper';
+
+  @override
+  String get insights_focus_direction_shallower => 'shallower';
+
+  @override
+  String get insights_focus_direction_longer => 'longer';
+
+  @override
+  String get insights_focus_direction_shorter => 'shorter';
+
+  @override
+  String get insights_focus_direction_warmer => 'warmer';
+
+  @override
+  String get insights_focus_direction_colder => 'colder';
+
+  @override
+  String get insights_focus_direction_larger => 'larger';
+
+  @override
+  String get insights_focus_direction_smaller => 'smaller';
+
+  @override
+  String get insights_focus_direction_moreLead => 'more lead';
+
+  @override
+  String get insights_focus_direction_lessLead => 'less lead';
+
+  @override
   String get insights_focus_factorGroup_diveShape => '潜水形态';
 
   @override

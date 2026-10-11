@@ -15290,6 +15290,52 @@
   "@insights_focus_factors_coverage": {
     "placeholders": { "covered": { "type": "int" }, "total": { "type": "int" } }
   },
+  "insights_focus_standouts_title": "What stands out",
+  "insights_focus_standouts_none": "Nothing stands out about these dives.",
+  "insights_focus_standouts_tooFew": "Pick at least 3 dives to see what they share",
+  "insights_focus_standouts_more": "{count, plural, =1{and 1 more in the full comparison} other{and {count} more in the full comparison}}",
+  "@insights_focus_standouts_more": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "insights_focus_standouts_categoryAll": "All {count} were {value} ({baseline} of all your dives)",
+  "@insights_focus_standouts_categoryAll": {
+    "placeholders": {
+      "count": { "type": "int" },
+      "value": { "type": "String" },
+      "baseline": { "type": "String" }
+    }
+  },
+  "insights_focus_standouts_categorySome": "{count} of {total} were {value}, against {baseline} of all your dives",
+  "@insights_focus_standouts_categorySome": {
+    "placeholders": {
+      "count": { "type": "int" },
+      "total": { "type": "int" },
+      "value": { "type": "String" },
+      "baseline": { "type": "String" }
+    }
+  },
+  "insights_focus_standouts_numeric": "{factor} {difference} {direction} ({group} vs {baseline})",
+  "@insights_focus_standouts_numeric": {
+    "placeholders": {
+      "factor": { "type": "String" },
+      "difference": { "type": "String" },
+      "direction": { "type": "String" },
+      "group": { "type": "String" },
+      "baseline": { "type": "String" }
+    }
+  },
+  "insights_focus_direction_deeper": "deeper",
+  "insights_focus_direction_shallower": "shallower",
+  "insights_focus_direction_longer": "longer",
+  "insights_focus_direction_shorter": "shorter",
+  "insights_focus_direction_warmer": "warmer",
+  "insights_focus_direction_colder": "colder",
+  "insights_focus_direction_larger": "larger",
+  "insights_focus_direction_smaller": "smaller",
+  "insights_focus_direction_moreLead": "more lead",
+  "insights_focus_direction_lessLead": "less lead",
   "insights_focus_factorGroup_diveShape": "Dive shape",
   "insights_focus_factorGroup_conditions": "Conditions",
   "insights_focus_factorGroup_whenWhere": "When and where",
