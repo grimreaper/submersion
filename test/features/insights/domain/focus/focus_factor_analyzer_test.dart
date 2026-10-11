@@ -224,4 +224,31 @@ void main() {
       expect(report.factors.map((f) => f.id), isNot(contains(id)));
     }
   });
+
+  test('standouts are ordered by strength, strongest first', () {
+    // Group: three shallow boat dives. Entry gap is 100% vs 40% (0.6);
+    // depth gap is 7 m against sd 5.74 (about 1.22). Depth comes first.
+    final group = baseline.take(3).toList();
+    final report = FocusFactorAnalyzer.analyze(
+      group: group,
+      baseline: baseline,
+      metric: FocusMetric.rmv,
+    );
+    expect(report.standouts.map((f) => f.id), [
+      FocusFactorId.maxDepth,
+      FocusFactorId.entryMethod,
+    ]);
+    expect(report.standouts.first.strength, closeTo(1.22, 0.01));
+    expect(report.standouts.last.strength, closeTo(0.6, 0.001));
+  });
+
+  test('a factor with no baseline spread has zero strength', () {
+    final flat = [for (var i = 0; i < 5; i++) row('f$i', maxDepth: 20)];
+    final report = FocusFactorAnalyzer.analyze(
+      group: flat.take(3).toList(),
+      baseline: flat,
+      metric: FocusMetric.rmv,
+    );
+    expect(factor<NumericFactor>(report, FocusFactorId.maxDepth).strength, 0);
+  });
 }

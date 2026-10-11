@@ -96,18 +96,17 @@ abstract final class FocusFactorAnalyzer {
     final gMean = _mean(g);
     final bMean = _mean(b);
     final sd = _sd(b, bMean);
-    final standsOut =
-        gMean != null &&
-        bMean != null &&
-        sd > 0 &&
-        (gMean - bMean).abs() >= standoutDeviations * sd;
+    final strength = gMean == null || bMean == null || sd <= 0
+        ? 0.0
+        : (gMean - bMean).abs() / sd;
     return NumericFactor(
       id: id,
       groupCovered: g.length,
       groupSize: group.length,
       groupMean: gMean,
       baselineMean: bMean,
-      standsOut: standsOut,
+      standsOut: strength >= standoutDeviations,
+      strength: strength,
     );
   }
 
@@ -162,6 +161,7 @@ abstract final class FocusFactorAnalyzer {
             groupShare: groupShare,
             baselineShare: baselineShare,
             groupCount: e.value,
+            strength: groupShare - baselineShare,
             standsOut:
                 e.value >= standoutMinCount &&
                 groupShare - baselineShare >= standoutSharePoints - 1e-9,
