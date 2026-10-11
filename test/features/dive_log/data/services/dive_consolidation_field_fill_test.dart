@@ -24,6 +24,13 @@ Dive row(String id) => Dive(
 Object? filled(Map<String, Expression> fill, String column) =>
     (fill[column] as Variable?)?.value;
 
+/// The fill for a target with no profile of its own, unless [hasProfile].
+Map<String, Expression> fillOf(
+  Dive target,
+  List<Dive> secondaries, {
+  bool hasProfile = false,
+}) => consolidationFieldFill(target, secondaries, targetHasProfile: hasProfile);
+
 void main() {
   group('consolidationFieldFill (#2932)', () {
     test('an empty target adopts conditions, logistics and measurements '
@@ -44,7 +51,7 @@ void main() {
         weightAmount: const Value(6),
       );
 
-      final fill = consolidationFieldFill(target, [secondary]);
+      final fill = fillOf(target, [secondary]);
 
       expect(filled(fill, 'name'), 'Blue Hole');
       expect(filled(fill, 'water_temp'), 24.5);
@@ -60,6 +67,25 @@ void main() {
       expect(filled(fill, 'weight_amount'), 6);
     });
 
+    test('a target with a profile keeps the measurements it derives from '
+        'it', () {
+      final secondary = row('s').copyWith(
+        maxDepth: const Value(31.2),
+        avgDepth: const Value(14),
+        bottomTime: const Value(1800),
+        waterTemp: const Value(24.5),
+        airTemp: const Value(30),
+      );
+
+      final fill = fillOf(row('t'), [secondary], hasProfile: true);
+
+      expect(fill.containsKey('max_depth'), isFalse);
+      expect(fill.containsKey('avg_depth'), isFalse);
+      expect(fill.containsKey('bottom_time'), isFalse);
+      expect(fill.containsKey('water_temp'), isFalse);
+      expect(filled(fill, 'air_temp'), 30);
+    });
+
     test('a value the target already holds is never overwritten', () {
       final target = row(
         't',
@@ -68,14 +94,14 @@ void main() {
         's',
       ).copyWith(waterTemp: const Value(24.5), siteId: const Value('site-s'));
 
-      final fill = consolidationFieldFill(target, [secondary]);
+      final fill = fillOf(target, [secondary]);
 
       expect(fill.containsKey('water_temp'), isFalse);
       expect(fill.containsKey('site_id'), isFalse);
     });
 
     test('the first secondary holding a value wins', () {
-      final fill = consolidationFieldFill(row('t'), [
+      final fill = fillOf(row('t'), [
         row('s1'),
         row('s2').copyWith(waterTemp: const Value(22)),
         row('s3').copyWith(waterTemp: const Value(26)),
@@ -85,7 +111,7 @@ void main() {
     });
 
     test('nothing to fill yields an empty map', () {
-      expect(consolidationFieldFill(row('t'), [row('s')]), isEmpty);
+      expect(fillOf(row('t'), [row('s')]), isEmpty);
     });
 
     test('identity, timeline, computer and provenance columns are never '
@@ -106,7 +132,7 @@ void main() {
         siteSuggestionDismissedAt: const Value(5),
       );
 
-      expect(consolidationFieldFill(row('t'), [secondary]), isEmpty);
+      expect(fillOf(row('t'), [secondary]), isEmpty);
     });
 
     test('O2 exposure is not borrowed from another computer, since the '
@@ -115,13 +141,13 @@ void main() {
         's',
       ).copyWith(cnsEnd: const Value(12), otu: const Value(30));
 
-      expect(consolidationFieldFill(row('t'), [secondary]), isEmpty);
+      expect(fillOf(row('t'), [secondary]), isEmpty);
     });
 
     test('a secondary\'s dive number is not adopted', () {
       final secondary = row('s').copyWith(diveNumber: const Value(512));
 
-      expect(consolidationFieldFill(row('t'), [secondary]), isEmpty);
+      expect(fillOf(row('t'), [secondary]), isEmpty);
     });
 
     test('deco settings are not borrowed from another computer', () {
@@ -133,11 +159,11 @@ void main() {
         computerTissueJson: const Value('{}'),
       );
 
-      expect(consolidationFieldFill(row('t'), [secondary]), isEmpty);
+      expect(fillOf(row('t'), [secondary]), isEmpty);
     });
 
     test('GPS fills as a pair, and a half fix does not count', () {
-      final fill = consolidationFieldFill(row('t'), [
+      final fill = fillOf(row('t'), [
         row('s1').copyWith(entryLatitude: const Value(1)),
         row('s2').copyWith(
           entryLatitude: const Value(2),
@@ -152,7 +178,7 @@ void main() {
     group('blocks come whole from one secondary', () {
       test('weather', () {
         final target = row('t');
-        final fill = consolidationFieldFill(target, [
+        final fill = fillOf(target, [
           row('s1').copyWith(windSpeed: const Value(4)),
           row('s2').copyWith(
             windSpeed: const Value(9),
@@ -167,7 +193,7 @@ void main() {
       });
 
       test('a target with any weather keeps its block', () {
-        final fill = consolidationFieldFill(
+        final fill = fillOf(
           row('t').copyWith(cloudCover: const Value('clear')),
           [row('s').copyWith(windSpeed: const Value(9))],
         );
@@ -176,7 +202,7 @@ void main() {
       });
 
       test('rebreather settings', () {
-        final fill = consolidationFieldFill(row('t'), [
+        final fill = fillOf(row('t'), [
           row('s').copyWith(
             setpointLow: const Value(0.7),
             setpointHigh: const Value(1.3),
@@ -194,22 +220,18 @@ void main() {
       });
 
       test('a target with any rebreather setting keeps its block', () {
-        final fill = consolidationFieldFill(
-          row('t').copyWith(setpointHigh: const Value(1.2)),
-          [
-            row('s').copyWith(
-              setpointLow: const Value(0.7),
-              diluentO2: const Value(21),
-            ),
-          ],
-        );
+        final fill = fillOf(row('t').copyWith(setpointHigh: const Value(1.2)), [
+          row(
+            's',
+          ).copyWith(setpointLow: const Value(0.7), diluentO2: const Value(21)),
+        ]);
 
         expect(fill.containsKey('setpoint_low'), isFalse);
         expect(fill.containsKey('diluent_o2'), isFalse);
       });
 
       test('weighting feedback', () {
-        final fill = consolidationFieldFill(row('t'), [
+        final fill = fillOf(row('t'), [
           row('s').copyWith(
             weightingFeedback: const Value('overweighted'),
             weightingFeedbackKg: const Value(2),
@@ -223,7 +245,7 @@ void main() {
 
     group('visibility (#3226)', () {
       test('a range is copied whole', () {
-        final fill = consolidationFieldFill(row('t'), [
+        final fill = fillOf(row('t'), [
           row('s').copyWith(
             visibilityMinMeters: const Value(10),
             visibilityMaxMeters: const Value(20),
@@ -236,7 +258,7 @@ void main() {
       });
 
       test('a target holding only the legacy bucket keeps it', () {
-        final fill = consolidationFieldFill(
+        final fill = fillOf(
           row('t').copyWith(visibility: const Value('good')),
           [row('s').copyWith(visibilityMeters: const Value(15))],
         );
@@ -245,7 +267,7 @@ void main() {
       });
 
       test('the legacy bucket is never written', () {
-        final fill = consolidationFieldFill(row('t'), [
+        final fill = fillOf(row('t'), [
           row('s').copyWith(visibility: const Value('good')),
         ]);
 
@@ -255,7 +277,7 @@ void main() {
 
     group('notes', () {
       test('blank target notes adopt a secondary\'s', () {
-        final fill = consolidationFieldFill(row('t').copyWith(notes: '  '), [
+        final fill = fillOf(row('t').copyWith(notes: '  '), [
           row('s1').copyWith(notes: ' '),
           row('s2').copyWith(notes: 'Turtle at the wall'),
         ]);
@@ -264,7 +286,7 @@ void main() {
       });
 
       test('target notes are kept', () {
-        final fill = consolidationFieldFill(row('t').copyWith(notes: 'Mine'), [
+        final fill = fillOf(row('t').copyWith(notes: 'Mine'), [
           row('s').copyWith(notes: 'Theirs'),
         ]);
 
@@ -274,7 +296,7 @@ void main() {
 
     group('statistics exclusions', () {
       test('an exclusion on any secondary survives', () {
-        final fill = consolidationFieldFill(row('t'), [
+        final fill = fillOf(row('t'), [
           row(
             's',
           ).copyWith(excludedFromStats: true, excludedFromGasStats: true),
@@ -285,18 +307,15 @@ void main() {
       });
 
       test('a secondary never clears the target\'s exclusion', () {
-        final fill = consolidationFieldFill(
-          row('t').copyWith(excludedFromStats: true),
-          [row('s')],
-        );
+        final fill = fillOf(row('t').copyWith(excludedFromStats: true), [
+          row('s'),
+        ]);
 
         expect(fill.containsKey('excluded_from_stats'), isFalse);
       });
 
       test('the favorite flag is left alone', () {
-        final fill = consolidationFieldFill(row('t'), [
-          row('s').copyWith(isFavorite: true),
-        ]);
+        final fill = fillOf(row('t'), [row('s').copyWith(isFavorite: true)]);
 
         expect(fill.containsKey('is_favorite'), isFalse);
       });

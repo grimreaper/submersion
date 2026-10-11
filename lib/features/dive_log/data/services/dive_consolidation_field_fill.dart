@@ -25,6 +25,7 @@ class _FillGroup {
     this.columns, {
     this.holds = _Holds.any,
     this.alsoHeldBy = const [],
+    this.derivedFromProfile = false,
   });
 
   final List<String> columns;
@@ -33,6 +34,10 @@ class _FillGroup {
   /// Columns that count toward the target already holding this group but
   /// are never copied themselves.
   final List<String> alsoHeldBy;
+
+  /// Readers derive this from the dive's profile when the column is empty,
+  /// so a target with a profile of its own already holds it.
+  final bool derivedFromProfile;
 }
 
 /// Every dives column a consolidation fills, as the units it fills them in.
@@ -49,12 +54,13 @@ const List<_FillGroup> _groups = [
   // Site and runtime (#1809).
   _FillGroup(['site_id']),
   _FillGroup(['runtime']),
-  // Measurements. The target's own computer wins; a secondary's reading
-  // only stands in for one it never took.
-  _FillGroup(['bottom_time']),
-  _FillGroup(['max_depth']),
-  _FillGroup(['avg_depth']),
-  _FillGroup(['water_temp']),
+  // Measurements. The target's own computer wins, including what readers
+  // derive from its profile; a secondary's reading only stands in for a
+  // dive with neither.
+  _FillGroup(['bottom_time'], derivedFromProfile: true),
+  _FillGroup(['max_depth'], derivedFromProfile: true),
+  _FillGroup(['avg_depth'], derivedFromProfile: true),
+  _FillGroup(['water_temp'], derivedFromProfile: true),
   // The dive itself.
   _FillGroup(['name']),
   _FillGroup(['surface_interval_seconds']),
@@ -180,16 +186,20 @@ final Set<String> consolidationFilledColumns = {
 /// what [secondaries] recorded, before the secondaries are tombstoned and
 /// their rows are gone.
 ///
-/// Never overwrites a value the target holds. Keyed by SQL column name, for
-/// a `RawValuesInsertable`; empty when there is nothing to fill.
+/// Never overwrites a value the target holds. [targetHasProfile] says
+/// whether the target has profile samples of its own, which the row cannot
+/// show. Keyed by SQL column name, for a `RawValuesInsertable`; empty when
+/// there is nothing to fill.
 Map<String, Expression> consolidationFieldFill(
   Dive target,
-  List<Dive> secondaries,
-) {
+  List<Dive> secondaries, {
+  required bool targetHasProfile,
+}) {
   final targetValues = target.toColumns(false);
   final secondaryValues = [for (final s in secondaries) s.toColumns(false)];
   final fill = <String, Expression>{};
   for (final group in _groups) {
+    if (targetHasProfile && group.derivedFromProfile) continue;
     if (_held(group, targetValues, includeAlsoHeldBy: true)) continue;
     for (final values in secondaryValues) {
       if (!_held(group, values, includeAlsoHeldBy: false)) continue;

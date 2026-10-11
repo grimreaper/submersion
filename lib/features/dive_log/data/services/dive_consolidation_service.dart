@@ -758,7 +758,7 @@ class DiveConsolidationService {
       final fieldFill = consolidationFieldFill(targetRow, [
         for (final secondary in plan.secondaries)
           snapshot.diveRows.firstWhere((r) => r.id == secondary.id),
-      ]);
+      ], targetHasProfile: plan.primary.profile.isNotEmpty);
 
       // Every target cylinder nobody shares is marked as recorded, so the
       // open-time inference (backfillTankSharedComputers) never guesses for
