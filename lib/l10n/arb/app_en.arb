@@ -15274,14 +15274,23 @@
   },
   "insights_focus_count_custom": "Custom...",
   "insights_focus_count_dialogTitle": "How many dives?",
-  "insights_focus_factors_title": "Common factors",
-  "insights_focus_factors_subtitle": "This group compared with every dive that has the value",
-  "insights_focus_factors_tooFew": "Choose at least 3 dives to compare common factors",
-  "insights_focus_factors_standsOut": "Stands out",
-  "insights_focus_factors_standoutsSummary": "Stands out: {factors}",
-  "@insights_focus_factors_standoutsSummary": {
-    "placeholders": { "factors": { "type": "String" } }
+  "insights_focus_comparison_title": "Full comparison",
+  "insights_focus_comparison_subtitle": "All dives means every dive in the current filter that has {metric}",
+  "@insights_focus_comparison_subtitle": {
+    "placeholders": {
+      "metric": { "type": "String" }
+    }
   },
+  "insights_focus_column_these": "These dives",
+  "insights_focus_column_all": "All dives",
+  "insights_focus_column_difference": "Difference",
+  "insights_focus_comparison_showMore": "{count, plural, =1{Show 1 more factor} other{Show {count} more factors}}",
+  "@insights_focus_comparison_showMore": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
+  "insights_focus_factors_standsOut": "Stands out",
   "insights_focus_factors_versus": "{group} vs {baseline}",
   "@insights_focus_factors_versus": {
     "placeholders": { "group": { "type": "String" }, "baseline": { "type": "String" } }

@@ -156,7 +156,7 @@ void main() {
       ],
     );
     await tester.scrollUntilVisible(
-      find.text('Common factors'),
+      find.text('Full comparison'),
       300,
       scrollable: find.byType(Scrollable).first,
     );
@@ -260,7 +260,7 @@ void main() {
     // Every row, and the factors card after the list, are still reachable.
     final scrollable = find.byType(Scrollable).first;
     await tester.scrollUntilVisible(
-      find.text('Common factors'),
+      find.text('Full comparison'),
       2000,
       scrollable: scrollable,
       maxScrolls: 200,

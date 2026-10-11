@@ -126,21 +126,22 @@ class FocusResults extends ConsumerWidget {
                     crossAxisAlignment: CrossAxisAlignment.start,
                     children: [
                       const SizedBox(height: 16),
-                      StatSectionCard(
-                        title: l10n.insights_focus_factors_title,
-                        subtitle: l10n.insights_focus_factors_subtitle,
-                        child: ref
-                            .watch(focusFactorReportProvider)
-                            .when(
-                              skipLoadingOnReload: true,
-                              loading: () => const Center(
-                                child: CircularProgressIndicator(),
-                              ),
-                              error: (_, _) => Text(l10n.insights_focus_error),
-                              data: (report) =>
-                                  FocusFactorsTable(report: report),
+                      ref
+                          .watch(focusFactorReportProvider)
+                          .when(
+                            skipLoadingOnReload: true,
+                            loading: () => const Center(
+                              child: CircularProgressIndicator(),
                             ),
-                      ),
+                            error: (_, _) => StatSectionCard(
+                              title: l10n.insights_focus_comparison_title,
+                              child: Text(l10n.insights_focus_error),
+                            ),
+                            data: (report) => FocusFactorsTable(
+                              report: report,
+                              metric: selection.metric,
+                            ),
+                          ),
                     ],
                   ),
                 ),

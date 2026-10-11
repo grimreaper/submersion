@@ -26204,23 +26204,35 @@ class AppLocalizationsHu extends AppLocalizations {
   String get insights_focus_count_dialogTitle => 'How many dives?';
 
   @override
-  String get insights_focus_factors_title => 'Közös tényezők';
+  String get insights_focus_comparison_title => 'Full comparison';
 
   @override
-  String get insights_focus_factors_subtitle =>
-      'Ez a csoport az összes olyan merüléshez képest, amelynek van ilyen értéke';
+  String insights_focus_comparison_subtitle(String metric) {
+    return 'All dives means every dive in the current filter that has $metric';
+  }
 
   @override
-  String get insights_focus_factors_tooFew =>
-      'Válassz legalább 3 merülést a közös tényezők összehasonlításához';
+  String get insights_focus_column_these => 'These dives';
+
+  @override
+  String get insights_focus_column_all => 'All dives';
+
+  @override
+  String get insights_focus_column_difference => 'Difference';
+
+  @override
+  String insights_focus_comparison_showMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Show $count more factors',
+      one: 'Show 1 more factor',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get insights_focus_factors_standsOut => 'Kiemelkedik';
-
-  @override
-  String insights_focus_factors_standoutsSummary(String factors) {
-    return 'Kiemelkedik: $factors';
-  }
 
   @override
   String insights_focus_factors_versus(String group, String baseline) {

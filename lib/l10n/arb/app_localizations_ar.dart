@@ -26483,23 +26483,35 @@ class AppLocalizationsAr extends AppLocalizations {
   String get insights_focus_count_dialogTitle => 'How many dives?';
 
   @override
-  String get insights_focus_factors_title => 'العوامل المشتركة';
+  String get insights_focus_comparison_title => 'Full comparison';
 
   @override
-  String get insights_focus_factors_subtitle =>
-      'هذه المجموعة مقارنة بكل الغطسات التي لها هذه القيمة';
+  String insights_focus_comparison_subtitle(String metric) {
+    return 'All dives means every dive in the current filter that has $metric';
+  }
 
   @override
-  String get insights_focus_factors_tooFew =>
-      'اختر 3 غطسات على الأقل لمقارنة العوامل المشتركة';
+  String get insights_focus_column_these => 'These dives';
+
+  @override
+  String get insights_focus_column_all => 'All dives';
+
+  @override
+  String get insights_focus_column_difference => 'Difference';
+
+  @override
+  String insights_focus_comparison_showMore(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Show $count more factors',
+      one: 'Show 1 more factor',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get insights_focus_factors_standsOut => 'بارز';
-
-  @override
-  String insights_focus_factors_standoutsSummary(String factors) {
-    return 'بارز: $factors';
-  }
 
   @override
   String insights_focus_factors_versus(String group, String baseline) {

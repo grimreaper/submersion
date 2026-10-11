@@ -42628,35 +42628,47 @@ abstract class AppLocalizations {
   /// **'How many dives?'**
   String get insights_focus_count_dialogTitle;
 
-  /// No description provided for @insights_focus_factors_title.
+  /// No description provided for @insights_focus_comparison_title.
   ///
   /// In en, this message translates to:
-  /// **'Common factors'**
-  String get insights_focus_factors_title;
+  /// **'Full comparison'**
+  String get insights_focus_comparison_title;
 
-  /// No description provided for @insights_focus_factors_subtitle.
+  /// No description provided for @insights_focus_comparison_subtitle.
   ///
   /// In en, this message translates to:
-  /// **'This group compared with every dive that has the value'**
-  String get insights_focus_factors_subtitle;
+  /// **'All dives means every dive in the current filter that has {metric}'**
+  String insights_focus_comparison_subtitle(String metric);
 
-  /// No description provided for @insights_focus_factors_tooFew.
+  /// No description provided for @insights_focus_column_these.
   ///
   /// In en, this message translates to:
-  /// **'Choose at least 3 dives to compare common factors'**
-  String get insights_focus_factors_tooFew;
+  /// **'These dives'**
+  String get insights_focus_column_these;
+
+  /// No description provided for @insights_focus_column_all.
+  ///
+  /// In en, this message translates to:
+  /// **'All dives'**
+  String get insights_focus_column_all;
+
+  /// No description provided for @insights_focus_column_difference.
+  ///
+  /// In en, this message translates to:
+  /// **'Difference'**
+  String get insights_focus_column_difference;
+
+  /// No description provided for @insights_focus_comparison_showMore.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Show 1 more factor} other{Show {count} more factors}}'**
+  String insights_focus_comparison_showMore(int count);
 
   /// No description provided for @insights_focus_factors_standsOut.
   ///
   /// In en, this message translates to:
   /// **'Stands out'**
   String get insights_focus_factors_standsOut;
-
-  /// No description provided for @insights_focus_factors_standoutsSummary.
-  ///
-  /// In en, this message translates to:
-  /// **'Stands out: {factors}'**
-  String insights_focus_factors_standoutsSummary(String factors);
 
   /// No description provided for @insights_focus_factors_versus.
   ///
