@@ -1,5 +1,6 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:submersion/features/insights/domain/focus/focus_factor_row.dart';
 import 'package:submersion/features/insights/domain/focus/focus_metric.dart';
 import 'package:submersion/features/insights/domain/focus/focus_selection.dart';
 import 'package:submersion/features/insights/domain/trend_aggregation.dart';
@@ -56,5 +57,25 @@ void main() {
         reason: '$m',
       );
     }
+  });
+
+  test('factor rows are keyed by dive id once per load', () async {
+    final rows = [
+      FocusFactorRow(diveId: 'a', dateTime: DateTime.utc(2025)),
+      FocusFactorRow(diveId: 'b', dateTime: DateTime.utc(2025, 2)),
+    ];
+    final c = ProviderContainer(
+      overrides: [
+        ...await getBaseOverrides(),
+        focusFactorRowsProvider.overrideWith((ref) async => rows),
+      ],
+    );
+    addTearDown(c.dispose);
+    await c.read(focusFactorRowsProvider.future);
+    final byId = c.read(focusFactorRowsByIdProvider);
+    expect(byId.keys, ['a', 'b']);
+    expect(byId['b'], same(rows[1]));
+    // The same map object comes back until the rows reload.
+    expect(c.read(focusFactorRowsByIdProvider), same(byId));
   });
 }

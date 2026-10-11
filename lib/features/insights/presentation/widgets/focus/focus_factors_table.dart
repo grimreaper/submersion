@@ -59,13 +59,16 @@ class _FocusFactorsTableState extends ConsumerState<FocusFactorsTable> {
       color: theme.colorScheme.onSurfaceVariant,
     );
 
-    String? difference(FocusFactor f) =>
-        f is NumericFactor && f.difference != null
-        ? focusNumericDifference(f.id, f.difference!, units, l10n)
-        : null;
+    // Formatted once per factor: the quiet decision and the rendered cell
+    // read the same string.
+    final differences = <FocusFactorId, String>{
+      for (final f in report.factors)
+        if (f is NumericFactor && f.difference != null)
+          f.id: focusNumericDifference(f.id, f.difference!, units, l10n),
+    };
     final quiet = {
       for (final f in report.factors)
-        if (focusFactorIsQuiet(f, formattedDifference: difference(f))) f.id,
+        if (focusFactorIsQuiet(f, formattedDifference: differences[f.id])) f.id,
     };
     final visible = [
       for (final f in report.factors)
@@ -110,7 +113,7 @@ class _FocusFactorsTableState extends ConsumerState<FocusFactorsTable> {
                   percent: percent,
                   typesById: typesById,
                   narrow: narrow,
-                  difference: difference(f),
+                  difference: differences[f.id],
                 ),
             ],
           if (quiet.isNotEmpty && !_showQuiet)

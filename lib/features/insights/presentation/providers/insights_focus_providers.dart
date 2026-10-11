@@ -132,6 +132,15 @@ final focusFactorRowsProvider = FutureProvider<List<FocusFactorRow>>((
   );
 });
 
+/// [focusFactorRowsProvider]'s rows by dive id, mapped once per load rather
+/// than on every rebuild of the page that reads them.
+final focusFactorRowsByIdProvider = Provider<Map<String, FocusFactorRow>>((
+  ref,
+) {
+  final rows = ref.watch(focusFactorRowsProvider).value ?? const [];
+  return Map.unmodifiable({for (final r in rows) r.diveId: r});
+});
+
 /// The group's factors against the dives that have the metric.
 final focusFactorReportProvider = FutureProvider<FocusFactorReport>((
   ref,

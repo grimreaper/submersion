@@ -30,13 +30,14 @@ class FocusStandoutsCard extends ConsumerWidget {
       Localizations.localeOf(context).toLanguageTag(),
     );
 
+    // Sorted once: the getter filters and sorts on every call.
+    final standouts = report.standouts;
     final Widget body;
     if (report.tooFewDives) {
       body = Text(l10n.insights_focus_standouts_tooFew);
-    } else if (report.standouts.isEmpty) {
+    } else if (standouts.isEmpty) {
       body = Text(l10n.insights_focus_standouts_none);
     } else {
-      final standouts = report.standouts;
       body = Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [

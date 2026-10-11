@@ -26,6 +26,11 @@ void main() {
         for (final m in ['<metric>', '<mode>', '<value>']) {
           expect(m.allMatches(threshold).length, 1, reason: 'threshold $m');
         }
+        // A slot from the other form would render a control the mode never
+        // reads: a threshold box in a ranked sentence, or a count in a
+        // threshold one.
+        expect(ranked, isNot(contains('<value>')), reason: 'ranked');
+        expect(threshold, isNot(contains('<count>')), reason: 'threshold');
         expect(
           splitFocusSentence(ranked).where(focusSentenceMarkers.contains),
           hasLength(3),

@@ -84,12 +84,11 @@ class FocusMetricUnits {
     FocusMetric.otu => '${storage.round()}',
   };
 
-  /// The Time patterns page's surface interval wording.
+  /// Under an hour, the same minutes message as bottom time and the duration
+  /// row; from an hour up, the Time patterns page's hours-and-minutes form.
   static String _hoursMinutes(double minutes, AppLocalizations l10n) {
     final whole = minutes.round();
-    if (whole < 60) {
-      return l10n.insights_timePatterns_surfaceInterval_formatMinutes(whole);
-    }
+    if (whole < 60) return l10n.surfaceInterval_format_minutes('$whole');
     return l10n.insights_timePatterns_surfaceInterval_formatHoursMinutes(
       whole ~/ 60,
       whole % 60,

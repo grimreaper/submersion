@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
-import 'package:submersion/features/insights/domain/focus/focus_factor_row.dart';
 import 'package:submersion/features/insights/domain/focus/focus_group.dart';
 import 'package:submersion/features/insights/domain/focus/focus_selection.dart';
 import 'package:submersion/features/insights/presentation/formatters/focus_labels.dart';
@@ -86,12 +85,7 @@ class _FocusResultsState extends ConsumerState<FocusResults> {
                 ),
               );
             }
-            final rows = <String, FocusFactorRow>{
-              for (final r
-                  in ref.watch(focusFactorRowsProvider).value ??
-                      const <FocusFactorRow>[])
-                r.diveId: r,
-            };
+            final rows = ref.watch(focusFactorRowsByIdProvider);
             final theme = Theme.of(context);
             final report = ref.watch(focusFactorReportProvider);
             final members = _showAll
