@@ -94,7 +94,7 @@ void main() {
       hasAcceptedPlanningDisclaimer: true,
       gasModel: GasModel.ideal,
     );
-    final units = UnitFormatter(settings);
+    const units = UnitFormatter(settings);
     final ideal = DiveField.rmv.formatValue(
       tankDive.rmvFor(GasModel.ideal),
       units,
