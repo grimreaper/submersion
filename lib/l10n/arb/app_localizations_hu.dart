@@ -46576,9 +46576,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get diveLog_sources_badge_viewing => 'Megtekintve';
 
   @override
-  String get diveLog_sources_badge_secondary => 'Másodlagos';
-
-  @override
   String diveLog_sources_created(String date) {
     return 'Létrehozva: $date';
   }

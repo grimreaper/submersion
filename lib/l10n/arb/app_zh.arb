@@ -13879,7 +13879,6 @@
   "diveLog_sources_sectionTitle": "{count, plural, other{数据来源}}",
   "diveLog_sources_badge_manual": "手动",
   "diveLog_sources_badge_viewing": "正在查看",
-  "diveLog_sources_badge_secondary": "次要",
   "diveLog_sources_created": "创建于 {date}",
   "diveLog_sources_detail_serial": "序列号",
   "diveLog_sources_detail_format": "格式",

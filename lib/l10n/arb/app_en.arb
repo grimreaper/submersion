@@ -27351,7 +27351,6 @@
   "diveLog_sources_sectionTitle": "{count, plural, =0{Data Source} =1{Data Source} other{Data Sources}}",
   "diveLog_sources_badge_manual": "Manual",
   "diveLog_sources_badge_viewing": "Viewing",
-  "diveLog_sources_badge_secondary": "Secondary",
   "diveLog_sources_created": "Created {date}",
   "diveLog_sources_detail_serial": "Serial",
   "diveLog_sources_detail_format": "Format",
@@ -27745,9 +27744,6 @@
   },
   "@diveLog_sources_badge_viewing": {
     "description": "Badge on the data source currently being previewed on the chart."
-  },
-  "@diveLog_sources_badge_secondary": {
-    "description": "Badge on a data source that is not the dive's primary source."
   },
   "@diveLog_sources_created": {
     "description": "When a manually entered dive record was created.",

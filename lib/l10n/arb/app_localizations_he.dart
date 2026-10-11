@@ -45867,9 +45867,6 @@ class AppLocalizationsHe extends AppLocalizations {
   String get diveLog_sources_badge_viewing => 'בתצוגה';
 
   @override
-  String get diveLog_sources_badge_secondary => 'משני';
-
-  @override
   String diveLog_sources_created(String date) {
     return 'נוצר ב-$date';
   }

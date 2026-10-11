@@ -13879,7 +13879,6 @@
   "diveLog_sources_sectionTitle": "{count, plural, =0{מקור נתונים} one{מקור נתונים} two{מקורות נתונים} many{מקורות נתונים} other{מקורות נתונים}}",
   "diveLog_sources_badge_manual": "ידני",
   "diveLog_sources_badge_viewing": "בתצוגה",
-  "diveLog_sources_badge_secondary": "משני",
   "diveLog_sources_created": "נוצר ב-{date}",
   "diveLog_sources_detail_serial": "מספר סידורי",
   "diveLog_sources_detail_format": "פורמט",

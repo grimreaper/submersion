@@ -74460,12 +74460,6 @@ abstract class AppLocalizations {
   /// **'Viewing'**
   String get diveLog_sources_badge_viewing;
 
-  /// Badge on a data source that is not the dive's primary source.
-  ///
-  /// In en, this message translates to:
-  /// **'Secondary'**
-  String get diveLog_sources_badge_secondary;
-
   /// When a manually entered dive record was created.
   ///
   /// In en, this message translates to:

@@ -46834,9 +46834,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String get diveLog_sources_badge_viewing => 'Visualizando';
 
   @override
-  String get diveLog_sources_badge_secondary => 'Secundária';
-
-  @override
   String diveLog_sources_created(String date) {
     return 'Criado em $date';
   }

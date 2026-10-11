@@ -13879,7 +13879,6 @@
   "diveLog_sources_sectionTitle": "{count, plural, =0{Sorgente dati} =1{Sorgente dati} other{Sorgenti dati}}",
   "diveLog_sources_badge_manual": "Manuale",
   "diveLog_sources_badge_viewing": "In visualizzazione",
-  "diveLog_sources_badge_secondary": "Secondaria",
   "diveLog_sources_created": "Creata il {date}",
   "diveLog_sources_detail_serial": "Numero di serie",
   "diveLog_sources_detail_format": "Formato",

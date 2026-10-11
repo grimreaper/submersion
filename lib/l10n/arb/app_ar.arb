@@ -13879,7 +13879,6 @@
   "diveLog_sources_sectionTitle": "{count, plural, zero{مصدر البيانات} one{مصدر البيانات} two{مصدرا البيانات} few{مصادر البيانات} many{مصادر البيانات} other{مصادر البيانات}}",
   "diveLog_sources_badge_manual": "يدوي",
   "diveLog_sources_badge_viewing": "قيد العرض",
-  "diveLog_sources_badge_secondary": "ثانوي",
   "diveLog_sources_created": "أُنشئ في {date}",
   "diveLog_sources_detail_serial": "الرقم التسلسلي",
   "diveLog_sources_detail_format": "الصيغة",

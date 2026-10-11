@@ -43993,9 +43993,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get diveLog_sources_badge_viewing => '正在查看';
 
   @override
-  String get diveLog_sources_badge_secondary => '次要';
-
-  @override
   String diveLog_sources_created(String date) {
     return '创建于 $date';
   }

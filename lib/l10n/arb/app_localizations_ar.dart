@@ -47451,9 +47451,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get diveLog_sources_badge_viewing => 'قيد العرض';
 
   @override
-  String get diveLog_sources_badge_secondary => 'ثانوي';
-
-  @override
   String diveLog_sources_created(String date) {
     return 'أُنشئ في $date';
   }
