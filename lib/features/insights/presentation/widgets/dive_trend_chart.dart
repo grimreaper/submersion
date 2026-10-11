@@ -13,6 +13,7 @@ import 'package:submersion/features/insights/presentation/widgets/chart_axis.dar
 import 'package:submersion/features/insights/presentation/widgets/chart_overview_strip.dart';
 import 'package:submersion/features/insights/presentation/widgets/date_axis.dart';
 import 'package:submersion/features/insights/presentation/widgets/dive_trend_chart_input.dart';
+import 'package:submersion/features/insights/presentation/widgets/trend_reference_line.dart';
 import 'package:submersion/features/insights/presentation/widgets/trend_window_seater.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 
@@ -38,10 +39,14 @@ class TrendSeries {
   final List<TrendDataPoint> points;
   final Color color;
 
+  /// Dot radius in raw mode; null draws the primary's size.
+  final double? pointRadius;
+
   const TrendSeries({
     required this.label,
     required this.points,
     required this.color,
+    this.pointRadius,
   });
 }
 
@@ -66,6 +71,7 @@ class DiveTrendChart extends StatefulWidget {
     this.dateFormat = DateFormatPreference.mmmDYYYY,
     this.range = TrendRange.all,
     this.onRangeChanged,
+    this.referenceLine,
   });
 
   /// Raw per-dive points, in any order. Never pre-aggregated by the caller.
@@ -82,6 +88,9 @@ class DiveTrendChart extends StatefulWidget {
 
   /// A time span shaded behind the series, for a finding's evidence window.
   final ({DateTime start, DateTime end})? highlightRange;
+
+  /// A dashed horizontal marker, such as a threshold the diver set.
+  final TrendReferenceLine? referenceLine;
 
   /// The diver's date order, threaded in by the caller rather than read from
   /// the ambient locale, so the axis and the tooltip match Manage - Units
@@ -386,6 +395,7 @@ class _DiveTrendChartState extends State<DiveTrendChart> {
               ),
             ),
             lineBarsData: bars,
+            extraLinesData: trendReferenceLines(context, widget.referenceLine),
             betweenBarsData: _bands(context, isRaw),
             rangeAnnotations: RangeAnnotations(
               verticalRangeAnnotations: [
@@ -505,7 +515,14 @@ class _DiveTrendChartState extends State<DiveTrendChart> {
     // Secondaries come last so every index above is unchanged by them.
     _secondaryBarStart = secondary.isEmpty ? -1 : bars.length;
     for (var i = 0; i < secondary.length; i++) {
-      bars.add(_dataBar(secondary[i], widget.secondarySeries[i].color, isRaw));
+      bars.add(
+        _dataBar(
+          secondary[i],
+          widget.secondarySeries[i].color,
+          isRaw,
+          radius: widget.secondarySeries[i].pointRadius,
+        ),
+      );
     }
 
     return bars;
@@ -517,8 +534,9 @@ class _DiveTrendChartState extends State<DiveTrendChart> {
   LineChartBarData _dataBar(
     List<TrendBucket> buckets,
     Color color,
-    bool isRaw,
-  ) {
+    bool isRaw, {
+    double? radius,
+  }) {
     return LineChartBarData(
       spots: buckets
           .map((b) => FlSpot(_x(b.date), b.mean))
@@ -530,7 +548,7 @@ class _DiveTrendChartState extends State<DiveTrendChart> {
       dotData: FlDotData(
         show: true,
         getDotPainter: (spot, percent, barData, index) => FlDotCirclePainter(
-          radius: isRaw ? 2.2 : 3,
+          radius: radius ?? (isRaw ? 2.2 : 3),
           color: color.withValues(alpha: isRaw ? 0.7 : 1),
           strokeWidth: 0,
         ),
