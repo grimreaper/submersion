@@ -25954,7 +25954,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get insights_category_focus_subtitle =>
-      'مجموعات الأفضل والأسوأ وحسب الحد';
+      'ما تشترك فيه أفضل غطساتك وأسوأها';
 
   @override
   String get insights_category_progression_title => 'التقدم';
@@ -26301,8 +26301,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get insights_focus_title => 'تركيز الغطسات';
 
   @override
-  String get insights_focus_intro =>
-      'See what a group of your dives has in common.';
+  String get insights_focus_intro => 'اعرف ما تشترك فيه مجموعة من غطساتك.';
 
   @override
   String get insights_focus_error => 'تعذر تحميل تركيز الغطسات';
@@ -26326,7 +26325,7 @@ class AppLocalizationsAr extends AppLocalizations {
       two: 'غطستين',
       one: 'غطسة واحدة',
     );
-    return '$count من $_temp0، متوسط المجموعة $group مقابل $overall إجمالاً';
+    return '$count من $_temp0. المتوسط $group، مقابل $overall عبر كل غطساتك.';
   }
 
   @override
@@ -26359,17 +26358,17 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String insights_focus_chart_title(String metric) {
-    return 'المجموعة عبر الزمن';
+    return '$metric عبر الزمن';
   }
 
   @override
   String get insights_focus_chart_group => 'في المجموعة';
 
   @override
-  String get insights_focus_chart_others => 'Other dives';
+  String get insights_focus_chart_others => 'غطسات أخرى';
 
   @override
-  String get insights_focus_list_title => 'غطسات المجموعة';
+  String get insights_focus_list_title => 'الغطسات';
 
   @override
   String get insights_focus_list_unknownSite => 'لا يوجد موقع';
@@ -26379,8 +26378,11 @@ class AppLocalizationsAr extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Show all $count dives',
-      one: 'Show the 1 dive',
+      other: 'اعرض كل الغطسات الـ$count',
+      many: 'اعرض كل الغطسات الـ$count',
+      few: 'اعرض كل الغطسات الـ$count',
+      two: 'اعرض الغطستين',
+      one: 'اعرض الغطسة',
     );
     return '$_temp0';
   }
@@ -26407,43 +26409,43 @@ class AppLocalizationsAr extends AppLocalizations {
   String get insights_focus_metric_waterTemp => 'حرارة الماء';
 
   @override
-  String get insights_focus_metric_gasUsed => 'Gas used';
+  String get insights_focus_metric_gasUsed => 'الغاز المستهلك';
 
   @override
-  String get insights_focus_metric_avgDepth => 'Average depth';
+  String get insights_focus_metric_avgDepth => 'متوسط العمق';
 
   @override
-  String get insights_focus_metric_surfaceInterval => 'Surface interval';
+  String get insights_focus_metric_surfaceInterval => 'فترة السطح';
 
   @override
-  String get insights_focus_metric_airTemp => 'Air temp';
+  String get insights_focus_metric_airTemp => 'حرارة الهواء';
 
   @override
-  String get insights_focus_metric_visibility => 'Visibility';
+  String get insights_focus_metric_visibility => 'الرؤية';
 
   @override
-  String get insights_focus_metric_altitude => 'Altitude';
+  String get insights_focus_metric_altitude => 'الارتفاع';
 
   @override
-  String get insights_focus_metric_cns => 'CNS at end';
+  String get insights_focus_metric_cns => 'CNS عند النهاية';
 
   @override
   String get insights_focus_metric_otu => 'OTU';
 
   @override
-  String get insights_focus_metricGroup_gas => 'Gas';
+  String get insights_focus_metricGroup_gas => 'الغاز';
 
   @override
-  String get insights_focus_metricGroup_depthTime => 'Depth and time';
+  String get insights_focus_metricGroup_depthTime => 'العمق والوقت';
 
   @override
-  String get insights_focus_metricGroup_conditions => 'Conditions';
+  String get insights_focus_metricGroup_conditions => 'الظروف';
 
   @override
-  String get insights_focus_metricGroup_exposure => 'Exposure';
+  String get insights_focus_metricGroup_exposure => 'التعرض';
 
   @override
-  String get insights_focus_metricGroup_kit => 'Kit';
+  String get insights_focus_metricGroup_kit => 'المعدات';
 
   @override
   String get insights_focus_mode_best => 'الأفضل';
@@ -26470,9 +26472,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get insights_focus_count_error => 'أدخل عدداً صحيحاً من 1 إلى 999';
 
   @override
-  String get insights_focus_threshold_label => 'القيمة';
-
-  @override
   String get insights_focus_threshold_error => 'أدخل رقماً';
 
   @override
@@ -26484,7 +26483,7 @@ class AppLocalizationsAr extends AppLocalizations {
     String mode,
     String metric,
   ) {
-    return 'Show the $count dives with the $mode $metric';
+    return 'اعرض $count غطسات حيث $metric هو $mode';
   }
 
   @override
@@ -26493,50 +26492,48 @@ class AppLocalizationsAr extends AppLocalizations {
     String mode,
     String value,
   ) {
-    return 'Show the dives with $metric $mode $value';
+    return 'اعرض الغطسات التي فيها $metric $mode $value';
   }
 
   @override
-  String get insights_focus_count_custom => 'Custom...';
+  String get insights_focus_count_custom => 'مخصص...';
 
   @override
-  String get insights_focus_count_dialogTitle => 'How many dives?';
+  String get insights_focus_count_dialogTitle => 'كم غطسة؟';
 
   @override
-  String get insights_focus_comparison_title => 'Full comparison';
+  String get insights_focus_comparison_title => 'المقارنة الكاملة';
 
   @override
   String insights_focus_comparison_subtitle(String metric) {
-    return 'All dives means every dive in the current filter that has $metric';
+    return 'كل الغطسات تعني كل غطسة في الفلتر الحالي لها $metric';
   }
 
   @override
-  String get insights_focus_column_these => 'These dives';
+  String get insights_focus_column_these => 'هذه الغطسات';
 
   @override
-  String get insights_focus_column_all => 'All dives';
+  String get insights_focus_column_all => 'كل الغطسات';
 
   @override
-  String get insights_focus_column_difference => 'Difference';
+  String get insights_focus_column_difference => 'الفرق';
 
   @override
   String insights_focus_comparison_showMore(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Show $count more factors',
-      one: 'Show 1 more factor',
+      other: 'اعرض $count عامل آخر',
+      many: 'اعرض $count عاملاً آخر',
+      few: 'اعرض $count عوامل أخرى',
+      two: 'اعرض عاملين آخرين',
+      one: 'اعرض عاملاً آخر',
     );
     return '$_temp0';
   }
 
   @override
   String get insights_focus_factors_standsOut => 'بارز';
-
-  @override
-  String insights_focus_factors_versus(String group, String baseline) {
-    return '$group مقابل $baseline';
-  }
 
   @override
   String insights_focus_factors_coverage(int covered, int total) {
@@ -26553,23 +26550,25 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get insights_focus_standouts_title => 'What stands out';
+  String get insights_focus_standouts_title => 'ما يبرز';
 
   @override
-  String get insights_focus_standouts_none =>
-      'Nothing stands out about these dives.';
+  String get insights_focus_standouts_none => 'لا شيء يبرز في هذه الغطسات.';
 
   @override
   String get insights_focus_standouts_tooFew =>
-      'Pick at least 3 dives to see what they share';
+      'اختر 3 غطسات على الأقل لرؤية ما يجمعها';
 
   @override
   String insights_focus_standouts_more(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'and $count more in the full comparison',
-      one: 'and 1 more in the full comparison',
+      other: 'و$count أخرى في المقارنة الكاملة',
+      many: 'و$count أخرى في المقارنة الكاملة',
+      few: 'و$count أخرى في المقارنة الكاملة',
+      two: 'واثنتان أخريان في المقارنة الكاملة',
+      one: 'وواحدة أخرى في المقارنة الكاملة',
     );
     return '$_temp0';
   }
@@ -26580,7 +26579,7 @@ class AppLocalizationsAr extends AppLocalizations {
     String value,
     String baseline,
   ) {
-    return 'All $count were $value ($baseline of all your dives)';
+    return 'كل الغطسات الـ$count كانت $value ($baseline من كل غطساتك)';
   }
 
   @override
@@ -26590,7 +26589,7 @@ class AppLocalizationsAr extends AppLocalizations {
     String value,
     String baseline,
   ) {
-    return '$count of $total were $value, against $baseline of all your dives';
+    return '$count من $total كانت $value، مقابل $baseline من كل غطساتك';
   }
 
   @override
@@ -26601,38 +26600,38 @@ class AppLocalizationsAr extends AppLocalizations {
     String group,
     String baseline,
   ) {
-    return '$factor $difference $direction ($group vs $baseline)';
+    return '$factor $difference $direction ($group مقابل $baseline)';
   }
 
   @override
-  String get insights_focus_direction_deeper => 'deeper';
+  String get insights_focus_direction_deeper => 'أعمق';
 
   @override
-  String get insights_focus_direction_shallower => 'shallower';
+  String get insights_focus_direction_shallower => 'أقل عمقاً';
 
   @override
-  String get insights_focus_direction_longer => 'longer';
+  String get insights_focus_direction_longer => 'أطول';
 
   @override
-  String get insights_focus_direction_shorter => 'shorter';
+  String get insights_focus_direction_shorter => 'أقصر';
 
   @override
-  String get insights_focus_direction_warmer => 'warmer';
+  String get insights_focus_direction_warmer => 'أدفأ';
 
   @override
-  String get insights_focus_direction_colder => 'colder';
+  String get insights_focus_direction_colder => 'أبرد';
 
   @override
-  String get insights_focus_direction_larger => 'larger';
+  String get insights_focus_direction_larger => 'أكبر';
 
   @override
-  String get insights_focus_direction_smaller => 'smaller';
+  String get insights_focus_direction_smaller => 'أصغر';
 
   @override
-  String get insights_focus_direction_moreLead => 'more lead';
+  String get insights_focus_direction_moreLead => 'أثقال أكثر';
 
   @override
-  String get insights_focus_direction_lessLead => 'less lead';
+  String get insights_focus_direction_lessLead => 'أثقال أقل';
 
   @override
   String get insights_focus_factorGroup_diveShape => 'شكل الغطسة';

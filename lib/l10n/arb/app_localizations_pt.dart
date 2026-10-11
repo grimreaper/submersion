@@ -25785,7 +25785,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get insights_category_focus_subtitle =>
-      'Grupos de melhores, piores e por limite';
+      'O que os seus melhores e piores mergulhos têm em comum';
 
   @override
   String get insights_category_progression_title => 'Progressão';
@@ -26143,7 +26143,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get insights_focus_intro =>
-      'See what a group of your dives has in common.';
+      'Veja o que um grupo dos seus mergulhos tem em comum.';
 
   @override
   String get insights_focus_error =>
@@ -26165,7 +26165,7 @@ class AppLocalizationsPt extends AppLocalizations {
       other: '$total mergulhos',
       one: '$total mergulho',
     );
-    return '$count de $_temp0, média do grupo $group contra $overall no total';
+    return '$count de $_temp0. Média $group, contra $overall em todos os seus mergulhos.';
   }
 
   @override
@@ -26196,17 +26196,17 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String insights_focus_chart_title(String metric) {
-    return 'O grupo ao longo do tempo';
+    return '$metric ao longo do tempo';
   }
 
   @override
   String get insights_focus_chart_group => 'No grupo';
 
   @override
-  String get insights_focus_chart_others => 'Other dives';
+  String get insights_focus_chart_others => 'Outros mergulhos';
 
   @override
-  String get insights_focus_list_title => 'Mergulhos do grupo';
+  String get insights_focus_list_title => 'Os mergulhos';
 
   @override
   String get insights_focus_list_unknownSite => 'Sem local';
@@ -26216,8 +26216,8 @@ class AppLocalizationsPt extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Show all $count dives',
-      one: 'Show the 1 dive',
+      other: 'Mostrar todos os $count mergulhos',
+      one: 'Mostrar o mergulho',
     );
     return '$_temp0';
   }
@@ -26244,61 +26244,61 @@ class AppLocalizationsPt extends AppLocalizations {
   String get insights_focus_metric_waterTemp => 'Temperatura da água';
 
   @override
-  String get insights_focus_metric_gasUsed => 'Gas used';
+  String get insights_focus_metric_gasUsed => 'Gás consumido';
 
   @override
-  String get insights_focus_metric_avgDepth => 'Average depth';
+  String get insights_focus_metric_avgDepth => 'Profundidade média';
 
   @override
-  String get insights_focus_metric_surfaceInterval => 'Surface interval';
+  String get insights_focus_metric_surfaceInterval => 'Intervalo de superfície';
 
   @override
-  String get insights_focus_metric_airTemp => 'Air temp';
+  String get insights_focus_metric_airTemp => 'Temperatura do ar';
 
   @override
-  String get insights_focus_metric_visibility => 'Visibility';
+  String get insights_focus_metric_visibility => 'Visibilidade';
 
   @override
   String get insights_focus_metric_altitude => 'Altitude';
 
   @override
-  String get insights_focus_metric_cns => 'CNS at end';
+  String get insights_focus_metric_cns => 'CNS no fim';
 
   @override
   String get insights_focus_metric_otu => 'OTU';
 
   @override
-  String get insights_focus_metricGroup_gas => 'Gas';
+  String get insights_focus_metricGroup_gas => 'Gás';
 
   @override
-  String get insights_focus_metricGroup_depthTime => 'Depth and time';
+  String get insights_focus_metricGroup_depthTime => 'Profundidade e tempo';
 
   @override
-  String get insights_focus_metricGroup_conditions => 'Conditions';
+  String get insights_focus_metricGroup_conditions => 'Condições';
 
   @override
-  String get insights_focus_metricGroup_exposure => 'Exposure';
+  String get insights_focus_metricGroup_exposure => 'Exposição';
 
   @override
-  String get insights_focus_metricGroup_kit => 'Kit';
+  String get insights_focus_metricGroup_kit => 'Equipamento';
 
   @override
-  String get insights_focus_mode_best => 'Melhores';
+  String get insights_focus_mode_best => 'melhor';
 
   @override
-  String get insights_focus_mode_worst => 'Piores';
+  String get insights_focus_mode_worst => 'pior';
 
   @override
-  String get insights_focus_mode_lowest => 'Mais baixos';
+  String get insights_focus_mode_lowest => 'menor';
 
   @override
-  String get insights_focus_mode_highest => 'Mais altos';
+  String get insights_focus_mode_highest => 'maior';
 
   @override
-  String get insights_focus_mode_above => 'Acima';
+  String get insights_focus_mode_above => 'acima de';
 
   @override
-  String get insights_focus_mode_below => 'Abaixo';
+  String get insights_focus_mode_below => 'abaixo de';
 
   @override
   String get insights_focus_count_label => 'Mergulhos';
@@ -26306,9 +26306,6 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get insights_focus_count_error =>
       'Introduza um número inteiro de 1 a 999';
-
-  @override
-  String get insights_focus_threshold_label => 'Valor';
 
   @override
   String get insights_focus_threshold_error => 'Introduza um número';
@@ -26322,7 +26319,7 @@ class AppLocalizationsPt extends AppLocalizations {
     String mode,
     String metric,
   ) {
-    return 'Show the $count dives with the $mode $metric';
+    return 'Mostrar os $count mergulhos onde $metric é $mode';
   }
 
   @override
@@ -26331,50 +26328,45 @@ class AppLocalizationsPt extends AppLocalizations {
     String mode,
     String value,
   ) {
-    return 'Show the dives with $metric $mode $value';
+    return 'Mostrar os mergulhos com $metric $mode $value';
   }
 
   @override
-  String get insights_focus_count_custom => 'Custom...';
+  String get insights_focus_count_custom => 'Personalizado...';
 
   @override
-  String get insights_focus_count_dialogTitle => 'How many dives?';
+  String get insights_focus_count_dialogTitle => 'Quantos mergulhos?';
 
   @override
-  String get insights_focus_comparison_title => 'Full comparison';
+  String get insights_focus_comparison_title => 'Comparação completa';
 
   @override
   String insights_focus_comparison_subtitle(String metric) {
-    return 'All dives means every dive in the current filter that has $metric';
+    return 'Todos os mergulhos significa cada mergulho no filtro atual que tem $metric';
   }
 
   @override
-  String get insights_focus_column_these => 'These dives';
+  String get insights_focus_column_these => 'Estes mergulhos';
 
   @override
-  String get insights_focus_column_all => 'All dives';
+  String get insights_focus_column_all => 'Todos os mergulhos';
 
   @override
-  String get insights_focus_column_difference => 'Difference';
+  String get insights_focus_column_difference => 'Diferença';
 
   @override
   String insights_focus_comparison_showMore(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Show $count more factors',
-      one: 'Show 1 more factor',
+      other: 'Mostrar mais $count fatores',
+      one: 'Mostrar mais $count fator',
     );
     return '$_temp0';
   }
 
   @override
   String get insights_focus_factors_standsOut => 'Destaca-se';
-
-  @override
-  String insights_focus_factors_versus(String group, String baseline) {
-    return '$group contra $baseline';
-  }
 
   @override
   String insights_focus_factors_coverage(int covered, int total) {
@@ -26388,23 +26380,23 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
-  String get insights_focus_standouts_title => 'What stands out';
+  String get insights_focus_standouts_title => 'O que se destaca';
 
   @override
   String get insights_focus_standouts_none =>
-      'Nothing stands out about these dives.';
+      'Nada se destaca nestes mergulhos.';
 
   @override
   String get insights_focus_standouts_tooFew =>
-      'Pick at least 3 dives to see what they share';
+      'Escolha pelo menos 3 mergulhos para ver o que têm em comum';
 
   @override
   String insights_focus_standouts_more(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'and $count more in the full comparison',
-      one: 'and 1 more in the full comparison',
+      other: 'e mais $count na comparação completa',
+      one: 'e mais $count na comparação completa',
     );
     return '$_temp0';
   }
@@ -26415,7 +26407,7 @@ class AppLocalizationsPt extends AppLocalizations {
     String value,
     String baseline,
   ) {
-    return 'All $count were $value ($baseline of all your dives)';
+    return 'Todos os $count foram $value ($baseline de todos os seus mergulhos)';
   }
 
   @override
@@ -26425,7 +26417,7 @@ class AppLocalizationsPt extends AppLocalizations {
     String value,
     String baseline,
   ) {
-    return '$count of $total were $value, against $baseline of all your dives';
+    return '$count de $total foram $value, contra $baseline de todos os seus mergulhos';
   }
 
   @override
@@ -26436,38 +26428,38 @@ class AppLocalizationsPt extends AppLocalizations {
     String group,
     String baseline,
   ) {
-    return '$factor $difference $direction ($group vs $baseline)';
+    return '$factor $difference $direction ($group contra $baseline)';
   }
 
   @override
-  String get insights_focus_direction_deeper => 'deeper';
+  String get insights_focus_direction_deeper => 'mais fundo';
 
   @override
-  String get insights_focus_direction_shallower => 'shallower';
+  String get insights_focus_direction_shallower => 'menos fundo';
 
   @override
-  String get insights_focus_direction_longer => 'longer';
+  String get insights_focus_direction_longer => 'mais longo';
 
   @override
-  String get insights_focus_direction_shorter => 'shorter';
+  String get insights_focus_direction_shorter => 'mais curto';
 
   @override
-  String get insights_focus_direction_warmer => 'warmer';
+  String get insights_focus_direction_warmer => 'mais quente';
 
   @override
-  String get insights_focus_direction_colder => 'colder';
+  String get insights_focus_direction_colder => 'mais frio';
 
   @override
-  String get insights_focus_direction_larger => 'larger';
+  String get insights_focus_direction_larger => 'maior';
 
   @override
-  String get insights_focus_direction_smaller => 'smaller';
+  String get insights_focus_direction_smaller => 'menor';
 
   @override
-  String get insights_focus_direction_moreLead => 'more lead';
+  String get insights_focus_direction_moreLead => 'de lastro a mais';
 
   @override
-  String get insights_focus_direction_lessLead => 'less lead';
+  String get insights_focus_direction_lessLead => 'de lastro a menos';
 
   @override
   String get insights_focus_factorGroup_diveShape => 'Perfil do mergulho';

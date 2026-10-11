@@ -15264,7 +15264,6 @@
   "insights_focus_mode_below": "below",
   "insights_focus_count_label": "Dives",
   "insights_focus_count_error": "Enter a whole number from 1 to 999",
-  "insights_focus_threshold_label": "Value",
   "insights_focus_threshold_error": "Enter a number",
   "insights_focus_threshold_negativeError": "Enter zero or more",
   "insights_focus_sentence_ranked": "Show the {count} dives with the {mode} {metric}",
@@ -15304,10 +15303,6 @@
     }
   },
   "insights_focus_factors_standsOut": "Stands out",
-  "insights_focus_factors_versus": "{group} vs {baseline}",
-  "@insights_focus_factors_versus": {
-    "placeholders": { "group": { "type": "String" }, "baseline": { "type": "String" } }
-  },
   "insights_focus_factors_coverage": "{covered} of {total, plural, =1{1 dive} other{{total} dives}}",
   "@insights_focus_factors_coverage": {
     "placeholders": { "covered": { "type": "int" }, "total": { "type": "int" } }

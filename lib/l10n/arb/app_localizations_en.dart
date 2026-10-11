@@ -25857,9 +25857,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get insights_focus_count_error => 'Enter a whole number from 1 to 999';
 
   @override
-  String get insights_focus_threshold_label => 'Value';
-
-  @override
   String get insights_focus_threshold_error => 'Enter a number';
 
   @override
@@ -25919,11 +25916,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get insights_focus_factors_standsOut => 'Stands out';
-
-  @override
-  String insights_focus_factors_versus(String group, String baseline) {
-    return '$group vs $baseline';
-  }
 
   @override
   String insights_focus_factors_coverage(int covered, int total) {

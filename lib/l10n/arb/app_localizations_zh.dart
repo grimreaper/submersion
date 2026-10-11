@@ -24375,7 +24375,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get insights_category_progression_subtitle => '深度与时间趋势';
 
   @override
-  String get insights_category_focus_subtitle => '最佳、最差和阈值分组';
+  String get insights_category_focus_subtitle => '你最佳和最差的潜水有什么共同点';
 
   @override
   String get insights_category_progression_title => '进展';
@@ -24698,8 +24698,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get insights_focus_title => '潜水聚焦';
 
   @override
-  String get insights_focus_intro =>
-      'See what a group of your dives has in common.';
+  String get insights_focus_intro => '看看你的一组潜水有什么共同点。';
 
   @override
   String get insights_focus_error => '无法加载潜水聚焦';
@@ -24714,7 +24713,7 @@ class AppLocalizationsZh extends AppLocalizations {
     String group,
     String overall,
   ) {
-    return '$total 次潜水中的 $count 次，组内平均 $group，总体 $overall';
+    return '$total 次潜水中的 $count 次。平均 $group，全部潜水为 $overall。';
   }
 
   @override
@@ -24743,17 +24742,17 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String insights_focus_chart_title(String metric) {
-    return '该组随时间变化';
+    return '$metric随时间变化';
   }
 
   @override
   String get insights_focus_chart_group => '组内';
 
   @override
-  String get insights_focus_chart_others => 'Other dives';
+  String get insights_focus_chart_others => '其他潜水';
 
   @override
-  String get insights_focus_list_title => '组内潜水';
+  String get insights_focus_list_title => '潜水列表';
 
   @override
   String get insights_focus_list_unknownSite => '无潜点';
@@ -24763,8 +24762,8 @@ class AppLocalizationsZh extends AppLocalizations {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Show all $count dives',
-      one: 'Show the 1 dive',
+      other: '显示全部 $count 次潜水',
+      one: '显示这 1 次潜水',
     );
     return '$_temp0';
   }
@@ -24791,43 +24790,43 @@ class AppLocalizationsZh extends AppLocalizations {
   String get insights_focus_metric_waterTemp => '水温';
 
   @override
-  String get insights_focus_metric_gasUsed => 'Gas used';
+  String get insights_focus_metric_gasUsed => '气体消耗量';
 
   @override
-  String get insights_focus_metric_avgDepth => 'Average depth';
+  String get insights_focus_metric_avgDepth => '平均深度';
 
   @override
-  String get insights_focus_metric_surfaceInterval => 'Surface interval';
+  String get insights_focus_metric_surfaceInterval => '水面间隔';
 
   @override
-  String get insights_focus_metric_airTemp => 'Air temp';
+  String get insights_focus_metric_airTemp => '气温';
 
   @override
-  String get insights_focus_metric_visibility => 'Visibility';
+  String get insights_focus_metric_visibility => '能见度';
 
   @override
-  String get insights_focus_metric_altitude => 'Altitude';
+  String get insights_focus_metric_altitude => '海拔';
 
   @override
-  String get insights_focus_metric_cns => 'CNS at end';
+  String get insights_focus_metric_cns => '结束时 CNS';
 
   @override
   String get insights_focus_metric_otu => 'OTU';
 
   @override
-  String get insights_focus_metricGroup_gas => 'Gas';
+  String get insights_focus_metricGroup_gas => '气体';
 
   @override
-  String get insights_focus_metricGroup_depthTime => 'Depth and time';
+  String get insights_focus_metricGroup_depthTime => '深度与时间';
 
   @override
-  String get insights_focus_metricGroup_conditions => 'Conditions';
+  String get insights_focus_metricGroup_conditions => '环境条件';
 
   @override
-  String get insights_focus_metricGroup_exposure => 'Exposure';
+  String get insights_focus_metricGroup_exposure => '氧暴露';
 
   @override
-  String get insights_focus_metricGroup_kit => 'Kit';
+  String get insights_focus_metricGroup_kit => '装备';
 
   @override
   String get insights_focus_mode_best => '最佳';
@@ -24854,9 +24853,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get insights_focus_count_error => '请输入 1 到 999 之间的整数';
 
   @override
-  String get insights_focus_threshold_label => '数值';
-
-  @override
   String get insights_focus_threshold_error => '请输入数字';
 
   @override
@@ -24868,7 +24864,7 @@ class AppLocalizationsZh extends AppLocalizations {
     String mode,
     String metric,
   ) {
-    return 'Show the $count dives with the $mode $metric';
+    return '显示$metric$mode的 $count 次潜水';
   }
 
   @override
@@ -24877,39 +24873,39 @@ class AppLocalizationsZh extends AppLocalizations {
     String mode,
     String value,
   ) {
-    return 'Show the dives with $metric $mode $value';
+    return '显示$metric$mode $value 的潜水';
   }
 
   @override
-  String get insights_focus_count_custom => 'Custom...';
+  String get insights_focus_count_custom => '自定义…';
 
   @override
-  String get insights_focus_count_dialogTitle => 'How many dives?';
+  String get insights_focus_count_dialogTitle => '多少次潜水？';
 
   @override
-  String get insights_focus_comparison_title => 'Full comparison';
+  String get insights_focus_comparison_title => '完整对比';
 
   @override
   String insights_focus_comparison_subtitle(String metric) {
-    return 'All dives means every dive in the current filter that has $metric';
+    return '“全部潜水”指当前筛选中所有具有$metric数值的潜水';
   }
 
   @override
-  String get insights_focus_column_these => 'These dives';
+  String get insights_focus_column_these => '这些潜水';
 
   @override
-  String get insights_focus_column_all => 'All dives';
+  String get insights_focus_column_all => '全部潜水';
 
   @override
-  String get insights_focus_column_difference => 'Difference';
+  String get insights_focus_column_difference => '差异';
 
   @override
   String insights_focus_comparison_showMore(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'Show $count more factors',
-      one: 'Show 1 more factor',
+      other: '显示另外 $count 项因素',
+      one: '显示另外 1 项因素',
     );
     return '$_temp0';
   }
@@ -24918,33 +24914,26 @@ class AppLocalizationsZh extends AppLocalizations {
   String get insights_focus_factors_standsOut => '突出';
 
   @override
-  String insights_focus_factors_versus(String group, String baseline) {
-    return '$group 对比 $baseline';
-  }
-
-  @override
   String insights_focus_factors_coverage(int covered, int total) {
     return '$total 次中的 $covered 次';
   }
 
   @override
-  String get insights_focus_standouts_title => 'What stands out';
+  String get insights_focus_standouts_title => '突出之处';
 
   @override
-  String get insights_focus_standouts_none =>
-      'Nothing stands out about these dives.';
+  String get insights_focus_standouts_none => '这些潜水没有突出之处。';
 
   @override
-  String get insights_focus_standouts_tooFew =>
-      'Pick at least 3 dives to see what they share';
+  String get insights_focus_standouts_tooFew => '至少选择 3 次潜水才能查看共同点';
 
   @override
   String insights_focus_standouts_more(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
       locale: localeName,
-      other: 'and $count more in the full comparison',
-      one: 'and 1 more in the full comparison',
+      other: '完整对比中还有 $count 项',
+      one: '完整对比中还有 1 项',
     );
     return '$_temp0';
   }
@@ -24955,7 +24944,7 @@ class AppLocalizationsZh extends AppLocalizations {
     String value,
     String baseline,
   ) {
-    return 'All $count were $value ($baseline of all your dives)';
+    return '全部 $count 次均为$value（占你全部潜水的 $baseline）';
   }
 
   @override
@@ -24965,7 +24954,7 @@ class AppLocalizationsZh extends AppLocalizations {
     String value,
     String baseline,
   ) {
-    return '$count of $total were $value, against $baseline of all your dives';
+    return '$total 次中有 $count 次为$value，而全部潜水中为 $baseline';
   }
 
   @override
@@ -24976,38 +24965,38 @@ class AppLocalizationsZh extends AppLocalizations {
     String group,
     String baseline,
   ) {
-    return '$factor $difference $direction ($group vs $baseline)';
+    return '$factor$direction $difference（$group 对比 $baseline）';
   }
 
   @override
-  String get insights_focus_direction_deeper => 'deeper';
+  String get insights_focus_direction_deeper => '深';
 
   @override
-  String get insights_focus_direction_shallower => 'shallower';
+  String get insights_focus_direction_shallower => '浅';
 
   @override
-  String get insights_focus_direction_longer => 'longer';
+  String get insights_focus_direction_longer => '长';
 
   @override
-  String get insights_focus_direction_shorter => 'shorter';
+  String get insights_focus_direction_shorter => '短';
 
   @override
-  String get insights_focus_direction_warmer => 'warmer';
+  String get insights_focus_direction_warmer => '暖';
 
   @override
-  String get insights_focus_direction_colder => 'colder';
+  String get insights_focus_direction_colder => '冷';
 
   @override
-  String get insights_focus_direction_larger => 'larger';
+  String get insights_focus_direction_larger => '大';
 
   @override
-  String get insights_focus_direction_smaller => 'smaller';
+  String get insights_focus_direction_smaller => '小';
 
   @override
-  String get insights_focus_direction_moreLead => 'more lead';
+  String get insights_focus_direction_moreLead => '配重多';
 
   @override
-  String get insights_focus_direction_lessLead => 'less lead';
+  String get insights_focus_direction_lessLead => '配重少';
 
   @override
   String get insights_focus_factorGroup_diveShape => '潜水形态';

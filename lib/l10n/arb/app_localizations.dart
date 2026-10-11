@@ -42596,12 +42596,6 @@ abstract class AppLocalizations {
   /// **'Enter a whole number from 1 to 999'**
   String get insights_focus_count_error;
 
-  /// No description provided for @insights_focus_threshold_label.
-  ///
-  /// In en, this message translates to:
-  /// **'Value'**
-  String get insights_focus_threshold_label;
-
   /// No description provided for @insights_focus_threshold_error.
   ///
   /// In en, this message translates to:
@@ -42687,12 +42681,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Stands out'**
   String get insights_focus_factors_standsOut;
-
-  /// No description provided for @insights_focus_factors_versus.
-  ///
-  /// In en, this message translates to:
-  /// **'{group} vs {baseline}'**
-  String insights_focus_factors_versus(String group, String baseline);
 
   /// No description provided for @insights_focus_factors_coverage.
   ///
