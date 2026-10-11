@@ -14,6 +14,7 @@ import 'package:submersion/core/services/export/uddf/uddf_gradient_factor.dart';
 import 'package:submersion/core/services/export/uddf/uddf_import_parsers.dart';
 import 'package:submersion/features/universal_import/data/services/import_site_fold.dart';
 import 'package:submersion/core/services/export/uddf/uddf_normalizer.dart';
+import 'package:submersion/core/services/export/uddf/uddf_operator_centers.dart';
 import 'package:submersion/core/services/export/uddf/uddf_source_attribution.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/dive_log/domain/services/transmitter_serial.dart';
@@ -668,6 +669,7 @@ class UddfFullImportService {
     }
 
     _harvestCustomDiveTypes(dives, customDiveTypes);
+    UddfOperatorCenters.harvest(dives, diveCenters);
 
     return UddfImportResult(
       dataSourcesByDiveRef: sources.byDiveRef,

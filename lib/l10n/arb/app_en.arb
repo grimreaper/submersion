@@ -1470,6 +1470,10 @@
   "backup_appBar_title": "Backup & Restore",
   "backup_backingUp": "Backing up...",
   "backup_backupNow": "Backup Now",
+  "backup_note_dialog_title": "Back up now",
+  "backup_note_label": "Note (optional)",
+  "backup_note_hint": "e.g. Before the Cozumel trip",
+  "backup_note_dialog_confirm": "Back Up",
   "backup_cloud_enabled": "Cloud backup",
   "backup_cloud_enabled_subtitle": "Upload backups to cloud storage",
   "backup_delete_dialog_cancel": "Cancel",
@@ -11944,6 +11948,14 @@
   "plannerCanvas_contingency_turnRule": "Turn pressure rule",
   "plannerCanvas_convert_success": "Dive created from plan",
   "plannerCanvas_convert_view": "View",
+  "plannerCanvas_export_failed": "Export failed: {error}",
+  "@plannerCanvas_export_failed": {
+    "placeholders": {
+      "error": {
+        "type": "String"
+      }
+    }
+  },
   "plannerCanvas_follow_chip": "Following {name}",
   "@plannerCanvas_follow_chip": {
     "placeholders": {
@@ -12103,9 +12115,11 @@
       }
     }
   },
-  "plannerCanvas_share_menu": "Share plan file",
+  "plannerCanvas_share_menu": "Export plan file",
+  "plannerCanvas_share_saved": "Plan file saved",
   "plannerCanvas_slate_menu": "Export slate (PDF)",
   "plannerCanvas_slate_minGas": "Min gas",
+  "plannerCanvas_slate_saved": "Slate saved",
   "plannerCanvas_slate_turn": "Turn",
   "plannerCanvas_table_depth": "Depth",
   "plannerCanvas_table_gas": "Gas",

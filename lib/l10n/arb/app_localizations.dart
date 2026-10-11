@@ -3559,6 +3559,30 @@ abstract class AppLocalizations {
   /// **'Backup Now'**
   String get backup_backupNow;
 
+  /// No description provided for @backup_note_dialog_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Back up now'**
+  String get backup_note_dialog_title;
+
+  /// No description provided for @backup_note_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Note (optional)'**
+  String get backup_note_label;
+
+  /// No description provided for @backup_note_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g. Before the Cozumel trip'**
+  String get backup_note_hint;
+
+  /// No description provided for @backup_note_dialog_confirm.
+  ///
+  /// In en, this message translates to:
+  /// **'Back Up'**
+  String get backup_note_dialog_confirm;
+
   /// No description provided for @backup_cloud_enabled.
   ///
   /// In en, this message translates to:
@@ -30619,6 +30643,12 @@ abstract class AppLocalizations {
   /// **'View'**
   String get plannerCanvas_convert_view;
 
+  /// No description provided for @plannerCanvas_export_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Export failed: {error}'**
+  String plannerCanvas_export_failed(String error);
+
   /// No description provided for @plannerCanvas_follow_chip.
   ///
   /// In en, this message translates to:
@@ -30874,8 +30904,14 @@ abstract class AppLocalizations {
   /// No description provided for @plannerCanvas_share_menu.
   ///
   /// In en, this message translates to:
-  /// **'Share plan file'**
+  /// **'Export plan file'**
   String get plannerCanvas_share_menu;
+
+  /// No description provided for @plannerCanvas_share_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Plan file saved'**
+  String get plannerCanvas_share_saved;
 
   /// No description provided for @plannerCanvas_slate_menu.
   ///
@@ -30888,6 +30924,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Min gas'**
   String get plannerCanvas_slate_minGas;
+
+  /// No description provided for @plannerCanvas_slate_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Slate saved'**
+  String get plannerCanvas_slate_saved;
 
   /// No description provided for @plannerCanvas_slate_turn.
   ///
