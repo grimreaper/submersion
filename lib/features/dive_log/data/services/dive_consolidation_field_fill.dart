@@ -55,11 +55,8 @@ const List<_FillGroup> _groups = [
   _FillGroup(['max_depth']),
   _FillGroup(['avg_depth']),
   _FillGroup(['water_temp']),
-  _FillGroup(['cns_end']),
-  _FillGroup(['otu']),
   // The dive itself.
   _FillGroup(['name']),
-  _FillGroup(['dive_number']),
   _FillGroup(['surface_interval_seconds']),
   _FillGroup(['rating']),
   _FillGroup(['notes'], holds: _Holds.text),
@@ -149,6 +146,11 @@ const Map<String, String> consolidationUnfilledColumns = {
   'diver_role': 'roles are unioned through the role links',
   'dive_mode': "non-null, so the target computer's mode always stands",
   'cns_start': 'non-null with a 0 default, so an unset value is invisible',
+  'cns_end': "pairs with the target's own CNS start, which is never copied",
+  'otu': "the target computer's own O2 exposure calculation",
+  'dive_number':
+      "the logbook sequence; an import numbers a secondary for "
+      'where it was appended, not where the dive falls',
   'is_favorite': 'a secondary does not make the dive a favorite',
   'is_planned': 'a consolidated dive was logged, whatever its sources say',
   'gradient_factor_low': 'how the target computer computed its deco',

@@ -42,7 +42,6 @@ void main() {
         rating: const Value(4),
         boatName: const Value('Sea Lion'),
         weightAmount: const Value(6),
-        cnsEnd: const Value(12),
       );
 
       final fill = consolidationFieldFill(target, [secondary]);
@@ -59,7 +58,6 @@ void main() {
       expect(filled(fill, 'rating'), 4);
       expect(filled(fill, 'boat_name'), 'Sea Lion');
       expect(filled(fill, 'weight_amount'), 6);
-      expect(filled(fill, 'cns_end'), 12);
     });
 
     test('a value the target already holds is never overwritten', () {
@@ -107,6 +105,21 @@ void main() {
         hlc: const Value('hlc-s'),
         siteSuggestionDismissedAt: const Value(5),
       );
+
+      expect(consolidationFieldFill(row('t'), [secondary]), isEmpty);
+    });
+
+    test('O2 exposure is not borrowed from another computer, since the '
+        'target keeps its own CNS start', () {
+      final secondary = row(
+        's',
+      ).copyWith(cnsEnd: const Value(12), otu: const Value(30));
+
+      expect(consolidationFieldFill(row('t'), [secondary]), isEmpty);
+    });
+
+    test('a secondary\'s dive number is not adopted', () {
+      final secondary = row('s').copyWith(diveNumber: const Value(512));
 
       expect(consolidationFieldFill(row('t'), [secondary]), isEmpty);
     });
