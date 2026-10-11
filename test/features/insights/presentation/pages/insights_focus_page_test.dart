@@ -165,8 +165,16 @@ void main() {
     expect(find.byType(DiveTrendChart, skipOffstage: false), findsOneWidget);
   });
 
-  testWidgets('a threshold mode with no value asks for one', (tester) async {
-    await pump(tester, selection: const FocusSelection(mode: FocusMode.above));
+  testWidgets('a threshold mode with no value and no mean asks for one', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      selection: const FocusSelection(mode: FocusMode.above),
+      extraOverrides: [
+        focusThresholdDefaultProvider.overrideWith((ref) async => null),
+      ],
+    );
     expect(
       find.text('Enter a value to see the dives above or below it'),
       findsOneWidget,
@@ -194,9 +202,11 @@ void main() {
   testWidgets('changing N keeps the results up instead of flashing a spinner', (
     tester,
   ) async {
-    await pump(tester);
+    final c = await pump(tester);
     final chart = tester.state(find.byType(DiveTrendChart));
-    await tester.tap(find.byKey(const ValueKey('focus-count-5')));
+    c.read(focusSelectionProvider.notifier).state = const FocusSelection(
+      count: 5,
+    );
     for (var frame = 0; frame < 5; frame++) {
       await tester.pump();
       expect(find.byType(CircularProgressIndicator), findsNothing);

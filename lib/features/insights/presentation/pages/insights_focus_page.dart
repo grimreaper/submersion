@@ -1,7 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:submersion/features/insights/presentation/widgets/focus/focus_results.dart';
-import 'package:submersion/features/insights/presentation/widgets/focus/focus_selector.dart';
+import 'package:submersion/features/insights/presentation/widgets/focus/focus_sentence.dart';
 import 'package:submersion/features/insights/presentation/widgets/insights_filter_action.dart';
 import 'package:submersion/features/insights/presentation/widgets/insights_filter_bar.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
@@ -23,7 +23,7 @@ class InsightsFocusPage extends StatelessWidget {
           padding: EdgeInsets.all(16),
           sliver: SliverMainAxisGroup(
             slivers: [
-              SliverToBoxAdapter(child: FocusSelector()),
+              SliverToBoxAdapter(child: FocusSentence()),
               SliverToBoxAdapter(child: SizedBox(height: 16)),
               FocusResults(),
             ],

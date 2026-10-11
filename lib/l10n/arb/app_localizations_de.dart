@@ -26247,6 +26247,30 @@ class AppLocalizationsDe extends AppLocalizations {
   String get insights_focus_threshold_negativeError => 'Gib null oder mehr ein';
 
   @override
+  String insights_focus_sentence_ranked(
+    String count,
+    String mode,
+    String metric,
+  ) {
+    return 'Show the $count dives with the $mode $metric';
+  }
+
+  @override
+  String insights_focus_sentence_threshold(
+    String metric,
+    String mode,
+    String value,
+  ) {
+    return 'Show the dives with $metric $mode $value';
+  }
+
+  @override
+  String get insights_focus_count_custom => 'Custom...';
+
+  @override
+  String get insights_focus_count_dialogTitle => 'How many dives?';
+
+  @override
   String get insights_focus_factors_title => 'Gemeinsame Faktoren';
 
   @override

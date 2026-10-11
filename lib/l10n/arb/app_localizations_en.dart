@@ -25813,22 +25813,22 @@ class AppLocalizationsEn extends AppLocalizations {
   String get insights_focus_metricGroup_kit => 'Kit';
 
   @override
-  String get insights_focus_mode_best => 'Best';
+  String get insights_focus_mode_best => 'best';
 
   @override
-  String get insights_focus_mode_worst => 'Worst';
+  String get insights_focus_mode_worst => 'worst';
 
   @override
-  String get insights_focus_mode_lowest => 'Lowest';
+  String get insights_focus_mode_lowest => 'lowest';
 
   @override
-  String get insights_focus_mode_highest => 'Highest';
+  String get insights_focus_mode_highest => 'highest';
 
   @override
-  String get insights_focus_mode_above => 'Above';
+  String get insights_focus_mode_above => 'above';
 
   @override
-  String get insights_focus_mode_below => 'Below';
+  String get insights_focus_mode_below => 'below';
 
   @override
   String get insights_focus_count_label => 'Dives';
@@ -25844,6 +25844,30 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get insights_focus_threshold_negativeError => 'Enter zero or more';
+
+  @override
+  String insights_focus_sentence_ranked(
+    String count,
+    String mode,
+    String metric,
+  ) {
+    return 'Show the $count dives with the $mode $metric';
+  }
+
+  @override
+  String insights_focus_sentence_threshold(
+    String metric,
+    String mode,
+    String value,
+  ) {
+    return 'Show the dives with $metric $mode $value';
+  }
+
+  @override
+  String get insights_focus_count_custom => 'Custom...';
+
+  @override
+  String get insights_focus_count_dialogTitle => 'How many dives?';
 
   @override
   String get insights_focus_factors_title => 'Common factors';

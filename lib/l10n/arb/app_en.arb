@@ -15243,17 +15243,37 @@
   "insights_focus_metricGroup_conditions": "Conditions",
   "insights_focus_metricGroup_exposure": "Exposure",
   "insights_focus_metricGroup_kit": "Kit",
-  "insights_focus_mode_best": "Best",
-  "insights_focus_mode_worst": "Worst",
-  "insights_focus_mode_lowest": "Lowest",
-  "insights_focus_mode_highest": "Highest",
-  "insights_focus_mode_above": "Above",
-  "insights_focus_mode_below": "Below",
+  "insights_focus_mode_best": "best",
+  "insights_focus_mode_worst": "worst",
+  "insights_focus_mode_lowest": "lowest",
+  "insights_focus_mode_highest": "highest",
+  "insights_focus_mode_above": "above",
+  "insights_focus_mode_below": "below",
   "insights_focus_count_label": "Dives",
   "insights_focus_count_error": "Enter a whole number from 1 to 999",
   "insights_focus_threshold_label": "Value",
   "insights_focus_threshold_error": "Enter a number",
   "insights_focus_threshold_negativeError": "Enter zero or more",
+  "insights_focus_sentence_ranked": "Show the {count} dives with the {mode} {metric}",
+  "@insights_focus_sentence_ranked": {
+    "description": "Dive focus sentence builder. Each placeholder is replaced by a control; keep all three, in any order.",
+    "placeholders": {
+      "count": { "type": "String" },
+      "mode": { "type": "String" },
+      "metric": { "type": "String" }
+    }
+  },
+  "insights_focus_sentence_threshold": "Show the dives with {metric} {mode} {value}",
+  "@insights_focus_sentence_threshold": {
+    "description": "Dive focus sentence builder in threshold form. Each placeholder is replaced by a control; keep all three, in any order.",
+    "placeholders": {
+      "metric": { "type": "String" },
+      "mode": { "type": "String" },
+      "value": { "type": "String" }
+    }
+  },
+  "insights_focus_count_custom": "Custom...",
+  "insights_focus_count_dialogTitle": "How many dives?",
   "insights_focus_factors_title": "Common factors",
   "insights_focus_factors_subtitle": "This group compared with every dive that has the value",
   "insights_focus_factors_tooFew": "Choose at least 3 dives to compare common factors",

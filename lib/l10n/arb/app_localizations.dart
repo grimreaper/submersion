@@ -42533,37 +42533,37 @@ abstract class AppLocalizations {
   /// No description provided for @insights_focus_mode_best.
   ///
   /// In en, this message translates to:
-  /// **'Best'**
+  /// **'best'**
   String get insights_focus_mode_best;
 
   /// No description provided for @insights_focus_mode_worst.
   ///
   /// In en, this message translates to:
-  /// **'Worst'**
+  /// **'worst'**
   String get insights_focus_mode_worst;
 
   /// No description provided for @insights_focus_mode_lowest.
   ///
   /// In en, this message translates to:
-  /// **'Lowest'**
+  /// **'lowest'**
   String get insights_focus_mode_lowest;
 
   /// No description provided for @insights_focus_mode_highest.
   ///
   /// In en, this message translates to:
-  /// **'Highest'**
+  /// **'highest'**
   String get insights_focus_mode_highest;
 
   /// No description provided for @insights_focus_mode_above.
   ///
   /// In en, this message translates to:
-  /// **'Above'**
+  /// **'above'**
   String get insights_focus_mode_above;
 
   /// No description provided for @insights_focus_mode_below.
   ///
   /// In en, this message translates to:
-  /// **'Below'**
+  /// **'below'**
   String get insights_focus_mode_below;
 
   /// No description provided for @insights_focus_count_label.
@@ -42595,6 +42595,38 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Enter zero or more'**
   String get insights_focus_threshold_negativeError;
+
+  /// Dive focus sentence builder. Each placeholder is replaced by a control; keep all three, in any order.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the {count} dives with the {mode} {metric}'**
+  String insights_focus_sentence_ranked(
+    String count,
+    String mode,
+    String metric,
+  );
+
+  /// Dive focus sentence builder in threshold form. Each placeholder is replaced by a control; keep all three, in any order.
+  ///
+  /// In en, this message translates to:
+  /// **'Show the dives with {metric} {mode} {value}'**
+  String insights_focus_sentence_threshold(
+    String metric,
+    String mode,
+    String value,
+  );
+
+  /// No description provided for @insights_focus_count_custom.
+  ///
+  /// In en, this message translates to:
+  /// **'Custom...'**
+  String get insights_focus_count_custom;
+
+  /// No description provided for @insights_focus_count_dialogTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'How many dives?'**
+  String get insights_focus_count_dialogTitle;
 
   /// No description provided for @insights_focus_factors_title.
   ///
