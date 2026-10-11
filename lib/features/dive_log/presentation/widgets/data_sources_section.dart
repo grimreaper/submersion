@@ -29,7 +29,7 @@ String? _cnsText(DiveDataSource s) =>
 
 /// A collapsible section showing data source provenance for a dive.
 ///
-/// Handles four scenarios:
+/// Handles three scenarios:
 /// - **No sources:** Shows a "Manual Entry" card with pen icon and creation date.
 /// - **Single source:** Shows the source card with device info, a provenance
 ///   list and one metrics row.
@@ -184,6 +184,19 @@ class _DataSourcesSectionState extends State<DataSourcesSection> {
 
 enum _SectionMenuAction { compareIn3d, separate }
 
+/// One entry of the section or card menu: a leading icon and a label with
+/// the tile's own padding removed, since the popup supplies its own.
+PopupMenuItem<T> _menuItem<T>(T value, IconData icon, String label) {
+  return PopupMenuItem<T>(
+    value: value,
+    child: ListTile(
+      leading: Icon(icon),
+      title: Text(label),
+      contentPadding: EdgeInsets.zero,
+    ),
+  );
+}
+
 /// The header menu holding the section-wide actions. Built only when at
 /// least one applies, so it never opens onto an empty menu.
 class _SectionMenu extends StatelessWidget {
@@ -214,22 +227,16 @@ class _SectionMenu extends StatelessWidget {
       },
       itemBuilder: (context) => [
         if (onCompareIn3d != null)
-          PopupMenuItem(
-            value: _SectionMenuAction.compareIn3d,
-            child: ListTile(
-              leading: const Icon(Icons.view_in_ar),
-              title: Text(l10n.diveLog_sources_compareIn3d),
-              contentPadding: EdgeInsets.zero,
-            ),
+          _menuItem(
+            _SectionMenuAction.compareIn3d,
+            Icons.view_in_ar,
+            l10n.diveLog_sources_compareIn3d,
           ),
         if (onSeparate != null)
-          PopupMenuItem(
-            value: _SectionMenuAction.separate,
-            child: ListTile(
-              leading: const Icon(Icons.call_split),
-              title: Text(l10n.diveLog_sources_menu_separate),
-              contentPadding: EdgeInsets.zero,
-            ),
+          _menuItem(
+            _SectionMenuAction.separate,
+            Icons.call_split,
+            l10n.diveLog_sources_menu_separate,
           ),
       ],
     );
@@ -358,7 +365,10 @@ class _DataSourceCard extends StatelessWidget {
       child: Material(
         // The viewed card is tinted with an opaque theme role rather than a
         // translucent overlay, so it reads the same on every preset.
-        color: isViewing
+        // Gated like the Viewing chip: a stale viewed id on a dive that has
+        // dropped to one source would otherwise tint a card with no chip to
+        // say why.
+        color: showBadges && isViewing
             ? colorScheme.surfaceContainerHighest
             : Colors.transparent,
         child: InkWell(
@@ -423,26 +433,16 @@ class _DataSourceCard extends StatelessWidget {
                         },
                         itemBuilder: (context) => [
                           if (canSetPrimary)
-                            PopupMenuItem(
-                              value: _SourceMenuAction.setPrimary,
-                              child: ListTile(
-                                leading: const Icon(Icons.star_outline),
-                                title: Text(
-                                  context.l10n.diveLog_sources_menu_setPrimary,
-                                ),
-                                contentPadding: EdgeInsets.zero,
-                              ),
+                            _menuItem(
+                              _SourceMenuAction.setPrimary,
+                              Icons.star_outline,
+                              context.l10n.diveLog_sources_menu_setPrimary,
                             ),
                           if (canSplit)
-                            PopupMenuItem(
-                              value: _SourceMenuAction.split,
-                              child: ListTile(
-                                leading: const Icon(Icons.call_split),
-                                title: Text(
-                                  context.l10n.diveLog_sources_menu_split,
-                                ),
-                                contentPadding: EdgeInsets.zero,
-                              ),
+                            _menuItem(
+                              _SourceMenuAction.split,
+                              Icons.call_split,
+                              context.l10n.diveLog_sources_menu_split,
                             ),
                         ],
                       ),
