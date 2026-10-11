@@ -15081,7 +15081,7 @@
   "insights_category_profile_subtitle": "Ascent rates & deco",
   "insights_category_profile_title": "Profile Analysis",
   "insights_category_progression_subtitle": "Depth & time trends",
-  "insights_category_focus_subtitle": "Best, worst and threshold groups",
+  "insights_category_focus_subtitle": "What your best and worst dives have in common",
   "insights_category_progression_title": "Progression",
   "insights_category_social_subtitle": "Buddies & dive centers",
   "insights_category_social_title": "Social",
@@ -15187,9 +15187,10 @@
   "insights_gas_sacTrend_subtitle": "Every dive in range",
   "insights_gas_sacTrend_title": "Gas consumption trend",
   "insights_focus_title": "Dive focus",
+  "insights_focus_intro": "See what a group of your dives has in common.",
   "insights_focus_error": "Failed to load dive focus",
   "insights_focus_empty": "No dives have this value yet",
-  "insights_focus_summary": "{count} of {total, plural, =1{1 dive} other{{total} dives}}, group average {group} vs {overall} overall",
+  "insights_focus_summary": "{count} of {total, plural, =1{1 dive} other{{total} dives}}. Average {group}, against {overall} across all your dives.",
   "@insights_focus_summary": {
     "placeholders": {
       "count": { "type": "int" },
@@ -15219,10 +15220,22 @@
     }
   },
   "insights_focus_enterValue": "Enter a value to see the dives above or below it",
-  "insights_focus_chart_title": "The group over time",
-  "insights_focus_chart_group": "In group",
-  "insights_focus_list_title": "Dives in the group",
+  "insights_focus_chart_title": "{metric} over time",
+  "@insights_focus_chart_title": {
+    "placeholders": {
+      "metric": { "type": "String" }
+    }
+  },
+  "insights_focus_chart_group": "In the group",
+  "insights_focus_chart_others": "Other dives",
+  "insights_focus_list_title": "The dives",
   "insights_focus_list_unknownSite": "No site",
+  "insights_focus_list_showAll": "{count, plural, =1{Show the 1 dive} other{Show all {count} dives}}",
+  "@insights_focus_list_showAll": {
+    "placeholders": {
+      "count": { "type": "int" }
+    }
+  },
   "insights_focus_unit_minutes": "min",
   "insights_focus_metric_rmv": "RMV",
   "insights_focus_metric_sac": "SAC",

@@ -24698,6 +24698,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get insights_focus_title => '潜水聚焦';
 
   @override
+  String get insights_focus_intro =>
+      'See what a group of your dives has in common.';
+
+  @override
   String get insights_focus_error => '无法加载潜水聚焦';
 
   @override
@@ -24738,16 +24742,32 @@ class AppLocalizationsZh extends AppLocalizations {
   String get insights_focus_enterValue => '输入一个数值以查看高于或低于它的潜水';
 
   @override
-  String get insights_focus_chart_title => '该组随时间变化';
+  String insights_focus_chart_title(String metric) {
+    return '该组随时间变化';
+  }
 
   @override
   String get insights_focus_chart_group => '组内';
+
+  @override
+  String get insights_focus_chart_others => 'Other dives';
 
   @override
   String get insights_focus_list_title => '组内潜水';
 
   @override
   String get insights_focus_list_unknownSite => '无潜点';
+
+  @override
+  String insights_focus_list_showAll(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Show all $count dives',
+      one: 'Show the 1 dive',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get insights_focus_unit_minutes => '分钟';

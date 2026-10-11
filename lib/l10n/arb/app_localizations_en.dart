@@ -25347,7 +25347,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get insights_category_focus_subtitle =>
-      'Best, worst and threshold groups';
+      'What your best and worst dives have in common';
 
   @override
   String get insights_category_progression_title => 'Progression';
@@ -25694,6 +25694,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get insights_focus_title => 'Dive focus';
 
   @override
+  String get insights_focus_intro =>
+      'See what a group of your dives has in common.';
+
+  @override
   String get insights_focus_error => 'Failed to load dive focus';
 
   @override
@@ -25712,7 +25716,7 @@ class AppLocalizationsEn extends AppLocalizations {
       other: '$total dives',
       one: '1 dive',
     );
-    return '$count of $_temp0, group average $group vs $overall overall';
+    return '$count of $_temp0. Average $group, against $overall across all your dives.';
   }
 
   @override
@@ -25741,16 +25745,32 @@ class AppLocalizationsEn extends AppLocalizations {
       'Enter a value to see the dives above or below it';
 
   @override
-  String get insights_focus_chart_title => 'The group over time';
+  String insights_focus_chart_title(String metric) {
+    return '$metric over time';
+  }
 
   @override
-  String get insights_focus_chart_group => 'In group';
+  String get insights_focus_chart_group => 'In the group';
 
   @override
-  String get insights_focus_list_title => 'Dives in the group';
+  String get insights_focus_chart_others => 'Other dives';
+
+  @override
+  String get insights_focus_list_title => 'The dives';
 
   @override
   String get insights_focus_list_unknownSite => 'No site';
+
+  @override
+  String insights_focus_list_showAll(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Show all $count dives',
+      one: 'Show the 1 dive',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get insights_focus_unit_minutes => 'min';

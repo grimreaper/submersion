@@ -26032,6 +26032,10 @@ class AppLocalizationsHu extends AppLocalizations {
   String get insights_focus_title => 'Merülésfókusz';
 
   @override
+  String get insights_focus_intro =>
+      'See what a group of your dives has in common.';
+
+  @override
   String get insights_focus_error => 'A merülésfókusz betöltése sikertelen';
 
   @override
@@ -26073,16 +26077,32 @@ class AppLocalizationsHu extends AppLocalizations {
       'Adj meg egy értéket a felette vagy alatta lévő merülések megtekintéséhez';
 
   @override
-  String get insights_focus_chart_title => 'A csoport az idő függvényében';
+  String insights_focus_chart_title(String metric) {
+    return 'A csoport az idő függvényében';
+  }
 
   @override
   String get insights_focus_chart_group => 'A csoportban';
+
+  @override
+  String get insights_focus_chart_others => 'Other dives';
 
   @override
   String get insights_focus_list_title => 'A csoport merülései';
 
   @override
   String get insights_focus_list_unknownSite => 'Nincs merülőhely';
+
+  @override
+  String insights_focus_list_showAll(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Show all $count dives',
+      one: 'Show the 1 dive',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get insights_focus_unit_minutes => 'perc';

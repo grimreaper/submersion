@@ -41745,7 +41745,7 @@ abstract class AppLocalizations {
   /// No description provided for @insights_category_focus_subtitle.
   ///
   /// In en, this message translates to:
-  /// **'Best, worst and threshold groups'**
+  /// **'What your best and worst dives have in common'**
   String get insights_category_focus_subtitle;
 
   /// No description provided for @insights_category_progression_title.
@@ -42339,6 +42339,12 @@ abstract class AppLocalizations {
   /// **'Dive focus'**
   String get insights_focus_title;
 
+  /// No description provided for @insights_focus_intro.
+  ///
+  /// In en, this message translates to:
+  /// **'See what a group of your dives has in common.'**
+  String get insights_focus_intro;
+
   /// No description provided for @insights_focus_error.
   ///
   /// In en, this message translates to:
@@ -42354,7 +42360,7 @@ abstract class AppLocalizations {
   /// No description provided for @insights_focus_summary.
   ///
   /// In en, this message translates to:
-  /// **'{count} of {total, plural, =1{1 dive} other{{total} dives}}, group average {group} vs {overall} overall'**
+  /// **'{count} of {total, plural, =1{1 dive} other{{total} dives}}. Average {group}, against {overall} across all your dives.'**
   String insights_focus_summary(
     int count,
     int total,
@@ -42389,19 +42395,25 @@ abstract class AppLocalizations {
   /// No description provided for @insights_focus_chart_title.
   ///
   /// In en, this message translates to:
-  /// **'The group over time'**
-  String get insights_focus_chart_title;
+  /// **'{metric} over time'**
+  String insights_focus_chart_title(String metric);
 
   /// No description provided for @insights_focus_chart_group.
   ///
   /// In en, this message translates to:
-  /// **'In group'**
+  /// **'In the group'**
   String get insights_focus_chart_group;
+
+  /// No description provided for @insights_focus_chart_others.
+  ///
+  /// In en, this message translates to:
+  /// **'Other dives'**
+  String get insights_focus_chart_others;
 
   /// No description provided for @insights_focus_list_title.
   ///
   /// In en, this message translates to:
-  /// **'Dives in the group'**
+  /// **'The dives'**
   String get insights_focus_list_title;
 
   /// No description provided for @insights_focus_list_unknownSite.
@@ -42409,6 +42421,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No site'**
   String get insights_focus_list_unknownSite;
+
+  /// No description provided for @insights_focus_list_showAll.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Show the 1 dive} other{Show all {count} dives}}'**
+  String insights_focus_list_showAll(int count);
 
   /// No description provided for @insights_focus_unit_minutes.
   ///

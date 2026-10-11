@@ -26158,6 +26158,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get insights_focus_title => 'Enfoque de inmersiones';
 
   @override
+  String get insights_focus_intro =>
+      'See what a group of your dives has in common.';
+
+  @override
   String get insights_focus_error =>
       'No se pudo cargar el enfoque de inmersiones';
 
@@ -26207,16 +26211,32 @@ class AppLocalizationsEs extends AppLocalizations {
       'Introduce un valor para ver las inmersiones por encima o por debajo';
 
   @override
-  String get insights_focus_chart_title => 'El grupo a lo largo del tiempo';
+  String insights_focus_chart_title(String metric) {
+    return 'El grupo a lo largo del tiempo';
+  }
 
   @override
   String get insights_focus_chart_group => 'En el grupo';
+
+  @override
+  String get insights_focus_chart_others => 'Other dives';
 
   @override
   String get insights_focus_list_title => 'Inmersiones del grupo';
 
   @override
   String get insights_focus_list_unknownSite => 'Sin punto de buceo';
+
+  @override
+  String insights_focus_list_showAll(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Show all $count dives',
+      one: 'Show the 1 dive',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get insights_focus_unit_minutes => 'min';

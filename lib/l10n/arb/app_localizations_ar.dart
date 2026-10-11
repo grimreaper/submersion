@@ -26301,6 +26301,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get insights_focus_title => 'تركيز الغطسات';
 
   @override
+  String get insights_focus_intro =>
+      'See what a group of your dives has in common.';
+
+  @override
   String get insights_focus_error => 'تعذر تحميل تركيز الغطسات';
 
   @override
@@ -26354,16 +26358,32 @@ class AppLocalizationsAr extends AppLocalizations {
       'أدخل قيمة لرؤية الغطسات فوقها أو تحتها';
 
   @override
-  String get insights_focus_chart_title => 'المجموعة عبر الزمن';
+  String insights_focus_chart_title(String metric) {
+    return 'المجموعة عبر الزمن';
+  }
 
   @override
   String get insights_focus_chart_group => 'في المجموعة';
+
+  @override
+  String get insights_focus_chart_others => 'Other dives';
 
   @override
   String get insights_focus_list_title => 'غطسات المجموعة';
 
   @override
   String get insights_focus_list_unknownSite => 'لا يوجد موقع';
+
+  @override
+  String insights_focus_list_showAll(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Show all $count dives',
+      one: 'Show the 1 dive',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get insights_focus_unit_minutes => 'د';
