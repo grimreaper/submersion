@@ -74490,6 +74490,30 @@ abstract class AppLocalizations {
   /// **'Imported'**
   String get diveLog_sources_detail_imported;
 
+  /// No description provided for @diveLog_sources_detail_times.
+  ///
+  /// In en, this message translates to:
+  /// **'Times'**
+  String get diveLog_sources_detail_times;
+
+  /// No description provided for @diveLog_sources_detail_file.
+  ///
+  /// In en, this message translates to:
+  /// **'File'**
+  String get diveLog_sources_detail_file;
+
+  /// Entry and exit time of one data source, shown on the Times row of its card.
+  ///
+  /// In en, this message translates to:
+  /// **'{start}–{end}'**
+  String diveLog_sources_timeRange(String start, String end);
+
+  /// No description provided for @diveLog_sources_sectionMenuTooltip.
+  ///
+  /// In en, this message translates to:
+  /// **'Data source actions'**
+  String get diveLog_sources_sectionMenuTooltip;
+
   /// Screen-reader label for the row that opens a linked dive computer.
   ///
   /// In en, this message translates to:

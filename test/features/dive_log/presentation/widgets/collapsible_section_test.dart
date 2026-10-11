@@ -27,6 +27,34 @@ void main() {
       expect(find.byIcon(Icons.show_chart), findsOneWidget);
     });
 
+    testWidgets('shows headerActions in both expanded and collapsed states', (
+      tester,
+    ) async {
+      for (final expanded in [true, false]) {
+        await tester.pumpWidget(
+          testApp(
+            child: SingleChildScrollView(
+              child: CollapsibleSection(
+                title: 'Data Sources',
+                icon: Icons.storage,
+                isExpanded: expanded,
+                onToggle: (_) {},
+                headerActions: const Icon(Icons.more_vert, key: Key('menu')),
+                child: const Text('Cards'),
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+
+        expect(
+          find.byKey(const Key('menu')),
+          findsOneWidget,
+          reason: 'expanded=$expanded',
+        );
+      }
+    });
+
     testWidgets('shows subtitle when collapsed and subtitle is provided', (
       tester,
     ) async {
