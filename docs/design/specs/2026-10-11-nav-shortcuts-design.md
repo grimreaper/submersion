@@ -44,8 +44,10 @@ are device-local since #2947.
 - `group`: `planning`, `insights`, `views` or `settingsAndTools`.
 - `icon`, `selectedIcon`.
 - `label`: short, bar-friendly localized label (for example "Blender").
-- `breadcrumb`: localized parent path shown as a subtitle
-  ("Planning > Gas calculators"), composed from existing section labels.
+- `parentLabel`: the localized label of the page's immediate parent, shown
+  as a subtitle ("Gas Calculators" for the blender, "Planning" for the deco
+  calculator). A single existing label needs no separator, so right-to-left
+  locales need nothing special.
 - `canonicalPath`: the page's real location, for highlight.
 - `selection`: optional desktop selection form, a path plus one query
   parameter (`/planning/gas-calculators` with `calc=blender`), for highlight.
@@ -116,12 +118,12 @@ On each surface's editor in `NavOrderEditor`:
 
 - **Add shortcut** button beside Reset. It opens a picker: a bottom sheet on
   phone, a dialog on wide windows. The picker has a search field (matching
-  label and breadcrumb) and the catalog grouped under headers: Planning,
+  label and parent label) and the catalog grouped under headers: Planning,
   Insights, Views, Settings and tools. Entries already on this surface show a
   check and are disabled. Choosing one inserts it at index 0 of the movable
   list (right after Home) and closes the picker.
 - **Shortcut rows** look like built-in rows (icon, label, up and down arrows,
-  drag handle) with the breadcrumb as subtitle and an extra remove button.
+  drag handle) with the parent label as subtitle and an extra remove button.
   Built-in rows stay non-removable.
 - **Reset to defaults** restores the canonical order and removes the
   surface's shortcuts. It is enabled whenever the list differs from the
@@ -155,7 +157,7 @@ whose route is `/shortcut/<id>` and whose label, icons and subtitle come from
 the entry. The phone primary/overflow providers and the rail provider resolve
 `shortcut:` ids through it, so the rail, the bottom bar and the More sheet
 render shortcuts with their existing widgets. The More sheet shows the
-breadcrumb as the subtitle.
+parent label as the subtitle.
 
 ## Highlight
 
@@ -188,7 +190,8 @@ Home and the bar selects More, as today.
   prefixes, shortcut beats section, selection form); `resolveUpLocation` for
   `/shortcut/...`.
 - Catalog: unique ids, metadata and builder key sets equal, every builder
-  pumps without throwing.
+  returns its canonical page (checked by type, without pumping pages that
+  need the database).
 - Widget, editor: Add shortcut inserts after Home, the picker disables
   entries already added and filters by search, remove works, Reset clears
   shortcuts.
