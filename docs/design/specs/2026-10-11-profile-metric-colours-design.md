@@ -19,25 +19,32 @@ today's colours.
 
 ## Behaviour
 
-### Recolourable metrics (22)
+### Recolourable metrics (20)
 
-Depth, temperature, pressure, heart rate, SAC, ascent-rate line, events,
-max-depth marker, ceiling, NDL, TTS, GTR, CNS, OTU, ppO2, ppN2, ppHe, MOD, gas
-density, GF, surface GF, mean depth.
+Depth, temperature, pressure, heart rate, SAC, max-depth marker, ceiling, NDL,
+TTS, GTR, CNS, OTU, ppO2, ppN2, ppHe, MOD, gas density, GF, surface GF, mean
+depth.
 
 These are modelled as a new `ProfileMetric` enum
-(`lib/features/dive_log/domain/profile_metric.dart`), one value per metric
-above, in this order.
+(`lib/features/dive_log/presentation/profile_colors/profile_metric.dart`), one
+value per metric above, in this order.
 
 Not recolourable, because their colour carries its own meaning: the
 ascent-rate safe/warning/danger bands, the deco-stop band, the O2 cell traces,
 gas-switch markers and the gas timeline, and the pressure lines on a dive with
 more than one tank (coloured per gas).
 
+Also not recolourable, because nothing on the chart is drawn in their swatch
+colour: events (each event line takes its severity colour) and the ascent-rate
+line (since #2228 an `AscentRateBarOverlay` shaded red to green by rate).
+Recolouring either would change only a legend swatch.
+
 ### Palette (26 swatches)
 
-The 20 fixed default colours of the metrics above (every metric except
-temperature and pressure), plus six extras:
+The 18 fixed default colours of the metrics above (every metric except
+temperature and pressure), the two colours events and the ascent-rate line
+keep for their swatches (Cyan 800 `0xFF00838F`, Lime 500 `0xFFCDDC39`), plus
+six extras:
 
 | Extra | ARGB |
 | --- | --- |
@@ -48,7 +55,8 @@ temperature and pressure), plus six extras:
 | Pink A400 | `0xFFF50057` |
 | Green A400 | `0xFF00E676` |
 
-Order: the 20 defaults in `ProfileMetric` order, then the extras. The same
+Order: the 18 defaults in `ProfileMetric` order, then Cyan 800 and Lime 500,
+then the extras. The same
 colour is used in light and dark mode.
 
 Legibility, measured when the palette was chosen and pinned by a test:
@@ -81,7 +89,7 @@ When metric M takes colour C:
 3. If the colour N receives is N's own default, N's override is cleared rather
    than stored.
 
-With 26 swatches and at most 22 metrics showing palette colours, rule 2 always
+With 26 swatches and at most 20 metrics showing palette colours, rule 2 always
 finds a free swatch. "Shows" means the effective colour (override, else fixed
 default); Auto metrics show no palette colour and never take part in a swap
 as N.
@@ -113,10 +121,11 @@ list rendering does not depend on diver settings.
 
 ### Schema v282
 
-22 nullable `IntColumn`s on `diver_settings`, one per `ProfileMetric`, named
+20 nullable `IntColumn`s on `diver_settings`, one per `ProfileMetric`, named
 `profile_color_<metric>` (Dart getters `profileColorDepth`,
-`profileColorTemperature`, ... `profileColorMeanDepth`). Each holds an ARGB
-int; null means the metric's default (or Auto).
+`profileColorTemperature`, ... `profileColorMeanDepth`; Drift names
+`profileColorPpO2` `profile_color_pp_o2`). Each holds an ARGB int; null means
+the metric's default (or Auto).
 
 - The rung lives in `lib/core/database/migrations/ladder/rungs_v231_onward.dart`
   and calls `_assertProfileMetricColorColumns()` in
@@ -129,10 +138,12 @@ int; null means the metric's default (or Auto).
 ### Domain
 
 `AppSettings` gains one field, `profileMetricColors`, of an immutable value
-type `ProfileMetricColorOverrides` (an unmodifiable `Map<ProfileMetric, Color>`
-with `copyWith`-style updates). It owns the swap rule, Default/Auto, reset, and
-dedupe. The repository maps the 22 columns to and from it; nothing above the
-repository sees individual columns.
+type `ProfileMetricColorOverrides` (an unmodifiable map from `ProfileMetric` to
+ARGB int, compared by value). It owns the swap rule, Default/Auto, reset, and
+dedupe. A small mapping file beside the repository
+(`lib/features/settings/data/repositories/profile_metric_color_columns.dart`)
+maps the 20 columns to and from it; nothing above the repository sees
+individual columns.
 
 A stored colour outside the palette is honoured (a newer build may add
 swatches). A fully transparent stored value is ignored.
@@ -147,22 +158,30 @@ the next settings save; reads never write.
 
 ### Sync
 
-Each column is a field in `sync_data_serializer.dart`. An incoming null is
-treated as omitted, so an older peer that does not know the columns never
-clears a newer peer's colours.
+The columns travel in the `diverSettings` row like every other column. An
+older peer that does not know them sends no key at all, and
+`_withLocalForOmitted` (#2553) already keeps this device's value for an
+omitted key, so an older peer never clears a newer peer's colours.
+
+A null colour is a choice (Default, Auto or Reset all), so it syncs as a
+value. The columns are deliberately not listed in `_nullMeansUnsetKeys`:
+that would stop a reset on one device from reaching the others.
 
 Each column has an entry in
 `lib/features/settings/presentation/conflicts/catalogue/diver_settings_fields.dart`.
-All 22 use one parameterised label, "Profile colour: {metric}", filled from the
-existing legend labels. `conflict_field_format.dart` renders the value as a
-colour swatch (or "Default").
+All 20 use one parameterised label, "Profile color: {metric}", filled from the
+existing legend labels, and `FieldKind.enumValue` with a labeler that names
+the stored colour as "{name} (#RRGGBB)". A null value shows the dialog's usual
+"Not set". (The conflict dialog renders text only, so a swatch would need a
+dialog change this feature does not otherwise need.)
 
 ### Notifier
 
 - `setProfileMetricColor(ProfileMetric metric, Color? color)`: `null` means
-  Default/Auto. Applies the swap rule and saves once (at most two columns
-  change).
-- `resetProfileMetricColors()`: clears all 22.
+  Default/Auto. Waits for the diver's settings to load (as
+  `setTrendGapThreshold` does), applies the swap rule, and saves once (at
+  most two columns change, plus any dedupe fix).
+- `resetProfileMetricColors()`: clears all 20.
 
 ## UI
 
@@ -176,10 +195,15 @@ On the Dives appearance page (`section_appearance_page.dart`), directly below
 
 `lib/features/settings/presentation/pages/profile_metric_colors_page.dart`.
 
-- Metrics grouped as in the chart options dialog: Overlays, Markers,
-  Decompression, Gas analysis, Gradient factors, Other.
-- Each row: the existing legend label, a trailing 28 px swatch. Auto metrics
-  show their current automatic colour with an "Auto" caption.
+- Depth first, then the chart options dialog's sections: Overlays
+  (temperature, pressure, heart rate, SAC), Markers (max depth),
+  Decompression (ceiling, NDL, TTS, GTR, CNS, OTU), Gas analysis (ppO2, ppN2,
+  ppHe, MOD, gas density), Other (GF, surface GF, mean depth).
+- Each row: the existing legend label, a trailing 28 px swatch (fixed width,
+  as the ListTile trailing guard of #2717 requires). Auto metrics say so in
+  the subtitle ("Auto: follows the theme", "Auto: each gas has its own
+  color"); a custom pressure colour's subtitle says it is used on single-tank
+  dives.
 - App bar action "Reset all", disabled when nothing is customised, with a
   confirmation dialog.
 
@@ -193,8 +217,10 @@ A modal bottom sheet opened from a row.
 - A swatch another metric shows carries that metric's short label beneath it
   ("NDL"), and its semantics hint says it swaps with that metric.
 - Picking applies immediately and closes the sheet.
-- Swatch semantics labels use `equipmentColorName` where it names the colour,
-  else the hex value.
+- Swatch semantics labels name the colour by the nearest (CIE76 ΔE) of the
+  app's 22 named equipment colours, through `equipmentColorName`, so a screen
+  reader says "Cyan" rather than a hex code. None of the 26 swatches is
+  itself an equipment colour, so an exact-match lookup would name none.
 
 ### Chart options dialog
 
@@ -215,6 +241,8 @@ pushes the settings page.
 - `ProfileMarker.getColor` takes the resolved max-depth colour and the tank
   colours, so a custom max-depth colour and a custom single-tank pressure
   colour reach the markers.
+- The cursor tooltip's bullets hold literal copies of the colours today
+  (`Colors.teal`, `Color(0xFF00ACC1)` and others); they read the palette too.
 - `ProfileMetricColors` stays as the single source of default colours.
 
 ## Testing
@@ -227,10 +255,11 @@ TDD throughout.
 - Palette: 26 unique swatches, every fixed default present, ΔE and contrast
   floors above.
 - Migration v282: columns exist and are null on an upgraded row.
-- Sync: round trip of a non-null colour; incoming null leaves the local value.
+- Sync: round trip of a non-null colour; a payload without the key (an older
+  peer) keeps the local value; an incoming null (a reset) clears it.
 - Settings notifier: `setProfileMetricColor` writes both swapped columns in one
   save; `resetProfileMetricColors` clears all.
-- Widgets: the page lists 22 rows in their groups; the sheet labels a held
+- Widgets: the page lists 20 rows in their groups; the sheet labels a held
   swatch and its tap swaps; Reset all confirms and clears; the dialog link
   opens the page.
 - Chart: a custom ppO2 colour reaches the line, the tooltip bullet and the
