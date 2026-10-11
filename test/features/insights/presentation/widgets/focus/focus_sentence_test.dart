@@ -32,10 +32,15 @@ void main() {
       ProviderScope(
         overrides: [
           ...overrides,
-          // Re-resolves on a metric change, as the real provider does.
+          // Re-resolves on a metric change, as the real provider does, and
+          // gives max depth its own mean so a stale value from the previous
+          // metric cannot pass for the new one.
           focusThresholdDefaultProvider.overrideWith((ref) async {
-            ref.watch(focusSelectionProvider.select((s) => s.metric));
-            return defaultThreshold;
+            final metric = ref.watch(
+              focusSelectionProvider.select((s) => s.metric),
+            );
+            if (defaultThreshold == null) return null;
+            return metric == FocusMetric.maxDepth ? 20 : defaultThreshold;
           }),
         ],
         child: const MaterialApp(
@@ -185,8 +190,9 @@ void main() {
       await tester.pumpAndSettle();
       final s = c.read(focusSelectionProvider);
       expect(s.metric, FocusMetric.maxDepth);
-      // The default provider is overridden to 16 for every metric here.
-      expect(s.threshold, 16);
+      // Max depth's own mean, never the 16 L/min RMV carried before.
+      expect(s.threshold, 20);
+      expect(fieldWidget(tester).controller!.text, '20');
       expect(fieldWidget(tester).decoration!.suffixText, 'm');
     },
   );

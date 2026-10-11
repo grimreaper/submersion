@@ -106,6 +106,10 @@ class _FocusSentenceState extends ConsumerState<FocusSentence> {
   /// A threshold mode with no value takes the metric's mean once it is
   /// known, so the page never sits on an empty box over an empty page.
   void _applyDefault(AsyncValue<double?> value) {
+    // While the provider reloads for a new metric, `value` still carries
+    // the previous metric's mean; applying it would file RMV litres as
+    // metres. Wait for the new mean to land.
+    if (value.isLoading) return;
     final mean = value.value;
     final selection = ref.read(focusSelectionProvider);
     if (mean == null ||

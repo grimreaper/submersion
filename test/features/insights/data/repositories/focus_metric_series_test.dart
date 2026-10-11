@@ -1,6 +1,8 @@
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:submersion/core/constants/gas_model.dart';
 import 'package:submersion/core/database/database.dart';
+import 'package:submersion/core/utils/gas_compressibility.dart';
 import 'package:submersion/features/insights/data/repositories/insights_repository.dart';
 
 import '../../../../helpers/test_database.dart';
@@ -27,6 +29,8 @@ void main() {
     double? otu,
     bool excluded = false,
     bool planned = false,
+    bool excludedFromGas = false,
+    String? diveMode,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     await db
@@ -45,6 +49,8 @@ void main() {
             cnsEnd: Value(cnsEnd),
             otu: Value(otu),
             excludedFromStats: Value(excluded),
+            excludedFromGasStats: Value(excludedFromGas),
+            diveMode: diveMode == null ? const Value.absent() : Value(diveMode),
             isPlanned: Value(planned),
             createdAt: Value(now),
             updatedAt: Value(now),
@@ -125,17 +131,45 @@ void main() {
     },
   );
 
-  test('gas used sums every tank of a dive in litres', () async {
-    await dive('twin');
-    await tank('twin', 0, volume: 12, start: 200, end: 100);
-    await tank('twin', 1, volume: 12, start: 200, end: 150);
-    await dive('empty');
-    await tank('empty', 0, start: 100, end: 100);
+  test(
+    'gas used sums every tank with the gas model the RMV series uses',
+    () async {
+      await dive('twin');
+      await tank('twin', 0, volume: 12, start: 200, end: 100);
+      await tank('twin', 1, volume: 12, start: 200, end: 150);
+      await dive('empty');
+      await tank('empty', 0, start: 100, end: 100);
+
+      final points = await repository.getGasUsedPerDive();
+
+      // Real gas, as the repository defaults to: a 12 L cylinder from 200 bar
+      // holds less than the ideal 2400 L, so the sum is below 1800 L.
+      double litres(double bar) => gasVolume(
+        tankSizeLiters: 12,
+        pressureBar: bar,
+        o2Percent: 21,
+        hePercent: 0,
+        model: GasModel.real,
+      );
+      final expected =
+          (litres(200) - litres(100)) + (litres(200) - litres(150));
+      expect(expected, lessThan(1800));
+      expect(points.single.diveId, 'twin');
+      expect(points.single.value, closeTo(expected, 0.01));
+    },
+  );
+
+  test('gas used follows the gas-statistics scope like RMV', () async {
+    await dive('purge', excludedFromGas: true);
+    await tank('purge', 0);
+    await dive('gauge', diveMode: 'gauge');
+    await tank('gauge', 0);
+    await dive('in');
+    await tank('in', 0);
 
     final points = await repository.getGasUsedPerDive();
 
-    expect(points.single.diveId, 'twin');
-    expect(points.single.value, closeTo(1800, 0.01));
+    expect(points.map((p) => p.diveId), ['in']);
   });
 
   test('excluded and planned dives are out of every series', () async {
