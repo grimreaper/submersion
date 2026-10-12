@@ -247,6 +247,10 @@ final List<String> kDefaultPrimaryIds = List.unmodifiable(
 ///   the build still knows.
 /// - Unknown and pinned ids are dropped; a duplicate keeps its first position.
 /// - Everything else is appended in [movableIds] (canonical) order.
+/// - Entries in [shortcutOrderIds] (nav shortcuts, #2936) keep their stored
+///   position. A shortcut this build does not know is dropped, and a missing
+///   one is never appended: shortcuts are the diver's additions, not part of
+///   the guaranteed set.
 ///
 /// Values written before the order was widened held only the three phone
 /// bottom-bar slots. Those normalize to the front, so an upgrading user keeps
@@ -256,9 +260,14 @@ final List<String> kDefaultPrimaryIds = List.unmodifiable(
 List<String> normalizeNavOrder({
   required List<String> stored,
   required List<String> movableIds,
+  Iterable<String> shortcutOrderIds = const [],
 }) {
   final result = <String>[];
   for (final storedId in stored) {
+    if (shortcutOrderIds.contains(storedId)) {
+      if (!result.contains(storedId)) result.add(storedId);
+      continue;
+    }
     final id = movableIds.contains(storedId)
         ? storedId
         : kRenamedNavIds[storedId] ?? storedId;

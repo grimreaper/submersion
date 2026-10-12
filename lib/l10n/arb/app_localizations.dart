@@ -33059,6 +33059,60 @@ abstract class AppLocalizations {
   /// **'Could not save navigation layout. Please try again.'**
   String get settings_navCustomization_saveError;
 
+  /// Nav shortcut label for the Planning no-fly calculator.
+  ///
+  /// In en, this message translates to:
+  /// **'No-fly time'**
+  String get navShortcut_noFly;
+
+  /// Nav shortcut label for the Planning CNS/OTU calculator.
+  ///
+  /// In en, this message translates to:
+  /// **'CNS/OTU'**
+  String get navShortcut_cnsOtu;
+
+  /// Nav shortcut label for the dive records page.
+  ///
+  /// In en, this message translates to:
+  /// **'Records'**
+  String get navShortcut_records;
+
+  /// Nav shortcut label for the dive sites map.
+  ///
+  /// In en, this message translates to:
+  /// **'Sites map'**
+  String get navShortcut_sitesMap;
+
+  /// Nav shortcut label for the map of where dives were logged.
+  ///
+  /// In en, this message translates to:
+  /// **'Dive activity map'**
+  String get navShortcut_diveActivityMap;
+
+  /// Nav shortcut label for the dive centers map.
+  ///
+  /// In en, this message translates to:
+  /// **'Dive centers map'**
+  String get navShortcut_diveCentersMap;
+
+  /// Nav shortcut label for the diver profile settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Diver profile'**
+  String get navShortcut_diverProfile;
+
+  /// Nav shortcut label for the cloud sync settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Cloud sync'**
+  String get navShortcut_cloudSync;
+
+  /// Nav shortcut label for the offline maps settings page.
+  ///
+  /// In en, this message translates to:
+  /// **'Offline maps'**
+  String get navShortcut_offlineMaps;
+
   /// No description provided for @settings_backToSettings_tooltip.
   ///
   /// In en, this message translates to:

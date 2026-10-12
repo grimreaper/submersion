@@ -12842,6 +12842,42 @@
   "@settings_navCustomization_saveError": {
     "description": "SnackBar shown when persisting the nav order fails (e.g., database write error)."
   },
+  "navShortcut_noFly": "No-fly time",
+  "@navShortcut_noFly": {
+    "description": "Nav shortcut label for the Planning no-fly calculator."
+  },
+  "navShortcut_cnsOtu": "CNS/OTU",
+  "@navShortcut_cnsOtu": {
+    "description": "Nav shortcut label for the Planning CNS/OTU calculator."
+  },
+  "navShortcut_records": "Records",
+  "@navShortcut_records": {
+    "description": "Nav shortcut label for the dive records page."
+  },
+  "navShortcut_sitesMap": "Sites map",
+  "@navShortcut_sitesMap": {
+    "description": "Nav shortcut label for the dive sites map."
+  },
+  "navShortcut_diveActivityMap": "Dive activity map",
+  "@navShortcut_diveActivityMap": {
+    "description": "Nav shortcut label for the map of where dives were logged."
+  },
+  "navShortcut_diveCentersMap": "Dive centers map",
+  "@navShortcut_diveCentersMap": {
+    "description": "Nav shortcut label for the dive centers map."
+  },
+  "navShortcut_diverProfile": "Diver profile",
+  "@navShortcut_diverProfile": {
+    "description": "Nav shortcut label for the diver profile settings page."
+  },
+  "navShortcut_cloudSync": "Cloud sync",
+  "@navShortcut_cloudSync": {
+    "description": "Nav shortcut label for the cloud sync settings page."
+  },
+  "navShortcut_offlineMaps": "Offline maps",
+  "@navShortcut_offlineMaps": {
+    "description": "Nav shortcut label for the offline maps settings page."
+  },
   "settings_backToSettings_tooltip": "Back to settings",
   "settings_cloudSync_appBar_title": "Database Cloud Sync",
   "settings_cloudSync_autoSync": "Auto Sync",

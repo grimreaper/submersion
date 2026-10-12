@@ -20626,6 +20626,33 @@ class AppLocalizationsIt extends AppLocalizations {
       'Impossibile salvare il layout di navigazione. Riprova.';
 
   @override
+  String get navShortcut_noFly => 'No-fly time';
+
+  @override
+  String get navShortcut_cnsOtu => 'CNS/OTU';
+
+  @override
+  String get navShortcut_records => 'Records';
+
+  @override
+  String get navShortcut_sitesMap => 'Sites map';
+
+  @override
+  String get navShortcut_diveActivityMap => 'Dive activity map';
+
+  @override
+  String get navShortcut_diveCentersMap => 'Dive centers map';
+
+  @override
+  String get navShortcut_diverProfile => 'Diver profile';
+
+  @override
+  String get navShortcut_cloudSync => 'Cloud sync';
+
+  @override
+  String get navShortcut_offlineMaps => 'Offline maps';
+
+  @override
   String get settings_backToSettings_tooltip => 'Torna alle impostazioni';
 
   @override
