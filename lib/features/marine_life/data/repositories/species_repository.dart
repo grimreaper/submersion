@@ -76,9 +76,9 @@ class SpeciesRepository {
         .customSelect(
           '''
       SELECT * FROM species
-      WHERE LOWER(common_name) LIKE ?
-         OR LOWER(scientific_name) LIKE ?
-         OR LOWER(taxonomy_class) LIKE ?
+      WHERE unicode_lower(common_name) LIKE ?
+         OR unicode_lower(scientific_name) LIKE ?
+         OR unicode_lower(taxonomy_class) LIKE ?
       ORDER BY category ASC, common_name COLLATE NOCASE ASC
       LIMIT 50
     ''',
@@ -110,12 +110,14 @@ class SpeciesRepository {
     String? scientificName,
     required SpeciesCategory category,
   }) async {
-    // Try to find existing species with same name
+    // Try to find existing species with same name. unicode_lower, not
+    // LOWER: the built-in folds ASCII only, so "Éponge pinceau" never met
+    // its Dart-lowered needle and each import minted a twin (#3032).
     final existing = await _db
         .customSelect(
           '''
       SELECT * FROM species
-      WHERE LOWER(common_name) = ?
+      WHERE unicode_lower(common_name) = ?
       LIMIT 1
     ''',
           variables: [Variable.withString(commonName.toLowerCase())],
@@ -164,7 +166,8 @@ class SpeciesRepository {
     if (needle.isEmpty) return null;
     final row = await _db
         .customSelect(
-          'SELECT id FROM species WHERE LOWER(scientific_name) = ? LIMIT 1',
+          'SELECT id FROM species '
+          'WHERE unicode_lower(scientific_name) = ? LIMIT 1',
           variables: [Variable.withString(needle)],
         )
         .getSingleOrNull();
