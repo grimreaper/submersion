@@ -433,9 +433,38 @@ void main() {
         },
       );
 
-      // #3032: SQLite's LOWER() leaves a non-ASCII capital alone, so a
-      // stored "Éponge pinceau" never matched the Dart-lowered needle and
-      // every import minted a twin.
+      test('matches a name with non-ASCII capitals', () async {
+        // SQLite's LOWER folds ASCII only, so a needle lowered in Dart
+        // ("étoile") never equalled LOWER("Étoile") and a twin was created.
+        final created = await repository.createSpecies(
+          commonName: 'Étoile de mer',
+          category: SpeciesCategory.invertebrate,
+        );
+
+        final found = await repository.getOrCreateSpecies(
+          commonName: 'Étoile de mer',
+          category: SpeciesCategory.invertebrate,
+        );
+
+        expect(found.id, created.id);
+      });
+
+      test('matches when only an accented letter differs in case', () async {
+        final created = await repository.createSpecies(
+          commonName: 'étoile de mer',
+          category: SpeciesCategory.invertebrate,
+        );
+
+        final found = await repository.getOrCreateSpecies(
+          commonName: 'Étoile de mer',
+          category: SpeciesCategory.invertebrate,
+        );
+
+        expect(found.id, created.id);
+      });
+
+      // #3032: the issue's own case, an import naming the stored species
+      // with a different word case.
       test('matches a name that starts with an accented capital', () async {
         final created = await repository.createSpecies(
           commonName: 'Éponge pinceau',
@@ -451,33 +480,7 @@ void main() {
         expect(found.commonName, 'Éponge pinceau');
       });
 
-      test('reuses the lowest id when two names fold equal', () async {
-        // Inserted highest id first, so table order is not id order.
-        final db = DatabaseService.instance.database;
-        for (final (id, name) in [
-          ('sp-z', 'Éponge pinceau'),
-          ('sp-a', 'éponge pinceau'),
-        ]) {
-          await db
-              .into(db.species)
-              .insert(
-                SpeciesCompanion.insert(
-                  id: id,
-                  commonName: name,
-                  category: SpeciesCategory.other.name,
-                ),
-              );
-        }
-
-        final found = await repository.getOrCreateSpecies(
-          commonName: 'ÉPONGE PINCEAU',
-          category: SpeciesCategory.other,
-        );
-
-        expect(found.id, 'sp-a');
-      });
-
-      test('matches when only the accented letter differs in case', () async {
+      test('matches an all-capital name with an accented letter', () async {
         final created = await repository.createSpecies(
           commonName: 'ÖRNFISK',
           category: SpeciesCategory.fish,

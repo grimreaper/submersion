@@ -2485,6 +2485,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'Esta copia de seguridad se eliminará permanentemente. Esta acción no se puede deshacer.';
 
   @override
+  String get backup_delete_dialog_content_otherDevice =>
+      'Esta copia de seguridad solo está en tu almacenamiento en la nube y nada indica que la haya creado este dispositivo. Puede ser la única copia de otro dispositivo, o una que este dispositivo creó antes de una reinstalación. Eliminarla no se puede deshacer.';
+
+  @override
   String get backup_delete_dialog_delete => 'Eliminar';
 
   @override
@@ -7915,6 +7919,10 @@ class AppLocalizationsEs extends AppLocalizations {
       'Quita elementos para agregar otros diferentes';
 
   @override
+  String get diveLog_equipmentPicker_showLeftKit =>
+      'Mostrar equipo retirado y vendido';
+
+  @override
   String get diveLog_equipmentPicker_spareHint =>
       'Cambia el estado de un elemento a Activo para agregarlo a una inmersión';
 
@@ -10037,6 +10045,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get diveLog_tank_regulatorNone => 'Ninguno';
 
   @override
+  String get diveLog_tank_regulatorShowLeftKit =>
+      'Mostrar reguladores retirados y vendidos';
+
+  @override
   String get diveLog_tank_tripCylinderLabel => 'Botella del viaje';
 
   @override
@@ -11559,6 +11571,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get diveSites_group_noCountry => 'Sin país';
 
   @override
+  String get diveSites_group_noBodyOfWater => 'Sin masa de agua';
+
+  @override
   String diveSites_group_siteCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -11579,7 +11594,13 @@ class AppLocalizationsEs extends AppLocalizations {
   String get diveSites_list_groupBy_location => 'País y región';
 
   @override
+  String get diveSites_list_groupBy_locationAndWater => 'País y masa de agua';
+
+  @override
   String get diveSites_list_groupBy_none => 'Ninguno';
+
+  @override
+  String get diveSites_list_groupBy_water => 'Masa de agua';
 
   @override
   String diveSites_list_tile_diveCount(int count) {
@@ -20544,6 +20565,66 @@ class AppLocalizationsEs extends AppLocalizations {
       'Métricas visibles predeterminadas';
 
   @override
+  String get settings_appearance_metricColors => 'Colores de las métricas';
+
+  @override
+  String get settings_appearance_metricColors_subtitleDefault =>
+      'Colores predeterminados';
+
+  @override
+  String settings_appearance_metricColors_subtitleCustomized(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count personalizados',
+      one: '$count personalizado',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settings_metricColors_resetAll => 'Restablecer todo';
+
+  @override
+  String get settings_metricColors_resetAllTitle =>
+      '¿Restablecer los colores de las métricas?';
+
+  @override
+  String get settings_metricColors_resetAllBody =>
+      'Cada métrica vuelve a su color predeterminado.';
+
+  @override
+  String get settings_metricColors_reset => 'Restablecer';
+
+  @override
+  String get settings_metricColors_default => 'Predeterminado';
+
+  @override
+  String get settings_metricColors_auto => 'Automático';
+
+  @override
+  String get settings_metricColors_autoTemperature =>
+      'Automático: sigue el tema';
+
+  @override
+  String get settings_metricColors_autoPressure =>
+      'Automático: cada gas tiene su propio color';
+
+  @override
+  String get settings_metricColors_pressureCustom =>
+      'Se usa en inmersiones con una sola botella';
+
+  @override
+  String settings_metricColors_sheetTitle(String metric) {
+    return 'Color de $metric';
+  }
+
+  @override
+  String settings_metricColors_swapsWith(String metric) {
+    return 'Se intercambia con $metric';
+  }
+
+  @override
   String get settings_appearance_subsection_standardMetrics =>
       'Métricas estándar';
 
@@ -20622,6 +20703,111 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get settings_navCustomization_saveError =>
       'No se pudo guardar el diseño de navegación. Inténtalo de nuevo.';
+
+  @override
+  String get navShortcut_noFly => 'Tiempo sin volar';
+
+  @override
+  String get navShortcut_cnsOtu => 'CNS/OTU';
+
+  @override
+  String get navShortcut_records => 'Récords';
+
+  @override
+  String get navShortcut_sitesMap => 'Mapa de puntos de buceo';
+
+  @override
+  String get navShortcut_diveActivityMap => 'Mapa de actividad de buceo';
+
+  @override
+  String get navShortcut_diveCentersMap => 'Mapa de centros de buceo';
+
+  @override
+  String get navShortcut_diverProfile => 'Perfil de buceador';
+
+  @override
+  String get navShortcut_cloudSync => 'Sincronización en la nube';
+
+  @override
+  String get navShortcut_offlineMaps => 'Mapas sin conexión';
+
+  @override
+  String get navShortcut_short_deco => 'Deco';
+
+  @override
+  String get navShortcut_short_gasCalculators => 'Calc. gas';
+
+  @override
+  String get navShortcut_short_weighting => 'Lastre';
+
+  @override
+  String get navShortcut_short_surfaceInterval => 'Int. superficie';
+
+  @override
+  String get navShortcut_short_blender => 'Mezclador';
+
+  @override
+  String get navShortcut_short_airUse => 'Consumo';
+
+  @override
+  String get navShortcut_short_patterns => 'Patrones';
+
+  @override
+  String get navShortcut_short_profiles => 'Perfiles';
+
+  @override
+  String get navShortcut_short_diveMap => 'Mapa buceo';
+
+  @override
+  String get navShortcut_short_centersMap => 'Mapa centros';
+
+  @override
+  String get navShortcut_short_gearSets => 'Conjuntos';
+
+  @override
+  String get navShortcut_short_certWallet => 'Cartera';
+
+  @override
+  String get navShortcut_short_emergency => 'Emergencia';
+
+  @override
+  String get navShortcut_short_backup => 'Copia';
+
+  @override
+  String get navShortcut_short_speciesStats => 'Estad. especies';
+
+  @override
+  String get navShortcut_short_gearStats => 'Estad. equipo';
+
+  @override
+  String get settings_navCustomization_addShortcut => 'Añadir acceso directo';
+
+  @override
+  String get settings_navCustomization_shortcutPickerTitle =>
+      'Nuevo acceso directo';
+
+  @override
+  String get settings_navCustomization_shortcutSearchHint => 'Buscar páginas';
+
+  @override
+  String get settings_navCustomization_shortcutNoMatches =>
+      'No hay páginas que coincidan';
+
+  @override
+  String get settings_navCustomization_shortcutAlreadyAdded =>
+      'Ya está en este diseño';
+
+  @override
+  String settings_navCustomization_removeShortcutLabel(String destination) {
+    return 'Quitar $destination';
+  }
+
+  @override
+  String get settings_navCustomization_group_views => 'Vistas';
+
+  @override
+  String get settings_navCustomization_group_settingsAndTools =>
+      'Configuración y herramientas';
 
   @override
   String get settings_backToSettings_tooltip => 'Volver a ajustes';
@@ -22930,6 +23116,10 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settings_conflict_field_sourceItemId => 'Elemento vinculado';
 
   @override
+  String get settings_conflict_field_sourceMetadata =>
+      'Datos adicionales del origen';
+
+  @override
   String get settings_conflict_field_sourceRef =>
       'Archivo o dispositivo de origen';
 
@@ -23126,6 +23316,11 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get settings_conflict_field_trendGapCollapseMonths =>
       'Contraer pausas en los gráficos de tendencia';
+
+  @override
+  String settings_conflict_field_profileColor(String metric) {
+    return 'Color del perfil: $metric';
+  }
 
   @override
   String get settings_conflict_field_tripServiceLeadDays =>
@@ -29901,6 +30096,9 @@ class AppLocalizationsEs extends AppLocalizations {
   String get trips_photos_viewAll => 'Ver todas';
 
   @override
+  String get trips_picker_alreadyPacked => 'Ya preparado';
+
+  @override
   String get trips_picker_clearTooltip => 'Borrar selección';
 
   @override
@@ -36170,7 +36368,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get safetySettings_noFlyHeader => 'Volar después de bucear';
 
   @override
-  String get safetySettings_cnsOtuHeader => 'Carga actual de CNS/OTU';
+  String get safetySettings_cnsOtuHeader => 'Carga de inmersión actual';
 
   @override
   String get safetySettings_noFlyPreset_standard => 'Estándar (12/18/24 h)';
@@ -36244,6 +36442,20 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get safetyHub_cnsOtu_noProfile_body =>
       'Sin perfil de profundidad no se pueden calcular su CNS% ni sus OTU. Los totales de abajo no la incluyen.';
+
+  @override
+  String get safetyHub_cnsOtu_about_title => 'Sobre CNS y OTU';
+
+  @override
+  String get safetyHub_cnsOtu_about_body =>
+      'Su CNS% (reloj de oxígeno) decae tras la inmersión con una semivida de 90 minutos; prácticamente vuelve a 0 al cabo de un día.\n\nLa OTU diaria se reinicia cada noche a medianoche. La OTU semanal es un total móvil de los últimos 7 días: las inmersiones más antiguas salen automáticamente del cálculo en cuanto quedan fuera de esa ventana.';
+
+  @override
+  String get safetyHub_tissueLoading_about_title => 'Sobre la carga tisular';
+
+  @override
+  String get safetyHub_tissueLoading_about_body =>
+      'Su cuerpo tiene 16 compartimentos tisulares que absorben y liberan nitrógeno (y, en inmersiones con trimix o reciclador, también helio) a distintas velocidades. Los tejidos rápidos se saturan y desaturan deprisa; los lentos tardan mucho más en ambas cosas.\n\nTras una inmersión con helio, el nitrógeno y el helio de un mismo compartimento pueden moverse brevemente en direcciones opuestas: mientras el helio aún se está liberando, ese mismo compartimento puede estar absorbiendo algo de nitrógeno a la vez, hasta que ambos gases alcanzan el equilibrio con el aire que respira. Por eso un compartimento puede mostrar brevemente \"Ongassing\" incluso mientras su carga total sigue bajando.';
 
   @override
   String safetyHub_noFly_category_single(int hours) {
@@ -46348,6 +46560,15 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String trips_picker_tileSemanticsPacked(
+    Object name,
+    Object startDate,
+    Object endDate,
+  ) {
+    return '$name, del $startDate al $endDate, ya preparado';
+  }
+
+  @override
   String get divePlanner_quickPlan_subtitle =>
       'Crear un perfil de inmersión rectangular simple';
 
@@ -49400,6 +49621,11 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String backup_history_preDowngradeSubtitle(String size) {
     return 'Base de datos más reciente, conservada al volver atrás - $size';
+  }
+
+  @override
+  String backup_history_cloudOnlySubtitle(String size) {
+    return 'En el almacenamiento en la nube ($size)';
   }
 
   @override
