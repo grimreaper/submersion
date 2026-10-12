@@ -72,6 +72,21 @@ void main() {
     expect(find.text('Spare Regulator'), findsWidgets);
   });
 
+  testWidgets('wishlist gear alone is not owned gear: the add prompt stays', (
+    tester,
+  ) async {
+    await _pump(tester, const [
+      EquipmentItem(
+        id: 'wish',
+        name: 'Dream Computer',
+        type: EquipmentType.computer,
+        status: EquipmentStatus.wanted,
+      ),
+    ]);
+    expect(find.text('No equipment in your default view'), findsNothing);
+    expect(find.text('Add Your First Equipment'), findsOneWidget);
+  });
+
   testWidgets('with no gear at all the add prompt stays', (tester) async {
     await _pump(tester, const []);
     expect(find.text('No equipment in your default view'), findsNothing);

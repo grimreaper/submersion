@@ -8,8 +8,10 @@ import 'package:submersion/features/divers/presentation/providers/diver_provider
 import 'package:submersion/features/equipment/domain/entities/equipment_item.dart';
 import 'package:submersion/features/equipment/domain/models/equipment_filter_state.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_providers.dart';
+import 'package:submersion/features/equipment/presentation/providers/equipment_list_count_provider.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_query_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
+import 'package:submersion/shared/models/list_entry_count.dart';
 
 import '../../../../helpers/test_database.dart';
 
@@ -140,6 +142,26 @@ void main() {
       expect(ids, {'old'});
     },
   );
+
+  test('the list count total follows the default view (#2628)', () async {
+    final count = container.listen(equipmentListCountProvider, (_, _) {});
+    addTearDown(count.close);
+    await container.read(settingsProvider.notifier).setEquipmentDefaultStatuses(
+      {EquipmentStatus.retired},
+    );
+    container.read(equipmentFilterProvider.notifier).state =
+        const EquipmentFilterState(type: EquipmentType.regulator);
+    // Filtered to regulators: 'old' is the one retired regulator, and the
+    // total is the default view (retired only), not the factory kit.
+    ListEntryCount? c;
+    for (var i = 0; i < 300; i++) {
+      c = container.read(equipmentListCountProvider);
+      if (c != null && c.total == 1 && c.shown == 1) break;
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(c?.shown, 1);
+    expect(c?.total, 1);
+  });
 
   test('the real setter ignores an empty set', () async {
     final notifier = container.read(settingsProvider.notifier);

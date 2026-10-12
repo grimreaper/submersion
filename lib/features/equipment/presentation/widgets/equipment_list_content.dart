@@ -1274,9 +1274,16 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
     final filter = ref.watch(effectiveEquipmentFilterProvider);
 
     // The default view is the diver's choice (#2628) and can hide all they
-    // own; with no other filter set, that is the only cause left.
-    if (!filter.hasActiveFilters &&
-        (ref.watch(allEquipmentProvider).value?.isNotEmpty ?? false)) {
+    // own; with no other filter set, that is the only cause left. Wishlist
+    // gear is not owned yet, so a diver with only that still gets the add
+    // prompt.
+    final ownsHiddenGear =
+        ref
+            .watch(allEquipmentProvider)
+            .value
+            ?.any((e) => e.status != EquipmentStatus.wanted) ??
+        false;
+    if (!filter.hasActiveFilters && ownsHiddenGear) {
       return const EquipmentDefaultViewEmptyState();
     }
 

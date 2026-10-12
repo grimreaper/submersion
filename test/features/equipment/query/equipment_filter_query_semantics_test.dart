@@ -340,5 +340,19 @@ void main() {
     test('saved queries never carry the default view', () {
       expect(none.toSavedQuery(), isNull);
     });
+
+    test('service-due views keep the factory kit, whatever the default', () {
+      // The home strip counts service clocks over the factory kit; a list
+      // narrowed by the diver's default would show fewer rows than the
+      // chip promised and could hide gear that needs service.
+      for (final due in ServiceDueFilter.values) {
+        final f = EquipmentFilterState(serviceDue: due);
+        expect(
+          f.toQuery(defaultStatuses: {EquipmentStatus.active}),
+          f.toQuery(),
+          reason: due.name,
+        );
+      }
+    });
   });
 }

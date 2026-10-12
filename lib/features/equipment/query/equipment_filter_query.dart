@@ -33,9 +33,18 @@ extension EquipmentFilterQuery on EquipmentFilterState {
     if (allStatuses) {
       // Every status (#2590): the axis adds no condition.
     } else if (s == null) {
-      // Not saved: the list applies it without being asked.
+      // Not saved: the list applies it without being asked. A service-due
+      // view keeps the factory kit: the home strip counts clocks over it,
+      // so the rows must match the count and never hide gear due for
+      // service behind the diver's narrower default (#2628).
       if (defaultStatuses != null) {
-        parts.addAll(_defaultViewParts(defaultStatuses));
+        parts.addAll(
+          _defaultViewParts(
+            serviceDue == null
+                ? defaultStatuses
+                : factoryDefaultEquipmentStatuses,
+          ),
+        );
       }
     } else if (s == EquipmentStatus.retired) {
       parts.addAll(_retiredView());
