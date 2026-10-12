@@ -20587,7 +20587,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get navShortcut_offlineMaps => 'Offline térképek';
 
   @override
-  String get navShortcut_short_deco => 'Deko';
+  String get navShortcut_short_deco => 'Dekó';
 
   @override
   String get navShortcut_short_gasCalculators => 'Gázkalk.';
