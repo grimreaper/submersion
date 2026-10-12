@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite3;
@@ -38,6 +40,10 @@ void main() {
 
     test('passes NULL through as NULL', () {
       expect(lower(null), isNull);
+    });
+
+    test('returns a blob unchanged', () {
+      expect(lower(Uint8List.fromList([0x41, 0xC9])), [0x41, 0xC9]);
     });
 
     test('renders a number as text, as LOWER() does', () {

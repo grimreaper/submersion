@@ -49,9 +49,6 @@ Object? _unicodeLower(SqliteArguments arguments) {
   };
 }
 
-/// `unicode_lower(<sql>)`, for hand-written SQL.
-String sqlUnicodeLower(String sql) => '$kUnicodeLowerFunction($sql)';
-
 extension UnicodeLowerExpression on Expression<String> {
   /// This text lower-cased by [kUnicodeLowerFunction]; the Unicode-aware
   /// replacement for drift's `lower()`, which compiles to `LOWER()`.
