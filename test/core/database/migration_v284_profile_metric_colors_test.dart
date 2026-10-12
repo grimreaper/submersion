@@ -26,11 +26,12 @@ const _columns = [
   'profile_color_mean_depth',
 ];
 
-/// Schema v282: diver_settings.profile_color_* (issue #3012).
+/// Schema v284: diver_settings.profile_color_* (issue #3012). Renumbered
+/// from 282, which PR #3133 holds, after #3296 shipped 283.
 void main() {
   NativeDatabase setupDb() => NativeDatabase.memory(
     setup: (rawDb) {
-      rawDb.execute('PRAGMA user_version = 281');
+      rawDb.execute('PRAGMA user_version = 283');
       rawDb.execute(
         'CREATE TABLE diver_settings (id TEXT NOT NULL PRIMARY KEY, '
         'diver_id TEXT NOT NULL)',
@@ -41,20 +42,20 @@ void main() {
     },
   );
 
-  test('v282 is in the ladder', () {
-    expect(AppDatabase.currentSchemaVersion, greaterThanOrEqualTo(282));
-    expect(AppDatabase.migrationVersions, contains(282));
+  test('v284 is in the ladder', () {
+    expect(AppDatabase.currentSchemaVersion, greaterThanOrEqualTo(284));
+    expect(AppDatabase.migrationVersions, contains(284));
     expect(
-      AppDatabase.migrationStepCount(281),
-      AppDatabase.migrationStepCount(282) + 1,
+      AppDatabase.migrationStepCount(283),
+      AppDatabase.migrationStepCount(284) + 1,
     );
   });
 
   test('this rung is additive and did not move the sync floor', () {
-    expect(AppDatabase.minimumCompatibleSchemaVersion, lessThan(282));
+    expect(AppDatabase.minimumCompatibleSchemaVersion, lessThan(284));
   });
 
-  test('upgrading from v281 adds 20 null colour columns', () async {
+  test('upgrading from v283 adds 20 null colour columns', () async {
     final db = AppDatabase(setupDb());
     addTearDown(db.close);
     final row =

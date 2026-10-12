@@ -438,7 +438,7 @@ class DiverSettings extends Table {
   IntColumn get trendGapCollapseMonths =>
       integer().withDefault(const Constant(12))();
   // coverage:ignore-end
-  // v282: per-diver profile metric colours (issue #3012), ARGB ints; null is
+  // v284: per-diver profile metric colours (issue #3012), ARGB ints; null is
   // the metric's default (or Auto). Codegen input, never executed.
   // coverage:ignore-start
   IntColumn get profileColorDepth => integer().nullable()();

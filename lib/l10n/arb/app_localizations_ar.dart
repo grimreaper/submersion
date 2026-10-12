@@ -10274,9 +10274,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get diveLog_tooltip_gtr => 'GTR';
 
   @override
-  String get diveLog_sources_row_metric => 'المقياس';
-
-  @override
   String get diveLog_sources_row_maxDepth => 'أقصى عمق';
 
   @override
@@ -15343,6 +15340,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get equipment_edit_thicknessDesignationHint => 'مثلاً 5، 5/4، 7/5/3';
 
   @override
+  String get equipment_edit_focalLengthHint => 'مثلًا 60 أو 15-45';
+
+  @override
   String get equipment_edit_webLinkHint => 'مثال: shop.example.com/product';
 
   @override
@@ -20315,13 +20315,6 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get diveDetailSection_tide_description =>
       'رسم بياني لدورة المد والجزر والتوقيت';
-
-  @override
-  String get diveDetailSection_reefHealth_name => 'أحوال المياه';
-
-  @override
-  String get diveDetailSection_reefHealth_description =>
-      'أحوال المياه عبر الأقمار الصناعية في تاريخ الغطسة';
 
   @override
   String get diveDetailSection_surfaceGps_name => 'الموقع الجغرافي';
@@ -26808,6 +26801,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get insights_focus_metric_bottomTime => 'وقت القاع';
 
   @override
+  String get insights_focus_metric_runtime => 'وقت التشغيل';
+
+  @override
   String get insights_focus_metric_weight => 'الأثقال';
 
   @override
@@ -27343,6 +27339,16 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get insights_progression_bottomTime_title => 'اتجاه وقت القاع';
+
+  @override
+  String get insights_progression_runtime_error =>
+      'فشل تحميل اتجاه وقت التشغيل';
+
+  @override
+  String get insights_progression_runtime_subtitle => 'كل غطسة ضمن النطاق';
+
+  @override
+  String get insights_progression_runtime_title => 'اتجاه وقت التشغيل';
 
   @override
   String get insights_progression_cumulative_error =>
@@ -36615,6 +36621,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get equipment_edit_invalidThickness => 'استخدم 5 أو 5/4 أو 7/5/3';
 
   @override
+  String get equipment_edit_invalidFocalLength => 'استخدم 60 أو 15-45';
+
+  @override
   String get equipment_edit_invalidWebLink =>
       'أدخل عنوان ويب، مثل shop.example.com';
 
@@ -37105,8 +37114,19 @@ class AppLocalizationsAr extends AppLocalizations {
   String get safetyHub_incidentsLink => 'سجل الحوادث الوشيكة';
 
   @override
-  String get safetyHub_incidentsLink_subtitle =>
-      'ملاحظات حوادث خاصة وغير عقابية';
+  String safetyHub_incidentsLink_count(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count إدخال',
+      many: '$count إدخالًا',
+      few: '$count إدخالات',
+      two: 'إدخالان',
+      one: 'إدخال واحد',
+      zero: 'لا يوجد بعد',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get diveLog_detail_menu_logNearMiss => 'تسجيل حادث وشيك';
@@ -46904,6 +46924,23 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get maps_regionDownload_downloadButton => 'تنزيل';
+
+  @override
+  String get maps_regionDownload_presetOverview => 'نظرة عامة';
+
+  @override
+  String get maps_regionDownload_presetDetail => 'تفصيلي';
+
+  @override
+  String get maps_regionDownload_presetFull => 'كامل';
+
+  @override
+  String get maps_regionDownload_tooManyTiles =>
+      'أكثر من 100,000 بلاطة: صغّر المنطقة أو اخفض أقصى تكبير.';
+
+  @override
+  String get maps_regionDownload_socks5Unsupported =>
+      'لا يمكن لتنزيلات المناطق استخدام وكيل SOCKS5: انتقل إلى وكيل HTTP أو إلى «بدون وكيل» في إعدادات الشبكة.';
 
   @override
   String get diveLog_map_title => 'نشاط الغوص';

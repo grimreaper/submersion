@@ -119,7 +119,11 @@ list rendering does not depend on diver settings.
 
 ## Storage and sync
 
-### Schema v282
+### Schema v284
+
+Shipped as v284: designed as v282, renumbered because PR #3133 holds 282
+and #3296 shipped 283 first.
+
 
 20 nullable `IntColumn`s on `diver_settings`, one per `ProfileMetric`, named
 `profile_color_<metric>` (Dart getters `profileColorDepth`,

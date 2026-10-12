@@ -9928,9 +9928,6 @@ class AppLocalizationsHe extends AppLocalizations {
   String get diveLog_tooltip_gtr => 'GTR';
 
   @override
-  String get diveLog_sources_row_metric => 'מדד';
-
-  @override
   String get diveLog_sources_row_maxDepth => 'עומק מקסימלי';
 
   @override
@@ -14842,6 +14839,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get equipment_edit_thicknessDesignationHint => 'למשל, 5, 5/4, 7/5/3';
 
   @override
+  String get equipment_edit_focalLengthHint => 'לדוגמה 60 או 15-45';
+
+  @override
   String get equipment_edit_webLinkHint => 'למשל shop.example.com/product';
 
   @override
@@ -19608,13 +19608,6 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get diveDetailSection_tide_description => 'גרף מחזור גאות ושפל וזמן';
-
-  @override
-  String get diveDetailSection_reefHealth_name => 'תנאי המים';
-
-  @override
-  String get diveDetailSection_reefHealth_description =>
-      'תנאי מים לווייניים בתאריך הצלילה';
 
   @override
   String get diveDetailSection_surfaceGps_name => 'מיקום';
@@ -25954,6 +25947,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get insights_focus_metric_bottomTime => 'זמן תחתית';
 
   @override
+  String get insights_focus_metric_runtime => 'זמן ריצה';
+
+  @override
   String get insights_focus_metric_weight => 'משקולות';
 
   @override
@@ -26481,6 +26477,15 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get insights_progression_bottomTime_title => 'מגמת זמן תחתית';
+
+  @override
+  String get insights_progression_runtime_error => 'שגיאה בטעינת מגמת זמן ריצה';
+
+  @override
+  String get insights_progression_runtime_subtitle => 'כל צלילה בטווח';
+
+  @override
+  String get insights_progression_runtime_title => 'מגמת זמן ריצה';
 
   @override
   String get insights_progression_cumulative_error =>
@@ -35271,6 +35276,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get equipment_edit_invalidThickness => 'השתמשו ב-5, 5/4 או 7/5/3';
 
   @override
+  String get equipment_edit_invalidFocalLength => 'השתמשו ב-60 או 15-45';
+
+  @override
   String get equipment_edit_invalidWebLink =>
       'הזן כתובת אינטרנט, למשל shop.example.com';
 
@@ -35755,8 +35763,16 @@ class AppLocalizationsHe extends AppLocalizations {
   String get safetyHub_incidentsLink => 'יומן כמעט-תאונות';
 
   @override
-  String get safetyHub_incidentsLink_subtitle =>
-      'הערות אירועים פרטיות ולא ענישתיות';
+  String safetyHub_incidentsLink_count(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count רשומות',
+      one: 'רשומה אחת',
+      zero: 'אין עדיין',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get diveLog_detail_menu_logNearMiss => 'רישום כמעט-תאונה';
@@ -45325,6 +45341,23 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get maps_regionDownload_downloadButton => 'הורדה';
+
+  @override
+  String get maps_regionDownload_presetOverview => 'סקירה';
+
+  @override
+  String get maps_regionDownload_presetDetail => 'פירוט';
+
+  @override
+  String get maps_regionDownload_presetFull => 'מלא';
+
+  @override
+  String get maps_regionDownload_tooManyTiles =>
+      'יותר מ-100,000 אריחים: הקטן את האזור או הנמך את הזום המרבי.';
+
+  @override
+  String get maps_regionDownload_socks5Unsupported =>
+      'הורדות אזורים אינן יכולות להשתמש בפרוקסי SOCKS5: עבור לפרוקסי HTTP או ל\"ללא פרוקסי\" בהגדרות הרשת.';
 
   @override
   String get diveLog_map_title => 'פעילות צלילה';

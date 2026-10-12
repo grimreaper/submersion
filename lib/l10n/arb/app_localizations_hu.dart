@@ -10130,9 +10130,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get diveLog_tooltip_gtr => 'GTR';
 
   @override
-  String get diveLog_sources_row_metric => 'Adat';
-
-  @override
   String get diveLog_sources_row_maxDepth => 'Max mélység';
 
   @override
@@ -15103,6 +15100,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get equipment_edit_thicknessDesignationHint => 'pl. 5, 5/4, 7/5/3';
 
   @override
+  String get equipment_edit_focalLengthHint => 'pl. 60 vagy 15-45';
+
+  @override
   String get equipment_edit_webLinkHint => 'pl. shop.example.com/product';
 
   @override
@@ -19987,13 +19987,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get diveDetailSection_tide_description =>
       'Árapály-ciklus grafikon és időzítés';
-
-  @override
-  String get diveDetailSection_reefHealth_name => 'Vízviszonyok';
-
-  @override
-  String get diveDetailSection_reefHealth_description =>
-      'Műholdas vízviszonyok a merülés napján';
 
   @override
   String get diveDetailSection_surfaceGps_name => 'Helyszín';
@@ -26511,6 +26504,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get insights_focus_metric_bottomTime => 'Fenékidő';
 
   @override
+  String get insights_focus_metric_runtime => 'Futásidő';
+
+  @override
   String get insights_focus_metric_weight => 'Ólom';
 
   @override
@@ -27048,6 +27044,17 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get insights_progression_bottomTime_title => 'Fenékidő trend';
+
+  @override
+  String get insights_progression_runtime_error =>
+      'Nem sikerült a futásidő trend betöltése';
+
+  @override
+  String get insights_progression_runtime_subtitle =>
+      'Minden merülés a tartományban';
+
+  @override
+  String get insights_progression_runtime_title => 'Futásidő trend';
 
   @override
   String get insights_progression_cumulative_error =>
@@ -35950,6 +35957,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get equipment_edit_invalidThickness => 'Formátum: 5, 5/4 vagy 7/5/3';
 
   @override
+  String get equipment_edit_invalidFocalLength => 'Formátum: 60 vagy 15-45';
+
+  @override
   String get equipment_edit_invalidWebLink =>
       'Adjon meg egy webcímet, pl. shop.example.com';
 
@@ -36445,8 +36455,16 @@ class AppLocalizationsHu extends AppLocalizations {
   String get safetyHub_incidentsLink => 'Kvázibaleset-napló';
 
   @override
-  String get safetyHub_incidentsLink_subtitle =>
-      'Privát, nem büntető jellegű eseményjegyzetek';
+  String safetyHub_incidentsLink_count(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count bejegyzés',
+      one: '$count bejegyzés',
+      zero: 'Még nincs',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get diveLog_detail_menu_logNearMiss => 'Kvázibaleset rögzítése';
@@ -46027,6 +46045,23 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get maps_regionDownload_downloadButton => 'Letöltés';
+
+  @override
+  String get maps_regionDownload_presetOverview => 'Áttekintés';
+
+  @override
+  String get maps_regionDownload_presetDetail => 'Részletek';
+
+  @override
+  String get maps_regionDownload_presetFull => 'Teljes';
+
+  @override
+  String get maps_regionDownload_tooManyTiles =>
+      '100 000-nél több csempe: csökkentse a területet vagy a maximális nagyítást.';
+
+  @override
+  String get maps_regionDownload_socks5Unsupported =>
+      'A régióletöltések nem használhatnak SOCKS5 proxyt: váltson HTTP proxyra vagy a „Nincs proxy” lehetőségre a hálózati beállításokban.';
 
   @override
   String get diveLog_map_title => 'Merülési tevékenység';

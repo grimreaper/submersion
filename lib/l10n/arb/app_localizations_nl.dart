@@ -10088,9 +10088,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get diveLog_tooltip_gtr => 'GTR';
 
   @override
-  String get diveLog_sources_row_metric => 'Meting';
-
-  @override
   String get diveLog_sources_row_maxDepth => 'Max diepte';
 
   @override
@@ -15055,6 +15052,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get equipment_edit_thicknessDesignationHint => 'bijv. 5, 5/4, 7/5/3';
 
   @override
+  String get equipment_edit_focalLengthHint => 'bijv. 60 of 15-45';
+
+  @override
   String get equipment_edit_webLinkHint => 'bijv. shop.example.com/product';
 
   @override
@@ -19924,13 +19924,6 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get diveDetailSection_tide_description =>
       'Getijdecyclusgrafiek en timing';
-
-  @override
-  String get diveDetailSection_reefHealth_name => 'Wateromstandigheden';
-
-  @override
-  String get diveDetailSection_reefHealth_description =>
-      'Satellietwateromstandigheden op de duikdatum';
 
   @override
   String get diveDetailSection_surfaceGps_name => 'Locatie';
@@ -26446,6 +26439,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get insights_focus_metric_bottomTime => 'Bodemtijd';
 
   @override
+  String get insights_focus_metric_runtime => 'Looptijd';
+
+  @override
   String get insights_focus_metric_weight => 'Lood';
 
   @override
@@ -26981,6 +26977,16 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get insights_progression_bottomTime_title => 'Bodemtijdtrend';
+
+  @override
+  String get insights_progression_runtime_error =>
+      'Kan looptijdtrend niet laden';
+
+  @override
+  String get insights_progression_runtime_subtitle => 'Elke duik in het bereik';
+
+  @override
+  String get insights_progression_runtime_title => 'Looptijdtrend';
 
   @override
   String get insights_progression_cumulative_error =>
@@ -35907,6 +35913,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get equipment_edit_invalidThickness => 'Gebruik 5, 5/4 of 7/5/3';
 
   @override
+  String get equipment_edit_invalidFocalLength => 'Gebruik 60 of 15-45';
+
+  @override
   String get equipment_edit_invalidWebLink =>
       'Voer een webadres in, bijv. shop.example.com';
 
@@ -36401,8 +36410,16 @@ class AppLocalizationsNl extends AppLocalizations {
   String get safetyHub_incidentsLink => 'Bijna-ongevallenlog';
 
   @override
-  String get safetyHub_incidentsLink_subtitle =>
-      'Privé, niet-bestraffende incidentnotities';
+  String safetyHub_incidentsLink_count(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count meldingen',
+      one: '$count melding',
+      zero: 'Nog geen',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get diveLog_detail_menu_logNearMiss => 'Bijna-ongeval vastleggen';
@@ -45986,6 +46003,23 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get maps_regionDownload_downloadButton => 'Downloaden';
+
+  @override
+  String get maps_regionDownload_presetOverview => 'Overzicht';
+
+  @override
+  String get maps_regionDownload_presetDetail => 'Detail';
+
+  @override
+  String get maps_regionDownload_presetFull => 'Volledig';
+
+  @override
+  String get maps_regionDownload_tooManyTiles =>
+      'Meer dan 100.000 tegels: verklein het gebied of verlaag de maximale zoom.';
+
+  @override
+  String get maps_regionDownload_socks5Unsupported =>
+      'Regiodownloads kunnen geen SOCKS5-proxy gebruiken: kies in de netwerkinstellingen een HTTP-proxy of \'Geen proxy\'.';
 
   @override
   String get diveLog_map_title => 'Duikactiviteit';

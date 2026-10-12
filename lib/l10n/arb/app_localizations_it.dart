@@ -10154,9 +10154,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get diveLog_tooltip_gtr => 'GTR';
 
   @override
-  String get diveLog_sources_row_metric => 'Misura';
-
-  @override
   String get diveLog_sources_row_maxDepth => 'Profondità max';
 
   @override
@@ -15155,6 +15152,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get equipment_edit_thicknessDesignationHint => 'es: 5, 5/4, 7/5/3';
 
   @override
+  String get equipment_edit_focalLengthHint => 'es. 60 o 15-45';
+
+  @override
   String get equipment_edit_webLinkHint => 'es. shop.example.com/product';
 
   @override
@@ -20053,13 +20053,6 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get diveDetailSection_tide_description =>
       'Grafico ciclo marea e tempi';
-
-  @override
-  String get diveDetailSection_reefHealth_name => 'Condizioni dell\'acqua';
-
-  @override
-  String get diveDetailSection_reefHealth_description =>
-      'Condizioni dell\'acqua da satellite alla data dell\'immersione';
 
   @override
   String get diveDetailSection_surfaceGps_name => 'Posizione';
@@ -26644,6 +26637,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get insights_focus_metric_bottomTime => 'Tempo di fondo';
 
   @override
+  String get insights_focus_metric_runtime => 'Tempo totale';
+
+  @override
   String get insights_focus_metric_weight => 'Zavorra';
 
   @override
@@ -27184,6 +27180,17 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get insights_progression_bottomTime_title => 'Tendenza tempo di fondo';
+
+  @override
+  String get insights_progression_runtime_error =>
+      'Impossibile caricare la tendenza del tempo totale';
+
+  @override
+  String get insights_progression_runtime_subtitle =>
+      'Ogni immersione nel periodo';
+
+  @override
+  String get insights_progression_runtime_title => 'Tendenza tempo totale';
 
   @override
   String get insights_progression_cumulative_error =>
@@ -36154,6 +36161,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get equipment_edit_invalidThickness => 'Usa 5, 5/4 o 7/5/3';
 
   @override
+  String get equipment_edit_invalidFocalLength => 'Usa 60 o 15-45';
+
+  @override
   String get equipment_edit_invalidWebLink =>
       'Inserisci un indirizzo web, es. shop.example.com';
 
@@ -36652,8 +36662,16 @@ class AppLocalizationsIt extends AppLocalizations {
   String get safetyHub_incidentsLink => 'Registro dei quasi incidenti';
 
   @override
-  String get safetyHub_incidentsLink_subtitle =>
-      'Note private e non punitive sugli incidenti';
+  String safetyHub_incidentsLink_count(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count voci',
+      one: '$count voce',
+      zero: 'Nessuna',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get diveLog_detail_menu_logNearMiss => 'Registra quasi incidente';
@@ -46282,6 +46300,23 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get maps_regionDownload_downloadButton => 'Scarica';
+
+  @override
+  String get maps_regionDownload_presetOverview => 'Panoramica';
+
+  @override
+  String get maps_regionDownload_presetDetail => 'Dettaglio';
+
+  @override
+  String get maps_regionDownload_presetFull => 'Completo';
+
+  @override
+  String get maps_regionDownload_tooManyTiles =>
+      'Oltre 100.000 tile: riduci l\'area o abbassa lo zoom massimo.';
+
+  @override
+  String get maps_regionDownload_socks5Unsupported =>
+      'I download delle regioni non possono usare un proxy SOCKS5: passa a un proxy HTTP o a «Nessun proxy» nelle impostazioni di rete.';
 
   @override
   String get diveLog_map_title => 'Attività di immersione';

@@ -341,11 +341,18 @@ extension RungsFromV231 on AppDatabase {
       await _assertTrendGapCollapseColumn();
     }
     if (from < 281) await reportProgress();
-    // v282: diver_settings.profile_color_* (issue #3012). Columns only, null
-    // meaning the default colour; re-asserted in beforeOpen.
-    if (from < 282) {
+    // v283: dive_profile_series.activated_at (issue #3189). The column and
+    // its one-time backfill; re-asserted in beforeOpen.
+    if (from < 283) {
+      await _assertProfileSeriesActivatedAt();
+    }
+    if (from < 283) await reportProgress();
+    // v284: diver_settings.profile_color_* (issue #3012). Columns only, null
+    // meaning the default colour; re-asserted in beforeOpen. Renumbered from
+    // 282, which PR #3133 holds, after #3296 shipped 283.
+    if (from < 284) {
       await _assertProfileMetricColorColumns();
     }
-    if (from < 282) await reportProgress();
+    if (from < 284) await reportProgress();
   }
 }

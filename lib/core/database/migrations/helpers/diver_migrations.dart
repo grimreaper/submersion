@@ -735,7 +735,7 @@ extension DiverMigrations on AppDatabase {
     }
   }
 
-  /// v282: diver_settings.profile_color_* (issue #3012). Nullable ARGB ints,
+  /// v284: diver_settings.profile_color_* (issue #3012). Nullable ARGB ints,
   /// no default and no backfill: null is the metric's default colour.
   /// Re-asserted in beforeOpen.
   Future<void> _assertProfileMetricColorColumns() async {
