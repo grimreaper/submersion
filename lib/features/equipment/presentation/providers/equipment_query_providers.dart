@@ -4,6 +4,7 @@ import 'package:submersion/features/equipment/domain/entities/equipment_item.dar
 import 'package:submersion/features/equipment/domain/models/equipment_filter_state.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_providers.dart';
 import 'package:submersion/features/equipment/query/equipment_filter_query.dart';
+import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/query/presentation/providers/narrow_by_ids.dart';
 import 'package:submersion/features/query/presentation/providers/query_id_set_providers.dart';
 
@@ -13,9 +14,15 @@ import 'package:submersion/features/query/presentation/providers/query_id_set_pr
 /// whose dives shared gear's counts read).
 final queryFilteredEquipmentIdsProvider = FutureProvider.autoDispose
     .family<Set<String>, ({EquipmentFilterState filter, String? diverId})>(
+      // The default view is read here, not keyed: a change rebuilds every
+      // live instance, so an open list re-queries at once (#2628).
       (ref, key) => watchQueryIds(
         ref,
-        compileEquipmentFilter(key.filter, diverId: key.diverId),
+        compileEquipmentFilter(
+          key.filter,
+          diverId: key.diverId,
+          defaultStatuses: ref.watch(equipmentDefaultStatusesProvider),
+        ),
         scope: key.filter.ownerScope(key.diverId),
       ),
     );

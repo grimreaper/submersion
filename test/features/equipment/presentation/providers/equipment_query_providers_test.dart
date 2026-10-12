@@ -122,6 +122,35 @@ void main() {
   });
 
   test(
+    'changing the default statuses re-queries the open list (#2628)',
+    () async {
+      expect((await settledItems()).map((e) => e.id).toSet(), {'bcd', 'reg'});
+      await container
+          .read(settingsProvider.notifier)
+          .setEquipmentDefaultStatuses({EquipmentStatus.retired});
+      // A refresh keeps the previous ids on screen until the new set lands
+      // (narrowByIds), so wait for it; a list that never re-queries stays on
+      // the old set and times out here.
+      var ids = <String>{};
+      for (var i = 0; i < 300; i++) {
+        ids = (await settledItems()).map((e) => e.id).toSet();
+        if (ids.contains('old')) break;
+        await Future<void>.delayed(const Duration(milliseconds: 10));
+      }
+      expect(ids, {'old'});
+    },
+  );
+
+  test('the real setter ignores an empty set', () async {
+    final notifier = container.read(settingsProvider.notifier);
+    await notifier.setEquipmentDefaultStatuses({EquipmentStatus.active});
+    await notifier.setEquipmentDefaultStatuses(const {});
+    expect(container.read(equipmentDefaultStatusesProvider), {
+      EquipmentStatus.active,
+    });
+  });
+
+  test(
     'a service-due filter reads a cache the engine has just written',
     () async {
       container.read(equipmentFilterProvider.notifier).state =
