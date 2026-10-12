@@ -6,6 +6,7 @@ import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_item.dart';
+import 'package:submersion/features/equipment/domain/models/equipment_default_view.dart';
 import 'package:submersion/features/equipment/domain/models/equipment_filter_state.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_providers.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_list_count_provider.dart';
@@ -181,6 +182,33 @@ void main() {
     }
     expect(c?.shown, 1);
     expect(c?.total, 2);
+  });
+
+  test('toggles made before the settings load both land', () async {
+    // Each toggle applies to the latest settings after the load, so two
+    // taps in flight together cannot overwrite each other.
+    final notifier = container.read(settingsProvider.notifier);
+    await Future.wait([
+      notifier.setEquipmentDefaultStatusIncluded(EquipmentStatus.sold, true),
+      notifier.setEquipmentDefaultStatusIncluded(EquipmentStatus.wanted, true),
+    ]);
+    expect(container.read(equipmentDefaultStatusesProvider), {
+      ...factoryDefaultEquipmentStatuses,
+      EquipmentStatus.sold,
+      EquipmentStatus.wanted,
+    });
+  });
+
+  test('a toggle never empties the default view', () async {
+    final notifier = container.read(settingsProvider.notifier);
+    await notifier.setEquipmentDefaultStatuses({EquipmentStatus.active});
+    await notifier.setEquipmentDefaultStatusIncluded(
+      EquipmentStatus.active,
+      false,
+    );
+    expect(container.read(equipmentDefaultStatusesProvider), {
+      EquipmentStatus.active,
+    });
   });
 
   test('the real setter ignores an empty set', () async {

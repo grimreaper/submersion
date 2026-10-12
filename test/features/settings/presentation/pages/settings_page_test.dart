@@ -454,6 +454,18 @@ class _MockSettingsNotifier extends StateNotifier<AppSettings>
   }
 
   @override
+  Future<void> setEquipmentDefaultStatusIncluded(
+    EquipmentStatus status,
+    bool included,
+  ) async {
+    final current = state.equipmentDefaultStatuses;
+    final next = included ? {...current, status} : current.difference({status});
+    if (next.isNotEmpty) {
+      state = state.copyWith(equipmentDefaultStatuses: next);
+    }
+  }
+
+  @override
   Future<void> setProfileMetricColor(
     ProfileMetric metric,
     Color? color,

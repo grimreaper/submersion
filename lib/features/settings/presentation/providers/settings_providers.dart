@@ -2327,6 +2327,27 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     await _saveSettings();
   }
 
+  /// Adds [status] to, or removes it from, the default equipment view
+  /// (issue #2628). Applied to the settings as they stand after the load, so
+  /// several checklist taps in flight together each land. Removing the last
+  /// status is ignored: the default view always shows something.
+  Future<void> setEquipmentDefaultStatusIncluded(
+    EquipmentStatus status,
+    bool included,
+  ) async {
+    try {
+      await settingsLoaded;
+    } catch (_) {
+      // Already logged by the load; defaults are the fallback.
+    }
+    if (!mounted) return;
+    final current = state.equipmentDefaultStatuses;
+    final next = included ? {...current, status} : current.difference({status});
+    if (next.isEmpty) return;
+    state = state.copyWith(equipmentDefaultStatuses: Set.unmodifiable(next));
+    await _saveSettings();
+  }
+
   /// [metric] takes [color] (null: its default, or Auto), swapping with any
   /// metric already showing it (issue #3012). Waits for the load first, as
   /// [setTrendGapThreshold] does, so an early pick is not overwritten.

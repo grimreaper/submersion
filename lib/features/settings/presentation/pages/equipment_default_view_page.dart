@@ -40,10 +40,9 @@ class EquipmentDefaultViewPage extends ConsumerWidget {
               value: selected.contains(status),
               onChanged: selected.length == 1 && selected.contains(status)
                   ? null
-                  : (ticked) => notifier.setEquipmentDefaultStatuses(
-                      ticked == true
-                          ? {...selected, status}
-                          : selected.difference({status}),
+                  : (ticked) => notifier.setEquipmentDefaultStatusIncluded(
+                      status,
+                      ticked == true,
                     ),
             ),
           // The button's own 12px inset brings its label in line with the
