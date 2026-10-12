@@ -136,9 +136,10 @@ class _Swatch extends StatelessWidget {
       excludeSemantics: true,
       child: InkResponse(
         onTap: onTap,
-        radius: 28,
+        radius: 36,
         child: SizedBox(
-          width: 56,
+          // Wide enough for a two-line caption such as "Heart Rate".
+          width: 76,
           child: Column(
             mainAxisSize: MainAxisSize.min,
             children: [
@@ -163,12 +164,13 @@ class _Swatch extends StatelessWidget {
                 ),
               ),
               SizedBox(
-                height: 16,
+                height: 32,
                 child: caption == null
                     ? null
                     : Text(
                         caption!,
-                        maxLines: 1,
+                        maxLines: 2,
+                        textAlign: TextAlign.center,
                         overflow: TextOverflow.ellipsis,
                         style: Theme.of(context).textTheme.labelSmall,
                       ),
