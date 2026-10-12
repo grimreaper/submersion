@@ -2851,7 +2851,9 @@ class _DiveProfileChartState extends ConsumerState<DiveProfileChart> {
       colorScheme.hashCode,
       // The diver's metric colours (issue #3012): a pick made while the chart
       // is open must redraw the cached series.
-      _palette.overrides.hashCode,
+      // An exact key, never a value hash: a collision would serve one
+      // colour set's bars for another.
+      _palette.overrides.cacheKey,
       metricBandSig,
     ]);
     _baseSig = _sigOf([

@@ -44,6 +44,14 @@ class ProfileMetricColorOverrides {
   /// How many metrics carry a chosen colour.
   int get count => _argb.length;
 
+  /// An exact key for memo signatures: every chosen colour in enum order.
+  /// Unlike [hashCode] it cannot collide, so two colour sets are never
+  /// served each other's cached chart series.
+  String get cacheKey => [
+    for (final metric in ProfileMetric.values)
+      if (_argb[metric] case final argb?) '${metric.index}:$argb',
+  ].join(',');
+
   /// The chosen colour for [metric], or null when it shows its default.
   int? argbOf(ProfileMetric metric) => _argb[metric];
 
