@@ -20170,59 +20170,58 @@ class AppLocalizationsHe extends AppLocalizations {
       'לא ניתן לשמור את פריסת הניווט. נסה שוב.';
 
   @override
-  String get navShortcut_noFly => 'No-fly time';
+  String get navShortcut_noFly => 'זמן איסור טיסה';
 
   @override
   String get navShortcut_cnsOtu => 'CNS/OTU';
 
   @override
-  String get navShortcut_records => 'Records';
+  String get navShortcut_records => 'שיאים';
 
   @override
-  String get navShortcut_sitesMap => 'Sites map';
+  String get navShortcut_sitesMap => 'מפת אתרים';
 
   @override
-  String get navShortcut_diveActivityMap => 'Dive activity map';
+  String get navShortcut_diveActivityMap => 'מפת פעילות צלילה';
 
   @override
-  String get navShortcut_diveCentersMap => 'Dive centers map';
+  String get navShortcut_diveCentersMap => 'מפת מועדוני צלילה';
 
   @override
-  String get navShortcut_diverProfile => 'Diver profile';
+  String get navShortcut_diverProfile => 'פרופיל צולל';
 
   @override
-  String get navShortcut_cloudSync => 'Cloud sync';
+  String get navShortcut_cloudSync => 'סנכרון ענן';
 
   @override
-  String get navShortcut_offlineMaps => 'Offline maps';
+  String get navShortcut_offlineMaps => 'מפות לא מקוונות';
 
   @override
-  String get settings_navCustomization_addShortcut => 'Add shortcut';
+  String get settings_navCustomization_addShortcut => 'הוסף קיצור דרך';
 
   @override
-  String get settings_navCustomization_shortcutPickerTitle => 'Add a shortcut';
+  String get settings_navCustomization_shortcutPickerTitle => 'קיצור דרך חדש';
 
   @override
-  String get settings_navCustomization_shortcutSearchHint => 'Search pages';
+  String get settings_navCustomization_shortcutSearchHint => 'חיפוש דפים';
 
   @override
-  String get settings_navCustomization_shortcutNoMatches => 'No matching pages';
+  String get settings_navCustomization_shortcutNoMatches => 'אין דפים תואמים';
 
   @override
   String get settings_navCustomization_shortcutAlreadyAdded =>
-      'Already in this layout';
+      'כבר נמצא בפריסה זו';
 
   @override
   String settings_navCustomization_removeShortcutLabel(String destination) {
-    return 'Remove $destination';
+    return 'הסר את $destination';
   }
 
   @override
-  String get settings_navCustomization_group_views => 'Views';
+  String get settings_navCustomization_group_views => 'תצוגות';
 
   @override
-  String get settings_navCustomization_group_settingsAndTools =>
-      'Settings and tools';
+  String get settings_navCustomization_group_settingsAndTools => 'הגדרות וכלים';
 
   @override
   String get settings_backToSettings_tooltip => 'חזרה להגדרות';

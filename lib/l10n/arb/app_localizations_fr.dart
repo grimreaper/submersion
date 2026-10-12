@@ -20688,7 +20688,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Impossible d\'enregistrer la disposition de la navigation. Veuillez réessayer.';
 
   @override
-  String get navShortcut_noFly => 'No-fly time';
+  String get navShortcut_noFly => 'Délai avant vol';
 
   @override
   String get navShortcut_cnsOtu => 'CNS/OTU';
@@ -20697,50 +20697,53 @@ class AppLocalizationsFr extends AppLocalizations {
   String get navShortcut_records => 'Records';
 
   @override
-  String get navShortcut_sitesMap => 'Sites map';
+  String get navShortcut_sitesMap => 'Carte des sites';
 
   @override
-  String get navShortcut_diveActivityMap => 'Dive activity map';
+  String get navShortcut_diveActivityMap => 'Carte de l\'activité de plongée';
 
   @override
-  String get navShortcut_diveCentersMap => 'Dive centers map';
+  String get navShortcut_diveCentersMap => 'Carte des centres de plongée';
 
   @override
-  String get navShortcut_diverProfile => 'Diver profile';
+  String get navShortcut_diverProfile => 'Profil du plongeur';
 
   @override
-  String get navShortcut_cloudSync => 'Cloud sync';
+  String get navShortcut_cloudSync => 'Synchronisation cloud';
 
   @override
-  String get navShortcut_offlineMaps => 'Offline maps';
+  String get navShortcut_offlineMaps => 'Cartes hors ligne';
 
   @override
-  String get settings_navCustomization_addShortcut => 'Add shortcut';
+  String get settings_navCustomization_addShortcut => 'Ajouter un raccourci';
 
   @override
-  String get settings_navCustomization_shortcutPickerTitle => 'Add a shortcut';
+  String get settings_navCustomization_shortcutPickerTitle =>
+      'Nouveau raccourci';
 
   @override
-  String get settings_navCustomization_shortcutSearchHint => 'Search pages';
+  String get settings_navCustomization_shortcutSearchHint =>
+      'Rechercher des pages';
 
   @override
-  String get settings_navCustomization_shortcutNoMatches => 'No matching pages';
+  String get settings_navCustomization_shortcutNoMatches =>
+      'Aucune page correspondante';
 
   @override
   String get settings_navCustomization_shortcutAlreadyAdded =>
-      'Already in this layout';
+      'Déjà dans cette disposition';
 
   @override
   String settings_navCustomization_removeShortcutLabel(String destination) {
-    return 'Remove $destination';
+    return 'Retirer $destination';
   }
 
   @override
-  String get settings_navCustomization_group_views => 'Views';
+  String get settings_navCustomization_group_views => 'Vues';
 
   @override
   String get settings_navCustomization_group_settingsAndTools =>
-      'Settings and tools';
+      'Réglages et outils';
 
   @override
   String get settings_backToSettings_tooltip => 'Retour aux réglages';

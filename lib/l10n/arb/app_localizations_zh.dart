@@ -19615,59 +19615,57 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings_navCustomization_saveError => '无法保存导航布局。请重试。';
 
   @override
-  String get navShortcut_noFly => 'No-fly time';
+  String get navShortcut_noFly => '禁飞时间';
 
   @override
   String get navShortcut_cnsOtu => 'CNS/OTU';
 
   @override
-  String get navShortcut_records => 'Records';
+  String get navShortcut_records => '记录';
 
   @override
-  String get navShortcut_sitesMap => 'Sites map';
+  String get navShortcut_sitesMap => '潜水点地图';
 
   @override
-  String get navShortcut_diveActivityMap => 'Dive activity map';
+  String get navShortcut_diveActivityMap => '潜水活动地图';
 
   @override
-  String get navShortcut_diveCentersMap => 'Dive centers map';
+  String get navShortcut_diveCentersMap => '潜水中心地图';
 
   @override
-  String get navShortcut_diverProfile => 'Diver profile';
+  String get navShortcut_diverProfile => '潜水员档案';
 
   @override
-  String get navShortcut_cloudSync => 'Cloud sync';
+  String get navShortcut_cloudSync => '云同步';
 
   @override
-  String get navShortcut_offlineMaps => 'Offline maps';
+  String get navShortcut_offlineMaps => '离线地图';
 
   @override
-  String get settings_navCustomization_addShortcut => 'Add shortcut';
+  String get settings_navCustomization_addShortcut => '添加快捷方式';
 
   @override
-  String get settings_navCustomization_shortcutPickerTitle => 'Add a shortcut';
+  String get settings_navCustomization_shortcutPickerTitle => '新建快捷方式';
 
   @override
-  String get settings_navCustomization_shortcutSearchHint => 'Search pages';
+  String get settings_navCustomization_shortcutSearchHint => '搜索页面';
 
   @override
-  String get settings_navCustomization_shortcutNoMatches => 'No matching pages';
+  String get settings_navCustomization_shortcutNoMatches => '没有匹配的页面';
 
   @override
-  String get settings_navCustomization_shortcutAlreadyAdded =>
-      'Already in this layout';
+  String get settings_navCustomization_shortcutAlreadyAdded => '已在此布局中';
 
   @override
   String settings_navCustomization_removeShortcutLabel(String destination) {
-    return 'Remove $destination';
+    return '移除$destination';
   }
 
   @override
-  String get settings_navCustomization_group_views => 'Views';
+  String get settings_navCustomization_group_views => '视图';
 
   @override
-  String get settings_navCustomization_group_settingsAndTools =>
-      'Settings and tools';
+  String get settings_navCustomization_group_settingsAndTools => '设置和工具';
 
   @override
   String get settings_backToSettings_tooltip => '返回设置';
