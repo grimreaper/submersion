@@ -6,7 +6,6 @@ import 'package:submersion/features/equipment/domain/models/equipment_default_vi
 import 'package:submersion/features/settings/data/repositories/diver_settings_repository.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 
-import '../../../../helpers/mock_providers.dart';
 import '../../../../helpers/test_database.dart';
 
 /// The diver's default equipment view (issue #2628) is stored as null until
@@ -21,14 +20,6 @@ void main() {
           .equipmentDefaultStatuses,
       {EquipmentStatus.active},
     );
-  });
-
-  test('the setter ignores an empty set', () async {
-    final notifier = MockSettingsNotifier(
-      const AppSettings(equipmentDefaultStatuses: {EquipmentStatus.active}),
-    );
-    await notifier.setEquipmentDefaultStatuses(const {});
-    expect(notifier.state.equipmentDefaultStatuses, {EquipmentStatus.active});
   });
 
   group('DiverSettingsRepository default equipment view', () {

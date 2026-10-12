@@ -1,6 +1,7 @@
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_item.dart';
+import 'package:submersion/features/equipment/domain/models/equipment_default_view.dart';
 import 'package:submersion/features/equipment/domain/models/equipment_filter_state.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_providers.dart';
 import 'package:submersion/features/equipment/query/equipment_filter_query.dart';
@@ -24,6 +25,20 @@ final queryFilteredEquipmentIdsProvider = FutureProvider.autoDispose
           defaultStatuses: ref.watch(equipmentDefaultStatusesProvider),
         ),
         scope: key.filter.ownerScope(key.diverId),
+      ),
+    );
+
+/// The factory kit's ids (#2628): what a service-due view reads whatever
+/// the diver's default view, so its count totals the same gear.
+final factoryKitEquipmentIdsProvider = FutureProvider.autoDispose
+    .family<Set<String>, String?>(
+      (ref, diverId) => watchQueryIds(
+        ref,
+        compileEquipmentFilter(
+          const EquipmentFilterState(),
+          diverId: diverId,
+          defaultStatuses: factoryDefaultEquipmentStatuses,
+        ),
       ),
     );
 

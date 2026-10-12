@@ -163,6 +163,26 @@ void main() {
     expect(c?.total, 1);
   });
 
+  test('a service-due count totals the factory kit it reads', () async {
+    final count = container.listen(equipmentListCountProvider, (_, _) {});
+    addTearDown(count.close);
+    await container.read(settingsProvider.notifier).setEquipmentDefaultStatuses(
+      {EquipmentStatus.retired},
+    );
+    container.read(equipmentFilterProvider.notifier).state =
+        const EquipmentFilterState(serviceDue: ServiceDueFilter.overdue);
+    // 'reg' is the one overdue item of the kit {bcd, reg}; the diver's
+    // retired-only default must not set the total under a service view.
+    ListEntryCount? c;
+    for (var i = 0; i < 300; i++) {
+      c = container.read(equipmentListCountProvider);
+      if (c != null && c.shown == 1 && c.total == 2) break;
+      await Future<void>.delayed(const Duration(milliseconds: 10));
+    }
+    expect(c?.shown, 1);
+    expect(c?.total, 2);
+  });
+
   test('the real setter ignores an empty set', () async {
     final notifier = container.read(settingsProvider.notifier);
     await notifier.setEquipmentDefaultStatuses({EquipmentStatus.active});

@@ -1,5 +1,4 @@
 import 'package:submersion/core/constants/enums.dart';
-import 'package:submersion/features/equipment/domain/models/equipment_default_view.dart';
 import 'package:submersion/features/equipment/domain/models/equipment_filter_state.dart';
 import 'package:submersion/features/equipment/query/equipment_filter_query.dart';
 import 'package:submersion/features/query/data/query_id_set_runner.dart';
@@ -7,7 +6,8 @@ import 'package:submersion/features/query/data/query_id_set_runner.dart';
 /// The list view that shows a just-saved item, or null when [filter], the
 /// view the list is on, already shows it (#3068).
 ///
-/// The default view leaves out wishlist, retired and sold gear, so saving a
+/// The default view (by default everything but wishlist, retired and sold
+/// gear; the diver can narrow it, #2628) can leave the item out, so saving a
 /// Wanted item from it used to look like the save had failed. The check runs
 /// the list's own compiled query rather than re-deriving its rules, so it
 /// sees every axis (status, category, tags, owner) exactly as the list does.
@@ -28,7 +28,7 @@ Future<EquipmentFilterState?> viewRevealingSavedEquipment({
   required String equipmentId,
   required EquipmentStatus status,
   Future<void> Function(Set<String> tablesTouched)? beforeQuery,
-  Set<EquipmentStatus> defaultStatuses = factoryDefaultEquipmentStatuses,
+  required Set<EquipmentStatus> defaultStatuses,
 }) async {
   Future<bool> shows(EquipmentFilterState view) async {
     final compiled = compileEquipmentFilter(

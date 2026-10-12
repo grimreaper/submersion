@@ -174,6 +174,7 @@ void main() {
       equipmentId: 'fins',
       status: EquipmentStatus.active,
       beforeQuery: (tables) async => synced.add(tables),
+      defaultStatuses: factoryDefaultEquipmentStatuses,
     );
     // The service-due view, then the default view it falls back to.
     expect(synced, hasLength(2));

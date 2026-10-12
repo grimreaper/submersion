@@ -27,7 +27,6 @@ extension EquipmentFilterQuery on EquipmentFilterState {
 
   QueryNode? _lower({required Set<EquipmentStatus>? defaultStatuses}) {
     final parts = <QueryNode>[];
-    QueryNode c(String key, QueryOp op, QueryValue? v) => _c(key, op, v);
     EnumValue e(String name) => EnumValue(name);
     final s = status;
     if (allStatuses) {
@@ -49,27 +48,27 @@ extension EquipmentFilterQuery on EquipmentFilterState {
     } else if (s == EquipmentStatus.retired) {
       parts.addAll(_retiredView());
     } else {
-      parts.add(c('status', QueryOp.eq, e(s.name)));
+      parts.add(_c('status', QueryOp.eq, e(s.name)));
     }
     final due = serviceDue;
     if (due != null) {
       parts.add(switch (due) {
-        ServiceDueFilter.any => c(
+        ServiceDueFilter.any => _c(
           'serviceDue',
           QueryOp.inList,
           ListValue([e('dueSoon'), e('overdue')]),
         ),
-        ServiceDueFilter.overdue => c('serviceDue', QueryOp.eq, e('overdue')),
-        ServiceDueFilter.dueSoon => c('serviceDue', QueryOp.eq, e('dueSoon')),
+        ServiceDueFilter.overdue => _c('serviceDue', QueryOp.eq, e('overdue')),
+        ServiceDueFilter.dueSoon => _c('serviceDue', QueryOp.eq, e('dueSoon')),
       });
     }
-    if (type != null) parts.add(c('type', QueryOp.eq, e(type!.name)));
+    if (type != null) parts.add(_c('type', QueryOp.eq, e(type!.name)));
     for (final cond in attrConditions) {
       parts.add(equipmentAttrConditionNode(cond));
     }
     if (tagIds.isNotEmpty) {
       parts.add(
-        c(
+        _c(
           'tags',
           QueryOp.inList,
           ListValue([
@@ -82,7 +81,7 @@ extension EquipmentFilterQuery on EquipmentFilterState {
       // Any of the chosen places, or none at all.
       final options = <QueryNode>[
         if (locationNames.isNotEmpty)
-          c(
+          _c(
             'location',
             QueryOp.inList,
             ListValue([
@@ -90,7 +89,7 @@ extension EquipmentFilterQuery on EquipmentFilterState {
                 StringValue(name),
             ]),
           ),
-        if (noLocation) c('location', QueryOp.isEmpty, null),
+        if (noLocation) _c('location', QueryOp.isEmpty, null),
       ];
       parts.add(options.length == 1 ? options.single : OrNode(options));
     }
@@ -202,7 +201,7 @@ bool constrainsEquipmentStatus(QueryNode node) => switch (node) {
 CompiledQuery compileEquipmentFilter(
   EquipmentFilterState filter, {
   String? diverId,
-  Set<EquipmentStatus> defaultStatuses = factoryDefaultEquipmentStatuses,
+  required Set<EquipmentStatus> defaultStatuses,
 }) => compileQuery(
   filter.toQuery(defaultStatuses: defaultStatuses),
   equipmentQueryEntity,
