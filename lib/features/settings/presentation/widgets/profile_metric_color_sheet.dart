@@ -86,7 +86,10 @@ class _SheetBody extends StatelessWidget {
                       ? palette.temperatureAuto
                       : ProfileMetricColors.pressure),
               selected: onDefault,
-              caption: defaultLabel,
+              // Like any held swatch, name the metric it would swap with.
+              caption: defaultHolder == null
+                  ? defaultLabel
+                  : '$defaultLabel · ${profileMetricLabel(l10n, defaultHolder)}',
               semanticsLabel: defaultHolder == null
                   ? defaultLabel
                   : '$defaultLabel, ${l10n.settings_metricColors_swapsWith(profileMetricLabel(l10n, defaultHolder))}',

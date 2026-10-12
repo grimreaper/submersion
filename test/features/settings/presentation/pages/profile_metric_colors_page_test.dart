@@ -153,6 +153,8 @@ void main() {
       find.bySemanticsLabel(RegExp(r'^Default, Swaps with NDL$')),
       findsOneWidget,
     );
+    // Sighted divers see it too: the caption names the holder.
+    expect(find.text('Default · NDL'), findsOneWidget);
   });
 
   testWidgets('a screen reader can tell every swatch apart', (tester) async {
