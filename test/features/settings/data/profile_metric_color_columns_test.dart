@@ -1,3 +1,4 @@
+import 'package:drift/drift.dart' hide isNull;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/features/dive_log/presentation/profile_colors/profile_metric.dart';
@@ -48,6 +49,32 @@ void main() {
       );
     }
   });
+
+  test(
+    'reads a sync clash deduped, so the next save stores the repair',
+    () async {
+      await db.customStatement('PRAGMA foreign_keys = OFF');
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await db
+          .into(db.diverSettings)
+          .insert(
+            DiverSettingsCompanion.insert(
+              id: 'ds-clash',
+              diverId: 'diver-clash',
+              createdAt: now,
+              updatedAt: now,
+              profileColorPpO2: const Value(0xFFE040FB),
+              profileColorPpN2: const Value(0xFFE040FB),
+            ),
+          );
+      final row = await (db.select(
+        db.diverSettings,
+      )..where((t) => t.id.equals('ds-clash'))).getSingle();
+      final read = profileMetricColorsFromRow(row);
+      expect(read.effectiveArgb(ProfileMetric.ppO2), 0xFFE040FB);
+      expect(read.effectiveArgb(ProfileMetric.ppN2), isNot(0xFFE040FB));
+    },
+  );
 
   test('an empty override set writes null to every column', () {
     final c = withProfileMetricColors(

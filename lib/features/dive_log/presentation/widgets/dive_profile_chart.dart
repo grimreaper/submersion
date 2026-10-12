@@ -784,9 +784,10 @@ class _DiveProfileChartState extends ConsumerState<DiveProfileChart> {
   );
 
   /// Whether a chosen pressure colour has a line to colour on this dive.
-  bool get _isSingleTankDive =>
-      (widget.tankPressures?.length ?? 0) <= 1 &&
-      (widget.tanks?.length ?? 0) <= 1;
+  bool get _isSingleTankDive => ProfileMetricPalette.isSingleTankDive(
+    pressureSeries: widget.tankPressures?.length ?? 0,
+    tankCount: widget.tanks?.length ?? 0,
+  );
 
   Color _markerColor(ProfileMarker marker) {
     final tank = _singleTankPressureColor;

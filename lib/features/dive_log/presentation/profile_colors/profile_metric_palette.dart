@@ -43,7 +43,18 @@ class ProfileMetricPalette {
   Color? pressureLineColor({
     required int pressureSeries,
     required int tankCount,
-  }) => pressureSeries == 1 && tankCount <= 1 ? pressureOverride : null;
+  }) =>
+      pressureSeries == 1 &&
+          isSingleTankDive(pressureSeries: pressureSeries, tankCount: tankCount)
+      ? pressureOverride
+      : null;
+
+  /// Whether a dive has at most one tank and one pressure series: the only
+  /// dives a chosen pressure colour applies to (issue #3012).
+  static bool isSingleTankDive({
+    required int pressureSeries,
+    required int tankCount,
+  }) => pressureSeries <= 1 && tankCount <= 1;
 
   /// The right Y axis's label colour for [metric]. Ascent rate and O2 cells
   /// are not recolourable and keep their own. Pressure shows the chosen

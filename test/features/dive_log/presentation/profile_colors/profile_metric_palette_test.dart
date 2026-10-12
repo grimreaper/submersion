@@ -44,6 +44,21 @@ void main() {
     expect(p.colorOf(ProfileMetric.ppO2), isNot(p.colorOf(ProfileMetric.ppN2)));
   });
 
+  test('isSingleTankDive needs at most one tank and one pressure series', () {
+    expect(
+      ProfileMetricPalette.isSingleTankDive(pressureSeries: 1, tankCount: 1),
+      isTrue,
+    );
+    expect(
+      ProfileMetricPalette.isSingleTankDive(pressureSeries: 1, tankCount: 2),
+      isFalse,
+    );
+    expect(
+      ProfileMetricPalette.isSingleTankDive(pressureSeries: 2, tankCount: 0),
+      isFalse,
+    );
+  });
+
   group('rightAxisColor', () {
     test(
       'NDL follows the chart (Yellow 700), not the old Light Green copy',

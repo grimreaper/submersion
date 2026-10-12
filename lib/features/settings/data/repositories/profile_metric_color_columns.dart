@@ -36,7 +36,9 @@ DiverSettingsCompanion withProfileMetricColors(
   );
 }
 
-/// The colours stored on [row].
+/// The colours stored on [row], deduped: per-field sync conflict resolution
+/// can leave two metrics on one colour, and reading the repair here means
+/// the next settings save stores it. Reading never writes.
 ProfileMetricColorOverrides profileMetricColorsFromRow(DiverSetting row) =>
     ProfileMetricColorOverrides.fromArgb({
       ProfileMetric.depth: row.profileColorDepth,
@@ -59,4 +61,4 @@ ProfileMetricColorOverrides profileMetricColorsFromRow(DiverSetting row) =>
       ProfileMetric.gf: row.profileColorGf,
       ProfileMetric.surfaceGf: row.profileColorSurfaceGf,
       ProfileMetric.meanDepth: row.profileColorMeanDepth,
-    });
+    }).deduped();
