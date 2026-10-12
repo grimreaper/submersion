@@ -1220,7 +1220,7 @@ class AppDatabase extends _$AppDatabase {
     283,
     // v286: diver_settings.equipment_default_statuses (issue #2628).
     // Additive nullable column, so the floor stays at 280. 284 and 285 are
-    // held by a local branch and PR #3306.
+    // claimed by other work in flight (285 by PR #3306).
     286,
   ];
 

@@ -49,7 +49,7 @@ Set<EquipmentStatus>? tryDecodeEquipmentDefaultStatuses(String? raw) {
     for (final s in EquipmentStatus.values)
       if (names.contains(s.name)) s,
   };
-  return statuses.isEmpty ? null : statuses;
+  return statuses.isEmpty ? null : Set.unmodifiable(statuses);
 }
 
 /// [tryDecodeEquipmentDefaultStatuses], falling back to the factory set so

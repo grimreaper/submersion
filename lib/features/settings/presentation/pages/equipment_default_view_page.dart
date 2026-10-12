@@ -46,8 +46,10 @@ class EquipmentDefaultViewPage extends ConsumerWidget {
                           : selected.difference({status}),
                     ),
             ),
+          // The button's own 12px inset brings its label in line with the
+          // status names above.
           Padding(
-            padding: const EdgeInsets.all(16),
+            padding: const EdgeInsets.symmetric(horizontal: 4, vertical: 16),
             child: Align(
               alignment: AlignmentDirectional.centerStart,
               child: TextButton(

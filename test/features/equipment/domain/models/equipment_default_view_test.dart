@@ -60,6 +60,11 @@ void main() {
       );
     });
 
+    test('a decoded set cannot be changed in place', () {
+      final set = decodeEquipmentDefaultStatuses('["active"]');
+      expect(() => set.add(EquipmentStatus.lost), throwsUnsupportedError);
+    });
+
     test('unknown names from a newer build are dropped', () {
       expect(decodeEquipmentDefaultStatuses('["active","hovercraft"]'), {
         EquipmentStatus.active,
