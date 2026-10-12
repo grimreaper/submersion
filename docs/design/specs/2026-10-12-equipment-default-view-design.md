@@ -71,7 +71,14 @@ the set as a parameter from its caller.
 Because every "default view" surface goes through these two compile
 callers, all of them follow the setting with no further change: the list,
 the "3 of 40 items" count total, the status-view and tag-emptied probes, the
-save-reveal check, and the tag, service and Explore navigation entries.
+save-reveal check, and the tag and Explore navigation entries.
+
+Service-due views are the exception: they keep the factory kit whatever the
+setting. The home strip's service chips count clocks over the factory kit,
+so a list narrowed by a custom default would show fewer rows than the chip
+promised and could hide gear that is due for service. This covers both the
+home strip entries and the filter panel's Service Due, Overdue and Due Soon
+chips.
 
 `toSavedQuery()` already strips the default view, so saved searches are
 unaffected.
@@ -104,7 +111,8 @@ behaviour is unchanged: it is selected when no status filter is set, and
 
 ### Empty state
 
-When the default view is empty but the diver owns gear outside it (now
+When the default view is empty but the diver owns gear outside it
+(wishlist items are not owned, so they do not count) (now
 likely with, say, "Active only"), the list stops saying "No equipment / Add
 your first equipment". It says "No equipment in your default view", explains
 that the default view hides the diver's other gear, and offers a "Show All
