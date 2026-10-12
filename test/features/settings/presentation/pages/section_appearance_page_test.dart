@@ -5,6 +5,8 @@ import 'package:submersion/core/constants/card_color.dart';
 import 'package:submersion/core/constants/list_view_mode.dart';
 import 'package:submersion/core/constants/profile_metrics.dart';
 import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/features/dive_log/presentation/profile_colors/profile_metric.dart';
+import 'package:submersion/features/dive_log/presentation/profile_colors/profile_metric_color_overrides.dart';
 import 'package:submersion/features/settings/presentation/pages/section_appearance_page.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
@@ -39,6 +41,40 @@ Widget _buildTestWidget(
 
 void main() {
   group('SectionAppearancePage - Dives section', () {
+    testWidgets('Dive Profile has a Metric Colors tile with a summary '
+        '(issue #3012)', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(400, 4000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(_buildTestWidget('dives'));
+      await tester.pumpAndSettle();
+      expect(find.text('Metric Colors'), findsOneWidget);
+      expect(find.text('Default colors'), findsOneWidget);
+    });
+
+    testWidgets('the Metric Colors tile counts customised metrics', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(400, 4000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      await tester.pumpWidget(
+        _buildTestWidget(
+          'dives',
+          notifier: MockSettingsNotifier(
+            AppSettings(
+              profileMetricColors: ProfileMetricColorOverrides.none.withColor(
+                ProfileMetric.ppO2,
+                const Color(0xFFE040FB),
+              ),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('1 customized'), findsOneWidget);
+    });
+
     testWidgets('shows all 5 section headers and dive-specific settings', (
       tester,
     ) async {
