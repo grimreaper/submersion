@@ -298,14 +298,13 @@ class _NavOrderEditorState extends ConsumerState<NavOrderEditor> {
   }
 
   Future<void> _reset() async {
-    final previous = _local;
     try {
       await ref.read(_orderProvider.notifier).resetToDefaults();
       if (!mounted) return;
       setState(() => _local = null);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _local = previous);
+      _restoreSaved();
       _showSaveError();
     }
   }
@@ -342,19 +341,29 @@ class _NavOrderEditorState extends ConsumerState<NavOrderEditor> {
   }
 
   /// Shared commit path for every edit. Optimistically updates the local
-  /// mirror, writes through to the notifier, and rolls back with a SnackBar
-  /// on failure.
+  /// mirror, writes through to the notifier, and on failure rolls back with
+  /// a SnackBar.
   Future<void> _commitOrder(List<String> newList) async {
-    final previous = _local!;
-    if (listEquals(newList, previous)) return; // no-op edit
+    if (listEquals(newList, _local)) return; // no-op edit
     setState(() => _local = newList);
     try {
       await ref.read(_orderProvider.notifier).setOrder(newList);
     } catch (_) {
       if (!mounted) return;
-      setState(() => _local = previous);
+      _restoreSaved();
       _showSaveError();
     }
+  }
+
+  /// Rolls the mirror back to the last order that actually saved.
+  ///
+  /// Not to the list from before the failed edit: edits overlap (a second one
+  /// can start, and save, while the first is still writing), and a late
+  /// failure restoring its own "before" would discard the newer saved edit.
+  /// The notifier only takes an order once its write succeeds, so its state
+  /// is always what is stored.
+  void _restoreSaved() {
+    setState(() => _local = List<String>.from(ref.read(_orderProvider)));
   }
 
   void _showSaveError() {

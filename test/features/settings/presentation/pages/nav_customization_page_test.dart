@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -373,6 +375,32 @@ void main() {
       expect(repo.navPrimaryIds, isNull);
     });
 
+    testWidgets('a late failure does not undo a newer saved edit', (
+      tester,
+    ) async {
+      final repo = _FirstWriteFailsLateRepo();
+      await pumpPage(tester, repo: repo);
+
+      // Edit A: Dives down. Its save hangs, then fails.
+      await tester.tap(find.byIcon(Icons.arrow_downward).at(0));
+      await tester.pump();
+      // Edit B: Trips down, from A's order. Its save succeeds.
+      await tester.tap(find.byIcon(Icons.arrow_downward).at(2));
+      await tester.pumpAndSettle();
+      final saved = List<String>.from(repo.navPrimaryIds!);
+
+      repo.gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Could not save navigation layout. Please try again.'),
+        findsOneWidget,
+      );
+      // The screen shows what is saved (B), not the order before A.
+      expect(_firstRowId(tester), saved.first);
+      expect(saved.first, 'sites');
+    });
+
     testWidgets('a failed save rolls the row back and reports it', (
       tester,
     ) async {
@@ -578,4 +606,21 @@ class _AlwaysHideLabelsWriteFailsRepo extends FakeAppSettingsRepository {
   @override
   Future<void> setNavAlwaysHideLabels(bool value) async =>
       throw StateError('write failed');
+}
+
+/// Holds the first nav write open until [gate] completes, then fails it;
+/// every later write succeeds.
+class _FirstWriteFailsLateRepo extends FakeAppSettingsRepository {
+  final gate = Completer<void>();
+  int _writes = 0;
+
+  @override
+  Future<void> setNavPrimaryIds(List<String> ids) async {
+    _writes++;
+    if (_writes == 1) {
+      await gate.future;
+      throw StateError('write failed');
+    }
+    navPrimaryIds = List<String>.from(ids);
+  }
 }

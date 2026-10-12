@@ -107,11 +107,35 @@ void main() {
     );
   });
 
-  testWidgets('the desktop dialog focuses its search', (tester) async {
-    await _open(tester, _host(const {}, (_) {}), size: const Size(1200, 900));
-    final field = tester.widget<EditableText>(find.byType(EditableText));
-    expect(field.focusNode.hasFocus, isTrue);
-  });
+  testWidgets(
+    'on a desktop OS the search takes focus at once',
+    (tester) async {
+      await _open(tester, _host(const {}, (_) {}), size: const Size(1200, 900));
+      final field = tester.widget<EditableText>(find.byType(EditableText));
+      expect(field.focusNode.hasFocus, isTrue);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.macOS,
+      TargetPlatform.windows,
+      TargetPlatform.linux,
+    }),
+  );
+
+  testWidgets(
+    'a wide touch tablet leaves the keyboard down',
+    (tester) async {
+      // A tablet in landscape is wide enough for the dialog, but focusing
+      // would throw the on-screen keyboard over it.
+      await _open(tester, _host(const {}, (_) {}), size: const Size(1200, 900));
+      expect(find.byType(Dialog), findsOneWidget);
+      final field = tester.widget<EditableText>(find.byType(EditableText));
+      expect(field.focusNode.hasFocus, isFalse);
+    },
+    variant: const TargetPlatformVariant({
+      TargetPlatform.iOS,
+      TargetPlatform.android,
+    }),
+  );
 
   testWidgets('the phone sheet leaves the keyboard down until asked', (
     tester,

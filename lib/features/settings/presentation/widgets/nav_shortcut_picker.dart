@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:submersion/l10n/arb/app_localizations.dart';
@@ -33,12 +34,7 @@ Future<String?> showNavShortcutPicker(
         clipBehavior: Clip.antiAlias,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480, maxHeight: 640),
-          // A wide window has a hardware keyboard, so typing can start at
-          // once; on a phone focusing would throw the keyboard over the list.
-          child: NavShortcutPicker(
-            alreadyAdded: alreadyAdded,
-            autofocusSearch: true,
-          ),
+          child: NavShortcutPicker(alreadyAdded: alreadyAdded),
         ),
       ),
     );
@@ -63,17 +59,10 @@ Future<String?> showNavShortcutPicker(
 
 /// The searchable, grouped list of nav shortcuts.
 class NavShortcutPicker extends StatefulWidget {
-  const NavShortcutPicker({
-    super.key,
-    required this.alreadyAdded,
-    this.autofocusSearch = false,
-  });
+  const NavShortcutPicker({super.key, required this.alreadyAdded});
 
   /// Shortcut ids already on the surface being edited.
   final Set<String> alreadyAdded;
-
-  /// Whether the search field takes focus on open.
-  final bool autofocusSearch;
 
   @override
   State<NavShortcutPicker> createState() => _NavShortcutPickerState();
@@ -81,6 +70,20 @@ class NavShortcutPicker extends StatefulWidget {
 
 class _NavShortcutPickerState extends State<NavShortcutPicker> {
   String _query = '';
+
+  /// Whether typing can start the moment the picker opens. A desktop OS has a
+  /// hardware keyboard; on a phone or tablet focusing the search would throw
+  /// the on-screen keyboard over the list the diver came to browse. Decided
+  /// by platform, not window width: a tablet in landscape is as wide as a
+  /// desktop window.
+  bool get _hasHardwareKeyboard => switch (defaultTargetPlatform) {
+    TargetPlatform.macOS ||
+    TargetPlatform.windows ||
+    TargetPlatform.linux => true,
+    TargetPlatform.android ||
+    TargetPlatform.iOS ||
+    TargetPlatform.fuchsia => false,
+  };
 
   bool _matches(AppLocalizations l10n, NavShortcut shortcut) {
     if (_query.isEmpty) return true;
@@ -119,7 +122,7 @@ class _NavShortcutPickerState extends State<NavShortcutPicker> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: TextField(
-            autofocus: widget.autofocusSearch,
+            autofocus: _hasHardwareKeyboard,
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.search),
               hintText: l10n.settings_navCustomization_shortcutSearchHint,
