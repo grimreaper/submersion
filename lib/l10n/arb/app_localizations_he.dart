@@ -21518,6 +21518,10 @@ class AppLocalizationsHe extends AppLocalizations {
   String get settings_conflict_field_equipmentComponents_role => 'תפקיד';
 
   @override
+  String get settings_conflict_field_equipmentDefaultStatuses =>
+      'Default equipment view';
+
+  @override
   String get settings_conflict_field_equipmentFindings_severity => 'חומרה';
 
   @override
@@ -24035,6 +24039,9 @@ class AppLocalizationsHe extends AppLocalizations {
   @override
   String get settings_manage_locations_subtitle =>
       'היכן הציוד שלך מאוחסן, בטיפול או מושאל';
+
+  @override
+  String get settings_equipmentDefaultView_listSeparator => ', ';
 
   @override
   String get settings_manage_currencyRules => 'תוקף הסמכות';

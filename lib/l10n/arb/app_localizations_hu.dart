@@ -21971,6 +21971,10 @@ class AppLocalizationsHu extends AppLocalizations {
   String get settings_conflict_field_equipmentComponents_role => 'Szerep';
 
   @override
+  String get settings_conflict_field_equipmentDefaultStatuses =>
+      'Default equipment view';
+
+  @override
   String get settings_conflict_field_equipmentFindings_severity => 'Súlyosság';
 
   @override
@@ -24548,6 +24552,9 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get settings_manage_locations_subtitle =>
       'Hol tárolod, szervizelteted vagy adtad kölcsön a felszerelésed';
+
+  @override
+  String get settings_equipmentDefaultView_listSeparator => ', ';
 
   @override
   String get settings_manage_currencyRules => 'Képesítések érvényessége';

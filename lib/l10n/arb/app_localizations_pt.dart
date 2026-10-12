@@ -22043,6 +22043,10 @@ class AppLocalizationsPt extends AppLocalizations {
   String get settings_conflict_field_equipmentComponents_role => 'Função';
 
   @override
+  String get settings_conflict_field_equipmentDefaultStatuses =>
+      'Default equipment view';
+
+  @override
   String get settings_conflict_field_equipmentFindings_severity => 'Gravidade';
 
   @override
@@ -24651,6 +24655,9 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get settings_manage_locations_subtitle =>
       'Onde o equipamento está guardado, em manutenção ou emprestado';
+
+  @override
+  String get settings_equipmentDefaultView_listSeparator => ', ';
 
   @override
   String get settings_manage_currencyRules => 'Validade das certificações';

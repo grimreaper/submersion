@@ -20887,6 +20887,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings_conflict_field_equipmentComponents_role => '用途';
 
   @override
+  String get settings_conflict_field_equipmentDefaultStatuses =>
+      'Default equipment view';
+
+  @override
   String get settings_conflict_field_equipmentFindings_severity => '严重程度';
 
   @override
@@ -23313,6 +23317,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settings_manage_locations_subtitle => '装备存放、保养或借出的地方';
+
+  @override
+  String get settings_equipmentDefaultView_listSeparator => ', ';
 
   @override
   String get settings_manage_currencyRules => '证书有效性';

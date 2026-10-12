@@ -13268,6 +13268,7 @@
   "settings_conflict_field_entryTime": "Entry time",
   "settings_conflict_field_environment": "Environment",
   "settings_conflict_field_equipmentComponents_role": "Role",
+  "settings_conflict_field_equipmentDefaultStatuses": "Default equipment view",
   "settings_conflict_field_equipmentFindings_severity": "Severity",
   "settings_conflict_field_equipmentListViewMode": "Equipment list view",
   "settings_conflict_field_equipmentObservations_status": "Status",
@@ -14224,6 +14225,8 @@
   "@settings_manage_locations": {"description": "Settings > Manage tile opening the list of places where gear is kept"},
   "settings_manage_locations_subtitle": "Where your gear is kept, serviced or lent",
   "@settings_manage_locations_subtitle": {"description": "Subtitle of the Locations tile in Settings > Manage"},
+  "settings_equipmentDefaultView_listSeparator": ", ",
+  "@settings_equipmentDefaultView_listSeparator": {"description": "Joins status names in the default equipment view summary, e.g. 'Active, Spare'"},
   "settings_manage_currencyRules": "Certification currency",
   "@settings_manage_currencyRules": {
     "description": "Settings > Manage tile: the certification currency rule catalog"

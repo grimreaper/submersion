@@ -35238,6 +35238,12 @@ abstract class AppLocalizations {
   /// **'Role'**
   String get settings_conflict_field_equipmentComponents_role;
 
+  /// No description provided for @settings_conflict_field_equipmentDefaultStatuses.
+  ///
+  /// In en, this message translates to:
+  /// **'Default equipment view'**
+  String get settings_conflict_field_equipmentDefaultStatuses;
+
   /// No description provided for @settings_conflict_field_equipmentFindings_severity.
   ///
   /// In en, this message translates to:
@@ -39775,6 +39781,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Where your gear is kept, serviced or lent'**
   String get settings_manage_locations_subtitle;
+
+  /// Joins status names in the default equipment view summary, e.g. 'Active, Spare'
+  ///
+  /// In en, this message translates to:
+  /// **', '**
+  String get settings_equipmentDefaultView_listSeparator;
 
   /// Settings > Manage tile: the certification currency rule catalog
   ///

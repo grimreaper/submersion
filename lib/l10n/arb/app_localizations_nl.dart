@@ -21907,6 +21907,10 @@ class AppLocalizationsNl extends AppLocalizations {
   String get settings_conflict_field_equipmentComponents_role => 'Rol';
 
   @override
+  String get settings_conflict_field_equipmentDefaultStatuses =>
+      'Default equipment view';
+
+  @override
   String get settings_conflict_field_equipmentFindings_severity => 'Ernst';
 
   @override
@@ -24488,6 +24492,9 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get settings_manage_locations_subtitle =>
       'Waar je uitrusting ligt, in onderhoud is of is uitgeleend';
+
+  @override
+  String get settings_equipmentDefaultView_listSeparator => ', ';
 
   @override
   String get settings_manage_currencyRules => 'Geldigheid certificeringen';

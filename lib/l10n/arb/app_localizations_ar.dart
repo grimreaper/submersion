@@ -22277,6 +22277,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get settings_conflict_field_equipmentComponents_role => 'الدور';
 
   @override
+  String get settings_conflict_field_equipmentDefaultStatuses =>
+      'Default equipment view';
+
+  @override
   String get settings_conflict_field_equipmentFindings_severity => 'الخطورة';
 
   @override
@@ -24843,6 +24847,9 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get settings_manage_locations_subtitle =>
       'أين تُخزَّن معداتك أو تُصان أو تُعار';
+
+  @override
+  String get settings_equipmentDefaultView_listSeparator => ', ';
 
   @override
   String get settings_manage_currencyRules => 'صلاحية الشهادات';

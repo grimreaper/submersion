@@ -21697,6 +21697,10 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settings_conflict_field_equipmentComponents_role => 'Role';
 
   @override
+  String get settings_conflict_field_equipmentDefaultStatuses =>
+      'Default equipment view';
+
+  @override
   String get settings_conflict_field_equipmentFindings_severity => 'Severity';
 
   @override
@@ -24236,6 +24240,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settings_manage_locations_subtitle =>
       'Where your gear is kept, serviced or lent';
+
+  @override
+  String get settings_equipmentDefaultView_listSeparator => ', ';
 
   @override
   String get settings_manage_currencyRules => 'Certification currency';

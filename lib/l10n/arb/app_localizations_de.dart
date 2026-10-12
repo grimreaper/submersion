@@ -22017,6 +22017,10 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settings_conflict_field_equipmentComponents_role => 'Rolle';
 
   @override
+  String get settings_conflict_field_equipmentDefaultStatuses =>
+      'Default equipment view';
+
+  @override
   String get settings_conflict_field_equipmentFindings_severity =>
       'Schweregrad';
 
@@ -24613,6 +24617,9 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get settings_manage_locations_subtitle =>
       'Wo Ihre Ausrüstung lagert, gewartet oder verliehen wird';
+
+  @override
+  String get settings_equipmentDefaultView_listSeparator => ', ';
 
   @override
   String get settings_manage_currencyRules => 'Gültigkeit der Zertifizierungen';
