@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 
+import 'package:submersion/features/dive_log/presentation/profile_colors/profile_metric.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/profile_metric_colors.dart';
 
 /// The scale and stroke one metric is drawn with on the profile chart.
@@ -25,7 +26,12 @@ class ProfileMetricBand {
   /// take only a colour and a dash pattern from here.
   final double? max;
 
+  /// The default colour; the drawn colour is the diver's choice for
+  /// [metric] (issue #3012).
   final Color color;
+
+  /// Which recolourable metric this band draws.
+  final ProfileMetric metric;
 
   /// Dash pattern, so traces that overlap stay tellable apart when several
   /// are switched on at once.
@@ -42,6 +48,7 @@ class ProfileMetricBand {
     required this.min,
     required this.max,
     required this.color,
+    required this.metric,
     required this.dashArray,
   });
 
@@ -75,18 +82,21 @@ abstract final class ProfileMetricBands {
     min: 0,
     max: _oneHourSeconds,
     color: ProfileMetricColors.ndl,
+    metric: ProfileMetric.ndl,
     dashArray: [6, 3],
   );
   static const tts = ProfileMetricBand(
     min: 0,
     max: _oneHourSeconds,
     color: ProfileMetricColors.tts,
+    metric: ProfileMetric.tts,
     dashArray: [5, 4],
   );
   static const gtr = ProfileMetricBand(
     min: 0,
     max: _oneHourSeconds,
     color: ProfileMetricColors.gtr,
+    metric: ProfileMetric.gtr,
     dashArray: [2, 4],
   );
 
@@ -94,18 +104,21 @@ abstract final class ProfileMetricBands {
     min: 0,
     max: 2.0,
     color: ProfileMetricColors.ppO2,
+    metric: ProfileMetric.ppO2,
     dashArray: [5, 3],
   );
   static const ppN2 = ProfileMetricBand(
     min: 0,
     max: 5.0,
     color: ProfileMetricColors.ppN2,
+    metric: ProfileMetric.ppN2,
     dashArray: [4, 2],
   );
   static const ppHe = ProfileMetricBand(
     min: 0,
     max: 3.0,
     color: ProfileMetricColors.ppHe,
+    metric: ProfileMetric.ppHe,
     dashArray: [3, 3],
   );
 
@@ -113,6 +126,7 @@ abstract final class ProfileMetricBands {
     min: 0,
     max: 8.0,
     color: ProfileMetricColors.density,
+    metric: ProfileMetric.density,
     dashArray: [5, 2],
   );
 
@@ -122,6 +136,7 @@ abstract final class ProfileMetricBands {
     min: 0,
     max: 120.0,
     color: ProfileMetricColors.gf,
+    metric: ProfileMetric.gf,
     dashArray: [4, 3],
   );
 
@@ -131,6 +146,7 @@ abstract final class ProfileMetricBands {
     min: 0,
     max: 150.0,
     color: ProfileMetricColors.surfaceGf,
+    metric: ProfileMetric.surfaceGf,
     dashArray: [6, 2],
   );
 
@@ -138,12 +154,14 @@ abstract final class ProfileMetricBands {
     min: 0,
     max: null,
     color: ProfileMetricColors.mod,
+    metric: ProfileMetric.mod,
     dashArray: [8, 4],
   );
   static const meanDepth = ProfileMetricBand(
     min: 0,
     max: null,
     color: ProfileMetricColors.meanDepth,
+    metric: ProfileMetric.meanDepth,
     dashArray: [3, 4],
   );
 
@@ -153,12 +171,14 @@ abstract final class ProfileMetricBands {
     min: 0,
     max: null,
     color: ProfileMetricColors.cns,
+    metric: ProfileMetric.cns,
     dashArray: [6, 3],
   );
   static const otu = ProfileMetricBand(
     min: 0,
     max: null,
     color: ProfileMetricColors.otu,
+    metric: ProfileMetric.otu,
     dashArray: [4, 4],
   );
 }
