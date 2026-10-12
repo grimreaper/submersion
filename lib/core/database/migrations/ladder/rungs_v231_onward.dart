@@ -347,5 +347,11 @@ extension RungsFromV231 on AppDatabase {
       await _assertProfileSeriesActivatedAt();
     }
     if (from < 283) await reportProgress();
+    // v286: diver_settings.equipment_default_statuses (issue #2628). Column
+    // only; re-asserted in beforeOpen. 284 and 285 are held by other work.
+    if (from < 286) {
+      await _assertEquipmentDefaultStatusesColumn();
+    }
+    if (from < 286) await reportProgress();
   }
 }

@@ -389,6 +389,12 @@ class MockSettingsNotifier extends StateNotifier<AppSettings>
   Future<void> setTrendGapThreshold(TrendGapThreshold value) async =>
       state = state.copyWith(trendGapThreshold: value);
   @override
+  Future<void> setEquipmentDefaultStatuses(Set<EquipmentStatus> value) async {
+    if (value.isEmpty) return;
+    state = state.copyWith(equipmentDefaultStatuses: value);
+  }
+
+  @override
   Future<void> setIcdWarningsEnabled(bool value) async =>
       state = state.copyWith(icdWarningsEnabled: value);
   @override

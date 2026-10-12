@@ -2,6 +2,7 @@ import 'dart:convert';
 
 import 'package:drift/drift.dart';
 import 'package:submersion/features/insights/domain/trend_gap_threshold.dart';
+import 'package:submersion/features/equipment/domain/models/equipment_default_view.dart';
 import 'package:submersion/core/built_ins/hidden_built_ins_codec.dart';
 import 'package:submersion/core/constants/place_name_language.dart';
 import 'package:submersion/features/safety/domain/services/no_fly_service.dart';
@@ -237,6 +238,9 @@ class DiverSettingsRepository {
               ),
               insightsMutedObservationRules: Value(
                 _encodeDisabledRules(s.insightsMutedObservationRules),
+              ),
+              equipmentDefaultStatuses: Value(
+                encodeEquipmentDefaultStatuses(s.equipmentDefaultStatuses),
               ),
               hiddenChamberIds: Value(_encodeDisabledRules(s.hiddenChamberIds)),
               emergencyRegion: Value(s.emergencyRegion),
@@ -533,6 +537,9 @@ class DiverSettingsRepository {
     insightsMutedObservationRules: Value(
       _encodeDisabledRules(settings.insightsMutedObservationRules),
     ),
+    equipmentDefaultStatuses: Value(
+      encodeEquipmentDefaultStatuses(settings.equipmentDefaultStatuses),
+    ),
     hiddenChamberIds: Value(_encodeDisabledRules(settings.hiddenChamberIds)),
     emergencyRegion: Value(settings.emergencyRegion),
     hiddenTankPresetIds: Value(
@@ -750,6 +757,9 @@ class DiverSettingsRepository {
       conditionDisabledRules: _decodeDisabledRules(row.conditionDisabledRules),
       insightsMutedObservationRules: _decodeDisabledRules(
         row.insightsMutedObservationRules,
+      ),
+      equipmentDefaultStatuses: decodeEquipmentDefaultStatuses(
+        row.equipmentDefaultStatuses,
       ),
       hiddenChamberIds: _decodeDisabledRules(row.hiddenChamberIds),
       emergencyRegion: row.emergencyRegion,
