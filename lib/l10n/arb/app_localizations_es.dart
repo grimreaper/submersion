@@ -24674,7 +24674,14 @@ class AppLocalizationsEs extends AppLocalizations {
       'Dónde guardas, revisas o prestas tu equipo';
 
   @override
+  String get settings_equipmentDefaultView_intro =>
+      'When no filter is set, the Equipment list shows gear with these statuses.';
+
+  @override
   String get settings_equipmentDefaultView_listSeparator => ', ';
+
+  @override
+  String get settings_equipmentDefaultView_title => 'Default equipment view';
 
   @override
   String get settings_manage_currencyRules => 'Vigencia de certificaciones';

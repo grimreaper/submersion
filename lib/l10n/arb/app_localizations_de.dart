@@ -24619,7 +24619,14 @@ class AppLocalizationsDe extends AppLocalizations {
       'Wo Ihre Ausrüstung lagert, gewartet oder verliehen wird';
 
   @override
+  String get settings_equipmentDefaultView_intro =>
+      'When no filter is set, the Equipment list shows gear with these statuses.';
+
+  @override
   String get settings_equipmentDefaultView_listSeparator => ', ';
+
+  @override
+  String get settings_equipmentDefaultView_title => 'Default equipment view';
 
   @override
   String get settings_manage_currencyRules => 'Gültigkeit der Zertifizierungen';

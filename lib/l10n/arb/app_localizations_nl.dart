@@ -24494,7 +24494,14 @@ class AppLocalizationsNl extends AppLocalizations {
       'Waar je uitrusting ligt, in onderhoud is of is uitgeleend';
 
   @override
+  String get settings_equipmentDefaultView_intro =>
+      'When no filter is set, the Equipment list shows gear with these statuses.';
+
+  @override
   String get settings_equipmentDefaultView_listSeparator => ', ';
+
+  @override
+  String get settings_equipmentDefaultView_title => 'Default equipment view';
 
   @override
   String get settings_manage_currencyRules => 'Geldigheid certificeringen';

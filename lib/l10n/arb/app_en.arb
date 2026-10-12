@@ -14225,8 +14225,12 @@
   "@settings_manage_locations": {"description": "Settings > Manage tile opening the list of places where gear is kept"},
   "settings_manage_locations_subtitle": "Where your gear is kept, serviced or lent",
   "@settings_manage_locations_subtitle": {"description": "Subtitle of the Locations tile in Settings > Manage"},
+  "settings_equipmentDefaultView_intro": "When no filter is set, the Equipment list shows gear with these statuses.",
+  "@settings_equipmentDefaultView_intro": {"description": "Explanation at the top of the Default equipment view settings page (issue #2628)"},
   "settings_equipmentDefaultView_listSeparator": ", ",
   "@settings_equipmentDefaultView_listSeparator": {"description": "Joins status names in the default equipment view summary, e.g. 'Active, Spare'"},
+  "settings_equipmentDefaultView_title": "Default equipment view",
+  "@settings_equipmentDefaultView_title": {"description": "Title of the settings page, and its Settings > Manage row, choosing which statuses the Equipment list shows with no filter set"},
   "settings_manage_currencyRules": "Certification currency",
   "@settings_manage_currencyRules": {
     "description": "Settings > Manage tile: the certification currency rule catalog"

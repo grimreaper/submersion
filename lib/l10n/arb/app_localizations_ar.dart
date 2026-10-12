@@ -24849,7 +24849,14 @@ class AppLocalizationsAr extends AppLocalizations {
       'أين تُخزَّن معداتك أو تُصان أو تُعار';
 
   @override
+  String get settings_equipmentDefaultView_intro =>
+      'When no filter is set, the Equipment list shows gear with these statuses.';
+
+  @override
   String get settings_equipmentDefaultView_listSeparator => ', ';
+
+  @override
+  String get settings_equipmentDefaultView_title => 'Default equipment view';
 
   @override
   String get settings_manage_currencyRules => 'صلاحية الشهادات';

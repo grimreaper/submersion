@@ -39782,11 +39782,23 @@ abstract class AppLocalizations {
   /// **'Where your gear is kept, serviced or lent'**
   String get settings_manage_locations_subtitle;
 
+  /// Explanation at the top of the Default equipment view settings page (issue #2628)
+  ///
+  /// In en, this message translates to:
+  /// **'When no filter is set, the Equipment list shows gear with these statuses.'**
+  String get settings_equipmentDefaultView_intro;
+
   /// Joins status names in the default equipment view summary, e.g. 'Active, Spare'
   ///
   /// In en, this message translates to:
   /// **', '**
   String get settings_equipmentDefaultView_listSeparator;
+
+  /// Title of the settings page, and its Settings > Manage row, choosing which statuses the Equipment list shows with no filter set
+  ///
+  /// In en, this message translates to:
+  /// **'Default equipment view'**
+  String get settings_equipmentDefaultView_title;
 
   /// Settings > Manage tile: the certification currency rule catalog
   ///
