@@ -19642,6 +19642,48 @@ class AppLocalizationsZh extends AppLocalizations {
   String get navShortcut_offlineMaps => '离线地图';
 
   @override
+  String get navShortcut_short_deco => '减压';
+
+  @override
+  String get navShortcut_short_gasCalculators => '气体计算';
+
+  @override
+  String get navShortcut_short_weighting => '配重';
+
+  @override
+  String get navShortcut_short_surfaceInterval => '水面间隔';
+
+  @override
+  String get navShortcut_short_blender => '混气';
+
+  @override
+  String get navShortcut_short_airUse => '耗气';
+
+  @override
+  String get navShortcut_short_patterns => '规律';
+
+  @override
+  String get navShortcut_short_profiles => '剖面';
+
+  @override
+  String get navShortcut_short_diveMap => '潜水地图';
+
+  @override
+  String get navShortcut_short_centersMap => '中心地图';
+
+  @override
+  String get navShortcut_short_gearSets => '装备组';
+
+  @override
+  String get navShortcut_short_certWallet => '证书夹';
+
+  @override
+  String get navShortcut_short_emergency => '紧急';
+
+  @override
+  String get navShortcut_short_backup => '备份';
+
+  @override
   String get settings_navCustomization_addShortcut => '添加快捷方式';
 
   @override

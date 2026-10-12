@@ -20350,6 +20350,48 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navShortcut_offlineMaps => 'Offline maps';
 
   @override
+  String get navShortcut_short_deco => 'Deco';
+
+  @override
+  String get navShortcut_short_gasCalculators => 'Gas calcs';
+
+  @override
+  String get navShortcut_short_weighting => 'Weighting';
+
+  @override
+  String get navShortcut_short_surfaceInterval => 'Surface int.';
+
+  @override
+  String get navShortcut_short_blender => 'Blender';
+
+  @override
+  String get navShortcut_short_airUse => 'Air use';
+
+  @override
+  String get navShortcut_short_patterns => 'Patterns';
+
+  @override
+  String get navShortcut_short_profiles => 'Profiles';
+
+  @override
+  String get navShortcut_short_diveMap => 'Dive map';
+
+  @override
+  String get navShortcut_short_centersMap => 'Centers map';
+
+  @override
+  String get navShortcut_short_gearSets => 'Gear sets';
+
+  @override
+  String get navShortcut_short_certWallet => 'Cert wallet';
+
+  @override
+  String get navShortcut_short_emergency => 'Emergency';
+
+  @override
+  String get navShortcut_short_backup => 'Backup';
+
+  @override
   String get settings_navCustomization_addShortcut => 'Add shortcut';
 
   @override

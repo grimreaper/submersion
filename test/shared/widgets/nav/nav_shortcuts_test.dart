@@ -1,6 +1,8 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:submersion/core/router/shortcut_locations.dart';
+import 'package:submersion/l10n/arb/app_localizations.dart';
 import 'package:submersion/shared/widgets/nav/nav_destinations.dart';
 import 'package:submersion/shared/widgets/nav/nav_shortcuts.dart';
 
@@ -56,5 +58,48 @@ void main() {
       '/shortcut/insights-gas',
     );
     expect(resolveNavDestination('shortcut:nope', byId), isNull);
+  });
+
+  group('nav labels', () {
+    final l10n = lookupAppLocalizations(const Locale('en'));
+
+    test('a long page name gets a short nav label', () {
+      final blender = navShortcutById('gas-blender')!;
+      expect(blender.label(l10n), 'Trimix blender');
+      expect(navShortcutDestination(blender).label(l10n), 'Blender');
+    });
+
+    test('a page name that already fits is the nav label', () {
+      final records = navShortcutById('records')!;
+      expect(navShortcutDestination(records).label(l10n), 'Records');
+    });
+
+    test('the long names all have a short nav label', () {
+      const long = {
+        'deco-calculator',
+        'gas-calculators',
+        'weight-calculator',
+        'surface-interval',
+        'gas-blender',
+        'insights-gas',
+        'insights-time-patterns',
+        'insights-profile',
+        'dive-activity-map',
+        'dive-centers-map',
+        'equipment-sets',
+        'certification-wallet',
+        'emergency-card',
+        'backup',
+      };
+      for (final id in long) {
+        final s = navShortcutById(id)!;
+        expect(s.navLabel, isNotNull, reason: id);
+        expect(
+          s.navLabel!(l10n).length,
+          lessThan(s.label(l10n).length),
+          reason: id,
+        );
+      }
+    });
   });
 }

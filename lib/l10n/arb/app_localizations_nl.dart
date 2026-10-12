@@ -20523,6 +20523,48 @@ class AppLocalizationsNl extends AppLocalizations {
   String get navShortcut_offlineMaps => 'Offline kaarten';
 
   @override
+  String get navShortcut_short_deco => 'Deco';
+
+  @override
+  String get navShortcut_short_gasCalculators => 'Gascalc.';
+
+  @override
+  String get navShortcut_short_weighting => 'Lood';
+
+  @override
+  String get navShortcut_short_surfaceInterval => 'Oppervl.-int.';
+
+  @override
+  String get navShortcut_short_blender => 'Menger';
+
+  @override
+  String get navShortcut_short_airUse => 'Verbruik';
+
+  @override
+  String get navShortcut_short_patterns => 'Patronen';
+
+  @override
+  String get navShortcut_short_profiles => 'Profielen';
+
+  @override
+  String get navShortcut_short_diveMap => 'Duikkaart';
+
+  @override
+  String get navShortcut_short_centersMap => 'Centrakaart';
+
+  @override
+  String get navShortcut_short_gearSets => 'Sets';
+
+  @override
+  String get navShortcut_short_certWallet => 'Brevetten';
+
+  @override
+  String get navShortcut_short_emergency => 'Nood';
+
+  @override
+  String get navShortcut_short_backup => 'Back-up';
+
+  @override
   String get settings_navCustomization_addShortcut => 'Snelkoppeling toevoegen';
 
   @override

@@ -12878,6 +12878,62 @@
   "@navShortcut_offlineMaps": {
     "description": "Nav shortcut label for the offline maps settings page."
   },
+  "navShortcut_short_deco": "Deco",
+  "@navShortcut_short_deco": {
+    "description": "Short nav bar label for the Deco Calculator shortcut; must fit one bottom-bar slot."
+  },
+  "navShortcut_short_gasCalculators": "Gas calcs",
+  "@navShortcut_short_gasCalculators": {
+    "description": "Short nav bar label for the Gas Calculators shortcut; must fit one bottom-bar slot."
+  },
+  "navShortcut_short_weighting": "Weighting",
+  "@navShortcut_short_weighting": {
+    "description": "Short nav bar label for the Weight Calculator shortcut; must fit one bottom-bar slot."
+  },
+  "navShortcut_short_surfaceInterval": "Surface int.",
+  "@navShortcut_short_surfaceInterval": {
+    "description": "Short nav bar label for the Surface Interval tool shortcut; must fit one bottom-bar slot."
+  },
+  "navShortcut_short_blender": "Blender",
+  "@navShortcut_short_blender": {
+    "description": "Short nav bar label for the Trimix blender shortcut; must fit one bottom-bar slot."
+  },
+  "navShortcut_short_airUse": "Air use",
+  "@navShortcut_short_airUse": {
+    "description": "Short nav bar label for the Air Consumption insights shortcut; must fit one bottom-bar slot."
+  },
+  "navShortcut_short_patterns": "Patterns",
+  "@navShortcut_short_patterns": {
+    "description": "Short nav bar label for the Time Patterns insights shortcut; must fit one bottom-bar slot."
+  },
+  "navShortcut_short_profiles": "Profiles",
+  "@navShortcut_short_profiles": {
+    "description": "Short nav bar label for the Profile Analysis insights shortcut; must fit one bottom-bar slot."
+  },
+  "navShortcut_short_diveMap": "Dive map",
+  "@navShortcut_short_diveMap": {
+    "description": "Short nav bar label for the dive activity map shortcut; must fit one bottom-bar slot."
+  },
+  "navShortcut_short_centersMap": "Centers map",
+  "@navShortcut_short_centersMap": {
+    "description": "Short nav bar label for the dive centers map shortcut; must fit one bottom-bar slot."
+  },
+  "navShortcut_short_gearSets": "Gear sets",
+  "@navShortcut_short_gearSets": {
+    "description": "Short nav bar label for the Equipment Sets shortcut; must fit one bottom-bar slot."
+  },
+  "navShortcut_short_certWallet": "Cert wallet",
+  "@navShortcut_short_certWallet": {
+    "description": "Short nav bar label for the Certification Wallet shortcut; must fit one bottom-bar slot."
+  },
+  "navShortcut_short_emergency": "Emergency",
+  "@navShortcut_short_emergency": {
+    "description": "Short nav bar label for the Emergency card shortcut; must fit one bottom-bar slot."
+  },
+  "navShortcut_short_backup": "Backup",
+  "@navShortcut_short_backup": {
+    "description": "Short nav bar label for the Backup & Restore shortcut; must fit one bottom-bar slot."
+  },
   "settings_navCustomization_addShortcut": "Add shortcut",
   "@settings_navCustomization_addShortcut": {
     "description": "Button on the navigation layout page that opens the picker for adding a deep page to the nav."

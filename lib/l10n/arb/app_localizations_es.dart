@@ -20658,6 +20658,48 @@ class AppLocalizationsEs extends AppLocalizations {
   String get navShortcut_offlineMaps => 'Mapas sin conexión';
 
   @override
+  String get navShortcut_short_deco => 'Deco';
+
+  @override
+  String get navShortcut_short_gasCalculators => 'Calc. gas';
+
+  @override
+  String get navShortcut_short_weighting => 'Lastre';
+
+  @override
+  String get navShortcut_short_surfaceInterval => 'Int. superficie';
+
+  @override
+  String get navShortcut_short_blender => 'Mezclador';
+
+  @override
+  String get navShortcut_short_airUse => 'Consumo';
+
+  @override
+  String get navShortcut_short_patterns => 'Patrones';
+
+  @override
+  String get navShortcut_short_profiles => 'Perfiles';
+
+  @override
+  String get navShortcut_short_diveMap => 'Mapa buceo';
+
+  @override
+  String get navShortcut_short_centersMap => 'Mapa centros';
+
+  @override
+  String get navShortcut_short_gearSets => 'Conjuntos';
+
+  @override
+  String get navShortcut_short_certWallet => 'Cartera';
+
+  @override
+  String get navShortcut_short_emergency => 'Emergencia';
+
+  @override
+  String get navShortcut_short_backup => 'Copia';
+
+  @override
   String get settings_navCustomization_addShortcut => 'Añadir acceso directo';
 
   @override

@@ -43,7 +43,13 @@ are device-local since #2947.
 - `id`: stable kebab-case id, unique across the catalog.
 - `group`: `planning`, `insights`, `views` or `settingsAndTools`.
 - `icon`, `selectedIcon`.
-- `label`: short, bar-friendly localized label (for example "Blender").
+- `label`: the page's localized name, as the picker lists it ("Trimix
+  blender").
+- `navLabel`: a shorter localized name for the nav itself ("Blender"), set on
+  the 14 entries whose `label` is wider than the widest built-in nav label
+  ("Certifications"), so no shortcut wraps in a bottom-bar slot. The rail,
+  the bar, the More sheet and the editor rows (which preview the nav) use it;
+  the picker keeps the full name with the parent beneath it.
 - `parentLabel`: the localized label of the page's immediate parent, shown
   as a subtitle ("Gas Calculators" for the blender, "Planning" for the deco
   calculator). A single existing label needs no separator, so right-to-left

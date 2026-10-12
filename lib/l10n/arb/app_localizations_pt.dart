@@ -20656,6 +20656,48 @@ class AppLocalizationsPt extends AppLocalizations {
   String get navShortcut_offlineMaps => 'Mapas offline';
 
   @override
+  String get navShortcut_short_deco => 'Deco';
+
+  @override
+  String get navShortcut_short_gasCalculators => 'Calc. gás';
+
+  @override
+  String get navShortcut_short_weighting => 'Lastro';
+
+  @override
+  String get navShortcut_short_surfaceInterval => 'Int. superfície';
+
+  @override
+  String get navShortcut_short_blender => 'Misturador';
+
+  @override
+  String get navShortcut_short_airUse => 'Consumo';
+
+  @override
+  String get navShortcut_short_patterns => 'Padrões';
+
+  @override
+  String get navShortcut_short_profiles => 'Perfis';
+
+  @override
+  String get navShortcut_short_diveMap => 'Mapa mergulhos';
+
+  @override
+  String get navShortcut_short_centersMap => 'Mapa operadoras';
+
+  @override
+  String get navShortcut_short_gearSets => 'Kits';
+
+  @override
+  String get navShortcut_short_certWallet => 'Carteira';
+
+  @override
+  String get navShortcut_short_emergency => 'Emergência';
+
+  @override
+  String get navShortcut_short_backup => 'Backup';
+
+  @override
   String get settings_navCustomization_addShortcut => 'Adicionar atalho';
 
   @override

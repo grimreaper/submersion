@@ -20913,6 +20913,48 @@ class AppLocalizationsAr extends AppLocalizations {
   String get navShortcut_offlineMaps => 'الخرائط غير المتصلة';
 
   @override
+  String get navShortcut_short_deco => 'إزالة الضغط';
+
+  @override
+  String get navShortcut_short_gasCalculators => 'حاسبات الغاز';
+
+  @override
+  String get navShortcut_short_weighting => 'الأوزان';
+
+  @override
+  String get navShortcut_short_surfaceInterval => 'فترة السطح';
+
+  @override
+  String get navShortcut_short_blender => 'الخلاط';
+
+  @override
+  String get navShortcut_short_airUse => 'الاستهلاك';
+
+  @override
+  String get navShortcut_short_patterns => 'الأنماط';
+
+  @override
+  String get navShortcut_short_profiles => 'الملفات';
+
+  @override
+  String get navShortcut_short_diveMap => 'خريطة الغوص';
+
+  @override
+  String get navShortcut_short_centersMap => 'خريطة المراكز';
+
+  @override
+  String get navShortcut_short_gearSets => 'المجموعات';
+
+  @override
+  String get navShortcut_short_certWallet => 'المحفظة';
+
+  @override
+  String get navShortcut_short_emergency => 'الطوارئ';
+
+  @override
+  String get navShortcut_short_backup => 'النسخ الاحتياطي';
+
+  @override
   String get settings_navCustomization_addShortcut => 'إضافة اختصار';
 
   @override

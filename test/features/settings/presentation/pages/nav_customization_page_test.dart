@@ -508,7 +508,8 @@ void main() {
         final repo = FakeAppSettingsRepository()
           ..navPrimaryIds = ['shortcut:gas-blender'];
         await pumpPage(tester, repo: repo);
-        await tester.tap(find.byTooltip('Remove Trimix blender'));
+        // The row previews the nav, so it names the short nav label.
+        await tester.tap(find.byTooltip('Remove Blender'));
         await tester.pumpAndSettle();
 
         expect(repo.navPrimaryIds, isNot(contains('shortcut:gas-blender')));

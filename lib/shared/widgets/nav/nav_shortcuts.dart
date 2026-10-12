@@ -24,6 +24,7 @@ class NavShortcut {
     required this.parentLabel,
     required this.canonicalPath,
     required this.accent,
+    this.navLabel,
     this.selection,
   });
 
@@ -34,8 +35,12 @@ class NavShortcut {
   final NavShortcutGroup group;
   final IconData icon;
 
-  /// Short, bar-friendly label.
+  /// The page's name, as the Add shortcut picker lists it.
   final String Function(AppLocalizations) label;
+
+  /// A shorter name for the nav itself, for a page whose [label] is wider
+  /// than one bottom-bar slot. Null when [label] already fits.
+  final String Function(AppLocalizations)? navLabel;
 
   /// The page's immediate parent, shown as a subtitle in the picker, the
   /// navigation editor and the More sheet.
@@ -59,12 +64,14 @@ NavShortcut _planningTool(
   String id,
   IconData icon,
   String Function(AppLocalizations) label, {
+  String Function(AppLocalizations)? navLabel,
   bool inDetailPane = true,
 }) => NavShortcut(
   id: id,
   group: NavShortcutGroup.planning,
   icon: icon,
   label: label,
+  navLabel: navLabel,
   parentLabel: (l10n) => l10n.nav_planning,
   canonicalPath: '/planning/$id',
   accent: 'planning',
@@ -76,12 +83,14 @@ NavShortcut _planningTool(
 NavShortcut _gasCalculator(
   String calc,
   IconData icon,
-  String Function(AppLocalizations) label,
-) => NavShortcut(
+  String Function(AppLocalizations) label, {
+  String Function(AppLocalizations)? navLabel,
+}) => NavShortcut(
   id: 'gas-$calc',
   group: NavShortcutGroup.planning,
   icon: icon,
   label: label,
+  navLabel: navLabel,
   parentLabel: (l10n) => l10n.planning_card_gasCalculators_title,
   canonicalPath: '/planning/gas-calculators/$calc',
   accent: 'planning',
@@ -95,12 +104,14 @@ NavShortcut _gasCalculator(
 NavShortcut _insightsPage(
   String page,
   IconData icon,
-  String Function(AppLocalizations) label,
-) => NavShortcut(
+  String Function(AppLocalizations) label, {
+  String Function(AppLocalizations)? navLabel,
+}) => NavShortcut(
   id: 'insights-$page',
   group: NavShortcutGroup.insights,
   icon: icon,
   label: label,
+  navLabel: navLabel,
   parentLabel: (l10n) => l10n.nav_insights,
   canonicalPath: '/insights/$page',
   accent: 'insights',
@@ -125,22 +136,26 @@ final List<NavShortcut> kNavShortcuts = List.unmodifiable([
     'deco-calculator',
     Icons.calculate,
     (l10n) => l10n.planning_card_decoCalculator_title,
+    navLabel: (l10n) => l10n.navShortcut_short_deco,
   ),
   _planningTool(
     'gas-calculators',
     Icons.science,
     (l10n) => l10n.planning_card_gasCalculators_title,
     inDetailPane: false,
+    navLabel: (l10n) => l10n.navShortcut_short_gasCalculators,
   ),
   _planningTool(
     'weight-calculator',
     Icons.fitness_center,
     (l10n) => l10n.planning_card_weightCalculator_title,
+    navLabel: (l10n) => l10n.navShortcut_short_weighting,
   ),
   _planningTool(
     'surface-interval',
     Icons.timer,
     (l10n) => l10n.planning_card_surfaceInterval_title,
+    navLabel: (l10n) => l10n.navShortcut_short_surfaceInterval,
   ),
   _planningTool(
     'no-fly',
@@ -187,6 +202,7 @@ final List<NavShortcut> kNavShortcuts = List.unmodifiable([
     'blender',
     Icons.gas_meter,
     (l10n) => l10n.gasCalculators_tab_blender,
+    navLabel: (l10n) => l10n.navShortcut_short_blender,
   ),
 
   // Insights.
@@ -195,7 +211,12 @@ final List<NavShortcut> kNavShortcuts = List.unmodifiable([
     Icons.dashboard_outlined,
     (l10n) => l10n.insights_category_overview_title,
   ),
-  _insightsPage('gas', Icons.air, (l10n) => l10n.insights_category_gas_title),
+  _insightsPage(
+    'gas',
+    Icons.air,
+    (l10n) => l10n.insights_category_gas_title,
+    navLabel: (l10n) => l10n.navShortcut_short_airUse,
+  ),
   _insightsPage(
     'progression',
     Icons.trending_up,
@@ -225,6 +246,7 @@ final List<NavShortcut> kNavShortcuts = List.unmodifiable([
     'time-patterns',
     Icons.schedule,
     (l10n) => l10n.insights_category_timePatterns_title,
+    navLabel: (l10n) => l10n.navShortcut_short_patterns,
   ),
   _insightsPage(
     'equipment',
@@ -235,6 +257,7 @@ final List<NavShortcut> kNavShortcuts = List.unmodifiable([
     'profile',
     Icons.show_chart,
     (l10n) => l10n.insights_category_profile_title,
+    navLabel: (l10n) => l10n.navShortcut_short_profiles,
   ),
   _insightsPage(
     'observations',
@@ -275,6 +298,7 @@ final List<NavShortcut> kNavShortcuts = List.unmodifiable([
     group: NavShortcutGroup.views,
     icon: Icons.public,
     label: (l10n) => l10n.navShortcut_diveActivityMap,
+    navLabel: (l10n) => l10n.navShortcut_short_diveMap,
     parentLabel: (l10n) => l10n.nav_dives,
     canonicalPath: '/dives/activity',
     accent: 'dives',
@@ -284,6 +308,7 @@ final List<NavShortcut> kNavShortcuts = List.unmodifiable([
     group: NavShortcutGroup.views,
     icon: Icons.map,
     label: (l10n) => l10n.navShortcut_diveCentersMap,
+    navLabel: (l10n) => l10n.navShortcut_short_centersMap,
     parentLabel: (l10n) => l10n.nav_diveCenters,
     canonicalPath: '/dive-centers/map',
     accent: 'dive-centers',
@@ -293,6 +318,7 @@ final List<NavShortcut> kNavShortcuts = List.unmodifiable([
     group: NavShortcutGroup.views,
     icon: Icons.inventory_2_outlined,
     label: (l10n) => l10n.equipment_sets_appBar_title,
+    navLabel: (l10n) => l10n.navShortcut_short_gearSets,
     parentLabel: (l10n) => l10n.nav_equipment,
     canonicalPath: '/equipment/sets',
     accent: 'equipment',
@@ -302,6 +328,7 @@ final List<NavShortcut> kNavShortcuts = List.unmodifiable([
     group: NavShortcutGroup.views,
     icon: Icons.wallet,
     label: (l10n) => l10n.certifications_wallet_appBar_title,
+    navLabel: (l10n) => l10n.navShortcut_short_certWallet,
     parentLabel: (l10n) => l10n.nav_certifications,
     canonicalPath: '/certifications/wallet',
     accent: 'certifications',
@@ -313,6 +340,7 @@ final List<NavShortcut> kNavShortcuts = List.unmodifiable([
     group: NavShortcutGroup.settingsAndTools,
     icon: Icons.emergency_outlined,
     label: (l10n) => l10n.dashboard_quickAction_emergency,
+    navLabel: (l10n) => l10n.navShortcut_short_emergency,
     parentLabel: (l10n) => l10n.nav_settings,
     canonicalPath: '/settings/diver-profile/emergency-card',
     accent: 'settings',
@@ -340,6 +368,7 @@ final List<NavShortcut> kNavShortcuts = List.unmodifiable([
     group: NavShortcutGroup.settingsAndTools,
     icon: Icons.backup_outlined,
     label: (l10n) => l10n.backup_appBar_title,
+    navLabel: (l10n) => l10n.navShortcut_short_backup,
     parentLabel: (l10n) => l10n.nav_settings,
     canonicalPath: '/settings/backup',
     accent: 'settings',
@@ -395,7 +424,7 @@ NavDestination navShortcutDestination(NavShortcut shortcut) => NavDestination(
   route: shortcutLocation(shortcut.id),
   icon: shortcut.icon,
   selectedIcon: shortcut.icon,
-  label: shortcut.label,
+  label: shortcut.navLabel ?? shortcut.label,
   subtitle: shortcut.parentLabel,
   extraMatchPaths: [shortcut.canonicalPath],
   selection: shortcut.selection,

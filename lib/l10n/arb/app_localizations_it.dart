@@ -20653,6 +20653,48 @@ class AppLocalizationsIt extends AppLocalizations {
   String get navShortcut_offlineMaps => 'Mappe offline';
 
   @override
+  String get navShortcut_short_deco => 'Deco';
+
+  @override
+  String get navShortcut_short_gasCalculators => 'Calc. gas';
+
+  @override
+  String get navShortcut_short_weighting => 'Zavorra';
+
+  @override
+  String get navShortcut_short_surfaceInterval => 'Int. superficie';
+
+  @override
+  String get navShortcut_short_blender => 'Miscelatore';
+
+  @override
+  String get navShortcut_short_airUse => 'Consumo';
+
+  @override
+  String get navShortcut_short_patterns => 'Andamenti';
+
+  @override
+  String get navShortcut_short_profiles => 'Profili';
+
+  @override
+  String get navShortcut_short_diveMap => 'Mappa immersioni';
+
+  @override
+  String get navShortcut_short_centersMap => 'Mappa centri';
+
+  @override
+  String get navShortcut_short_gearSets => 'Set';
+
+  @override
+  String get navShortcut_short_certWallet => 'Portafoglio';
+
+  @override
+  String get navShortcut_short_emergency => 'Emergenza';
+
+  @override
+  String get navShortcut_short_backup => 'Backup';
+
+  @override
   String get settings_navCustomization_addShortcut => 'Aggiungi scorciatoia';
 
   @override

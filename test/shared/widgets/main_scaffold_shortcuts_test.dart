@@ -113,7 +113,7 @@ void main() {
       final bar = tester.widget<NavigationBar>(find.byType(NavigationBar));
       expect(bar.selectedIndex, 1);
       expect(
-        find.widgetWithText(NavigationDestination, 'Trimix blender'),
+        find.widgetWithText(NavigationDestination, 'Blender'),
         findsOneWidget,
       );
     });
@@ -163,7 +163,7 @@ void main() {
       await tester.pumpAndSettle();
 
       await tester.tap(
-        find.widgetWithText(NavigationDestination, 'Trimix blender'),
+        find.widgetWithText(NavigationDestination, 'Blender'),
       );
       await tester.pumpAndSettle();
 

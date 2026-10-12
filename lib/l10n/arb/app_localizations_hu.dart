@@ -20587,6 +20587,48 @@ class AppLocalizationsHu extends AppLocalizations {
   String get navShortcut_offlineMaps => 'Offline térképek';
 
   @override
+  String get navShortcut_short_deco => 'Deko';
+
+  @override
+  String get navShortcut_short_gasCalculators => 'Gázkalk.';
+
+  @override
+  String get navShortcut_short_weighting => 'Súlyozás';
+
+  @override
+  String get navShortcut_short_surfaceInterval => 'Felszíni idő';
+
+  @override
+  String get navShortcut_short_blender => 'Keverő';
+
+  @override
+  String get navShortcut_short_airUse => 'Fogyasztás';
+
+  @override
+  String get navShortcut_short_patterns => 'Minták';
+
+  @override
+  String get navShortcut_short_profiles => 'Profilok';
+
+  @override
+  String get navShortcut_short_diveMap => 'Merülési térkép';
+
+  @override
+  String get navShortcut_short_centersMap => 'Centrum térkép';
+
+  @override
+  String get navShortcut_short_gearSets => 'Szettek';
+
+  @override
+  String get navShortcut_short_certWallet => 'Tárca';
+
+  @override
+  String get navShortcut_short_emergency => 'Vészhelyzet';
+
+  @override
+  String get navShortcut_short_backup => 'Mentés';
+
+  @override
   String get settings_navCustomization_addShortcut => 'Parancsikon hozzáadása';
 
   @override

@@ -20197,6 +20197,48 @@ class AppLocalizationsHe extends AppLocalizations {
   String get navShortcut_offlineMaps => 'מפות לא מקוונות';
 
   @override
+  String get navShortcut_short_deco => 'דקו';
+
+  @override
+  String get navShortcut_short_gasCalculators => 'מחשבוני גז';
+
+  @override
+  String get navShortcut_short_weighting => 'משקולות';
+
+  @override
+  String get navShortcut_short_surfaceInterval => 'מרווח שטח';
+
+  @override
+  String get navShortcut_short_blender => 'מערבל';
+
+  @override
+  String get navShortcut_short_airUse => 'צריכה';
+
+  @override
+  String get navShortcut_short_patterns => 'דפוסים';
+
+  @override
+  String get navShortcut_short_profiles => 'פרופילים';
+
+  @override
+  String get navShortcut_short_diveMap => 'מפת צלילות';
+
+  @override
+  String get navShortcut_short_centersMap => 'מפת מועדונים';
+
+  @override
+  String get navShortcut_short_gearSets => 'ערכות';
+
+  @override
+  String get navShortcut_short_certWallet => 'ארנק';
+
+  @override
+  String get navShortcut_short_emergency => 'חירום';
+
+  @override
+  String get navShortcut_short_backup => 'גיבוי';
+
+  @override
   String get settings_navCustomization_addShortcut => 'הוסף קיצור דרך';
 
   @override

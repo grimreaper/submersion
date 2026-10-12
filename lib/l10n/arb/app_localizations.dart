@@ -33113,6 +33113,90 @@ abstract class AppLocalizations {
   /// **'Offline maps'**
   String get navShortcut_offlineMaps;
 
+  /// Short nav bar label for the Deco Calculator shortcut; must fit one bottom-bar slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Deco'**
+  String get navShortcut_short_deco;
+
+  /// Short nav bar label for the Gas Calculators shortcut; must fit one bottom-bar slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Gas calcs'**
+  String get navShortcut_short_gasCalculators;
+
+  /// Short nav bar label for the Weight Calculator shortcut; must fit one bottom-bar slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Weighting'**
+  String get navShortcut_short_weighting;
+
+  /// Short nav bar label for the Surface Interval tool shortcut; must fit one bottom-bar slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Surface int.'**
+  String get navShortcut_short_surfaceInterval;
+
+  /// Short nav bar label for the Trimix blender shortcut; must fit one bottom-bar slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Blender'**
+  String get navShortcut_short_blender;
+
+  /// Short nav bar label for the Air Consumption insights shortcut; must fit one bottom-bar slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Air use'**
+  String get navShortcut_short_airUse;
+
+  /// Short nav bar label for the Time Patterns insights shortcut; must fit one bottom-bar slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Patterns'**
+  String get navShortcut_short_patterns;
+
+  /// Short nav bar label for the Profile Analysis insights shortcut; must fit one bottom-bar slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Profiles'**
+  String get navShortcut_short_profiles;
+
+  /// Short nav bar label for the dive activity map shortcut; must fit one bottom-bar slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Dive map'**
+  String get navShortcut_short_diveMap;
+
+  /// Short nav bar label for the dive centers map shortcut; must fit one bottom-bar slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Centers map'**
+  String get navShortcut_short_centersMap;
+
+  /// Short nav bar label for the Equipment Sets shortcut; must fit one bottom-bar slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Gear sets'**
+  String get navShortcut_short_gearSets;
+
+  /// Short nav bar label for the Certification Wallet shortcut; must fit one bottom-bar slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Cert wallet'**
+  String get navShortcut_short_certWallet;
+
+  /// Short nav bar label for the Emergency card shortcut; must fit one bottom-bar slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Emergency'**
+  String get navShortcut_short_emergency;
+
+  /// Short nav bar label for the Backup & Restore shortcut; must fit one bottom-bar slot.
+  ///
+  /// In en, this message translates to:
+  /// **'Backup'**
+  String get navShortcut_short_backup;
+
   /// Button on the navigation layout page that opens the picker for adding a deep page to the nav.
   ///
   /// In en, this message translates to:
