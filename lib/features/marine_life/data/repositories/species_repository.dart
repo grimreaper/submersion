@@ -118,6 +118,7 @@ class SpeciesRepository {
           '''
       SELECT * FROM species
       WHERE unicode_lower(common_name) = ?
+      ORDER BY id
       LIMIT 1
     ''',
           variables: [Variable.withString(commonName.toLowerCase())],
