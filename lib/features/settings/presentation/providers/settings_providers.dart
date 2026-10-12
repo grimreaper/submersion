@@ -26,6 +26,8 @@ import 'package:submersion/features/equipment/domain/entities/equipment_finding.
 import 'package:submersion/features/insights/domain/observations/observation_rule_id.dart';
 import 'package:submersion/features/insights/domain/trend_gap_threshold.dart';
 import 'package:submersion/features/equipment/domain/models/equipment_default_view.dart';
+import 'package:submersion/features/dive_log/presentation/profile_colors/profile_metric.dart';
+import 'package:submersion/features/dive_log/presentation/profile_colors/profile_metric_color_overrides.dart';
 import 'package:submersion/features/safety/domain/services/no_fly_service.dart';
 import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/constants/gas_model.dart';
@@ -305,6 +307,9 @@ class AppSettings {
   /// The statuses the Equipment list shows with no filter set (issue
   /// #2628). Never empty.
   final Set<EquipmentStatus> equipmentDefaultStatuses;
+
+  /// The profile-chart metric colours this diver chose (issue #3012).
+  final ProfileMetricColorOverrides profileMetricColors;
 
   /// Bundled chamber ids hidden from the emergency card
   final Set<String> hiddenChamberIds;
@@ -669,6 +674,7 @@ class AppSettings {
     this.insightsMutedObservationRules = const {},
     this.trendGapThreshold = TrendGapThreshold.year1,
     this.equipmentDefaultStatuses = factoryDefaultEquipmentStatuses,
+    this.profileMetricColors = ProfileMetricColorOverrides.none,
     this.hiddenChamberIds = const {},
     this.emergencyRegion,
     this.showAscentRateColors = false,
@@ -863,6 +869,7 @@ class AppSettings {
     Set<String>? insightsMutedObservationRules,
     TrendGapThreshold? trendGapThreshold,
     Set<EquipmentStatus>? equipmentDefaultStatuses,
+    ProfileMetricColorOverrides? profileMetricColors,
     Set<String>? hiddenChamberIds,
     String? emergencyRegion,
     bool clearEmergencyRegion = false,
@@ -1035,6 +1042,7 @@ class AppSettings {
       trendGapThreshold: trendGapThreshold ?? this.trendGapThreshold,
       equipmentDefaultStatuses:
           equipmentDefaultStatuses ?? this.equipmentDefaultStatuses,
+      profileMetricColors: profileMetricColors ?? this.profileMetricColors,
       hiddenChamberIds: hiddenChamberIds ?? this.hiddenChamberIds,
       emergencyRegion: clearEmergencyRegion
           ? null
@@ -2316,6 +2324,36 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     }
     if (!mounted) return;
     state = state.copyWith(equipmentDefaultStatuses: Set.unmodifiable(value));
+    await _saveSettings();
+  }
+
+  /// [metric] takes [color] (null: its default, or Auto), swapping with any
+  /// metric already showing it (issue #3012). Waits for the load first, as
+  /// [setTrendGapThreshold] does, so an early pick is not overwritten.
+  Future<void> setProfileMetricColor(ProfileMetric metric, Color? color) async {
+    try {
+      await settingsLoaded;
+    } catch (_) {
+      // Already logged by the load; defaults are the fallback.
+    }
+    if (!mounted) return;
+    state = state.copyWith(
+      profileMetricColors: state.profileMetricColors.withColor(metric, color),
+    );
+    await _saveSettings();
+  }
+
+  /// Every profile metric back to its default colour.
+  Future<void> resetProfileMetricColors() async {
+    try {
+      await settingsLoaded;
+    } catch (_) {
+      // Already logged by the load; defaults are the fallback.
+    }
+    if (!mounted) return;
+    state = state.copyWith(
+      profileMetricColors: ProfileMetricColorOverrides.none,
+    );
     await _saveSettings();
   }
 

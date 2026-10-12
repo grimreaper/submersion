@@ -68,6 +68,8 @@ extension BeforeOpenBackstops on AppDatabase {
     await _assertVisibilityRangeColumns();
     // v281 backstop: diver_settings.trend_gap_collapse_months.
     await _assertTrendGapCollapseColumn();
+    // v284 backstop: diver_settings.profile_color_*.
+    await _assertProfileMetricColorColumns();
     // v286 backstop: diver_settings.equipment_default_statuses.
     await _assertEquipmentDefaultStatusesColumn();
 
