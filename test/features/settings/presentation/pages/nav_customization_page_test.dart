@@ -463,6 +463,76 @@ void main() {
         expect(find.byKey(const ValueKey('navScopeSegments')), findsOneWidget);
       });
     });
+
+    group('nav shortcuts (#2936)', () {
+      Future<void> addBlender(WidgetTester tester) async {
+        await tester.tap(find.text('Add shortcut'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'blender');
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Trimix blender'));
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('Add shortcut inserts it right after Home', (tester) async {
+        final repo = await pumpPage(tester);
+        await addBlender(tester);
+
+        expect(repo.navPrimaryIds!.first, 'shortcut:gas-blender');
+        expect(
+          find.byKey(const ValueKey('nav-item-shortcut:gas-blender')),
+          findsOneWidget,
+        );
+        // Its parent is its subtitle, as in the More sheet.
+        expect(find.text('Gas Calculators'), findsOneWidget);
+      });
+
+      testWidgets('adding on Phone leaves the Desktop order alone', (
+        tester,
+      ) async {
+        final repo = await pumpPage(tester);
+        await addBlender(tester);
+
+        expect(repo.navRailIds, isNull);
+      });
+
+      testWidgets('adding on Desktop writes the rail order', (tester) async {
+        final repo = await pumpPage(tester, wide: true);
+        await addBlender(tester);
+
+        expect(repo.navRailIds!.first, 'shortcut:gas-blender');
+        expect(repo.navPrimaryIds, isNull);
+      });
+
+      testWidgets('a shortcut row can be removed', (tester) async {
+        final repo = FakeAppSettingsRepository()
+          ..navPrimaryIds = ['shortcut:gas-blender'];
+        await pumpPage(tester, repo: repo);
+        await tester.tap(find.byTooltip('Remove Trimix blender'));
+        await tester.pumpAndSettle();
+
+        expect(repo.navPrimaryIds, isNot(contains('shortcut:gas-blender')));
+        expect(
+          find.byKey(const ValueKey('nav-item-shortcut:gas-blender')),
+          findsNothing,
+        );
+      });
+
+      testWidgets('built-in rows have no remove button', (tester) async {
+        await pumpPage(tester);
+        expect(find.byTooltip('Remove Dives'), findsNothing);
+      });
+
+      testWidgets('Reset clears shortcuts', (tester) async {
+        final repo = FakeAppSettingsRepository()
+          ..navPrimaryIds = ['shortcut:gas-blender'];
+        await pumpPage(tester, repo: repo);
+        await tester.tap(find.text('Reset to defaults'));
+        await tester.pumpAndSettle();
+
+        expect(repo.navPrimaryIds, isNot(contains('shortcut:gas-blender')));
+      });
+    });
   });
 }
 

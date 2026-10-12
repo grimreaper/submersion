@@ -12878,6 +12878,44 @@
   "@navShortcut_offlineMaps": {
     "description": "Nav shortcut label for the offline maps settings page."
   },
+  "settings_navCustomization_addShortcut": "Add shortcut",
+  "@settings_navCustomization_addShortcut": {
+    "description": "Button on the navigation layout page that opens the picker for adding a deep page to the nav."
+  },
+  "settings_navCustomization_shortcutPickerTitle": "Add a shortcut",
+  "@settings_navCustomization_shortcutPickerTitle": {
+    "description": "Title of the sheet or dialog listing pages that can be added to the nav."
+  },
+  "settings_navCustomization_shortcutSearchHint": "Search pages",
+  "@settings_navCustomization_shortcutSearchHint": {
+    "description": "Hint in the search field of the nav shortcut picker."
+  },
+  "settings_navCustomization_shortcutNoMatches": "No matching pages",
+  "@settings_navCustomization_shortcutNoMatches": {
+    "description": "Shown in the nav shortcut picker when the search matches nothing."
+  },
+  "settings_navCustomization_shortcutAlreadyAdded": "Already in this layout",
+  "@settings_navCustomization_shortcutAlreadyAdded": {
+    "description": "Tooltip on a picker entry that is already in the nav layout being edited."
+  },
+  "settings_navCustomization_removeShortcutLabel": "Remove {destination}",
+  "@settings_navCustomization_removeShortcutLabel": {
+    "description": "Tooltip on the button that removes a shortcut from the nav layout.",
+    "placeholders": {
+      "destination": {
+        "type": "String",
+        "example": "Trimix blender"
+      }
+    }
+  },
+  "settings_navCustomization_group_views": "Views",
+  "@settings_navCustomization_group_views": {
+    "description": "Picker group header for map, wallet and list views inside a section."
+  },
+  "settings_navCustomization_group_settingsAndTools": "Settings and tools",
+  "@settings_navCustomization_group_settingsAndTools": {
+    "description": "Picker group header for settings pages and tools such as the emergency card."
+  },
   "settings_backToSettings_tooltip": "Back to settings",
   "settings_cloudSync_appBar_title": "Database Cloud Sync",
   "settings_cloudSync_autoSync": "Auto Sync",

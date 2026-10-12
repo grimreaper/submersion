@@ -2,9 +2,11 @@ import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 
 import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/features/settings/presentation/widgets/nav_shortcut_picker.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 import 'package:submersion/shared/widgets/nav/nav_destinations.dart';
 import 'package:submersion/shared/widgets/nav/nav_order_provider.dart';
+import 'package:submersion/shared/widgets/nav/nav_shortcuts.dart';
 import 'package:submersion/shared/widgets/nav/nav_slot_count.dart';
 
 /// Which navigation surface an editor is arranging.
@@ -72,7 +74,7 @@ List<String> _moveItem(
 }
 
 /// Reorderable list for one navigation surface, with the pinned rows that
-/// bracket it and a reset control.
+/// bracket it, an Add shortcut control (#2936) and a reset control.
 ///
 /// Give each instance a key tied to its [scope] so switching surfaces rebuilds
 /// the local mirror from the right provider instead of carrying the old order
@@ -154,11 +156,14 @@ class _NavOrderEditorState extends ConsumerState<NavOrderEditor> {
                   ? flatIndex
                   : flatIndex - 1;
               final id = _local![movableIndex];
+              // A shortcut can be taken off the nav; a built-in cannot.
+              final isShortcut = navShortcutForOrderId(id) != null;
               return _buildMovableTile(
                 context: context,
                 key: ValueKey('nav-item-$id'),
                 index: flatIndex,
-                destination: destinationsById[id]!,
+                destination: resolveNavDestination(id, destinationsById)!,
+                onRemove: isShortcut ? () => _removeShortcut(id) : null,
               );
             },
             onReorderItem: _commitReorder,
@@ -171,10 +176,21 @@ class _NavOrderEditorState extends ConsumerState<NavOrderEditor> {
           top: false,
           child: Padding(
             padding: const EdgeInsets.all(12),
-            child: TextButton.icon(
-              icon: const Icon(Icons.restore),
-              label: Text(l10n.settings_navCustomization_resetButton),
-              onPressed: listIsDefault ? null : _reset,
+            child: Wrap(
+              alignment: WrapAlignment.center,
+              spacing: 8,
+              children: [
+                TextButton.icon(
+                  icon: const Icon(Icons.add_link),
+                  label: Text(l10n.settings_navCustomization_addShortcut),
+                  onPressed: _addShortcut,
+                ),
+                TextButton.icon(
+                  icon: const Icon(Icons.restore),
+                  label: Text(l10n.settings_navCustomization_resetButton),
+                  onPressed: listIsDefault ? null : _reset,
+                ),
+              ],
             ),
           ),
         ),
@@ -214,6 +230,7 @@ class _NavOrderEditorState extends ConsumerState<NavOrderEditor> {
     required Key key,
     required int index,
     required NavDestination destination,
+    VoidCallback? onRemove,
   }) {
     final l10n = context.l10n;
     return ListTile(
@@ -226,6 +243,14 @@ class _NavOrderEditorState extends ConsumerState<NavOrderEditor> {
       trailing: Row(
         mainAxisSize: MainAxisSize.min,
         children: [
+          if (onRemove != null)
+            IconButton(
+              icon: const Icon(Icons.close),
+              tooltip: l10n.settings_navCustomization_removeShortcutLabel(
+                destination.label(l10n),
+              ),
+              onPressed: onRemove,
+            ),
           IconButton(
             icon: const Icon(Icons.arrow_upward),
             tooltip: l10n.settings_navCustomization_moveUpLabel(
@@ -285,18 +310,43 @@ class _NavOrderEditorState extends ConsumerState<NavOrderEditor> {
     }
   }
 
-  /// Shared reorder commit path for both the drag handle and the move-up /
-  /// move-down buttons. Optimistically updates the local mirror, writes
-  /// through to the notifier, and rolls back with a SnackBar on failure.
-  Future<void> _commitReorder(int oldIndex, int newIndex) async {
-    final previous = _local!;
-    final newList = applyReorderPreservingDivider(
-      movable: previous,
-      dividerIndex: _dividerIndex,
-      oldIndex: oldIndex,
-      newIndex: newIndex,
+  /// Shared reorder path for both the drag handle and the move-up /
+  /// move-down buttons.
+  Future<void> _commitReorder(int oldIndex, int newIndex) {
+    return _commitOrder(
+      applyReorderPreservingDivider(
+        movable: _local!,
+        dividerIndex: _dividerIndex,
+        oldIndex: oldIndex,
+        newIndex: newIndex,
+      ),
     );
-    if (listEquals(newList, previous)) return; // no-op reorder
+  }
+
+  /// Asks which page to add, then puts it right after Home: on phone that is
+  /// the first bar slot, so adding a shortcut visibly puts it on the bar.
+  Future<void> _addShortcut() async {
+    final alreadyAdded = {
+      for (final id in _local!) ?navShortcutForOrderId(id)?.id,
+    };
+    final picked = await showNavShortcutPicker(
+      context,
+      alreadyAdded: alreadyAdded,
+    );
+    if (picked == null || !mounted) return;
+    await _commitOrder([navShortcutOrderId(picked), ..._local!]);
+  }
+
+  Future<void> _removeShortcut(String orderId) {
+    return _commitOrder(_local!.where((id) => id != orderId).toList());
+  }
+
+  /// Shared commit path for every edit. Optimistically updates the local
+  /// mirror, writes through to the notifier, and rolls back with a SnackBar
+  /// on failure.
+  Future<void> _commitOrder(List<String> newList) async {
+    final previous = _local!;
+    if (listEquals(newList, previous)) return; // no-op edit
     setState(() => _local = newList);
     try {
       await ref.read(_orderProvider.notifier).setOrder(newList);
