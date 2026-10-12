@@ -162,9 +162,7 @@ void main() {
       await tester.pumpWidget(await _buildHarness(repo));
       await tester.pumpAndSettle();
 
-      await tester.tap(
-        find.widgetWithText(NavigationDestination, 'Blender'),
-      );
+      await tester.tap(find.widgetWithText(NavigationDestination, 'Blender'));
       await tester.pumpAndSettle();
 
       expect(find.text('Blender alias'), findsOneWidget);
