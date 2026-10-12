@@ -1589,6 +1589,52 @@ void main() {
       expect(restored.excludedFromStats, isFalse);
     });
 
+    // getDivesByIds maps every dive without its profile, so whether the
+    // target has one must come from its stored series.
+    Future<void> seedMeasurementPair({required bool targetProfile}) async {
+      await seedDive(
+        't',
+        entry: DateTime.utc(2026, 7, 1, 9),
+        computerId: 'comp-t',
+        serial: 'SER-T',
+        profile: targetProfile ? null : const [],
+      );
+      await seedDive(
+        's',
+        entry: DateTime.utc(2026, 7, 1, 9, 1),
+        computerId: 'comp-s',
+        serial: 'SER-S',
+      );
+      await (db.update(db.dives)..where((t) => t.id.equals('t'))).write(
+        const DivesCompanion(maxDepth: Value(null), waterTemp: Value(null)),
+      );
+      await (db.update(db.dives)..where((t) => t.id.equals('s'))).write(
+        const DivesCompanion(maxDepth: Value(31), waterTemp: Value(24)),
+      );
+    }
+
+    test('a target with a stored profile keeps the measurements readers '
+        'derive from it', () async {
+      await seedMeasurementPair(targetProfile: true);
+
+      await service.apply(targetDiveId: 't', secondaryDiveIds: ['s']);
+
+      final target = await targetRow();
+      expect(target.maxDepth, isNull);
+      expect(target.waterTemp, isNull);
+    });
+
+    test('a target without a profile adopts the secondary\'s '
+        'measurements', () async {
+      await seedMeasurementPair(targetProfile: false);
+
+      await service.apply(targetDiveId: 't', secondaryDiveIds: ['s']);
+
+      final target = await targetRow();
+      expect(target.maxDepth, 31);
+      expect(target.waterTemp, 24);
+    });
+
     test('a target that has them keeps its own', () async {
       await seedPair();
       await (db.update(db.dives)..where((t) => t.id.equals('t'))).write(
