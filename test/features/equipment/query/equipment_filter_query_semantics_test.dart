@@ -282,6 +282,33 @@ void main() {
       });
     });
 
+    test('several owned statuses select each of them', () async {
+      expect(
+        await selected(
+          none,
+          defaults: {EquipmentStatus.active, EquipmentStatus.loaned},
+        ),
+        {'bcd', 'suit', 'lent', 'loan'},
+      );
+    });
+
+    test("the issue's 'all but lost, sold and loaned out' view", () async {
+      // #2628's own example: every status except Lost, Sold and Loaned Out.
+      expect(
+        await selected(
+          none,
+          defaults: {
+            for (final s in EquipmentStatus.values)
+              if (s != EquipmentStatus.lost &&
+                  s != EquipmentStatus.sold &&
+                  s != EquipmentStatus.loaned)
+                s,
+          },
+        ),
+        {'bcd', 'suit', 'lent', 'old', 'shelved', 'wish', 'wish2'},
+      );
+    });
+
     test('a custom set keeps the legacy retired rule', () async {
       expect(
         await selected(
