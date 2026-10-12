@@ -2473,6 +2473,10 @@ class AppLocalizationsNl extends AppLocalizations {
       'Deze back-up wordt permanent verwijderd. Dit kan niet ongedaan worden gemaakt.';
 
   @override
+  String get backup_delete_dialog_content_otherDevice =>
+      'Deze back-up staat alleen in je cloudopslag en niets wijst erop dat dit apparaat hem heeft gemaakt. Het kan de enige kopie van een ander apparaat zijn, of een kopie die dit apparaat vóór een herinstallatie heeft gemaakt. Verwijderen kan niet ongedaan worden gemaakt.';
+
+  @override
   String get backup_delete_dialog_delete => 'Verwijderen';
 
   @override
@@ -7870,6 +7874,10 @@ class AppLocalizationsNl extends AppLocalizations {
       'Verwijder items om andere toe te voegen';
 
   @override
+  String get diveLog_equipmentPicker_showLeftKit =>
+      'Uitrusting die uit gebruik of verkocht is tonen';
+
+  @override
   String get diveLog_equipmentPicker_spareHint =>
       'Zet de status van een item op Actief om het aan een duik toe te voegen';
 
@@ -9973,6 +9981,10 @@ class AppLocalizationsNl extends AppLocalizations {
   String get diveLog_tank_regulatorNone => 'Geen';
 
   @override
+  String get diveLog_tank_regulatorShowLeftKit =>
+      'Ademautomaten die uit gebruik of verkocht zijn tonen';
+
+  @override
   String get diveLog_tank_tripCylinderLabel => 'Fles van de reis';
 
   @override
@@ -10086,9 +10098,6 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get diveLog_tooltip_gtr => 'GTR';
-
-  @override
-  String get diveLog_sources_row_metric => 'Meting';
 
   @override
   String get diveLog_sources_row_maxDepth => 'Max diepte';
@@ -11486,6 +11495,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get diveSites_group_noCountry => 'Geen land';
 
   @override
+  String get diveSites_group_noBodyOfWater => 'Geen waterlichaam';
+
+  @override
   String diveSites_group_siteCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -11506,7 +11518,13 @@ class AppLocalizationsNl extends AppLocalizations {
   String get diveSites_list_groupBy_location => 'Land en regio';
 
   @override
+  String get diveSites_list_groupBy_locationAndWater => 'Land en waterlichaam';
+
+  @override
   String get diveSites_list_groupBy_none => 'Geen';
+
+  @override
+  String get diveSites_list_groupBy_water => 'Waterlichaam';
 
   @override
   String diveSites_list_tile_diveCount(int count) {
@@ -14465,7 +14483,7 @@ class AppLocalizationsNl extends AppLocalizations {
     int remaining,
     int total,
   ) {
-    return '$used duiken, $remaining van $total resterend';
+    return '$used van $total duiken, $remaining resterend';
   }
 
   @override
@@ -14595,7 +14613,7 @@ class AppLocalizationsNl extends AppLocalizations {
     String remaining,
     String total,
   ) {
-    return '$used uur, $remaining van $total resterend';
+    return '$used van $total uur, $remaining resterend';
   }
 
   @override
@@ -14604,7 +14622,7 @@ class AppLocalizationsNl extends AppLocalizations {
     String remaining,
     String total,
   ) {
-    return '$used uren in zout water, $remaining van $total over';
+    return '$used van $total uren in zout water, $remaining resterend';
   }
 
   @override
@@ -14613,7 +14631,7 @@ class AppLocalizationsNl extends AppLocalizations {
     String remaining,
     String total,
   ) {
-    return '$used koudwaterduiken, $remaining van $total over';
+    return '$used van $total koudwaterduiken, $remaining resterend';
   }
 
   @override
@@ -14622,7 +14640,7 @@ class AppLocalizationsNl extends AppLocalizations {
     String remaining,
     String total,
   ) {
-    return '$used uren met hoog O2, $remaining van $total over';
+    return '$used van $total uren met hoog O2, $remaining resterend';
   }
 
   @override
@@ -14631,7 +14649,7 @@ class AppLocalizationsNl extends AppLocalizations {
     String remaining,
     String total,
   ) {
-    return '$used diepe duiken, $remaining van $total over';
+    return '$used van $total diepe duiken, $remaining resterend';
   }
 
   @override
@@ -14640,7 +14658,7 @@ class AppLocalizationsNl extends AppLocalizations {
     String remaining,
     String total,
   ) {
-    return '$used batterijcycli, $remaining van $total over';
+    return '$used van $total batterijcycli, $remaining resterend';
   }
 
   @override
@@ -15053,6 +15071,9 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get equipment_edit_thicknessDesignationHint => 'bijv. 5, 5/4, 7/5/3';
+
+  @override
+  String get equipment_edit_focalLengthHint => 'bijv. 60 of 15-45';
 
   @override
   String get equipment_edit_webLinkHint => 'bijv. shop.example.com/product';
@@ -19926,13 +19947,6 @@ class AppLocalizationsNl extends AppLocalizations {
       'Getijdecyclusgrafiek en timing';
 
   @override
-  String get diveDetailSection_reefHealth_name => 'Wateromstandigheden';
-
-  @override
-  String get diveDetailSection_reefHealth_description =>
-      'Satellietwateromstandigheden op de duikdatum';
-
-  @override
   String get diveDetailSection_surfaceGps_name => 'Locatie';
 
   @override
@@ -20414,6 +20428,66 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get settings_appearance_subsection_defaultVisibleMetrics =>
       'Standaard zichtbare metrieken';
+
+  @override
+  String get settings_appearance_metricColors => 'Kleuren van metrieken';
+
+  @override
+  String get settings_appearance_metricColors_subtitleDefault =>
+      'Standaardkleuren';
+
+  @override
+  String settings_appearance_metricColors_subtitleCustomized(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count aangepast',
+      one: '$count aangepast',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settings_metricColors_resetAll => 'Alles herstellen';
+
+  @override
+  String get settings_metricColors_resetAllTitle =>
+      'Kleuren van metrieken herstellen?';
+
+  @override
+  String get settings_metricColors_resetAllBody =>
+      'Elke metriek krijgt weer zijn standaardkleur.';
+
+  @override
+  String get settings_metricColors_reset => 'Herstellen';
+
+  @override
+  String get settings_metricColors_default => 'Standaard';
+
+  @override
+  String get settings_metricColors_auto => 'Automatisch';
+
+  @override
+  String get settings_metricColors_autoTemperature =>
+      'Automatisch: volgt het thema';
+
+  @override
+  String get settings_metricColors_autoPressure =>
+      'Automatisch: elk gas heeft een eigen kleur';
+
+  @override
+  String get settings_metricColors_pressureCustom =>
+      'Gebruikt bij duiken met één fles';
+
+  @override
+  String settings_metricColors_sheetTitle(String metric) {
+    return 'Kleur van $metric';
+  }
+
+  @override
+  String settings_metricColors_swapsWith(String metric) {
+    return 'Wisselt met $metric';
+  }
 
   @override
   String get settings_appearance_subsection_standardMetrics =>
@@ -23072,6 +23146,11 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get settings_conflict_field_trendGapCollapseMonths =>
       'Pauzes in trendgrafieken inkorten';
+
+  @override
+  String settings_conflict_field_profileColor(String metric) {
+    return 'Profielkleur: $metric';
+  }
 
   @override
   String get settings_conflict_field_tripServiceLeadDays =>
@@ -26486,6 +26565,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get insights_focus_metric_bottomTime => 'Bodemtijd';
 
   @override
+  String get insights_focus_metric_runtime => 'Looptijd';
+
+  @override
   String get insights_focus_metric_weight => 'Lood';
 
   @override
@@ -27021,6 +27103,16 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get insights_progression_bottomTime_title => 'Bodemtijdtrend';
+
+  @override
+  String get insights_progression_runtime_error =>
+      'Kan looptijdtrend niet laden';
+
+  @override
+  String get insights_progression_runtime_subtitle => 'Elke duik in het bereik';
+
+  @override
+  String get insights_progression_runtime_title => 'Looptijdtrend';
 
   @override
   String get insights_progression_cumulative_error =>
@@ -35947,6 +36039,9 @@ class AppLocalizationsNl extends AppLocalizations {
   String get equipment_edit_invalidThickness => 'Gebruik 5, 5/4 of 7/5/3';
 
   @override
+  String get equipment_edit_invalidFocalLength => 'Gebruik 60 of 15-45';
+
+  @override
   String get equipment_edit_invalidWebLink =>
       'Voer een webadres in, bijv. shop.example.com';
 
@@ -35991,7 +36086,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get safetySettings_noFlyHeader => 'Vliegen na het duiken';
 
   @override
-  String get safetySettings_cnsOtuHeader => 'Huidige CNS/OTU-belasting';
+  String get safetySettings_cnsOtuHeader => 'Huidige duikbelasting';
 
   @override
   String get safetySettings_noFlyPreset_standard => 'Standaard (12/18/24 u)';
@@ -36064,6 +36159,20 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get safetyHub_cnsOtu_noProfile_body =>
       'Zonder diepteprofiel kunnen CNS% en OTU ervan niet worden berekend. De totalen hieronder laten hem buiten beschouwing.';
+
+  @override
+  String get safetyHub_cnsOtu_about_title => 'Over CNS en OTU';
+
+  @override
+  String get safetyHub_cnsOtu_about_body =>
+      'Je CNS% (zuurstofklok) neemt na de duik af met een halveringstijd van 90 minuten -- na ongeveer een dag is deze vrijwel terug op 0.\n\nDe dagelijkse OTU wordt elke nacht om middernacht gereset. De wekelijkse OTU is een voortschrijdend totaal van de afgelopen 7 dagen: oudere duiken vallen automatisch uit de berekening zodra ze buiten dat venster vallen.';
+
+  @override
+  String get safetyHub_tissueLoading_about_title => 'Over weefselverzadiging';
+
+  @override
+  String get safetyHub_tissueLoading_about_body =>
+      'Je lichaam heeft 16 weefselcompartimenten die stikstof opnemen en afgeven (en bij trimix- of rebreatherduiken ook helium), elk met een eigen snelheid. Snelle weefsels verzadigen en ontzadigen snel; langzame weefsels hebben voor beide veel meer tijd nodig.\n\nNa een duik met helium kunnen stikstof en helium in één compartiment kortstondig in tegengestelde richtingen bewegen: terwijl het helium nog afgeeft, kan datzelfde compartiment tegelijk wat stikstof opnemen, totdat beide gassen in evenwicht zijn met de lucht die je inademt. Daarom kan een compartiment even \"Ongassing\" tonen, terwijl de totale belasting toch blijft dalen.';
 
   @override
   String safetyHub_noFly_category_single(int hours) {
@@ -36441,8 +36550,16 @@ class AppLocalizationsNl extends AppLocalizations {
   String get safetyHub_incidentsLink => 'Bijna-ongevallenlog';
 
   @override
-  String get safetyHub_incidentsLink_subtitle =>
-      'Privé, niet-bestraffende incidentnotities';
+  String safetyHub_incidentsLink_count(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count meldingen',
+      one: '$count melding',
+      zero: 'Nog geen',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get diveLog_detail_menu_logNearMiss => 'Bijna-ongeval vastleggen';
@@ -46028,6 +46145,23 @@ class AppLocalizationsNl extends AppLocalizations {
   String get maps_regionDownload_downloadButton => 'Downloaden';
 
   @override
+  String get maps_regionDownload_presetOverview => 'Overzicht';
+
+  @override
+  String get maps_regionDownload_presetDetail => 'Detail';
+
+  @override
+  String get maps_regionDownload_presetFull => 'Volledig';
+
+  @override
+  String get maps_regionDownload_tooManyTiles =>
+      'Meer dan 100.000 tegels: verklein het gebied of verlaag de maximale zoom.';
+
+  @override
+  String get maps_regionDownload_socks5Unsupported =>
+      'Regiodownloads kunnen geen SOCKS5-proxy gebruiken: kies in de netwerkinstellingen een HTTP-proxy of \'Geen proxy\'.';
+
+  @override
   String get diveLog_map_title => 'Duikactiviteit';
 
   @override
@@ -49105,6 +49239,11 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String backup_history_preDowngradeSubtitle(String size) {
     return 'Nieuwere database, bewaard bij het teruggaan - $size';
+  }
+
+  @override
+  String backup_history_cloudOnlySubtitle(String size) {
+    return 'In cloudopslag ($size)';
   }
 
   @override

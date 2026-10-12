@@ -3889,6 +3889,12 @@ abstract class AppLocalizations {
   /// **'This backup will be permanently deleted. This cannot be undone.'**
   String get backup_delete_dialog_content;
 
+  /// No description provided for @backup_delete_dialog_content_otherDevice.
+  ///
+  /// In en, this message translates to:
+  /// **'This backup is only in your cloud storage, and nothing shows this device made it. It may be another device\'s only copy, or one this device made before a reinstall. Deleting it cannot be undone.'**
+  String get backup_delete_dialog_content_otherDevice;
+
   /// No description provided for @backup_delete_dialog_delete.
   ///
   /// In en, this message translates to:
@@ -12523,6 +12529,12 @@ abstract class AppLocalizations {
   /// **'Remove items to add different ones'**
   String get diveLog_equipmentPicker_removeToAdd;
 
+  /// No description provided for @diveLog_equipmentPicker_showLeftKit.
+  ///
+  /// In en, this message translates to:
+  /// **'Show retired and sold gear'**
+  String get diveLog_equipmentPicker_showLeftKit;
+
   /// No description provided for @diveLog_equipmentPicker_spareHint.
   ///
   /// In en, this message translates to:
@@ -16069,6 +16081,12 @@ abstract class AppLocalizations {
   /// **'None'**
   String get diveLog_tank_regulatorNone;
 
+  /// No description provided for @diveLog_tank_regulatorShowLeftKit.
+  ///
+  /// In en, this message translates to:
+  /// **'Show retired and sold regulators'**
+  String get diveLog_tank_regulatorShowLeftKit;
+
   /// No description provided for @diveLog_tank_tripCylinderLabel.
   ///
   /// In en, this message translates to:
@@ -16296,12 +16314,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'GTR'**
   String get diveLog_tooltip_gtr;
-
-  /// No description provided for @diveLog_sources_row_metric.
-  ///
-  /// In en, this message translates to:
-  /// **'Metric'**
-  String get diveLog_sources_row_metric;
 
   /// No description provided for @diveLog_sources_row_maxDepth.
   ///
@@ -18526,6 +18538,12 @@ abstract class AppLocalizations {
   /// **'No country'**
   String get diveSites_group_noCountry;
 
+  /// No description provided for @diveSites_group_noBodyOfWater.
+  ///
+  /// In en, this message translates to:
+  /// **'No body of water'**
+  String get diveSites_group_noBodyOfWater;
+
   /// No description provided for @diveSites_group_siteCount.
   ///
   /// In en, this message translates to:
@@ -18550,11 +18568,23 @@ abstract class AppLocalizations {
   /// **'Country & region'**
   String get diveSites_list_groupBy_location;
 
+  /// No description provided for @diveSites_list_groupBy_locationAndWater.
+  ///
+  /// In en, this message translates to:
+  /// **'Country & body of water'**
+  String get diveSites_list_groupBy_locationAndWater;
+
   /// No description provided for @diveSites_list_groupBy_none.
   ///
   /// In en, this message translates to:
   /// **'None'**
   String get diveSites_list_groupBy_none;
+
+  /// No description provided for @diveSites_list_groupBy_water.
+  ///
+  /// In en, this message translates to:
+  /// **'Body of water'**
+  String get diveSites_list_groupBy_water;
 
   /// No description provided for @diveSites_list_tile_diveCount.
   ///
@@ -23674,7 +23704,7 @@ abstract class AppLocalizations {
   /// No description provided for @equipment_serviceClocks_divesUsedAndLeft.
   ///
   /// In en, this message translates to:
-  /// **'{used} dives, {remaining} of {total} dives left'**
+  /// **'{used} of {total} dives, {remaining} left'**
   String equipment_serviceClocks_divesUsedAndLeft(
     int used,
     int remaining,
@@ -23858,7 +23888,7 @@ abstract class AppLocalizations {
   /// No description provided for @equipment_serviceClocks_hoursUsedAndLeft.
   ///
   /// In en, this message translates to:
-  /// **'{used} hours, {remaining} of {total} hours left'**
+  /// **'{used} of {total} hours, {remaining} left'**
   String equipment_serviceClocks_hoursUsedAndLeft(
     String used,
     String remaining,
@@ -23868,7 +23898,7 @@ abstract class AppLocalizations {
   /// No description provided for @equipment_serviceClocks_saltHoursUsedAndLeft.
   ///
   /// In en, this message translates to:
-  /// **'{used} salt-water hours, {remaining} of {total} salt-water hours left'**
+  /// **'{used} of {total} salt-water hours, {remaining} left'**
   String equipment_serviceClocks_saltHoursUsedAndLeft(
     String used,
     String remaining,
@@ -23878,7 +23908,7 @@ abstract class AppLocalizations {
   /// No description provided for @equipment_serviceClocks_coldDivesUsedAndLeft.
   ///
   /// In en, this message translates to:
-  /// **'{used} cold dives, {remaining} of {total} cold dives left'**
+  /// **'{used} of {total} cold dives, {remaining} left'**
   String equipment_serviceClocks_coldDivesUsedAndLeft(
     String used,
     String remaining,
@@ -23888,7 +23918,7 @@ abstract class AppLocalizations {
   /// No description provided for @equipment_serviceClocks_o2HoursUsedAndLeft.
   ///
   /// In en, this message translates to:
-  /// **'{used} high-O2 hours, {remaining} of {total} high-O2 hours left'**
+  /// **'{used} of {total} high-O2 hours, {remaining} left'**
   String equipment_serviceClocks_o2HoursUsedAndLeft(
     String used,
     String remaining,
@@ -23898,7 +23928,7 @@ abstract class AppLocalizations {
   /// No description provided for @equipment_serviceClocks_deepCyclesUsedAndLeft.
   ///
   /// In en, this message translates to:
-  /// **'{used} deep dives, {remaining} of {total} deep dives left'**
+  /// **'{used} of {total} deep dives, {remaining} left'**
   String equipment_serviceClocks_deepCyclesUsedAndLeft(
     String used,
     String remaining,
@@ -23908,7 +23938,7 @@ abstract class AppLocalizations {
   /// No description provided for @equipment_serviceClocks_cyclesUsedAndLeft.
   ///
   /// In en, this message translates to:
-  /// **'{used} battery cycles, {remaining} of {total} battery cycles left'**
+  /// **'{used} of {total} battery cycles, {remaining} left'**
   String equipment_serviceClocks_cyclesUsedAndLeft(
     String used,
     String remaining,
@@ -24544,6 +24574,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'e.g., 5, 5/4, 7/5/3'**
   String get equipment_edit_thicknessDesignationHint;
+
+  /// No description provided for @equipment_edit_focalLengthHint.
+  ///
+  /// In en, this message translates to:
+  /// **'e.g., 60 or 15-45'**
+  String get equipment_edit_focalLengthHint;
 
   /// No description provided for @equipment_edit_webLinkHint.
   ///
@@ -31927,7 +31963,7 @@ abstract class AppLocalizations {
   /// **'Clear highlight'**
   String get safetyReview_clearHighlight;
 
-  /// Semantics label for a clustered chip in the chart safety lane
+  /// Safety review findings count: the semantics label for a clustered chip in the chart safety lane, and the tooltip of the dive list safety badge
   ///
   /// In en, this message translates to:
   /// **'{count, plural, =1{1 safety observation} other{{count} safety observations}}'**
@@ -32088,18 +32124,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tide cycle graph and timing'**
   String get diveDetailSection_tide_description;
-
-  /// No description provided for @diveDetailSection_reefHealth_name.
-  ///
-  /// In en, this message translates to:
-  /// **'Water Conditions'**
-  String get diveDetailSection_reefHealth_name;
-
-  /// No description provided for @diveDetailSection_reefHealth_description.
-  ///
-  /// In en, this message translates to:
-  /// **'Satellite water conditions on the dive date'**
-  String get diveDetailSection_reefHealth_description;
 
   /// No description provided for @diveDetailSection_surfaceGps_name.
   ///
@@ -32934,6 +32958,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Default Visible Metrics'**
   String get settings_appearance_subsection_defaultVisibleMetrics;
+
+  /// No description provided for @settings_appearance_metricColors.
+  ///
+  /// In en, this message translates to:
+  /// **'Metric Colors'**
+  String get settings_appearance_metricColors;
+
+  /// No description provided for @settings_appearance_metricColors_subtitleDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'Default colors'**
+  String get settings_appearance_metricColors_subtitleDefault;
+
+  /// No description provided for @settings_appearance_metricColors_subtitleCustomized.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} customized} other{{count} customized}}'**
+  String settings_appearance_metricColors_subtitleCustomized(int count);
+
+  /// No description provided for @settings_metricColors_resetAll.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset all'**
+  String get settings_metricColors_resetAll;
+
+  /// No description provided for @settings_metricColors_resetAllTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset metric colors?'**
+  String get settings_metricColors_resetAllTitle;
+
+  /// No description provided for @settings_metricColors_resetAllBody.
+  ///
+  /// In en, this message translates to:
+  /// **'Every metric goes back to its default color.'**
+  String get settings_metricColors_resetAllBody;
+
+  /// No description provided for @settings_metricColors_reset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get settings_metricColors_reset;
+
+  /// No description provided for @settings_metricColors_default.
+  ///
+  /// In en, this message translates to:
+  /// **'Default'**
+  String get settings_metricColors_default;
+
+  /// No description provided for @settings_metricColors_auto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get settings_metricColors_auto;
+
+  /// No description provided for @settings_metricColors_autoTemperature.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto: follows the theme'**
+  String get settings_metricColors_autoTemperature;
+
+  /// No description provided for @settings_metricColors_autoPressure.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto: each gas has its own color'**
+  String get settings_metricColors_autoPressure;
+
+  /// No description provided for @settings_metricColors_pressureCustom.
+  ///
+  /// In en, this message translates to:
+  /// **'Used on single-tank dives'**
+  String get settings_metricColors_pressureCustom;
+
+  /// No description provided for @settings_metricColors_sheetTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{metric} color'**
+  String settings_metricColors_sheetTitle(String metric);
+
+  /// No description provided for @settings_metricColors_swapsWith.
+  ///
+  /// In en, this message translates to:
+  /// **'Swaps with {metric}'**
+  String settings_metricColors_swapsWith(String metric);
 
   /// No description provided for @settings_appearance_subsection_standardMetrics.
   ///
@@ -37355,6 +37463,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Collapse gaps in trend charts'**
   String get settings_conflict_field_trendGapCollapseMonths;
+
+  /// No description provided for @settings_conflict_field_profileColor.
+  ///
+  /// In en, this message translates to:
+  /// **'Profile color: {metric}'**
+  String settings_conflict_field_profileColor(String metric);
 
   /// No description provided for @settings_conflict_field_tripServiceLeadDays.
   ///
@@ -43154,6 +43268,12 @@ abstract class AppLocalizations {
   /// **'Bottom time'**
   String get insights_focus_metric_bottomTime;
 
+  /// No description provided for @insights_focus_metric_runtime.
+  ///
+  /// In en, this message translates to:
+  /// **'Runtime'**
+  String get insights_focus_metric_runtime;
+
   /// No description provided for @insights_focus_metric_weight.
   ///
   /// In en, this message translates to:
@@ -44042,6 +44162,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Bottom Time Trend'**
   String get insights_progression_bottomTime_title;
+
+  /// No description provided for @insights_progression_runtime_error.
+  ///
+  /// In en, this message translates to:
+  /// **'Failed to load runtime trend'**
+  String get insights_progression_runtime_error;
+
+  /// No description provided for @insights_progression_runtime_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Every dive in range'**
+  String get insights_progression_runtime_subtitle;
+
+  /// No description provided for @insights_progression_runtime_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Runtime Trend'**
+  String get insights_progression_runtime_title;
 
   /// No description provided for @insights_progression_cumulative_error.
   ///
@@ -57421,6 +57559,12 @@ abstract class AppLocalizations {
   /// **'Use 5, 5/4 or 7/5/3'**
   String get equipment_edit_invalidThickness;
 
+  /// No description provided for @equipment_edit_invalidFocalLength.
+  ///
+  /// In en, this message translates to:
+  /// **'Use 60 or 15-45'**
+  String get equipment_edit_invalidFocalLength;
+
   /// No description provided for @equipment_edit_invalidWebLink.
   ///
   /// In en, this message translates to:
@@ -57502,7 +57646,7 @@ abstract class AppLocalizations {
   /// No description provided for @safetySettings_cnsOtuHeader.
   ///
   /// In en, this message translates to:
-  /// **'Current CNS/OTU load'**
+  /// **'Current dive load'**
   String get safetySettings_cnsOtuHeader;
 
   /// No description provided for @safetySettings_noFlyPreset_standard.
@@ -57612,6 +57756,30 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Its CNS% and OTU can\'t be calculated without depth samples. The totals below leave it out.'**
   String get safetyHub_cnsOtu_noProfile_body;
+
+  /// No description provided for @safetyHub_cnsOtu_about_title.
+  ///
+  /// In en, this message translates to:
+  /// **'About CNS and OTU'**
+  String get safetyHub_cnsOtu_about_title;
+
+  /// No description provided for @safetyHub_cnsOtu_about_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Your CNS% (oxygen clock) decays after a dive with a 90-minute half-life -- it\'s practically back to 0 after about a day.\n\nDaily OTU resets every night at midnight. Weekly OTU is a rolling total of the last 7 days: older dives automatically drop out of the calculation once they fall outside that window.'**
+  String get safetyHub_cnsOtu_about_body;
+
+  /// No description provided for @safetyHub_tissueLoading_about_title.
+  ///
+  /// In en, this message translates to:
+  /// **'About Tissue Loading'**
+  String get safetyHub_tissueLoading_about_title;
+
+  /// No description provided for @safetyHub_tissueLoading_about_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Your body has 16 tissue compartments that absorb and release nitrogen (and, on trimix or rebreather dives, helium too) at different speeds. Fast tissues saturate and desaturate quickly; slow tissues take much longer for both.\n\nAfter a dive with helium, nitrogen and helium in a single compartment can briefly move in opposite directions: while helium is still releasing, the same compartment can simultaneously be absorbing a little nitrogen, until both gases reach equilibrium with the air you\'re breathing. That\'s why a compartment can briefly show \"Ongassing\" even while its overall load keeps dropping.'**
+  String get safetyHub_tissueLoading_about_body;
 
   /// No description provided for @safetyHub_noFly_category_single.
   ///
@@ -58237,11 +58405,11 @@ abstract class AppLocalizations {
   /// **'Near-miss log'**
   String get safetyHub_incidentsLink;
 
-  /// No description provided for @safetyHub_incidentsLink_subtitle.
+  /// No description provided for @safetyHub_incidentsLink_count.
   ///
   /// In en, this message translates to:
-  /// **'Private, non-punitive incident notes'**
-  String get safetyHub_incidentsLink_subtitle;
+  /// **'{count, plural, =0{None yet} =1{{count} entry} other{{count} entries}}'**
+  String safetyHub_incidentsLink_count(int count);
 
   /// No description provided for @diveLog_detail_menu_logNearMiss.
   ///
@@ -73723,6 +73891,36 @@ abstract class AppLocalizations {
   /// **'Download'**
   String get maps_regionDownload_downloadButton;
 
+  /// No description provided for @maps_regionDownload_presetOverview.
+  ///
+  /// In en, this message translates to:
+  /// **'Overview'**
+  String get maps_regionDownload_presetOverview;
+
+  /// No description provided for @maps_regionDownload_presetDetail.
+  ///
+  /// In en, this message translates to:
+  /// **'Detail'**
+  String get maps_regionDownload_presetDetail;
+
+  /// No description provided for @maps_regionDownload_presetFull.
+  ///
+  /// In en, this message translates to:
+  /// **'Full'**
+  String get maps_regionDownload_presetFull;
+
+  /// No description provided for @maps_regionDownload_tooManyTiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Over 100,000 tiles: shrink the area or lower the maximum zoom.'**
+  String get maps_regionDownload_tooManyTiles;
+
+  /// No description provided for @maps_regionDownload_socks5Unsupported.
+  ///
+  /// In en, this message translates to:
+  /// **'Region downloads can\'t use a SOCKS5 proxy: switch to an HTTP proxy or to No proxy in the network settings.'**
+  String get maps_regionDownload_socks5Unsupported;
+
   /// No description provided for @diveLog_map_title.
   ///
   /// In en, this message translates to:
@@ -78442,6 +78640,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Newer database, kept when going back - {size}'**
   String backup_history_preDowngradeSubtitle(String size);
+
+  /// No description provided for @backup_history_cloudOnlySubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'In cloud storage ({size})'**
+  String backup_history_cloudOnlySubtitle(String size);
 
   /// No description provided for @backup_history_manualSubtitle.
   ///

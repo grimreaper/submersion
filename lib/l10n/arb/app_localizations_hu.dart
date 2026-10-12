@@ -2477,6 +2477,10 @@ class AppLocalizationsHu extends AppLocalizations {
       'Ez a biztonsági mentés véglegesen törlésre kerül. Ez a művelet nem vonható vissza.';
 
   @override
+  String get backup_delete_dialog_content_otherDevice =>
+      'Ez a biztonsági mentés csak a felhőtárhelyen található, és semmi sem utal arra, hogy ez az eszköz készítette. Lehet egy másik eszköz egyetlen példánya, vagy egy olyan mentés, amelyet ez az eszköz egy újratelepítés előtt készített. A törlés nem vonható vissza.';
+
+  @override
   String get backup_delete_dialog_delete => 'Törlés';
 
   @override
@@ -7894,6 +7898,10 @@ class AppLocalizationsHu extends AppLocalizations {
       'Távolítson el elemeket mások hozzáadásához';
 
   @override
+  String get diveLog_equipmentPicker_showLeftKit =>
+      'Kivont és eladott felszerelés megjelenítése';
+
+  @override
   String get diveLog_equipmentPicker_spareHint =>
       'Állítsa a tárgy állapotát Aktívra, hogy merüléséhez adja';
 
@@ -10015,6 +10023,10 @@ class AppLocalizationsHu extends AppLocalizations {
   String get diveLog_tank_regulatorNone => 'Nincs';
 
   @override
+  String get diveLog_tank_regulatorShowLeftKit =>
+      'Kivont és eladott reduktorok megjelenítése';
+
+  @override
   String get diveLog_tank_tripCylinderLabel => 'Az utazás palackja';
 
   @override
@@ -10128,9 +10140,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get diveLog_tooltip_gtr => 'GTR';
-
-  @override
-  String get diveLog_sources_row_metric => 'Adat';
 
   @override
   String get diveLog_sources_row_maxDepth => 'Max mélység';
@@ -11534,6 +11543,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get diveSites_group_noCountry => 'Nincs ország';
 
   @override
+  String get diveSites_group_noBodyOfWater => 'Nincs víztest';
+
+  @override
   String diveSites_group_siteCount(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -11554,7 +11566,13 @@ class AppLocalizationsHu extends AppLocalizations {
   String get diveSites_list_groupBy_location => 'Ország és régió';
 
   @override
+  String get diveSites_list_groupBy_locationAndWater => 'Ország és víztest';
+
+  @override
   String get diveSites_list_groupBy_none => 'Nincs';
+
+  @override
+  String get diveSites_list_groupBy_water => 'Víztest';
 
   @override
   String diveSites_list_tile_diveCount(int count) {
@@ -14518,7 +14536,7 @@ class AppLocalizationsHu extends AppLocalizations {
     int remaining,
     int total,
   ) {
-    return '$used merülés, $remaining / $total van hátra';
+    return '$used/$total merülésből $remaining van hátra';
   }
 
   @override
@@ -14645,7 +14663,7 @@ class AppLocalizationsHu extends AppLocalizations {
     String remaining,
     String total,
   ) {
-    return '$used óra, $remaining / $total van hátra';
+    return '$used/$total órából $remaining van hátra';
   }
 
   @override
@@ -14654,7 +14672,7 @@ class AppLocalizationsHu extends AppLocalizations {
     String remaining,
     String total,
   ) {
-    return '$used sós vízi óra, $remaining / $total van hátra';
+    return '$used/$total sós vízi órából $remaining van hátra';
   }
 
   @override
@@ -14663,7 +14681,7 @@ class AppLocalizationsHu extends AppLocalizations {
     String remaining,
     String total,
   ) {
-    return '$used hideg vízi merülés, $remaining / $total van hátra';
+    return '$used/$total hideg vízi merülésből $remaining van hátra';
   }
 
   @override
@@ -14672,7 +14690,7 @@ class AppLocalizationsHu extends AppLocalizations {
     String remaining,
     String total,
   ) {
-    return '$used magas O2-tartalmú óra, $remaining / $total van hátra';
+    return '$used/$total magas O2-tartalmú órából $remaining van hátra';
   }
 
   @override
@@ -14681,7 +14699,7 @@ class AppLocalizationsHu extends AppLocalizations {
     String remaining,
     String total,
   ) {
-    return '$used mély merülés, $remaining / $total van hátra';
+    return '$used/$total mély merülésből $remaining van hátra';
   }
 
   @override
@@ -14690,7 +14708,7 @@ class AppLocalizationsHu extends AppLocalizations {
     String remaining,
     String total,
   ) {
-    return '$used akkumulátorciklus, $remaining / $total van hátra';
+    return '$used/$total akkumulátorciklusból $remaining van hátra';
   }
 
   @override
@@ -15101,6 +15119,9 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get equipment_edit_thicknessDesignationHint => 'pl. 5, 5/4, 7/5/3';
+
+  @override
+  String get equipment_edit_focalLengthHint => 'pl. 60 vagy 15-45';
 
   @override
   String get equipment_edit_webLinkHint => 'pl. shop.example.com/product';
@@ -19989,13 +20010,6 @@ class AppLocalizationsHu extends AppLocalizations {
       'Árapály-ciklus grafikon és időzítés';
 
   @override
-  String get diveDetailSection_reefHealth_name => 'Vízviszonyok';
-
-  @override
-  String get diveDetailSection_reefHealth_description =>
-      'Műholdas vízviszonyok a merülés napján';
-
-  @override
   String get diveDetailSection_surfaceGps_name => 'Helyszín';
 
   @override
@@ -20478,6 +20492,65 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get settings_appearance_subsection_defaultVisibleMetrics =>
       'Alapértelmezett látható metrikák';
+
+  @override
+  String get settings_appearance_metricColors => 'Metrikák színei';
+
+  @override
+  String get settings_appearance_metricColors_subtitleDefault =>
+      'Alapértelmezett színek';
+
+  @override
+  String settings_appearance_metricColors_subtitleCustomized(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count testreszabva',
+      one: '$count testreszabva',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get settings_metricColors_resetAll => 'Összes visszaállítása';
+
+  @override
+  String get settings_metricColors_resetAllTitle =>
+      'Visszaállítod a metrikák színeit?';
+
+  @override
+  String get settings_metricColors_resetAllBody =>
+      'Minden metrika visszakapja az alapértelmezett színét.';
+
+  @override
+  String get settings_metricColors_reset => 'Visszaállítás';
+
+  @override
+  String get settings_metricColors_default => 'Alapértelmezett';
+
+  @override
+  String get settings_metricColors_auto => 'Automatikus';
+
+  @override
+  String get settings_metricColors_autoTemperature =>
+      'Automatikus: a témát követi';
+
+  @override
+  String get settings_metricColors_autoPressure =>
+      'Automatikus: minden gáznak saját színe van';
+
+  @override
+  String get settings_metricColors_pressureCustom => 'Egypalackos merülésekhez';
+
+  @override
+  String settings_metricColors_sheetTitle(String metric) {
+    return '$metric színe';
+  }
+
+  @override
+  String settings_metricColors_swapsWith(String metric) {
+    return 'Csere ezzel: $metric';
+  }
 
   @override
   String get settings_appearance_subsection_standardMetrics =>
@@ -23119,6 +23192,11 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get settings_conflict_field_trendGapCollapseMonths =>
       'Szünetek összevonása a trenddiagramokon';
+
+  @override
+  String settings_conflict_field_profileColor(String metric) {
+    return 'Profilszín: $metric';
+  }
 
   @override
   String get settings_conflict_field_tripServiceLeadDays =>
@@ -26551,6 +26629,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get insights_focus_metric_bottomTime => 'Fenékidő';
 
   @override
+  String get insights_focus_metric_runtime => 'Futásidő';
+
+  @override
   String get insights_focus_metric_weight => 'Ólom';
 
   @override
@@ -27088,6 +27169,17 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get insights_progression_bottomTime_title => 'Fenékidő trend';
+
+  @override
+  String get insights_progression_runtime_error =>
+      'Nem sikerült a futásidő trend betöltése';
+
+  @override
+  String get insights_progression_runtime_subtitle =>
+      'Minden merülés a tartományban';
+
+  @override
+  String get insights_progression_runtime_title => 'Futásidő trend';
 
   @override
   String get insights_progression_cumulative_error =>
@@ -35990,6 +36082,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get equipment_edit_invalidThickness => 'Formátum: 5, 5/4 vagy 7/5/3';
 
   @override
+  String get equipment_edit_invalidFocalLength => 'Formátum: 60 vagy 15-45';
+
+  @override
   String get equipment_edit_invalidWebLink =>
       'Adjon meg egy webcímet, pl. shop.example.com';
 
@@ -36034,7 +36129,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get safetySettings_noFlyHeader => 'Repülés merülés után';
 
   @override
-  String get safetySettings_cnsOtuHeader => 'Jelenlegi CNS/OTU terhelés';
+  String get safetySettings_cnsOtuHeader => 'Jelenlegi merülési terhelés';
 
   @override
   String get safetySettings_noFlyPreset_standard => 'Normál (12/18/24 ó)';
@@ -36109,6 +36204,20 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get safetyHub_cnsOtu_noProfile_body =>
       'Mélységprofil nélkül a CNS% és az OTU nem számítható ki. Az alábbi összesítések nem tartalmazzák.';
+
+  @override
+  String get safetyHub_cnsOtu_about_title => 'A CNS-ről és az OTU-ról';
+
+  @override
+  String get safetyHub_cnsOtu_about_body =>
+      'A CNS% (oxigénóra) a merülés után 90 perces felezési idővel csökken -- körülbelül egy nap múlva gyakorlatilag visszatér 0-ra.\n\nA napi OTU minden éjjel éjfélkor nullázódik. A heti OTU az utolsó 7 nap gördülő összege: a régebbi merülések automatikusan kikerülnek a számításból, amint kiesnek ebből az időablakból.';
+
+  @override
+  String get safetyHub_tissueLoading_about_title => 'A szövettelítődésről';
+
+  @override
+  String get safetyHub_tissueLoading_about_body =>
+      'A testednek 16 szövetkompartmentje van, amelyek különböző sebességgel vesznek fel és adnak le nitrogént (trimix- vagy újralégzős merüléseknél héliumot is). A gyors szövetek gyorsan telítődnek és ürülnek; a lassú szövetek mindkettőhöz sokkal több időt igényelnek.\n\nHéliumos merülés után egyazon kompartmentben a nitrogén és a hélium rövid ideig ellentétes irányba mozoghat: amíg a hélium még távozik, ugyanaz a kompartment egyidejűleg kis mennyiségű nitrogént vehet fel, amíg mindkét gáz egyensúlyba nem kerül a belélegzett levegővel. Ezért egy kompartment rövid időre \"Ongassing\" jelzést mutathat, miközben a teljes terhelése továbbra is csökken.';
 
   @override
   String safetyHub_noFly_category_single(int hours) {
@@ -36485,8 +36594,16 @@ class AppLocalizationsHu extends AppLocalizations {
   String get safetyHub_incidentsLink => 'Kvázibaleset-napló';
 
   @override
-  String get safetyHub_incidentsLink_subtitle =>
-      'Privát, nem büntető jellegű eseményjegyzetek';
+  String safetyHub_incidentsLink_count(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count bejegyzés',
+      one: '$count bejegyzés',
+      zero: 'Még nincs',
+    );
+    return '$_temp0';
+  }
 
   @override
   String get diveLog_detail_menu_logNearMiss => 'Kvázibaleset rögzítése';
@@ -46069,6 +46186,23 @@ class AppLocalizationsHu extends AppLocalizations {
   String get maps_regionDownload_downloadButton => 'Letöltés';
 
   @override
+  String get maps_regionDownload_presetOverview => 'Áttekintés';
+
+  @override
+  String get maps_regionDownload_presetDetail => 'Részletek';
+
+  @override
+  String get maps_regionDownload_presetFull => 'Teljes';
+
+  @override
+  String get maps_regionDownload_tooManyTiles =>
+      '100 000-nél több csempe: csökkentse a területet vagy a maximális nagyítást.';
+
+  @override
+  String get maps_regionDownload_socks5Unsupported =>
+      'A régióletöltések nem használhatnak SOCKS5 proxyt: váltson HTTP proxyra vagy a „Nincs proxy” lehetőségre a hálózati beállításokban.';
+
+  @override
   String get diveLog_map_title => 'Merülési tevékenység';
 
   @override
@@ -49159,6 +49293,11 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String backup_history_preDowngradeSubtitle(String size) {
     return 'Újabb adatbázis, visszalépéskor megőrizve - $size';
+  }
+
+  @override
+  String backup_history_cloudOnlySubtitle(String size) {
+    return 'Felhőtárhelyen ($size)';
   }
 
   @override

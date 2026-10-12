@@ -19,6 +19,9 @@ extension BeforeOpenBackstops on AppDatabase {
     // existing revisions untouched and only fills missing pointer rows.
     await _assertProfileSeriesHistorySchema();
     await _backfillProfileSeriesHistoryRows();
+    // v283 backstop: dive_profile_series.activated_at, after the history it
+    // backfills from.
+    await _assertProfileSeriesActivatedAt();
 
     // v252 backstop: nav_tracks.diver_id. Column only; the backfill stays
     // in the rung.
@@ -65,6 +68,8 @@ extension BeforeOpenBackstops on AppDatabase {
     await _assertVisibilityRangeColumns();
     // v281 backstop: diver_settings.trend_gap_collapse_months.
     await _assertTrendGapCollapseColumn();
+    // v284 backstop: diver_settings.profile_color_*.
+    await _assertProfileMetricColorColumns();
 
     // v210 backstop: the dive_tanks equipment link sets null on delete.
     // First, while foreign keys are still off: the rebuild it may do
