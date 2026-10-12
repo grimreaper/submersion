@@ -15074,7 +15074,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String get equipment_list_filterAll => 'All Equipment';
 
   @override
-  String get equipment_list_filterCurrent => 'Current Equipment';
+  String get equipment_list_filterCurrent => 'Default View';
 
   @override
   String get equipment_list_filterServiceDue => 'Service Due';
@@ -15113,6 +15113,9 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get equipment_filter_section_status => 'Status';
+
+  @override
+  String get equipment_filter_editDefault => 'Edit default';
 
   @override
   String get equipment_filter_section_tags => 'Tags';

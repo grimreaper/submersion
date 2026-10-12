@@ -14637,6 +14637,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get equipment_filter_section_status => '状态';
 
   @override
+  String get equipment_filter_editDefault => 'Edit default';
+
+  @override
   String get equipment_filter_section_tags => '标签';
 
   @override

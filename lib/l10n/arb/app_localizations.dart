@@ -24743,10 +24743,10 @@ abstract class AppLocalizations {
   /// **'All Equipment'**
   String get equipment_list_filterAll;
 
-  /// Equipment filter status chip for the default view: every item except retired and sold gear
+  /// Equipment filter status chip for the diver's default view: the statuses chosen in Settings > Manage > Default equipment view (issue #2628)
   ///
   /// In en, this message translates to:
-  /// **'Current Equipment'**
+  /// **'Default View'**
   String get equipment_list_filterCurrent;
 
   /// No description provided for @equipment_list_filterServiceDue.
@@ -24820,6 +24820,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Status'**
   String get equipment_filter_section_status;
+
+  /// Button beside the Status heading in the equipment filter panel that opens the default equipment view settings
+  ///
+  /// In en, this message translates to:
+  /// **'Edit default'**
+  String get equipment_filter_editDefault;
 
   /// No description provided for @equipment_filter_section_tags.
   ///

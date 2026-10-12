@@ -15334,6 +15334,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get equipment_filter_section_status => 'Stato';
 
   @override
+  String get equipment_filter_editDefault => 'Edit default';
+
+  @override
   String get equipment_filter_section_tags => 'Tag';
 
   @override

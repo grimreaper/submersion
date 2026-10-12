@@ -15281,6 +15281,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get equipment_filter_section_status => 'Állapot';
 
   @override
+  String get equipment_filter_editDefault => 'Edit default';
+
+  @override
   String get equipment_filter_section_tags => 'Címkék';
 
   @override
