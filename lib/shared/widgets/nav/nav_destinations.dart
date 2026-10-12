@@ -6,6 +6,11 @@ import 'package:submersion/l10n/arb/app_localizations.dart';
 import 'package:submersion/shared/widgets/nav/nav_id_aliases.dart';
 import 'package:submersion/shared/widgets/nav/nav_slot_count.dart';
 
+/// Fraction of the screen height a phone nav sheet (the More sheet, the Add
+/// shortcut picker) may fill. The remainder is scrim the user can tap to
+/// dismiss the sheet.
+const double kNavSheetMaxHeightFraction = 0.85;
+
 /// Canonical metadata for a single bottom-nav / nav-rail destination.
 ///
 /// The `more` sentinel has [isPinned] `true` and [route] empty — it represents

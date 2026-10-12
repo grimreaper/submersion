@@ -436,8 +436,10 @@ NavDestination navShortcutDestination(NavShortcut shortcut) => NavDestination(
 NavDestination? resolveNavDestination(
   String orderId,
   Map<String, NavDestination> builtInsById,
-) {
-  final shortcut = navShortcutForOrderId(orderId);
-  if (shortcut != null) return navShortcutDestination(shortcut);
-  return builtInsById[orderId];
-}
+) => _destinationsByOrderId[orderId] ?? builtInsById[orderId];
+
+/// Every shortcut's destination, built once: they depend only on the catalog.
+final Map<String, NavDestination> _destinationsByOrderId = {
+  for (final s in kNavShortcuts)
+    navShortcutOrderId(s.id): navShortcutDestination(s),
+};

@@ -15,9 +15,20 @@ void main() {
     );
   });
 
-  test('every builder returns a page', () {
+  test('no two shortcuts open the same page', () {
+    // The gas calculators share a page type and differ by toolId; every other
+    // shortcut opens a page type of its own, so a copy-pasted entry that
+    // builds a neighbour's page shows up as a repeated type.
+    final types = <Type, String>{};
     for (final entry in kNavShortcutPages.entries) {
-      expect(entry.value(const {}), isNotNull, reason: entry.key);
+      final page = entry.value(const {});
+      if (page is GasCalculatorDetailPage) {
+        expect(entry.key, 'gas-${page.toolId}');
+        continue;
+      }
+      final other = types[page.runtimeType];
+      expect(other, isNull, reason: '${entry.key} builds the page of $other');
+      types[page.runtimeType] = entry.key;
     }
   });
 

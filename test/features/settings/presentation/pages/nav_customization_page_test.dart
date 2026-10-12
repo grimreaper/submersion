@@ -524,6 +524,20 @@ void main() {
         expect(find.byTooltip('Remove Dives'), findsNothing);
       });
 
+      testWidgets('a failed add rolls back and reports it', (tester) async {
+        await pumpPage(tester, repo: _WriteFailsRepo());
+        await addBlender(tester);
+
+        expect(
+          find.text('Could not save navigation layout. Please try again.'),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('nav-item-shortcut:gas-blender')),
+          findsNothing,
+        );
+      });
+
       testWidgets('Reset clears shortcuts', (tester) async {
         final repo = FakeAppSettingsRepository()
           ..navPrimaryIds = ['shortcut:gas-blender'];

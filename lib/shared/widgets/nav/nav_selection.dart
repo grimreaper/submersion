@@ -1,4 +1,6 @@
+import 'package:submersion/core/router/shortcut_locations.dart';
 import 'package:submersion/shared/widgets/nav/nav_destinations.dart';
+import 'package:submersion/shared/widgets/nav/nav_shortcuts.dart';
 
 /// How specifically [location] belongs to [destination]; 0 means not at all.
 ///
@@ -34,13 +36,38 @@ int navMatchScore(NavDestination destination, Uri location) {
   return best;
 }
 
+/// The page a nav shortcut's alias location shows, at its canonical path and
+/// carrying the alias's query; null for any other location.
+///
+/// Selection scores both, so a page opened as a shortcut still belongs to its
+/// section when that shortcut is not on the surface being shown, and the Gas
+/// calculators hub opened as a shortcut (`?calc=blender`) still selects a
+/// calculator's own shortcut.
+Uri? _canonicalOf(Uri location) {
+  if (!location.path.startsWith('$kShortcutLocationPrefix/')) return null;
+  final id = location.path.substring(kShortcutLocationPrefix.length + 1);
+  final shortcut = navShortcutById(id);
+  if (shortcut == null) return null;
+  return Uri(
+    path: shortcut.canonicalPath,
+    queryParameters: location.queryParameters.isEmpty
+        ? null
+        : location.queryParameters,
+  );
+}
+
 /// Index of the best-scoring destination for [location], the first one on a
 /// tie, or null when none matches.
 int? bestNavMatchIndex(List<NavDestination> destinations, Uri location) {
+  final canonical = _canonicalOf(location);
   int? bestIndex;
   var bestScore = 0;
   for (var i = 0; i < destinations.length; i++) {
-    final score = navMatchScore(destinations[i], location);
+    final direct = navMatchScore(destinations[i], location);
+    final viaCanonical = canonical == null
+        ? 0
+        : navMatchScore(destinations[i], canonical);
+    final score = direct > viaCanonical ? direct : viaCanonical;
     if (score > bestScore) {
       bestScore = score;
       bestIndex = i;

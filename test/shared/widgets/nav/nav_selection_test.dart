@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:submersion/shared/widgets/nav/nav_destinations.dart';
 import 'package:submersion/shared/widgets/nav/nav_selection.dart';
+import 'package:submersion/shared/widgets/nav/nav_shortcuts.dart';
 
 NavDestination _d(
   String id,
@@ -149,6 +150,59 @@ void main() {
           location: Uri.parse('/settings'),
         ),
         2,
+      );
+    });
+  });
+
+  group('alias locations', () {
+    NavDestination shortcut(String id) =>
+        navShortcutDestination(navShortcutById(id)!);
+
+    test(
+      'without its shortcut on the surface, the page selects its section',
+      () {
+        expect(
+          railSelectedIndex([
+            _home,
+            _dives,
+            _planning,
+          ], Uri.parse('/shortcut/gas-blender')),
+          2,
+        );
+        expect(
+          phoneSelectedIndex(
+            primary: [_home, _planning, _dives, _more],
+            overflow: const [],
+            location: Uri.parse('/shortcut/insights-gas'),
+          ),
+          3, // Insights is not on this surface either: More.
+        );
+      },
+    );
+
+    test('the hub opened as a shortcut selects a calculator shortcut', () {
+      final rail = [
+        _home,
+        shortcut('gas-calculators'),
+        shortcut('gas-blender'),
+      ];
+      expect(
+        railSelectedIndex(
+          rail,
+          Uri.parse('/shortcut/gas-calculators?calc=blender'),
+        ),
+        2,
+      );
+      expect(
+        railSelectedIndex(rail, Uri.parse('/shortcut/gas-calculators')),
+        1,
+      );
+    });
+
+    test('an unknown alias matches nothing but itself', () {
+      expect(
+        railSelectedIndex([_home, _planning], Uri.parse('/shortcut/retired')),
+        0,
       );
     });
   });

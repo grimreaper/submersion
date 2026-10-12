@@ -19,11 +19,6 @@ import 'package:submersion/shared/widgets/nav/nav_selection.dart';
 import 'package:submersion/shared/widgets/nav/nav_slot_count.dart';
 import 'package:submersion/shared/widgets/shell_chrome_scope.dart';
 
-/// Fraction of the screen height the phone overflow ("More") sheet may fill.
-///
-/// The remainder is scrim the user can tap to dismiss the sheet.
-const double _moreSheetMaxHeight = 0.85;
-
 class MainScaffold extends ConsumerStatefulWidget {
   final Widget child;
 
@@ -170,7 +165,8 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       // it so tapping outside stays an obvious way out.
       useSafeArea: true,
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * _moreSheetMaxHeight,
+        maxHeight:
+            MediaQuery.of(context).size.height * kNavSheetMaxHeightFraction,
       ),
       // Not redundant with useSafeArea: that inserts SafeArea(bottom: false),
       // so the sheet deliberately runs to the bottom edge of the screen. This

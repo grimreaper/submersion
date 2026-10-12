@@ -3,11 +3,8 @@ import 'package:flutter/material.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 import 'package:submersion/shared/widgets/master_detail/responsive_breakpoints.dart';
+import 'package:submersion/shared/widgets/nav/nav_destinations.dart';
 import 'package:submersion/shared/widgets/nav/nav_shortcuts.dart';
-
-/// Fraction of the screen height the phone picker sheet may fill, matching
-/// the nav's More sheet.
-const double _sheetMaxHeight = 0.85;
 
 /// The header a [NavShortcutGroup] is listed under.
 String navShortcutGroupLabel(AppLocalizations l10n, NavShortcutGroup group) {
@@ -47,7 +44,7 @@ Future<String?> showNavShortcutPicker(
     isScrollControlled: true,
     useSafeArea: true,
     constraints: BoxConstraints(
-      maxHeight: MediaQuery.sizeOf(context).height * _sheetMaxHeight,
+      maxHeight: MediaQuery.sizeOf(context).height * kNavSheetMaxHeightFraction,
     ),
     builder: (_) => SafeArea(child: picker),
   );
