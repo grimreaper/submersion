@@ -286,6 +286,25 @@ void main() {
     expect(textColors, isNot(contains(_greenA400)));
   });
 
+  testWidgets('tooltip rows for tanks with no cylinder keep the fallback '
+      'colours', (tester) async {
+    List<TooltipRow>? rows;
+    await tester.pumpWidget(
+      _harness(
+        settings: AppSettings(
+          profileMetricColors: _with(ProfileMetric.pressure, _greenA400),
+        ),
+        tankPressures: {'t1': _series('t1'), 't2': _series('t2')},
+        onTooltipData: (r) => rows = r,
+      ),
+    );
+    await tester.pumpAndSettle();
+    final got = await _touchCentre(tester, () => rows);
+    final bullets = got!.map((r) => r.bulletColor.toARGB32()).toSet();
+    expect(bullets, contains(Colors.orange.toARGB32()));
+    expect(bullets, isNot(contains(_greenA400.toARGB32())));
+  });
+
   testWidgets('the right axis label takes the chosen colour', (tester) async {
     await tester.pumpWidget(
       _harness(

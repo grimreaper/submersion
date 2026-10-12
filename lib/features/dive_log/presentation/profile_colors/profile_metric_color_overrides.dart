@@ -149,7 +149,11 @@ class ProfileMetricColorOverrides {
       final value = swatch.toARGB32();
       if (!used.contains(value)) return value;
     }
+    // Unreachable: profile_metric_swatches_test pins more swatches than
+    // metrics.
+    // coverage:ignore-start
     throw StateError('the palette must outnumber the metrics');
+    // coverage:ignore-end
   }
 
   @override

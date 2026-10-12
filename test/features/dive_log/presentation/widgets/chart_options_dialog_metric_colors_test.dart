@@ -4,7 +4,9 @@ import 'package:go_router/go_router.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/features/dive_log/presentation/profile_colors/profile_metric.dart';
 import 'package:submersion/features/dive_log/presentation/profile_colors/profile_metric_color_overrides.dart';
+import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/chart_options_dialog.dart';
+import 'package:submersion/features/dive_log/presentation/widgets/legend_candidates.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/profile_legend_config.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
@@ -21,7 +23,10 @@ class _StubSettingsNotifier extends StateNotifier<AppSettings>
 
 const _purple = Color(0xFFE040FB);
 
-Widget _app() {
+Widget _app({
+  ProfileLegendConfig config = const ProfileLegendConfig(hasPpO2Data: true),
+  ProfileMetricColorOverrides? overrides,
+}) {
   final router = GoRouter(
     routes: [
       GoRoute(
@@ -32,10 +37,10 @@ Widget _app() {
               onPressed: () => showDialog<void>(
                 context: context,
                 barrierColor: Colors.transparent,
-                builder: (_) => const ChartOptionsDialog(
-                  config: ProfileLegendConfig(hasPpO2Data: true),
-                  anchorOffset: Offset(300, 0),
-                  anchorSize: Size(40, 40),
+                builder: (_) => ChartOptionsDialog(
+                  config: config,
+                  anchorOffset: const Offset(300, 0),
+                  anchorSize: const Size(40, 40),
                 ),
               ),
               child: const Text('open'),
@@ -55,10 +60,12 @@ Widget _app() {
         (ref) => _StubSettingsNotifier(
           AppSettings(
             defaultShowPpO2: true,
-            profileMetricColors: ProfileMetricColorOverrides.none.withColor(
-              ProfileMetric.ppO2,
-              _purple,
-            ),
+            profileMetricColors:
+                overrides ??
+                ProfileMetricColorOverrides.none.withColor(
+                  ProfileMetric.ppO2,
+                  _purple,
+                ),
           ),
         ),
       ),
@@ -97,8 +104,17 @@ Set<Color> _rowColors(WidgetTester tester, String label) {
   return colors;
 }
 
-Future<void> _open(WidgetTester tester) async {
-  await tester.pumpWidget(_app());
+Future<void> _open(
+  WidgetTester tester, {
+  ProfileLegendConfig? config,
+  ProfileMetricColorOverrides? overrides,
+}) async {
+  tester.view.physicalSize = const Size(800, 2400);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+  await tester.pumpWidget(
+    config == null ? _app() : _app(config: config, overrides: overrides),
+  );
   await tester.tap(find.text('open'));
   await tester.pumpAndSettle();
 }
@@ -121,5 +137,64 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('colors page'), findsOneWidget);
     expect(find.byType(ChartOptionsDialog), findsNothing);
+  });
+
+  testWidgets('every gas analysis swatch follows its chosen colour, and '
+      'tanks without a cylinder keep the fallback colours', (tester) async {
+    const colors = {
+      ProfileMetric.ppN2: Color(0xFFE040FB),
+      ProfileMetric.ppHe: Color(0xFF00E676),
+      ProfileMetric.mod: Color(0xFFF50057),
+      ProfileMetric.density: Color(0xFFFF7043),
+    };
+    var overrides = ProfileMetricColorOverrides.none;
+    colors.forEach((m, c) => overrides = overrides.withColor(m, c));
+    const series = [
+      TankPressurePoint(tankId: 't1', timestamp: 0, pressure: 200),
+    ];
+    await _open(
+      tester,
+      config: const ProfileLegendConfig(
+        hasPpN2Data: true,
+        hasPpHeData: true,
+        hasModData: true,
+        hasDensityData: true,
+        hasMultiTankPressure: true,
+        tankPressures: {
+          't1': series,
+          't2': [TankPressurePoint(tankId: 't2', timestamp: 0, pressure: 200)],
+        },
+      ),
+      overrides: overrides,
+    );
+    for (final section in ['Gas Analysis', 'Tank Pressures']) {
+      final f = find.text(section);
+      if (f.evaluate().isNotEmpty &&
+          find
+              .text(section == 'Gas Analysis' ? 'ppN2' : 'Tank 1')
+              .evaluate()
+              .isEmpty) {
+        await tester.tap(f);
+        await tester.pumpAndSettle();
+      }
+    }
+    // A switched-off row draws a grey box; switch each on first (tanks
+    // follow Pressure, which is on by default).
+    for (final label in ['ppN2', 'ppHe', 'MOD', 'Gas Density']) {
+      await tester.ensureVisible(find.text(label));
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+    }
+    expect(_rowColors(tester, 'ppN2'), contains(colors[ProfileMetric.ppN2]));
+    expect(_rowColors(tester, 'ppHe'), contains(colors[ProfileMetric.ppHe]));
+    expect(_rowColors(tester, 'MOD'), contains(colors[ProfileMetric.mod]));
+    expect(
+      _rowColors(tester, 'Gas Density'),
+      contains(colors[ProfileMetric.density]),
+    );
+    expect(
+      _rowColors(tester, 'Tank 1').map((c) => c.toARGB32()),
+      contains(tankFallbackColor(0).toARGB32()),
+    );
   });
 }

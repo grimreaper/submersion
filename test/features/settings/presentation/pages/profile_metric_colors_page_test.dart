@@ -179,6 +179,44 @@ void main() {
     expect(labels.toSet(), hasLength(labels.length), reason: '$labels');
   });
 
+  testWidgets('Cancel in the reset dialog keeps the colours', (tester) async {
+    final n = _StubSettingsNotifier(
+      AppSettings(
+        profileMetricColors: ProfileMetricColorOverrides.none.withColor(
+          ProfileMetric.ppO2,
+          const Color(0xFFE040FB),
+        ),
+      ),
+    );
+    await _pumpTall(tester, n);
+    await tester.tap(find.byTooltip('Reset all'));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(n.state.profileMetricColors.count, 1);
+  });
+
+  for (final (label, auto) in [
+    ('Temp', 'follows the theme'),
+    ('Pressure', 'gas colors'),
+  ]) {
+    testWidgets('the $label sheet leads with Auto ($auto)', (tester) async {
+      final n = _StubSettingsNotifier(
+        AppSettings(
+          profileMetricColors: ProfileMetricColorOverrides.none
+              .withColor(ProfileMetric.temperature, const Color(0xFF00E676))
+              .withColor(ProfileMetric.pressure, const Color(0xFFF50057)),
+        ),
+      );
+      await _pumpTall(tester, n);
+      await tester.tap(find.text(label));
+      await tester.pumpAndSettle();
+      await tester.tap(find.bySemanticsLabel('Auto'));
+      await tester.pumpAndSettle();
+      expect(n.state.profileMetricColors.count, 1, reason: 'back to Auto');
+    });
+  }
+
   testWidgets('Reset all is disabled with nothing customised', (tester) async {
     await _pumpTall(tester, _StubSettingsNotifier());
     final button = tester.widget<IconButton>(

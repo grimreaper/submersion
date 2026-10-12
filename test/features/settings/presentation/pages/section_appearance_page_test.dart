@@ -1136,6 +1136,54 @@ void main() {
       expect(pushedPath, '/settings/default-metrics');
     });
 
+    testWidgets('metric colors tile navigates to metric-colors (issue #3012)', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(400, 4000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      String? pushedPath;
+      final router = GoRouter(
+        initialLocation: '/settings/section',
+        routes: [
+          GoRoute(
+            path: '/settings/section',
+            builder: (context, state) =>
+                const SectionAppearancePage(sectionKey: 'dives'),
+          ),
+          GoRoute(
+            path: '/settings/metric-colors',
+            builder: (context, state) {
+              pushedPath = state.uri.toString();
+              return const SizedBox();
+            },
+          ),
+        ],
+      );
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsProvider.overrideWith((ref) => MockSettingsNotifier()),
+          ],
+          child: MaterialApp.router(
+            routerConfig: router,
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      // Find and tap the visible metrics tile (has visibility icon)
+      final colorsTile = find.widgetWithIcon(ListTile, Icons.palette_outlined);
+      expect(colorsTile, findsOneWidget);
+      await tester.tap(colorsTile);
+      await tester.pumpAndSettle();
+
+      expect(pushedPath, '/settings/metric-colors');
+    });
+
     testWidgets('dive detail sections tile navigates to detail-sections', (
       tester,
     ) async {
