@@ -45,6 +45,7 @@ Widget _harness({
   _TestSettingsNotifier? notifier,
   List<double>? ppO2Curve,
   Map<String, List<TankPressurePoint>>? tankPressures,
+  List<DiveTank>? tanks,
   List<ProfileMarker>? markers,
   void Function(List<TooltipRow>? rows)? onTooltipData,
 }) {
@@ -66,6 +67,7 @@ Widget _harness({
             profile: _profile(),
             ppO2Curve: ppO2Curve,
             tankPressures: tankPressures,
+            tanks: tanks,
             markers: markers,
             showMaxDepthMarker: true,
             showPressureThresholdMarkers: true,
@@ -243,6 +245,45 @@ void main() {
     );
     await tester.pumpAndSettle();
     expect(_barColors(tester), isNot(contains(_greenA400)));
+  });
+
+  testWidgets('a two-tank dive with one transmitter keeps its gas colour', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _harness(
+        settings: AppSettings(
+          profileMetricColors: _with(ProfileMetric.pressure, _greenA400),
+        ),
+        tankPressures: {'t1': _series('t1')},
+        tanks: const [
+          DiveTank(id: 't1', gasMix: GasMix(o2: 21), order: 0),
+          DiveTank(id: 't2', gasMix: GasMix(o2: 50), order: 1),
+        ],
+      ),
+    );
+    await tester.pumpAndSettle();
+    expect(_barColors(tester), isNot(contains(_greenA400)));
+  });
+
+  testWidgets('on a multi-tank dive the pressure axis keeps its own colour', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _harness(
+        settings: AppSettings(
+          defaultRightAxisMetric: ProfileRightAxisMetric.pressure,
+          profileMetricColors: _with(ProfileMetric.pressure, _greenA400),
+        ),
+        tankPressures: {'t1': _series('t1'), 't2': _series('t2')},
+      ),
+    );
+    await tester.pumpAndSettle();
+    final textColors = tester
+        .widgetList<Text>(find.byType(Text))
+        .map((t) => t.style?.color)
+        .whereType<Color>();
+    expect(textColors, isNot(contains(_greenA400)));
   });
 
   testWidgets('the right axis label takes the chosen colour', (tester) async {

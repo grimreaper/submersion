@@ -6772,7 +6772,7 @@
   "settings_conflict_field_tripCylinderEvents_kind": "事件",
   "settings_conflict_field_tripListViewMode": "行程列表视图",
   "settings_conflict_field_trendGapCollapseMonths": "在趋势图中折叠间隔",
-  "settings_conflict_field_profileColor": "轮廓颜色：{metric}",
+  "settings_conflict_field_profileColor": "剖面颜色：{metric}",
   "settings_conflict_field_tripServiceLeadDays": "行程前保养提醒天数",
   "settings_conflict_field_trustFraction": "路线可信部分",
   "settings_conflict_field_turnPressureFraction": "返程压力比例",

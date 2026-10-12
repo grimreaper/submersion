@@ -136,6 +136,47 @@ void main() {
     expect(n.state.profileMetricColors, ProfileMetricColorOverrides.none);
   });
 
+  testWidgets('Default says when picking it would swap', (tester) async {
+    // NDL holds ppO2's default cyan, so ppO2 returning to Default swaps.
+    final n = _StubSettingsNotifier(
+      AppSettings(
+        profileMetricColors: ProfileMetricColorOverrides.none.withColor(
+          ProfileMetric.ndl,
+          ProfileMetricColors.ppO2,
+        ),
+      ),
+    );
+    await _pumpTall(tester, n);
+    await tester.tap(find.text('ppO2'));
+    await tester.pumpAndSettle();
+    expect(
+      find.bySemanticsLabel(RegExp(r'^Default, Swaps with NDL$')),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets('a screen reader can tell every swatch apart', (tester) async {
+    await _pumpTall(tester, _StubSettingsNotifier());
+    await tester.tap(find.text('ppO2'));
+    await tester.pumpAndSettle();
+    final labels = tester
+        .widgetList<Semantics>(
+          find.descendant(
+            of: find.byType(BottomSheet),
+            matching: find.byWidgetPredicate(
+              (w) =>
+                  w is Semantics &&
+                  (w.properties.button ?? false) &&
+                  w.properties.selected != null,
+            ),
+          ),
+        )
+        .map((w) => w.properties.label)
+        .toList();
+    expect(labels, hasLength(27));
+    expect(labels.toSet(), hasLength(labels.length), reason: '$labels');
+  });
+
   testWidgets('Reset all is disabled with nothing customised', (tester) async {
     await _pumpTall(tester, _StubSettingsNotifier());
     final button = tester.widget<IconButton>(

@@ -37,11 +37,26 @@ class ProfileMetricPalette {
     return argb == null ? null : Color(argb);
   }
 
+  /// The colour a dive's pressure line takes from the diver's choice: only on
+  /// a dive with one tank and one pressure series. A dive with more tanks
+  /// keeps its gas colours, even when only one tank has a transmitter.
+  Color? pressureLineColor({
+    required int pressureSeries,
+    required int tankCount,
+  }) => pressureSeries == 1 && tankCount <= 1 ? pressureOverride : null;
+
   /// The right Y axis's label colour for [metric]. Ascent rate and O2 cells
-  /// are not recolourable and keep their own.
-  Color rightAxisColor(ProfileRightAxisMetric metric) => switch (metric) {
+  /// are not recolourable and keep their own. Pressure shows the chosen
+  /// colour only when [singleTank], since otherwise no line is drawn in it.
+  Color rightAxisColor(
+    ProfileRightAxisMetric metric, {
+    bool singleTank = true,
+  }) => switch (metric) {
     ProfileRightAxisMetric.temperature => colorOf(ProfileMetric.temperature),
-    ProfileRightAxisMetric.pressure => colorOf(ProfileMetric.pressure),
+    ProfileRightAxisMetric.pressure =>
+      singleTank
+          ? colorOf(ProfileMetric.pressure)
+          : ProfileMetricColors.pressure,
     ProfileRightAxisMetric.heartRate => colorOf(ProfileMetric.heartRate),
     ProfileRightAxisMetric.sac => colorOf(ProfileMetric.sac),
     ProfileRightAxisMetric.ndl => colorOf(ProfileMetric.ndl),

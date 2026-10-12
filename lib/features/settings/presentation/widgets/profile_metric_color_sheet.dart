@@ -53,6 +53,17 @@ class _SheetBody extends StatelessWidget {
     final l10n = context.l10n;
     final current = palette.overrides.effectiveArgb(metric);
     final onDefault = palette.overrides.argbOf(metric) == null;
+    final names = _distinctNames(
+      profileMetricSwatches.map((c) => swatchName(l10n, c)).toList(),
+    );
+    // Default can swap too: another metric may hold this one's default.
+    final defaultArgb = metric.defaultColor?.toARGB32();
+    final defaultHolder = defaultArgb == null || onDefault
+        ? null
+        : palette.overrides.holderOf(defaultArgb, except: metric);
+    final defaultLabel = metric.isAuto
+        ? l10n.settings_metricColors_auto
+        : l10n.settings_metricColors_default;
     return Column(
       crossAxisAlignment: CrossAxisAlignment.start,
       children: [
@@ -75,30 +86,37 @@ class _SheetBody extends StatelessWidget {
                       ? palette.temperatureAuto
                       : ProfileMetricColors.pressure),
               selected: onDefault,
-              caption: metric.isAuto
-                  ? l10n.settings_metricColors_auto
-                  : l10n.settings_metricColors_default,
-              semanticsLabel: metric.isAuto
-                  ? l10n.settings_metricColors_auto
-                  : l10n.settings_metricColors_default,
+              caption: defaultLabel,
+              semanticsLabel: defaultHolder == null
+                  ? defaultLabel
+                  : '$defaultLabel, ${l10n.settings_metricColors_swapsWith(profileMetricLabel(l10n, defaultHolder))}',
               onTap: () => onPicked(null),
             ),
-            for (final swatch in profileMetricSwatches)
-              _buildSwatch(context, swatch, current),
+            for (var i = 0; i < profileMetricSwatches.length; i++)
+              _buildSwatch(
+                context,
+                profileMetricSwatches[i],
+                names[i],
+                current,
+              ),
           ],
         ),
       ],
     );
   }
 
-  Widget _buildSwatch(BuildContext context, Color swatch, int? current) {
+  Widget _buildSwatch(
+    BuildContext context,
+    Color swatch,
+    String name,
+    int? current,
+  ) {
     final l10n = context.l10n;
     final argb = swatch.toARGB32();
     final holder = palette.overrides.holderOf(argb, except: metric);
     final holderLabel = holder == null
         ? null
         : profileMetricLabel(l10n, holder);
-    final name = swatchName(l10n, swatch);
     return _Swatch(
       color: swatch,
       selected: argb == current && palette.overrides.argbOf(metric) != null,
@@ -109,6 +127,20 @@ class _SheetBody extends StatelessWidget {
       onTap: () => onPicked(swatch),
     );
   }
+}
+
+/// [names] with a repeated name numbered from its second use ("Green",
+/// "Green 2"), so a screen reader can tell swatches with the same nearest
+/// colour name apart.
+List<String> _distinctNames(List<String> names) {
+  final seen = <String, int>{};
+  return [
+    for (final name in names)
+      switch (seen.update(name, (n) => n + 1, ifAbsent: () => 1)) {
+        1 => name,
+        final n => '$name $n',
+      },
+  ];
 }
 
 class _Swatch extends StatelessWidget {

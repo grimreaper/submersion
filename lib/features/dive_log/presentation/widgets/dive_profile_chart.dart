@@ -778,10 +778,15 @@ class _DiveProfileChartState extends ConsumerState<DiveProfileChart> {
 
   /// The diver's chosen pressure colour on a single-tank dive, else null
   /// (several tanks keep their gas colours, and Auto keeps them all).
-  Color? get _singleTankPressureColor =>
-      (widget.tankPressures?.length ?? 0) == 1
-      ? _palette.pressureOverride
-      : null;
+  Color? get _singleTankPressureColor => _palette.pressureLineColor(
+    pressureSeries: widget.tankPressures?.length ?? 0,
+    tankCount: widget.tanks?.length ?? 0,
+  );
+
+  /// Whether a chosen pressure colour has a line to colour on this dive.
+  bool get _isSingleTankDive =>
+      (widget.tankPressures?.length ?? 0) <= 1 &&
+      (widget.tanks?.length ?? 0) <= 1;
 
   Color _markerColor(ProfileMarker marker) {
     final tank = _singleTankPressureColor;
@@ -4108,6 +4113,7 @@ class _DiveProfileChartState extends ConsumerState<DiveProfileChart> {
                         style: Theme.of(context).textTheme.labelSmall?.copyWith(
                           color: _palette.rightAxisColor(
                             effectiveRightAxisMetric,
+                            singleTank: _isSingleTankDive,
                           ),
                         ),
                         maxLines: 1,
@@ -4142,6 +4148,7 @@ class _DiveProfileChartState extends ConsumerState<DiveProfileChart> {
                     }
                     final metricColor = _palette.rightAxisColor(
                       effectiveRightAxisMetric,
+                      singleTank: _isSingleTankDive,
                     );
                     // Metric distance to the neighbouring tick, so the
                     // label carries enough decimals to differ from it.
@@ -4997,7 +5004,10 @@ class _DiveProfileChartState extends ConsumerState<DiveProfileChart> {
       // Add metrics in this category
       for (final metric in availableMetrics) {
         final isSelected = metric == currentMetric;
-        final metricColor = _palette.rightAxisColor(metric);
+        final metricColor = _palette.rightAxisColor(
+          metric,
+          singleTank: _isSingleTankDive,
+        );
 
         menuItems.add(
           PopupMenuItem<ProfileRightAxisMetric?>(

@@ -134,9 +134,10 @@ class ChartOptionsDialog extends StatelessWidget {
   }) {
     // A chosen pressure colour draws a single-tank dive's line and threshold
     // markers (issue #3012); several tanks keep their gas colours.
-    final singleTankColor = config.tankPressures?.length == 1
-        ? palette.pressureOverride
-        : null;
+    final singleTankColor = palette.pressureLineColor(
+      pressureSeries: config.tankPressures?.length ?? 0,
+      tankCount: config.tanks?.length ?? 0,
+    );
     final sections = <Widget>[];
 
     // Overlays section

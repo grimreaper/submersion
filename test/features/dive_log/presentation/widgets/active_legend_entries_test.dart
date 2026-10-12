@@ -86,7 +86,7 @@ void main() {
         tester,
         config: ProfileLegendConfig(
           hasMultiTankPressure: true,
-          tanks: _tanks,
+          tanks: [_tanks.first],
           tankPressures: {'tank-1': _tankPressures['tank-1']!},
         ),
         state: const ProfileLegendState(showPressure: true),

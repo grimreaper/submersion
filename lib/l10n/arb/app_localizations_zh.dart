@@ -21905,7 +21905,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String settings_conflict_field_profileColor(String metric) {
-    return '轮廓颜色：$metric';
+    return '剖面颜色：$metric';
   }
 
   @override

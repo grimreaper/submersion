@@ -48,9 +48,10 @@ List<ActiveLegendEntry> activeLegendEntries(
   final multiSource = config.overlays.isNotEmpty;
   // A chosen pressure colour draws a single-tank dive's line and threshold
   // markers; several tanks keep their gas colours.
-  final singleTankColor = config.tankPressures?.length == 1
-      ? palette.pressureOverride
-      : null;
+  final singleTankColor = palette.pressureLineColor(
+    pressureSeries: config.tankPressures?.length ?? 0,
+    tankCount: config.tanks?.length ?? 0,
+  );
 
   /// A metric drawn only for the active source.
   void add(bool present, bool active, String label, Color color) {
