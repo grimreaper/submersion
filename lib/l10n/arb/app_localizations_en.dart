@@ -15008,6 +15008,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Add your diving equipment to track usage and service';
 
   @override
+  String get equipment_list_emptyState_defaultView_subtitle =>
+      'Your default view hides the rest of your gear.';
+
+  @override
+  String get equipment_list_emptyState_defaultView_title =>
+      'No equipment in your default view';
+
+  @override
   String get equipment_list_emptyState_filterText_equipment => 'equipment';
 
   @override
@@ -15052,6 +15060,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get equipment_list_emptyState_noTypeMatch =>
       'No equipment in this category';
+
+  @override
+  String get equipment_list_emptyState_showAll => 'Show All Equipment';
 
   @override
   String get equipment_list_emptyState_serviceDueUpToDate =>

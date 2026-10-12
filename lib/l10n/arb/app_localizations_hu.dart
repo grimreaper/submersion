@@ -15174,6 +15174,14 @@ class AppLocalizationsHu extends AppLocalizations {
       'Adja hozzá búvárfelszerelését a használat és szerviz köveTéséhez';
 
   @override
+  String get equipment_list_emptyState_defaultView_subtitle =>
+      'Your default view hides the rest of your gear.';
+
+  @override
+  String get equipment_list_emptyState_defaultView_title =>
+      'No equipment in your default view';
+
+  @override
   String get equipment_list_emptyState_filterText_equipment => 'felszerelés';
 
   @override
@@ -15218,6 +15226,9 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get equipment_list_emptyState_noTypeMatch =>
       'Nincs felszerelés ebben a kategóriában';
+
+  @override
+  String get equipment_list_emptyState_showAll => 'Show All Equipment';
 
   @override
   String get equipment_list_emptyState_serviceDueUpToDate =>

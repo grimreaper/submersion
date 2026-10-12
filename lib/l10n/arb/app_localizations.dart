@@ -24647,6 +24647,18 @@ abstract class AppLocalizations {
   /// **'Add your diving equipment to track usage and service'**
   String get equipment_list_emptyState_addPrompt;
 
+  /// Empty Equipment list when the diver's default view (Settings > Manage > Default equipment view) hides every item they own
+  ///
+  /// In en, this message translates to:
+  /// **'Your default view hides the rest of your gear.'**
+  String get equipment_list_emptyState_defaultView_subtitle;
+
+  /// Heading of the empty Equipment list when the default view hides every item the diver owns
+  ///
+  /// In en, this message translates to:
+  /// **'No equipment in your default view'**
+  String get equipment_list_emptyState_defaultView_title;
+
   /// No description provided for @equipment_list_emptyState_filterText_equipment.
   ///
   /// In en, this message translates to:
@@ -24712,6 +24724,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'No equipment in this category'**
   String get equipment_list_emptyState_noTypeMatch;
+
+  /// Button on the empty Equipment list that switches the status filter to All Equipment
+  ///
+  /// In en, this message translates to:
+  /// **'Show All Equipment'**
+  String get equipment_list_emptyState_showAll;
 
   /// No description provided for @equipment_list_emptyState_serviceDueUpToDate.
   ///

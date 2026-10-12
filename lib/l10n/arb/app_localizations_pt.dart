@@ -15221,6 +15221,14 @@ class AppLocalizationsPt extends AppLocalizations {
       'Adicione seu equipamento de mergulho para acompanhar uso e manutenção';
 
   @override
+  String get equipment_list_emptyState_defaultView_subtitle =>
+      'Your default view hides the rest of your gear.';
+
+  @override
+  String get equipment_list_emptyState_defaultView_title =>
+      'No equipment in your default view';
+
+  @override
   String get equipment_list_emptyState_filterText_equipment => 'equipamento';
 
   @override
@@ -15265,6 +15273,9 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get equipment_list_emptyState_noTypeMatch =>
       'Nenhum equipamento nesta categoria';
+
+  @override
+  String get equipment_list_emptyState_showAll => 'Show All Equipment';
 
   @override
   String get equipment_list_emptyState_serviceDueUpToDate =>

@@ -14912,6 +14912,14 @@ class AppLocalizationsHe extends AppLocalizations {
       'הוסף את ציוד הצלילה שלך כדי לעקוב אחר שימוש וטיפול';
 
   @override
+  String get equipment_list_emptyState_defaultView_subtitle =>
+      'Your default view hides the rest of your gear.';
+
+  @override
+  String get equipment_list_emptyState_defaultView_title =>
+      'No equipment in your default view';
+
+  @override
   String get equipment_list_emptyState_filterText_equipment => 'ציוד';
 
   @override
@@ -14953,6 +14961,9 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get equipment_list_emptyState_noTypeMatch => 'אין ציוד בקטגוריה זו';
+
+  @override
+  String get equipment_list_emptyState_showAll => 'Show All Equipment';
 
   @override
   String get equipment_list_emptyState_serviceDueUpToDate =>

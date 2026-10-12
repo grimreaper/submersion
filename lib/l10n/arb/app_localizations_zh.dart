@@ -14540,6 +14540,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get equipment_list_emptyState_addPrompt => '添加您的潜水装备以追踪使用情况和维护';
 
   @override
+  String get equipment_list_emptyState_defaultView_subtitle =>
+      'Your default view hides the rest of your gear.';
+
+  @override
+  String get equipment_list_emptyState_defaultView_title =>
+      'No equipment in your default view';
+
+  @override
   String get equipment_list_emptyState_filterText_equipment => '装备';
 
   @override
@@ -14577,6 +14585,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get equipment_list_emptyState_noTypeMatch => '此类别中没有装备';
+
+  @override
+  String get equipment_list_emptyState_showAll => 'Show All Equipment';
 
   @override
   String get equipment_list_emptyState_serviceDueUpToDate => '您的所有装备维护都已是最新状态！';
