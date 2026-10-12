@@ -10,8 +10,9 @@
 ///
 /// A function lives on the connection, not in the file, so it must be
 /// registered every time one is opened: [applyConnectionBasics] does it for
-/// the app's connections, and a test's `NativeDatabase.memory` passes
-/// [registerAppSqlFunctions] as its `setup`. A query run on a connection
+/// the main database's connections, the local cache's opener passes
+/// [registerAppSqlFunctions] as its `setup`, and so does a test's
+/// `NativeDatabase.memory`. A query run on a connection
 /// without it fails loudly with "no such function".
 ///
 /// No Flutter imports; usable from the drift worker isolate.

@@ -451,6 +451,32 @@ void main() {
         expect(found.commonName, 'Éponge pinceau');
       });
 
+      test('reuses the lowest id when two names fold equal', () async {
+        // Inserted highest id first, so table order is not id order.
+        final db = DatabaseService.instance.database;
+        for (final (id, name) in [
+          ('sp-z', 'Éponge pinceau'),
+          ('sp-a', 'éponge pinceau'),
+        ]) {
+          await db
+              .into(db.species)
+              .insert(
+                SpeciesCompanion.insert(
+                  id: id,
+                  commonName: name,
+                  category: SpeciesCategory.other.name,
+                ),
+              );
+        }
+
+        final found = await repository.getOrCreateSpecies(
+          commonName: 'ÉPONGE PINCEAU',
+          category: SpeciesCategory.other,
+        );
+
+        expect(found.id, 'sp-a');
+      });
+
       test('matches when only the accented letter differs in case', () async {
         final created = await repository.createSpecies(
           commonName: 'ÖRNFISK',
