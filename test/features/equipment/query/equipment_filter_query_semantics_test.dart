@@ -4,6 +4,7 @@ import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/features/equipment/data/repositories/equipment_repository_impl.dart';
 import 'package:submersion/features/equipment/domain/models/equipment_attr_condition.dart';
+import 'package:submersion/features/equipment/domain/models/equipment_default_view.dart';
 import 'package:submersion/features/equipment/domain/models/equipment_filter_state.dart';
 import 'package:submersion/features/equipment/query/equipment_filter_query.dart';
 import 'package:submersion/features/query/data/query_id_set_runner.dart';
@@ -112,16 +113,20 @@ void main() {
   tearDown(tearDownTestDatabase);
 
   /// The visible gear (the list's rows) the filter selects for 'me'.
-  Future<Set<String>> selected(EquipmentFilterState f) async {
+  Future<Set<String>> selected(
+    EquipmentFilterState f, {
+    Set<EquipmentStatus> defaults = factoryDefaultEquipmentStatuses,
+  }) async {
     final visible = {
       for (final e in await EquipmentRepository().getAllEquipment(
         diverId: 'me',
       ))
         e.id,
     };
-    final ids = await QueryIdSetRunner(
-      db,
-    ).ids(compileEquipmentFilter(f), scope: f.ownerScope('me'));
+    final ids = await QueryIdSetRunner(db).ids(
+      compileEquipmentFilter(f, defaultStatuses: defaults),
+      scope: f.ownerScope('me'),
+    );
     return ids.intersection(visible);
   }
 
@@ -260,5 +265,80 @@ void main() {
       ).ownerScope(null),
       isNull,
     );
+  });
+
+  group('a configured default view (#2628)', () {
+    const none = EquipmentFilterState();
+
+    test('the factory set selects what the default view always did', () async {
+      expect(await selected(none), defaultView);
+    });
+
+    test('Active only leaves out loaned and legacy retired gear', () async {
+      expect(await selected(none, defaults: {EquipmentStatus.active}), {
+        'bcd',
+        'suit',
+        'lent',
+      });
+    });
+
+    test('a custom set keeps the legacy retired rule', () async {
+      expect(
+        await selected(
+          none,
+          defaults: {EquipmentStatus.active, EquipmentStatus.retired},
+        ),
+        {'bcd', 'suit', 'lent', 'old', 'shelved'},
+      );
+    });
+
+    test('sold and wanted gear can join the default view', () async {
+      expect(
+        await selected(
+          none,
+          defaults: {EquipmentStatus.loaned, EquipmentStatus.sold},
+        ),
+        {'loan', 'gone'},
+      );
+      expect(await selected(none, defaults: {EquipmentStatus.wanted}), {
+        'wish',
+        'wish2',
+      });
+    });
+
+    test('an explicit status or All Equipment ignores the default', () async {
+      expect(
+        await selected(
+          const EquipmentFilterState(status: EquipmentStatus.sold),
+          defaults: {EquipmentStatus.active},
+        ),
+        {'gone'},
+      );
+      expect(
+        await selected(
+          const EquipmentFilterState(allStatuses: true),
+          defaults: {EquipmentStatus.active},
+        ),
+        await selected(const EquipmentFilterState(allStatuses: true)),
+      );
+    });
+
+    test('an empty set reads as the factory default', () async {
+      expect(await selected(none, defaults: const {}), defaultView);
+    });
+
+    test('the other axes still narrow a custom default view', () async {
+      expect(
+        await selected(
+          const EquipmentFilterState(type: EquipmentType.computer),
+          defaults: {EquipmentStatus.loaned},
+        ),
+        {'loan'},
+      );
+    });
+
+    test('saved queries never carry the default view', () {
+      expect(none.toSavedQuery(), isNull);
+    });
   });
 }
