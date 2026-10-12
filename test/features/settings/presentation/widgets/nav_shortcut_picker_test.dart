@@ -95,4 +95,29 @@ void main() {
     await _open(tester, _host(const {}, (_) {}), size: const Size(400, 800));
     expect(find.byType(BottomSheet), findsOneWidget);
   });
+
+  testWidgets('the phone sheet rises above the keyboard', (tester) async {
+    tester.view.viewInsets = const FakeViewPadding(bottom: 300);
+    addTearDown(tester.view.resetViewInsets);
+    await _open(tester, _host(const {}, (_) {}), size: const Size(400, 800));
+
+    expect(
+      tester.getBottomLeft(find.byType(NavShortcutPicker)).dy,
+      lessThanOrEqualTo(800 - 300),
+    );
+  });
+
+  testWidgets('the desktop dialog focuses its search', (tester) async {
+    await _open(tester, _host(const {}, (_) {}), size: const Size(1200, 900));
+    final field = tester.widget<EditableText>(find.byType(EditableText));
+    expect(field.focusNode.hasFocus, isTrue);
+  });
+
+  testWidgets('the phone sheet leaves the keyboard down until asked', (
+    tester,
+  ) async {
+    await _open(tester, _host(const {}, (_) {}), size: const Size(400, 800));
+    final field = tester.widget<EditableText>(find.byType(EditableText));
+    expect(field.focusNode.hasFocus, isFalse);
+  });
 }

@@ -26,7 +26,6 @@ Future<String?> showNavShortcutPicker(
   BuildContext context, {
   required Set<String> alreadyAdded,
 }) {
-  final picker = NavShortcutPicker(alreadyAdded: alreadyAdded);
   if (ResponsiveBreakpoints.isDesktop(context)) {
     return showDialog<String>(
       context: context,
@@ -34,7 +33,12 @@ Future<String?> showNavShortcutPicker(
         clipBehavior: Clip.antiAlias,
         child: ConstrainedBox(
           constraints: const BoxConstraints(maxWidth: 480, maxHeight: 640),
-          child: picker,
+          // A wide window has a hardware keyboard, so typing can start at
+          // once; on a phone focusing would throw the keyboard over the list.
+          child: NavShortcutPicker(
+            alreadyAdded: alreadyAdded,
+            autofocusSearch: true,
+          ),
         ),
       ),
     );
@@ -46,16 +50,30 @@ Future<String?> showNavShortcutPicker(
     constraints: BoxConstraints(
       maxHeight: MediaQuery.sizeOf(context).height * kNavSheetMaxHeightFraction,
     ),
-    builder: (_) => SafeArea(child: picker),
+    // Lifted by the keyboard inset so the search results stay above the
+    // keyboard the search field raises.
+    builder: (sheetContext) => Padding(
+      padding: EdgeInsets.only(
+        bottom: MediaQuery.viewInsetsOf(sheetContext).bottom,
+      ),
+      child: SafeArea(child: NavShortcutPicker(alreadyAdded: alreadyAdded)),
+    ),
   );
 }
 
 /// The searchable, grouped list of nav shortcuts.
 class NavShortcutPicker extends StatefulWidget {
-  const NavShortcutPicker({super.key, required this.alreadyAdded});
+  const NavShortcutPicker({
+    super.key,
+    required this.alreadyAdded,
+    this.autofocusSearch = false,
+  });
 
   /// Shortcut ids already on the surface being edited.
   final Set<String> alreadyAdded;
+
+  /// Whether the search field takes focus on open.
+  final bool autofocusSearch;
 
   @override
   State<NavShortcutPicker> createState() => _NavShortcutPickerState();
@@ -101,7 +119,7 @@ class _NavShortcutPickerState extends State<NavShortcutPicker> {
         Padding(
           padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
           child: TextField(
-            autofocus: false,
+            autofocus: widget.autofocusSearch,
             decoration: InputDecoration(
               prefixIcon: const Icon(Icons.search),
               hintText: l10n.settings_navCustomization_shortcutSearchHint,
