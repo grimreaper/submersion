@@ -165,7 +165,10 @@ void main() {
   test('cacheKey is exact: equal sets share it, different sets never do', () {
     final a = none.withColor(ProfileMetric.ppO2, _purpleA200);
     final b = none.withColor(ProfileMetric.ppN2, _purpleA200);
-    expect(a.cacheKey, none.withColor(ProfileMetric.ppO2, _purpleA200).cacheKey);
+    expect(
+      a.cacheKey,
+      none.withColor(ProfileMetric.ppO2, _purpleA200).cacheKey,
+    );
     expect(a.cacheKey, isNot(b.cacheKey));
     expect(a.cacheKey, isNot(none.cacheKey));
   });
