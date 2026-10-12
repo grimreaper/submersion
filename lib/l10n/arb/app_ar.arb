@@ -5814,6 +5814,8 @@
   "navShortcut_short_certWallet": "المحفظة",
   "navShortcut_short_emergency": "الطوارئ",
   "navShortcut_short_backup": "النسخ الاحتياطي",
+  "navShortcut_short_speciesStats": "إحصاءات الأنواع",
+  "navShortcut_short_gearStats": "إحصاءات المعدات",
   "settings_navCustomization_addShortcut": "إضافة اختصار",
   "settings_navCustomization_shortcutPickerTitle": "اختصار جديد",
   "settings_navCustomization_shortcutSearchHint": "البحث في الصفحات",

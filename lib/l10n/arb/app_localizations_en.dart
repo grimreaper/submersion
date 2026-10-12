@@ -20392,6 +20392,12 @@ class AppLocalizationsEn extends AppLocalizations {
   String get navShortcut_short_backup => 'Backup';
 
   @override
+  String get navShortcut_short_speciesStats => 'Species stats';
+
+  @override
+  String get navShortcut_short_gearStats => 'Gear stats';
+
+  @override
   String get settings_navCustomization_addShortcut => 'Add shortcut';
 
   @override

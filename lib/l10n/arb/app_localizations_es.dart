@@ -20700,6 +20700,12 @@ class AppLocalizationsEs extends AppLocalizations {
   String get navShortcut_short_backup => 'Copia';
 
   @override
+  String get navShortcut_short_speciesStats => 'Estad. especies';
+
+  @override
+  String get navShortcut_short_gearStats => 'Estad. equipo';
+
+  @override
   String get settings_navCustomization_addShortcut => 'Añadir acceso directo';
 
   @override

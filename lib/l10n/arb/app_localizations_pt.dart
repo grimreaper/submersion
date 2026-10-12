@@ -20698,6 +20698,12 @@ class AppLocalizationsPt extends AppLocalizations {
   String get navShortcut_short_backup => 'Backup';
 
   @override
+  String get navShortcut_short_speciesStats => 'Estat. espécies';
+
+  @override
+  String get navShortcut_short_gearStats => 'Estat. equipamento';
+
+  @override
   String get settings_navCustomization_addShortcut => 'Adicionar atalho';
 
   @override

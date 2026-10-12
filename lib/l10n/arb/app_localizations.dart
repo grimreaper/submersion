@@ -33197,6 +33197,18 @@ abstract class AppLocalizations {
   /// **'Backup'**
   String get navShortcut_short_backup;
 
+  /// Short nav label for the shortcut to Insights > Species (marine life statistics); distinct from the Species section.
+  ///
+  /// In en, this message translates to:
+  /// **'Species stats'**
+  String get navShortcut_short_speciesStats;
+
+  /// Short nav label for the shortcut to Insights > Equipment (gear statistics); distinct from the Equipment section.
+  ///
+  /// In en, this message translates to:
+  /// **'Gear stats'**
+  String get navShortcut_short_gearStats;
+
   /// Button on the navigation layout page that opens the picker for adding a deep page to the nav.
   ///
   /// In en, this message translates to:

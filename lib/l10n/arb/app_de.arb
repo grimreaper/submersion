@@ -5931,6 +5931,8 @@
   "navShortcut_short_certWallet": "Brevets",
   "navShortcut_short_emergency": "Notfall",
   "navShortcut_short_backup": "Backup",
+  "navShortcut_short_speciesStats": "Artenstatistik",
+  "navShortcut_short_gearStats": "Ausrüstungsstatistik",
   "settings_navCustomization_addShortcut": "Verknüpfung hinzufügen",
   "settings_navCustomization_shortcutPickerTitle": "Neue Verknüpfung",
   "settings_navCustomization_shortcutSearchHint": "Seiten durchsuchen",

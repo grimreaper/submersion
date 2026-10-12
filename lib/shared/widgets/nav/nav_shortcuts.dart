@@ -241,6 +241,7 @@ final List<NavShortcut> kNavShortcuts = List.unmodifiable([
     'marine-life',
     MdiIcons.fish,
     (l10n) => l10n.insights_category_marineLife_title,
+    navLabel: (l10n) => l10n.navShortcut_short_speciesStats,
   ),
   _insightsPage(
     'time-patterns',
@@ -252,6 +253,7 @@ final List<NavShortcut> kNavShortcuts = List.unmodifiable([
     'equipment',
     Icons.build,
     (l10n) => l10n.insights_category_equipment_title,
+    navLabel: (l10n) => l10n.navShortcut_short_gearStats,
   ),
   _insightsPage(
     'profile',

@@ -20955,6 +20955,12 @@ class AppLocalizationsAr extends AppLocalizations {
   String get navShortcut_short_backup => 'النسخ الاحتياطي';
 
   @override
+  String get navShortcut_short_speciesStats => 'إحصاءات الأنواع';
+
+  @override
+  String get navShortcut_short_gearStats => 'إحصاءات المعدات';
+
+  @override
   String get settings_navCustomization_addShortcut => 'إضافة اختصار';
 
   @override

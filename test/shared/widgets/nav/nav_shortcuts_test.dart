@@ -69,6 +69,17 @@ void main() {
       expect(navShortcutDestination(blender).label(l10n), 'Blender');
     });
 
+    test('no shortcut shares a name with a built-in destination', () {
+      final builtIns = kNavDestinations.map((d) => d.label(l10n)).toSet();
+      for (final s in kNavShortcuts) {
+        expect(
+          builtIns,
+          isNot(contains(navShortcutDestination(s).label(l10n))),
+          reason: s.id,
+        );
+      }
+    });
+
     test('a page name that already fits is the nav label', () {
       final records = navShortcutById('records')!;
       expect(navShortcutDestination(records).label(l10n), 'Records');

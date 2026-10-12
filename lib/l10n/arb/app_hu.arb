@@ -5712,6 +5712,8 @@
   "navShortcut_short_certWallet": "Tárca",
   "navShortcut_short_emergency": "Vészhelyzet",
   "navShortcut_short_backup": "Mentés",
+  "navShortcut_short_speciesStats": "Fajstatisztika",
+  "navShortcut_short_gearStats": "Felszerelés-statisztika",
   "settings_navCustomization_addShortcut": "Parancsikon hozzáadása",
   "settings_navCustomization_shortcutPickerTitle": "Új parancsikon",
   "settings_navCustomization_shortcutSearchHint": "Oldalak keresése",

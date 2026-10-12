@@ -19684,6 +19684,12 @@ class AppLocalizationsZh extends AppLocalizations {
   String get navShortcut_short_backup => '备份';
 
   @override
+  String get navShortcut_short_speciesStats => '物种统计';
+
+  @override
+  String get navShortcut_short_gearStats => '装备统计';
+
+  @override
   String get settings_navCustomization_addShortcut => '添加快捷方式';
 
   @override

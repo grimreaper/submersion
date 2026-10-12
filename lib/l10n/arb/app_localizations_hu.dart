@@ -20629,6 +20629,12 @@ class AppLocalizationsHu extends AppLocalizations {
   String get navShortcut_short_backup => 'Mentés';
 
   @override
+  String get navShortcut_short_speciesStats => 'Fajstatisztika';
+
+  @override
+  String get navShortcut_short_gearStats => 'Felszerelés-statisztika';
+
+  @override
   String get settings_navCustomization_addShortcut => 'Parancsikon hozzáadása';
 
   @override

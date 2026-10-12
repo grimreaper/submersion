@@ -20565,6 +20565,12 @@ class AppLocalizationsNl extends AppLocalizations {
   String get navShortcut_short_backup => 'Back-up';
 
   @override
+  String get navShortcut_short_speciesStats => 'Soortenstatistiek';
+
+  @override
+  String get navShortcut_short_gearStats => 'Uitrustingsstatistiek';
+
+  @override
   String get settings_navCustomization_addShortcut => 'Snelkoppeling toevoegen';
 
   @override

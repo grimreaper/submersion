@@ -20757,6 +20757,12 @@ class AppLocalizationsFr extends AppLocalizations {
   String get navShortcut_short_backup => 'Sauvegarde';
 
   @override
+  String get navShortcut_short_speciesStats => 'Stats espèces';
+
+  @override
+  String get navShortcut_short_gearStats => 'Stats équipement';
+
+  @override
   String get settings_navCustomization_addShortcut => 'Ajouter un raccourci';
 
   @override
