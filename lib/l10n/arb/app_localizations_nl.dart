@@ -15127,11 +15127,11 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get equipment_list_emptyState_defaultView_subtitle =>
-      'Your default view hides the rest of your gear.';
+      'Je standaardweergave verbergt de rest van je uitrusting.';
 
   @override
   String get equipment_list_emptyState_defaultView_title =>
-      'No equipment in your default view';
+      'Geen uitrusting in je standaardweergave';
 
   @override
   String get equipment_list_emptyState_filterText_equipment => 'uitrusting';
@@ -15180,7 +15180,7 @@ class AppLocalizationsNl extends AppLocalizations {
       'Geen uitrusting in deze categorie';
 
   @override
-  String get equipment_list_emptyState_showAll => 'Show All Equipment';
+  String get equipment_list_emptyState_showAll => 'Alle uitrusting tonen';
 
   @override
   String get equipment_list_emptyState_serviceDueUpToDate =>
@@ -15203,7 +15203,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get equipment_list_filterAll => 'Alle uitrusting';
 
   @override
-  String get equipment_list_filterCurrent => 'Huidige uitrusting';
+  String get equipment_list_filterCurrent => 'Standaardweergave';
 
   @override
   String get equipment_list_filterServiceDue => 'Service nodig';
@@ -15244,7 +15244,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get equipment_filter_section_status => 'Status';
 
   @override
-  String get equipment_filter_editDefault => 'Edit default';
+  String get equipment_filter_editDefault => 'Standaard bewerken';
 
   @override
   String get equipment_filter_section_tags => 'Tags';
@@ -21922,7 +21922,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get settings_conflict_field_equipmentDefaultStatuses =>
-      'Default equipment view';
+      'Standaardweergave van de uitrusting';
 
   @override
   String get settings_conflict_field_equipmentFindings_severity => 'Ernst';
@@ -24509,13 +24509,14 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get settings_equipmentDefaultView_intro =>
-      'When no filter is set, the Equipment list shows gear with these statuses.';
+      'Zonder filter toont de uitrustingslijst uitrusting met deze statussen.';
 
   @override
   String get settings_equipmentDefaultView_listSeparator => ', ';
 
   @override
-  String get settings_equipmentDefaultView_title => 'Default equipment view';
+  String get settings_equipmentDefaultView_title =>
+      'Standaardweergave van de uitrusting';
 
   @override
   String get settings_manage_currencyRules => 'Geldigheid certificeringen';

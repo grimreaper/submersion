@@ -15267,11 +15267,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get equipment_list_emptyState_defaultView_subtitle =>
-      'Your default view hides the rest of your gear.';
+      'Votre vue par défaut masque le reste de votre équipement.';
 
   @override
   String get equipment_list_emptyState_defaultView_title =>
-      'No equipment in your default view';
+      'Aucun équipement dans votre vue par défaut';
 
   @override
   String get equipment_list_emptyState_filterText_equipment => 'équipement';
@@ -15320,7 +15320,7 @@ class AppLocalizationsFr extends AppLocalizations {
       'Aucun équipement dans cette catégorie';
 
   @override
-  String get equipment_list_emptyState_showAll => 'Show All Equipment';
+  String get equipment_list_emptyState_showAll => 'Afficher tout l\'équipement';
 
   @override
   String get equipment_list_emptyState_serviceDueUpToDate =>
@@ -15343,7 +15343,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get equipment_list_filterAll => 'Tout l\'équipement';
 
   @override
-  String get equipment_list_filterCurrent => 'Équipement actuel';
+  String get equipment_list_filterCurrent => 'Vue par défaut';
 
   @override
   String get equipment_list_filterServiceDue => 'Révision due';
@@ -15384,7 +15384,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get equipment_filter_section_status => 'Statut';
 
   @override
-  String get equipment_filter_editDefault => 'Edit default';
+  String get equipment_filter_editDefault => 'Modifier la vue par défaut';
 
   @override
   String get equipment_filter_section_tags => 'Étiquettes';
@@ -22132,7 +22132,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settings_conflict_field_equipmentDefaultStatuses =>
-      'Default equipment view';
+      'Vue par défaut de l\'équipement';
 
   @override
   String get settings_conflict_field_equipmentFindings_severity => 'Gravité';
@@ -24751,13 +24751,14 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settings_equipmentDefaultView_intro =>
-      'When no filter is set, the Equipment list shows gear with these statuses.';
+      'Sans filtre, la liste de l\'équipement affiche le matériel ayant ces statuts.';
 
   @override
   String get settings_equipmentDefaultView_listSeparator => ', ';
 
   @override
-  String get settings_equipmentDefaultView_title => 'Default equipment view';
+  String get settings_equipmentDefaultView_title =>
+      'Vue par défaut de l\'équipement';
 
   @override
   String get settings_manage_currencyRules => 'Validité des certifications';

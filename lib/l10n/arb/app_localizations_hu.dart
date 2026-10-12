@@ -15175,11 +15175,11 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get equipment_list_emptyState_defaultView_subtitle =>
-      'Your default view hides the rest of your gear.';
+      'Az alapnézet elrejti a többi felszerelésedet.';
 
   @override
   String get equipment_list_emptyState_defaultView_title =>
-      'No equipment in your default view';
+      'Nincs felszerelés az alapnézetben';
 
   @override
   String get equipment_list_emptyState_filterText_equipment => 'felszerelés';
@@ -15228,7 +15228,8 @@ class AppLocalizationsHu extends AppLocalizations {
       'Nincs felszerelés ebben a kategóriában';
 
   @override
-  String get equipment_list_emptyState_showAll => 'Show All Equipment';
+  String get equipment_list_emptyState_showAll =>
+      'Összes felszerelés megjelenítése';
 
   @override
   String get equipment_list_emptyState_serviceDueUpToDate =>
@@ -15251,7 +15252,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get equipment_list_filterAll => 'Összes felszerelés';
 
   @override
-  String get equipment_list_filterCurrent => 'Jelenlegi felszerelés';
+  String get equipment_list_filterCurrent => 'Alapnézet';
 
   @override
   String get equipment_list_filterServiceDue => 'Szerviz esedékes';
@@ -15292,7 +15293,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get equipment_filter_section_status => 'Állapot';
 
   @override
-  String get equipment_filter_editDefault => 'Edit default';
+  String get equipment_filter_editDefault => 'Alapnézet szerkesztése';
 
   @override
   String get equipment_filter_section_tags => 'Címkék';
@@ -21986,7 +21987,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get settings_conflict_field_equipmentDefaultStatuses =>
-      'Default equipment view';
+      'Felszerelés alapnézete';
 
   @override
   String get settings_conflict_field_equipmentFindings_severity => 'Súlyosság';
@@ -24569,13 +24570,13 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get settings_equipmentDefaultView_intro =>
-      'When no filter is set, the Equipment list shows gear with these statuses.';
+      'Szűrő nélkül a felszereléslista az ilyen állapotú felszereléseket mutatja.';
 
   @override
   String get settings_equipmentDefaultView_listSeparator => ', ';
 
   @override
-  String get settings_equipmentDefaultView_title => 'Default equipment view';
+  String get settings_equipmentDefaultView_title => 'Felszerelés alapnézete';
 
   @override
   String get settings_manage_currencyRules => 'Képesítések érvényessége';

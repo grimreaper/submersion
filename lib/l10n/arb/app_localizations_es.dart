@@ -15221,11 +15221,11 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get equipment_list_emptyState_defaultView_subtitle =>
-      'Your default view hides the rest of your gear.';
+      'Tu vista predeterminada oculta el resto de tu equipo.';
 
   @override
   String get equipment_list_emptyState_defaultView_title =>
-      'No equipment in your default view';
+      'No hay equipo en tu vista predeterminada';
 
   @override
   String get equipment_list_emptyState_filterText_equipment => 'equipo';
@@ -15274,7 +15274,7 @@ class AppLocalizationsEs extends AppLocalizations {
       'No hay equipo en esta categoría';
 
   @override
-  String get equipment_list_emptyState_showAll => 'Show All Equipment';
+  String get equipment_list_emptyState_showAll => 'Mostrar todo el equipo';
 
   @override
   String get equipment_list_emptyState_serviceDueUpToDate =>
@@ -15297,7 +15297,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get equipment_list_filterAll => 'Todo el equipo';
 
   @override
-  String get equipment_list_filterCurrent => 'Equipo actual';
+  String get equipment_list_filterCurrent => 'Vista predeterminada';
 
   @override
   String get equipment_list_filterServiceDue => 'Servicio pendiente';
@@ -15338,7 +15338,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String get equipment_filter_section_status => 'Estado';
 
   @override
-  String get equipment_filter_editDefault => 'Edit default';
+  String get equipment_filter_editDefault => 'Editar predeterminada';
 
   @override
   String get equipment_filter_section_tags => 'Etiquetas';
@@ -22072,7 +22072,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get settings_conflict_field_equipmentDefaultStatuses =>
-      'Default equipment view';
+      'Vista predeterminada del equipo';
 
   @override
   String get settings_conflict_field_equipmentFindings_severity => 'Gravedad';
@@ -24689,13 +24689,14 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get settings_equipmentDefaultView_intro =>
-      'When no filter is set, the Equipment list shows gear with these statuses.';
+      'Sin filtro, la lista de equipo muestra el equipo con estos estados.';
 
   @override
   String get settings_equipmentDefaultView_listSeparator => ', ';
 
   @override
-  String get settings_equipmentDefaultView_title => 'Default equipment view';
+  String get settings_equipmentDefaultView_title =>
+      'Vista predeterminada del equipo';
 
   @override
   String get settings_manage_currencyRules => 'Vigencia de certificaciones';

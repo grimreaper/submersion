@@ -15228,11 +15228,11 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get equipment_list_emptyState_defaultView_subtitle =>
-      'Your default view hides the rest of your gear.';
+      'La vista predefinita nasconde il resto della tua attrezzatura.';
 
   @override
   String get equipment_list_emptyState_defaultView_title =>
-      'No equipment in your default view';
+      'Nessuna attrezzatura nella vista predefinita';
 
   @override
   String get equipment_list_emptyState_filterText_equipment => 'attrezzatura';
@@ -15281,7 +15281,8 @@ class AppLocalizationsIt extends AppLocalizations {
       'Nessuna attrezzatura in questa categoria';
 
   @override
-  String get equipment_list_emptyState_showAll => 'Show All Equipment';
+  String get equipment_list_emptyState_showAll =>
+      'Mostra tutta l\'attrezzatura';
 
   @override
   String get equipment_list_emptyState_serviceDueUpToDate =>
@@ -15304,7 +15305,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get equipment_list_filterAll => 'Tutta l\'attrezzatura';
 
   @override
-  String get equipment_list_filterCurrent => 'Attrezzatura attuale';
+  String get equipment_list_filterCurrent => 'Vista predefinita';
 
   @override
   String get equipment_list_filterServiceDue => 'Manutenzione prevista';
@@ -15345,7 +15346,7 @@ class AppLocalizationsIt extends AppLocalizations {
   String get equipment_filter_section_status => 'Stato';
 
   @override
-  String get equipment_filter_editDefault => 'Edit default';
+  String get equipment_filter_editDefault => 'Modifica predefinita';
 
   @override
   String get equipment_filter_section_tags => 'Tag';
@@ -22073,7 +22074,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get settings_conflict_field_equipmentDefaultStatuses =>
-      'Default equipment view';
+      'Vista predefinita dell\'attrezzatura';
 
   @override
   String get settings_conflict_field_equipmentFindings_severity => 'Gravità';
@@ -24691,13 +24692,14 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get settings_equipmentDefaultView_intro =>
-      'When no filter is set, the Equipment list shows gear with these statuses.';
+      'Senza filtri, l\'elenco dell\'attrezzatura mostra l\'attrezzatura con questi stati.';
 
   @override
   String get settings_equipmentDefaultView_listSeparator => ', ';
 
   @override
-  String get settings_equipmentDefaultView_title => 'Default equipment view';
+  String get settings_equipmentDefaultView_title =>
+      'Vista predefinita dell\'attrezzatura';
 
   @override
   String get settings_manage_currencyRules => 'Validità delle certificazioni';

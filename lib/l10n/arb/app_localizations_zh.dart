@@ -14540,12 +14540,10 @@ class AppLocalizationsZh extends AppLocalizations {
   String get equipment_list_emptyState_addPrompt => '添加您的潜水装备以追踪使用情况和维护';
 
   @override
-  String get equipment_list_emptyState_defaultView_subtitle =>
-      'Your default view hides the rest of your gear.';
+  String get equipment_list_emptyState_defaultView_subtitle => '默认视图隐藏了你的其他装备。';
 
   @override
-  String get equipment_list_emptyState_defaultView_title =>
-      'No equipment in your default view';
+  String get equipment_list_emptyState_defaultView_title => '默认视图中没有装备';
 
   @override
   String get equipment_list_emptyState_filterText_equipment => '装备';
@@ -14587,7 +14585,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get equipment_list_emptyState_noTypeMatch => '此类别中没有装备';
 
   @override
-  String get equipment_list_emptyState_showAll => 'Show All Equipment';
+  String get equipment_list_emptyState_showAll => '显示全部装备';
 
   @override
   String get equipment_list_emptyState_serviceDueUpToDate => '您的所有装备维护都已是最新状态！';
@@ -14607,7 +14605,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get equipment_list_filterAll => '全部装备';
 
   @override
-  String get equipment_list_filterCurrent => '当前装备';
+  String get equipment_list_filterCurrent => '默认视图';
 
   @override
   String get equipment_list_filterServiceDue => '需要维护';
@@ -14648,7 +14646,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get equipment_filter_section_status => '状态';
 
   @override
-  String get equipment_filter_editDefault => 'Edit default';
+  String get equipment_filter_editDefault => '编辑默认';
 
   @override
   String get equipment_filter_section_tags => '标签';
@@ -20901,8 +20899,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings_conflict_field_equipmentComponents_role => '用途';
 
   @override
-  String get settings_conflict_field_equipmentDefaultStatuses =>
-      'Default equipment view';
+  String get settings_conflict_field_equipmentDefaultStatuses => '装备默认视图';
 
   @override
   String get settings_conflict_field_equipmentFindings_severity => '严重程度';
@@ -23333,14 +23330,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings_manage_locations_subtitle => '装备存放、保养或借出的地方';
 
   @override
-  String get settings_equipmentDefaultView_intro =>
-      'When no filter is set, the Equipment list shows gear with these statuses.';
+  String get settings_equipmentDefaultView_intro => '未设置筛选时，装备列表显示这些状态的装备。';
 
   @override
-  String get settings_equipmentDefaultView_listSeparator => ', ';
+  String get settings_equipmentDefaultView_listSeparator => '、';
 
   @override
-  String get settings_equipmentDefaultView_title => 'Default equipment view';
+  String get settings_equipmentDefaultView_title => '装备默认视图';
 
   @override
   String get settings_manage_currencyRules => '证书有效性';

@@ -14913,11 +14913,11 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get equipment_list_emptyState_defaultView_subtitle =>
-      'Your default view hides the rest of your gear.';
+      'תצוגת ברירת המחדל מסתירה את שאר הציוד שלך.';
 
   @override
   String get equipment_list_emptyState_defaultView_title =>
-      'No equipment in your default view';
+      'אין ציוד בתצוגת ברירת המחדל שלך';
 
   @override
   String get equipment_list_emptyState_filterText_equipment => 'ציוד';
@@ -14963,7 +14963,7 @@ class AppLocalizationsHe extends AppLocalizations {
   String get equipment_list_emptyState_noTypeMatch => 'אין ציוד בקטגוריה זו';
 
   @override
-  String get equipment_list_emptyState_showAll => 'Show All Equipment';
+  String get equipment_list_emptyState_showAll => 'הצגת כל הציוד';
 
   @override
   String get equipment_list_emptyState_serviceDueUpToDate =>
@@ -14986,7 +14986,7 @@ class AppLocalizationsHe extends AppLocalizations {
   String get equipment_list_filterAll => 'כל הציוד';
 
   @override
-  String get equipment_list_filterCurrent => 'ציוד נוכחי';
+  String get equipment_list_filterCurrent => 'תצוגת ברירת מחדל';
 
   @override
   String get equipment_list_filterServiceDue => 'טיפול נדרש';
@@ -15027,7 +15027,7 @@ class AppLocalizationsHe extends AppLocalizations {
   String get equipment_filter_section_status => 'סטטוס';
 
   @override
-  String get equipment_filter_editDefault => 'Edit default';
+  String get equipment_filter_editDefault => 'עריכת ברירת המחדל';
 
   @override
   String get equipment_filter_section_tags => 'תגיות';
@@ -21533,7 +21533,7 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get settings_conflict_field_equipmentDefaultStatuses =>
-      'Default equipment view';
+      'תצוגת ברירת מחדל של הציוד';
 
   @override
   String get settings_conflict_field_equipmentFindings_severity => 'חומרה';
@@ -24056,13 +24056,13 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get settings_equipmentDefaultView_intro =>
-      'When no filter is set, the Equipment list shows gear with these statuses.';
+      'כשאין מסנן, רשימת הציוד מציגה ציוד בסטטוסים אלה.';
 
   @override
   String get settings_equipmentDefaultView_listSeparator => ', ';
 
   @override
-  String get settings_equipmentDefaultView_title => 'Default equipment view';
+  String get settings_equipmentDefaultView_title => 'תצוגת ברירת מחדל של הציוד';
 
   @override
   String get settings_manage_currencyRules => 'תוקף הסמכות';
