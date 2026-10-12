@@ -19,7 +19,10 @@ class NavDestination {
     required this.label,
     this.subtitle,
     this.isPinned = false,
-  });
+    this.extraMatchPaths = const [],
+    this.selection,
+    String? accent,
+  }) : _accent = accent;
 
   /// Stable kebab-case identifier used for persistence.
   final String id;
@@ -38,6 +41,40 @@ class NavDestination {
 
   /// When `true`, this destination cannot be moved between primary and overflow.
   final bool isPinned;
+
+  /// Further locations this destination owns besides [route], each matched
+  /// as a segment-aware path prefix. A nav shortcut lists its page's
+  /// canonical path here, so it stays selected when the diver reaches that
+  /// page by hand rather than through the shortcut.
+  final List<String> extraMatchPaths;
+
+  /// A desktop master-detail selection that shows this destination's page,
+  /// such as `/planning?tool=deco-calculator`.
+  final NavSelectionMatch? selection;
+
+  final String? _accent;
+
+  /// The id whose feature accent colors this destination's icon. A nav
+  /// shortcut borrows the accent of the section its page belongs to.
+  String get accentId => _accent ?? id;
+}
+
+/// A location shape that selects one item inside a master-detail page: the
+/// page's [path] with [queryKey] set to [queryValue].
+///
+/// `/planning?tool=deco-calculator` is the Deco calculator in the Planning
+/// detail pane, so a Deco shortcut owns that location even though its path
+/// is Planning's.
+class NavSelectionMatch {
+  const NavSelectionMatch({
+    required this.path,
+    required this.queryKey,
+    required this.queryValue,
+  });
+
+  final String path;
+  final String queryKey;
+  final String queryValue;
 }
 
 /// The complete, ordered list of nav destinations in default wide-screen order.
