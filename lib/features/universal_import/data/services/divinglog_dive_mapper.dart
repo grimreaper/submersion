@@ -565,7 +565,8 @@ class DivingLogDiveMapper {
     // `List<Map<String, Object>>` only survives that cast by
     // covariance. Spelling it out removes the dependence.
     // tankIndex is read as a position in the tanks list, not as the
-    // source's tank id, so it is resolved the same way the gas switch is.
+    // source's tank id. The Profile2 reading's cylinder comes from
+    // DivingLogTankSlots.pressureOwners, not from the gas in use.
     if (_pressures(s, pressureOwner, tanks) case final pressures
         when pressures.isNotEmpty)
       'allTankPressures': pressures,
