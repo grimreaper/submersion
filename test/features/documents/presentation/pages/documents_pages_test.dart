@@ -214,7 +214,9 @@ void main() {
     expect(find.text('Bonaire'), findsOneWidget);
     expect(find.text('Park permit.txt'), findsOneWidget);
 
-    await t.tap(find.byTooltip('Delete'));
+    await t.tap(find.byType(PopupMenuButton<String>));
+    await t.pumpAndSettle();
+    await t.tap(find.widgetWithText(PopupMenuItem<String>, 'Delete'));
     await t.pumpAndSettle();
     expect(find.text('Delete document?'), findsOneWidget);
     await t.tap(find.widgetWithText(FilledButton, 'Delete'));

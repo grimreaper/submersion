@@ -82,10 +82,30 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage> {
                 icon: const Icon(Icons.edit_outlined),
                 onPressed: () => _edit(doc.id),
               ),
-              IconButton(
-                tooltip: l10n.common_action_delete,
-                icon: const Icon(Icons.delete_outline),
-                onPressed: () => _delete(doc),
+              // Delete waits behind the overflow menu, as on the other
+              // detail pages, not one tap away beside Edit (#3384).
+              PopupMenuButton<String>(
+                onSelected: (value) {
+                  if (value == 'delete') _delete(doc);
+                },
+                itemBuilder: (context) {
+                  final error = Theme.of(context).colorScheme.error;
+                  return [
+                    PopupMenuItem(
+                      value: 'delete',
+                      child: Row(
+                        children: [
+                          Icon(Icons.delete_outline, color: error),
+                          const SizedBox(width: 8),
+                          Text(
+                            l10n.common_action_delete,
+                            style: TextStyle(color: error),
+                          ),
+                        ],
+                      ),
+                    ),
+                  ];
+                },
               ),
             ],
           ),
