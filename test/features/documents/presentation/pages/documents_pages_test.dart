@@ -156,6 +156,39 @@ void main() {
     expect(find.text('Clearance'), findsNothing);
   });
 
+  testWidgets('a dive owner is listed and found by its site and date '
+      '(#3391)', (t) async {
+    final db = DatabaseService.instance.database;
+    await db.customStatement(
+      'INSERT INTO dive_sites (id, diver_id, name, created_at, updated_at) '
+      "VALUES ('s1', 'd1', 'Blue Hole', 0, 0)",
+    );
+    final when = DateTime.utc(2026, 10, 12, 9).millisecondsSinceEpoch;
+    await db.customStatement(
+      'INSERT INTO dives (id, diver_id, dive_number, dive_date_time, site_id, '
+      "created_at, updated_at) VALUES ('v1', 'd1', 142, $when, 's1', 0, 0)",
+    );
+    await _save(
+      'Log sheet',
+      DocumentType.other,
+      owner: const DocumentOwner(DocumentOwnerKind.dive, 'v1'),
+    );
+    await _save('DAN', DocumentType.insurance);
+    await pump(t, '/documents');
+    expect(
+      find.textContaining(RegExp(r'^#142 · Blue Hole · .*2026')),
+      findsOneWidget,
+    );
+    await t.enterText(find.byType(TextField), 'blue hole');
+    await t.pumpAndSettle();
+    expect(find.text('Log sheet'), findsOneWidget);
+    expect(find.text('DAN'), findsNothing);
+    await t.enterText(find.byType(TextField), '2026');
+    await t.pumpAndSettle();
+    expect(find.text('Log sheet'), findsOneWidget);
+    expect(find.text('DAN'), findsNothing);
+  });
+
   testWidgets('a type from the route shows only that type', (t) async {
     await _save('DAN', DocumentType.insurance);
     await _save('Clearance', DocumentType.medicalClearance);
