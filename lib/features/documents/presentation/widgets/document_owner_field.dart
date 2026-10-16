@@ -1,9 +1,11 @@
 import 'package:flutter/material.dart';
 
 import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/features/documents/domain/entities/document.dart';
 import 'package:submersion/features/documents/presentation/document_l10n.dart';
 import 'package:submersion/features/documents/presentation/providers/document_owner_providers.dart';
+import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 
 /// "Filed under": the record a document belongs to. Tapping asks for
@@ -23,14 +25,17 @@ class DocumentOwnerField extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final l10n = context.l10n;
-    final name = owner.isPersonal
+    final record = owner.isPersonal
         ? null
         : ref.watch(documentOwnerLabelProvider(owner)).value;
-    // The record's name, its kind shown by the icon; the kind's own label
-    // only when there is no name (Personal, or an unnumbered dive).
-    final text = name == null || name.isEmpty
-        ? documentOwnerKindLabel(l10n, owner.kind)
-        : name;
+    // The record as the picker lists it, its kind shown by the icon: a
+    // dive by its number, name or site, and date (#3391). The kind's own
+    // label only when there is nothing to show (Personal).
+    final units = UnitFormatter(ref.watch(settingsProvider));
+    final text = record == null
+        ? null
+        : documentOwnerText(units, record.name, record.date);
+    final shown = text ?? documentOwnerKindLabel(l10n, owner.kind);
     // Announced as a button: the field reads as text, but tapping it is
     // how a document is refiled.
     return Semantics(
@@ -47,7 +52,7 @@ class DocumentOwnerField extends ConsumerWidget {
               locked ? Icons.lock_outline : Icons.arrow_drop_down,
             ),
           ),
-          child: Text(text),
+          child: Text(shown),
         ),
       ),
     );

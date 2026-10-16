@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:submersion/core/utils/unit_formatter.dart';
+import 'package:submersion/features/documents/data/repositories/document_repository.dart';
 import 'package:submersion/features/documents/domain/entities/document.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 
@@ -52,6 +54,23 @@ IconData documentOwnerKindIcon(DocumentOwnerKind kind) => switch (kind) {
   DocumentOwnerKind.buddy => Icons.people_outline,
   DocumentOwnerKind.diveCenter => Icons.storefront_outlined,
 };
+
+/// What a document is filed under on one line: the record's [label], then
+/// a dive's [date] in the diver's format (`#142 · Blue Hole · 12 Oct 2026`,
+/// #3391). Null when there is neither, for the caller's kind fallback.
+String? documentOwnerText(UnitFormatter units, String? label, DateTime? date) {
+  final parts = [
+    if (label?.trim() case final l? when l.isNotEmpty) l,
+    if (date != null) units.formatDate(date),
+  ];
+  return parts.isEmpty ? null : parts.join(' · ');
+}
+
+extension DocumentListEntryOwnerText on DocumentListEntry {
+  /// [ownerLabel] with a dive's date, per [documentOwnerText].
+  String? ownerText(UnitFormatter units) =>
+      documentOwnerText(units, ownerLabel, ownerDate);
+}
 
 /// The document's own title, or its type's name when it has none, so a
 /// default title follows the app language. A certification card is titled

@@ -38,6 +38,12 @@ void main() {
       "created_at, updated_at) VALUES ('v1', 'd1', 12, $when, 's1', 0, 0)",
     );
     await sql(
+      'INSERT INTO dives (id, diver_id, dive_number, dive_date_time, site_id, '
+      "name, created_at, updated_at) VALUES ('v2', 'd2', 7, $when, 's1', "
+      "'Night at the pier', 0, 0), ('v3', 'd2', NULL, $when, NULL, '  ', "
+      '0, 0)',
+    );
+    await sql(
       'INSERT INTO buddies (id, diver_id, name, created_at, updated_at) '
       "VALUES ('b1', 'd1', 'zoe', 0, 0), ('b2', 'd1', 'Adam', 0, 0)",
     );
@@ -76,6 +82,16 @@ void main() {
     expect(dives.single.date, DateTime.utc(2026, 9, 1, 9));
   });
 
+  test('a named dive is told apart by its name, else by its site', () async {
+    final dives = await repo.optionsFor(DocumentOwnerKind.dive, diverId: 'd2');
+    final byId = {for (final o in dives) o.id: o};
+    expect(byId['v2']!.label, '#7');
+    expect(byId['v2']!.subtitle, 'Night at the pier');
+    // A blank name is no name, and with no site there is nothing to show.
+    expect(byId['v3']!.label, '');
+    expect(byId['v3']!.subtitle, isNull);
+  });
+
   test('club library sites are not offered', () async {
     final sites = await repo.optionsFor(DocumentOwnerKind.site, diverId: 'd1');
     expect(sites.map((o) => o.label), ['Salt Pier']);
@@ -89,23 +105,40 @@ void main() {
   });
 
   test(
-    'labelFor names a record and is null for personal or a gone one',
+    'optionFor names a record and is null for personal or a gone one',
     () async {
-      expect(
-        await repo.labelFor(const DocumentOwner(DocumentOwnerKind.trip, 't1')),
-        'Bonaire',
+      final trip = await repo.optionFor(
+        const DocumentOwner(DocumentOwnerKind.trip, 't1'),
       );
+      expect(trip!.label, 'Bonaire');
+      expect(trip.date, isNull);
+      expect(await repo.optionFor(const DocumentOwner.personal()), isNull);
       expect(
-        await repo.labelFor(const DocumentOwner(DocumentOwnerKind.dive, 'v1')),
-        '#12',
-      );
-      expect(await repo.labelFor(const DocumentOwner.personal()), isNull);
-      expect(
-        await repo.labelFor(
+        await repo.optionFor(
           const DocumentOwner(DocumentOwnerKind.trip, 'gone'),
+        ),
+        isNull,
+      );
+      expect(
+        await repo.optionFor(
+          const DocumentOwner(DocumentOwnerKind.dive, 'gone'),
         ),
         isNull,
       );
     },
   );
+
+  test('optionFor describes a dive as the picker lists it (#3391)', () async {
+    final dive = await repo.optionFor(
+      const DocumentOwner(DocumentOwnerKind.dive, 'v1'),
+    );
+    expect(dive!.label, '#12');
+    expect(dive.subtitle, 'Salt Pier');
+    expect(dive.date, DateTime.utc(2026, 9, 1, 9));
+    expect(dive.name, '#12 · Salt Pier');
+    final named = await repo.optionFor(
+      const DocumentOwner(DocumentOwnerKind.dive, 'v2'),
+    );
+    expect(named!.name, '#7 · Night at the pier');
+  });
 }

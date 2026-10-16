@@ -12,12 +12,37 @@ class DocumentOwnerOption {
   /// The record's name; a dive's number (`#12`), empty for an unnumbered
   /// dive, which the picker labels by its date instead.
   final String label;
+
+  /// A dive's own name, else its site; a piece of gear's make.
   final String? subtitle;
 
-  /// Dives only: the dive's wall clock, formatted by the picker.
+  /// Dives and trips: the wall clock, formatted where it is shown.
   final DateTime? date;
 
   const DocumentOwnerOption(this.id, this.label, {this.subtitle, this.date});
+
+  /// A dive as a document owner (#3391): its number, told apart by its own
+  /// name or else its site, and its wall-clock date. The picker, the
+  /// document form and the documents list all describe a dive from this.
+  factory DocumentOwnerOption.dive(
+    String id, {
+    required int? number,
+    required String? name,
+    required String? site,
+    required int dateTimeMillis,
+  }) {
+    String? text(String? v) => v?.trim().isEmpty ?? true ? null : v!.trim();
+    return DocumentOwnerOption(
+      id,
+      number == null ? '' : '#$number',
+      subtitle: text(name) ?? text(site),
+      date: wallClockUtcFromMillis(dateTimeMillis),
+    );
+  }
+
+  /// The label and subtitle on one line (`#12 · Salt Pier`), without the
+  /// date; empty when there is neither.
+  String get name => [if (label.isNotEmpty) label, ?subtitle].join(' · ');
 }
 
 /// The records of one owner kind a diver can file a document under.
@@ -91,43 +116,45 @@ class DocumentOwnerOptionsRepository {
     ];
   }
 
+  /// The columns [_diveOption] reads, from `dives d` joined to its site `s`.
+  static const _diveColumns =
+      'd.id, d.dive_number, d.name, d.dive_date_time, s.name AS site '
+      'FROM dives d LEFT JOIN dive_sites s ON s.id = d.site_id';
+
+  static DocumentOwnerOption _diveOption(QueryRow r) =>
+      DocumentOwnerOption.dive(
+        r.read<String>('id'),
+        number: r.readNullable<int>('dive_number'),
+        name: r.readNullable<String>('name'),
+        site: r.readNullable<String>('site'),
+        dateTimeMillis: r.read<int>('dive_date_time'),
+      );
+
   Future<List<DocumentOwnerOption>> _dives(String diverId) async {
     final rows = await _db
         .customSelect(
-          'SELECT d.id, d.dive_number, d.dive_date_time, s.name AS site '
-          'FROM dives d LEFT JOIN dive_sites s ON s.id = d.site_id '
+          'SELECT $_diveColumns '
           'WHERE d.diver_id = ? ORDER BY d.dive_date_time DESC',
           variables: [Variable.withString(diverId)],
         )
         .get();
-    return [
-      for (final r in rows)
-        DocumentOwnerOption(
-          r.read<String>('id'),
-          _diveLabel(r.readNullable<int>('dive_number')),
-          subtitle: r.readNullable<String>('site'),
-          date: wallClockUtcFromMillis(r.read<int>('dive_date_time')),
-        ),
-    ];
+    return [for (final r in rows) _diveOption(r)];
   }
 
-  static String _diveLabel(int? number) => number == null ? '' : '#$number';
-
-  /// The display name of [owner]'s record; null for personal or a record
-  /// that no longer exists.
-  Future<String?> labelFor(DocumentOwner owner) async {
+  /// [owner]'s record as the picker would list it, for the document form;
+  /// null for personal or a record that no longer exists. Only a dive has
+  /// a subtitle and a date here.
+  Future<DocumentOwnerOption?> optionFor(DocumentOwner owner) async {
     final id = owner.id;
     if (id == null) return null;
     if (owner.kind == DocumentOwnerKind.dive) {
       final row = await _db
           .customSelect(
-            'SELECT dive_number FROM dives WHERE id = ?',
+            'SELECT $_diveColumns WHERE d.id = ?',
             variables: [Variable.withString(id)],
           )
           .getSingleOrNull();
-      return row == null
-          ? null
-          : _diveLabel(row.readNullable<int>('dive_number'));
+      return row == null ? null : _diveOption(row);
     }
     final row = await _db
         .customSelect(
@@ -135,6 +162,8 @@ class DocumentOwnerOptionsRepository {
           variables: [Variable.withString(id)],
         )
         .getSingleOrNull();
-    return row?.read<String>('name');
+    return row == null
+        ? null
+        : DocumentOwnerOption(id, row.read<String>('name'));
   }
 }

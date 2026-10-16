@@ -20,12 +20,13 @@ final documentOwnerOptionsProvider = FutureProvider.autoDispose
           .optionsFor(kind, diverId: diverId);
     });
 
-/// The name of the record a document form's owner points at.
+/// The record a document form's owner points at, described as the picker
+/// lists it (a dive with its site and date, #3391).
 // no-tick: autoDispose and watched only by an open document form, which
 // reads it again for every owner it shows; a record renamed elsewhere while
 // that one form stays open is the only stale case.
 final documentOwnerLabelProvider = FutureProvider.autoDispose
-    .family<String?, DocumentOwner>(
+    .family<DocumentOwnerOption?, DocumentOwner>(
       (ref, owner) =>
-          ref.watch(documentOwnerOptionsRepositoryProvider).labelFor(owner),
+          ref.watch(documentOwnerOptionsRepositoryProvider).optionFor(owner),
     );
