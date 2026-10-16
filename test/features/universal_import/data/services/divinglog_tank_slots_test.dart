@@ -85,6 +85,22 @@ void main() {
       expect(owners[2], 0);
     });
 
+    test('moves the series when the current cylinder has no reading yet', () {
+      final owners = DivingLogTankSlots.pressureOwners(
+        [sample(0, 0, null), sample(5, 1, 150.0)],
+        [tank(0, startPressure: 200.0), tank(1, startPressure: 180.0)],
+      );
+      expect(owners, [0, 1]);
+    });
+
+    test('resolves an out-of-range tank id by source id', () {
+      final owners = DivingLogTankSlots.pressureOwners(
+        [sample(0, 0, 200.0), sample(5, 5, 150.0)],
+        [tank(0), tank(5)],
+      );
+      expect(owners, [0, 1]);
+    });
+
     test('starts on the first sample cylinder', () {
       final owners = DivingLogTankSlots.pressureOwners(
         [sample(0, 1, 180.0), sample(5, 1, 179.0)],

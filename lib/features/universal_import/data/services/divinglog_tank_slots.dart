@@ -9,7 +9,7 @@ class DivingLogTankSlots {
   /// transmitters jumps it by tens of bar.
   static const _jumpBar = 10.0;
 
-  const DivingLogTankSlots._();
+  const DivingLogTankSlots._(); // coverage:ignore-line
 
   /// The position in [tanks] that a profile tank id refers to, or null when
   /// it refers to no cylinder we have.
