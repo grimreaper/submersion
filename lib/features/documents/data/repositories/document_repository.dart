@@ -90,6 +90,26 @@ class DocumentRepository {
     ]),
   );
 
+  /// Ticks when a record a document can be filed under changes, so the
+  /// owner labels of [getAllForDiver] and [getEntryById] follow a rename
+  /// (a dive's number, name, date or site, #3391). Kept apart from
+  /// [watchChanges] so page content is not reread on every dive write.
+  Stream<void> watchOwnerChanges() => _db.tableUpdates(
+    TableUpdateQuery.allOf([
+      for (final table in <ResultSetImplementation>[
+        _db.diveSites,
+        _db.trips,
+        _db.equipment,
+        _db.courses,
+        _db.certifications,
+        _db.buddies,
+        _db.diveCenters,
+        _db.dives,
+      ])
+        TableUpdateQuery.onTable(table),
+    ]),
+  );
+
   Future<Document?> getById(String id) async {
     final row = await (_db.select(
       _db.documents,
