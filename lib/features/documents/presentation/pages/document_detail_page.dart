@@ -95,7 +95,7 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage> {
                       value: 'delete',
                       child: Row(
                         children: [
-                          Icon(Icons.delete_outline, color: error),
+                          Icon(Icons.delete, color: error),
                           const SizedBox(width: 8),
                           Text(
                             l10n.common_action_delete,

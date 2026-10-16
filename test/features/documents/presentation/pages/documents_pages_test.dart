@@ -214,7 +214,12 @@ void main() {
     expect(find.text('Bonaire'), findsOneWidget);
     expect(find.text('Park permit.txt'), findsOneWidget);
 
-    await t.tap(find.byType(PopupMenuButton<String>));
+    await t.tap(
+      find.descendant(
+        of: find.byType(DocumentDetailPage),
+        matching: find.byType(PopupMenuButton<String>),
+      ),
+    );
     await t.pumpAndSettle();
     await t.tap(find.widgetWithText(PopupMenuItem<String>, 'Delete'));
     await t.pumpAndSettle();
@@ -240,6 +245,26 @@ void main() {
     // Not the standalone /documents/:id/edit page over the whole shell.
     expect(find.text('EDIT'), findsNothing);
     expect(find.byType(DocumentEditPage), findsOneWidget);
+  });
+
+  testWidgets('on a wide screen, Delete in the pane menu clears the pane', (
+    t,
+  ) async {
+    final doc = await _save('Park permit', DocumentType.permit);
+    await pump(t, '/documents?selected=${doc.id}', size: const Size(1400, 900));
+    await t.tap(
+      find.descendant(
+        of: find.byType(DocumentDetailPage),
+        matching: find.byType(PopupMenuButton<String>),
+      ),
+    );
+    await t.pumpAndSettle();
+    await t.tap(find.widgetWithText(PopupMenuItem<String>, 'Delete'));
+    await t.pumpAndSettle();
+    await t.tap(find.widgetWithText(FilledButton, 'Delete'));
+    await t.pumpAndSettle();
+    expect(find.byType(DocumentDetailPage), findsNothing);
+    expect(await DocumentRepository().getById(doc.id), isNull);
   });
 
   testWidgets('the owner row opens the owner', (t) async {
