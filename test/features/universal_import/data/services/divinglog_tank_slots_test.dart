@@ -77,6 +77,14 @@ void main() {
       expect(owners[2], 0);
     });
 
+    test('an unknown tank id cancels a pending switch', () {
+      final owners = DivingLogTankSlots.pressureOwners(
+        [sample(0, 0, 120.0), sample(5, 1, null), sample(10, 7, 179.5)],
+        [tank(0, startPressure: 200.0), tank(1, startPressure: 180.0)],
+      );
+      expect(owners[2], 0);
+    });
+
     test('starts on the first sample cylinder', () {
       final owners = DivingLogTankSlots.pressureOwners(
         [sample(0, 1, 180.0), sample(5, 1, 179.0)],

@@ -58,7 +58,9 @@ class DivingLogTankSlots {
         final slot = position(tankId, tanks);
         if (owner == null) {
           owner = slot;
-        } else if (slot != null) {
+        } else {
+          // An id with no cylinder cancels any switch still pending, so a
+          // reading after it cannot be decided against stale state.
           candidate = slot;
         }
         activeTankId = tankId;
