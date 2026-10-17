@@ -50735,6 +50735,38 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get dataQuality_repairLabel_useAsBailout => 'Als Bailout verwenden';
+
+  @override
+  String get dataQuality_useAsBailout_title =>
+      'Diese Flasche zum Bailout machen?';
+
+  @override
+  String dataQuality_useAsBailout_merge(int tankNumber) {
+    return 'Entfernt die doppelte Bailout-Flasche (Gaswechsel gehen auf Flasche $tankNumber über)';
+  }
+
+  @override
+  String get dataQuality_useAsBailout_register =>
+      'Diesen Sender auch als Bailout registrieren';
+
+  @override
+  String dataQuality_useAsBailout_mixesKept(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count weitere Tauchgänge haben ihr Gasgemisch behalten. Bitte prüfen.',
+      one: '1 weiterer Tauchgang hat sein Gasgemisch behalten. Bitte prüfen.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get dataQuality_useAsBailout_registered =>
+      'Sender als Bailout registriert. Rückgängig ändert nur diesen Tauchgang.';
+
+  @override
   String get dataQuality_repairLabel_assignTransmitter => 'Sender zuweisen';
 
   @override

@@ -50842,6 +50842,38 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
+  String get dataQuality_repairLabel_useAsBailout => 'Usar como bailout';
+
+  @override
+  String get dataQuality_useAsBailout_title =>
+      'Tornar este cilindro o bailout?';
+
+  @override
+  String dataQuality_useAsBailout_merge(int tankNumber) {
+    return 'Remove o cilindro de bailout duplicado (as trocas de gás passam para o cilindro $tankNumber)';
+  }
+
+  @override
+  String get dataQuality_useAsBailout_register =>
+      'Registrar também este transmissor como bailout';
+
+  @override
+  String dataQuality_useAsBailout_mixesKept(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count outros mergulhos mantiveram sua mistura. Convém verificá-los.',
+      one: '1 outro mergulho manteve sua mistura. Convém verificá-lo.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get dataQuality_useAsBailout_registered =>
+      'Transmissor registrado como bailout. Desfazer altera apenas este mergulho.';
+
+  @override
   String get dataQuality_repairLabel_assignTransmitter =>
       'Atribuir transmissor';
 

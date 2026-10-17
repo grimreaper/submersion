@@ -50569,6 +50569,36 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get dataQuality_repairLabel_useAsBailout => 'Használat bailoutként';
+
+  @override
+  String get dataQuality_useAsBailout_title => 'Legyen ez a palack a bailout?';
+
+  @override
+  String dataQuality_useAsBailout_merge(int tankNumber) {
+    return 'Eltávolítja a duplikált bailout palackot (a gázváltások a(z) $tankNumber. palackra kerülnek)';
+  }
+
+  @override
+  String get dataQuality_useAsBailout_register =>
+      'A jeladó regisztrálása bailoutként is';
+
+  @override
+  String dataQuality_useAsBailout_mixesKept(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count másik merülés megtartotta a gázkeverékét, érdemes ellenőrizni.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get dataQuality_useAsBailout_registered =>
+      'Jeladó bailoutként regisztrálva. A visszavonás csak ezt a merülést módosítja.';
+
+  @override
   String get dataQuality_repairLabel_assignTransmitter =>
       'Jeladó hozzárendelése';
 

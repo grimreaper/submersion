@@ -51491,6 +51491,37 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get dataQuality_repairLabel_useAsBailout => 'استخدام كغاز طوارئ';
+
+  @override
+  String get dataQuality_useAsBailout_title => 'جعل هذه الأسطوانة غاز الطوارئ؟';
+
+  @override
+  String dataQuality_useAsBailout_merge(int tankNumber) {
+    return 'يزيل أسطوانة غاز الطوارئ المكررة (تنتقل تبديلات الغاز إلى الأسطوانة $tankNumber)';
+  }
+
+  @override
+  String get dataQuality_useAsBailout_register =>
+      'تسجيل جهاز الإرسال هذا أيضًا كغاز طوارئ';
+
+  @override
+  String dataQuality_useAsBailout_mixesKept(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'احتفظت $count غطسات أخرى بمزيج الغاز الخاص بها. يُرجى التحقق منها.',
+      one: 'احتفظت غطسة أخرى واحدة بمزيج الغاز الخاص بها. يُرجى التحقق منها.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get dataQuality_useAsBailout_registered =>
+      'تم تسجيل جهاز الإرسال كغاز طوارئ. التراجع يغيّر هذه الغطسة فقط.';
+
+  @override
   String get dataQuality_repairLabel_assignTransmitter => 'تعيين جهاز إرسال';
 
   @override

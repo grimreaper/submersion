@@ -47707,6 +47707,33 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get dataQuality_repairLabel_useAsBailout => '用作应急气瓶';
+
+  @override
+  String get dataQuality_useAsBailout_title => '将此气瓶设为应急气瓶？';
+
+  @override
+  String dataQuality_useAsBailout_merge(int tankNumber) {
+    return '删除重复的应急气瓶（气体切换转到气瓶 $tankNumber）';
+  }
+
+  @override
+  String get dataQuality_useAsBailout_register => '同时将此发射器登记为应急气瓶';
+
+  @override
+  String dataQuality_useAsBailout_mixesKept(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '另有 $count 次潜水保留了原气体混合，请检查。',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get dataQuality_useAsBailout_registered => '发射器已登记为应急气瓶。撤销只会更改本次潜水。';
+
+  @override
   String get dataQuality_repairLabel_assignTransmitter => '分配发射器';
 
   @override

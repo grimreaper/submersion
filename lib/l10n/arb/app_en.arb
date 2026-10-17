@@ -30298,6 +30298,26 @@
       "serial": { "type": "String" }
     }
   },
+  "dataQuality_repairLabel_useAsBailout": "Use as bailout",
+  "dataQuality_useAsBailout_title": "Make this tank the bailout?",
+  "dataQuality_useAsBailout_merge": "Removes the duplicate Bailout cylinder (switches move to Tank {tankNumber})",
+  "@dataQuality_useAsBailout_merge": {
+    "placeholders": {
+      "tankNumber": {
+        "type": "int"
+      }
+    }
+  },
+  "dataQuality_useAsBailout_register": "Also register this transmitter as a Bailout",
+  "dataQuality_useAsBailout_mixesKept": "{count, plural, =1{1 other dive kept its gas mix. Check it.} other{{count} other dives kept their gas mix. Check them.}}",
+  "@dataQuality_useAsBailout_mixesKept": {
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "dataQuality_useAsBailout_registered": "Transmitter registered as Bailout. Undo changes this dive only.",
   "dataQuality_repairLabel_assignTransmitter": "Assign transmitter",
   "dataQuality_repairLabel_removeGearFromDive": "Remove from {diver}'s dive",
   "@dataQuality_repairLabel_removeGearFromDive": {

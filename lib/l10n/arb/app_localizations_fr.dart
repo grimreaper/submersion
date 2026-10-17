@@ -50956,6 +50956,36 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get dataQuality_repairLabel_useAsBailout => 'Utiliser comme bailout';
+
+  @override
+  String get dataQuality_useAsBailout_title => 'Faire de ce bloc le bailout ?';
+
+  @override
+  String dataQuality_useAsBailout_merge(int tankNumber) {
+    return 'Supprime le bloc bailout en double (les changements de gaz passent au bloc $tankNumber)';
+  }
+
+  @override
+  String get dataQuality_useAsBailout_register =>
+      'Enregistrer aussi cet émetteur comme bailout';
+
+  @override
+  String dataQuality_useAsBailout_mixesKept(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count autres plongées ont conservé leur mélange. À vérifier.',
+      one: '1 autre plongée a conservé son mélange. À vérifier.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get dataQuality_useAsBailout_registered =>
+      'Émetteur enregistré comme bailout. Annuler ne modifie que cette plongée.';
+
+  @override
   String get dataQuality_repairLabel_assignTransmitter =>
       'Associer l\'émetteur';
 

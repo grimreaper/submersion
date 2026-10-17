@@ -49764,6 +49764,37 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
+  String get dataQuality_repairLabel_useAsBailout => 'שימוש כבלון חירום';
+
+  @override
+  String get dataQuality_useAsBailout_title =>
+      'להפוך את הבלון הזה לבלון החירום?';
+
+  @override
+  String dataQuality_useAsBailout_merge(int tankNumber) {
+    return 'מסיר את בלון החירום הכפול (החלפות הגז עוברות לבלון $tankNumber)';
+  }
+
+  @override
+  String get dataQuality_useAsBailout_register =>
+      'לרשום גם את המשדר הזה כבלון חירום';
+
+  @override
+  String dataQuality_useAsBailout_mixesKept(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count צלילות נוספות שמרו על תערובת הגז שלהן. כדאי לבדוק אותן.',
+      one: 'צלילה אחת נוספת שמרה על תערובת הגז שלה. כדאי לבדוק אותה.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get dataQuality_useAsBailout_registered =>
+      'המשדר נרשם כבלון חירום. ביטול משנה רק את הצלילה הזו.';
+
+  @override
   String get dataQuality_repairLabel_assignTransmitter => 'שיוך משדר';
 
   @override

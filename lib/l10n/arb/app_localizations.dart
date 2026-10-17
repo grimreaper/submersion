@@ -80536,6 +80536,42 @@ abstract class AppLocalizations {
   /// **'Transmitter {serial} is not assigned to a cylinder'**
   String dataQuality_msg_unknownTransmitter(String serial);
 
+  /// No description provided for @dataQuality_repairLabel_useAsBailout.
+  ///
+  /// In en, this message translates to:
+  /// **'Use as bailout'**
+  String get dataQuality_repairLabel_useAsBailout;
+
+  /// No description provided for @dataQuality_useAsBailout_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Make this tank the bailout?'**
+  String get dataQuality_useAsBailout_title;
+
+  /// No description provided for @dataQuality_useAsBailout_merge.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes the duplicate Bailout cylinder (switches move to Tank {tankNumber})'**
+  String dataQuality_useAsBailout_merge(int tankNumber);
+
+  /// No description provided for @dataQuality_useAsBailout_register.
+  ///
+  /// In en, this message translates to:
+  /// **'Also register this transmitter as a Bailout'**
+  String get dataQuality_useAsBailout_register;
+
+  /// No description provided for @dataQuality_useAsBailout_mixesKept.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 other dive kept its gas mix. Check it.} other{{count} other dives kept their gas mix. Check them.}}'**
+  String dataQuality_useAsBailout_mixesKept(int count);
+
+  /// No description provided for @dataQuality_useAsBailout_registered.
+  ///
+  /// In en, this message translates to:
+  /// **'Transmitter registered as Bailout. Undo changes this dive only.'**
+  String get dataQuality_useAsBailout_registered;
+
   /// No description provided for @dataQuality_repairLabel_assignTransmitter.
   ///
   /// In en, this message translates to:
