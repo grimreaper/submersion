@@ -2,9 +2,14 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/features/universal_import/data/services/divinglog_tank_slots.dart';
 import 'package:submersion/features/universal_import/data/services/divinglog_raw_types.dart';
 
-Map<String, dynamic> tank(int id, {double? startPressure}) => {
+Map<String, dynamic> tank(
+  int id, {
+  double? startPressure,
+  double? endPressure,
+}) => {
   'uddfTankId': 'divinglog:$id',
   'startPressure': ?startPressure,
+  'endPressure': ?endPressure,
 };
 
 DivingLogRawSample sample(int t, int? tankId, double? pressure) =>
@@ -99,6 +104,53 @@ void main() {
         [tank(0), tank(5)],
       );
       expect(owners, [0, 1]);
+    });
+
+    test('puts a single series on the cylinder its pressures match', () {
+      // A dive that starts on an unsensored travel gas: the back-gas
+      // transmitter reports from the first sample, under the travel gas id.
+      final owners = DivingLogTankSlots.pressureOwners(
+        [sample(0, 1, 200.0), sample(5, 0, 199.6), sample(10, 0, 80.5)],
+        [
+          tank(0, startPressure: 200.0, endPressure: 80.0),
+          tank(1, startPressure: 200.0, endPressure: 190.0),
+        ],
+      );
+      expect(owners, [0, 0, 0]);
+    });
+
+    test(
+      'puts a single series on the closest of several fitting cylinders',
+      () {
+        final owners = DivingLogTankSlots.pressureOwners(
+          [sample(0, 0, 200.0), sample(5, 1, 199.8), sample(10, 1, 81.0)],
+          [
+            tank(0, startPressure: 205.0, endPressure: 85.0),
+            tank(1, startPressure: 200.0, endPressure: 80.0),
+            tank(2, startPressure: 198.0, endPressure: 88.0),
+          ],
+        );
+        expect(owners, [1, 1, 1]);
+      },
+    );
+
+    test('keeps a single series where no cylinder fits its pressures', () {
+      final owners = DivingLogTankSlots.pressureOwners(
+        [sample(0, 1, 200.0), sample(5, 0, 199.6), sample(10, 0, 80.5)],
+        [tank(0, startPressure: 230.0, endPressure: 50.0), tank(1)],
+      );
+      expect(owners, [1, 1, 1]);
+    });
+
+    test('leaves a series that moved between cylinders alone', () {
+      final owners = DivingLogTankSlots.pressureOwners(
+        [sample(0, 0, 200.0), sample(5, 1, 180.0), sample(10, 1, 120.0)],
+        [
+          tank(0, startPressure: 200.0, endPressure: 120.0),
+          tank(1, startPressure: 180.0, endPressure: 120.0),
+        ],
+      );
+      expect(owners, [0, 1, 1]);
     });
 
     test('starts on the first sample cylinder', () {
