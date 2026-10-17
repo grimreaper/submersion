@@ -45,12 +45,14 @@ Future<ProviderContainer> _pumpTile(
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,
-            child: ValueListenableBuilder<double>(
-              valueListenable: widthListenable ?? ValueNotifier(width),
-              builder: (context, width, child) =>
-                  SizedBox(width: width, child: child),
-              child: const DisplayZoomSettingsTile(),
-            ),
+            child: widthListenable == null
+                ? SizedBox(width: width, child: const DisplayZoomSettingsTile())
+                : ValueListenableBuilder<double>(
+                    valueListenable: widthListenable,
+                    builder: (context, width, child) =>
+                        SizedBox(width: width, child: child),
+                    child: const DisplayZoomSettingsTile(),
+                  ),
           ),
         ),
       ),
