@@ -60,10 +60,11 @@ final safetyReviewProvider = FutureProvider.family<SafetyReview?, String>((
 /// Every other guard still holds: a review this build cannot judge (a newer
 /// engine or fingerprint format) is kept, and when the engine cannot run
 /// (toggle off, settings not loaded, no usable analysis) the stored review is
-/// returned untouched rather than lost. Read once per sweep, so it does not
-/// watch for changes; the sweep invalidates it before each read.
-final safetyReviewRecomputeProvider =
-    FutureProvider.family<SafetyReview?, String>(
+/// returned untouched rather than lost. AutoDispose, and read once per dive
+/// through a short-lived listener, so every read computes afresh and a long
+/// sweep leaves nothing behind; it does not watch for changes.
+final safetyReviewRecomputeProvider = FutureProvider.autoDispose
+    .family<SafetyReview?, String>(
       (ref, diveId) => _reviewDive(ref, diveId, recompute: true),
     );
 

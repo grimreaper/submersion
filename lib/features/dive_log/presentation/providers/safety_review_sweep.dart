@@ -106,18 +106,28 @@ class SafetyReviewSweep {
         // before its profile arrived. A bare read would return that cached
         // value and never run the compute-through-cache, leaving the review
         // missing until an app restart.
-        if (recompute) {
-          // Before the recompute, so a build already under way for this dive
-          // (its detail page is open) stands down instead of saving its
-          // result over the recompute's.
-          _ref.invalidate(safetyReviewProvider(diveId));
-          _ref.invalidate(safetyReviewRecomputeProvider(diveId));
-          await _ref.read(safetyReviewRecomputeProvider(diveId).future);
-          // Read once; drop it so a long sweep holds no review per dive.
-          _ref.invalidate(safetyReviewRecomputeProvider(diveId));
-        }
+        //
+        // Recompute invalidates before computing, too, so a build already
+        // under way for this dive (its detail page is open) stands down
+        // instead of saving its result over the recompute's. The invalidated
+        // provider then rebuilds from the saved review on its next read, or at
+        // once through its change tick for an open page, so it is not read
+        // here. The recompute provider is autoDispose: the listener holds it
+        // for this one read, and closing it disposes it.
         _ref.invalidate(safetyReviewProvider(diveId));
-        await _ref.read(safetyReviewProvider(diveId).future);
+        if (recompute) {
+          final sub = _ref.listen(
+            safetyReviewRecomputeProvider(diveId).future,
+            (_, _) {},
+          );
+          try {
+            await sub.read();
+          } finally {
+            sub.close();
+          }
+        } else {
+          await _ref.read(safetyReviewProvider(diveId).future);
+        }
       } catch (_) {
         // A dive that fails analysis (corrupt profile) must not abort the
         // sweep; it stays unanalyzed. Counted so callers can report honestly
