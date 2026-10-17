@@ -935,8 +935,15 @@ class ReparseService {
             // pressure would otherwise be nulled out by every re-parse.
             startPressure: Value.absentIfNull(tank.startPressure),
             endPressure: Value.absentIfNull(tank.endPressure),
-            o2Percent: Value(tank.o2Percent),
-            hePercent: Value(tank.hePercent),
+            // A mix the resolver invented (a transmitter the computer never
+            // linked to a gas) never replaces the stored one: that would put
+            // a bailout the diver fixed back on 100% O2 (#3307).
+            o2Percent: tank.mixRecorded
+                ? Value(tank.o2Percent)
+                : const Value.absent(),
+            hePercent: tank.mixRecorded
+                ? Value(tank.hePercent)
+                : const Value.absent(),
             // The transmitter serial is computer-owned and written
             // unconditionally, so a re-parse is how a tank downloaded
             // before the serial was stored gains it (and a parse that stops
