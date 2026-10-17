@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -28,6 +30,20 @@ class _FakeRepo extends SafetyFindingsRepository {
 
   @override
   Future<SafetyReview> saveReview(SafetyReview review) async => saved = review;
+}
+
+/// Counts every save, so a test can see a superseded build write.
+class _CountingRepo extends SafetyFindingsRepository {
+  int saves = 0;
+
+  @override
+  Future<SafetyReview?> getReview(String diveId) async => null;
+
+  @override
+  Future<SafetyReview> saveReview(SafetyReview review) async {
+    saves++;
+    return review;
+  }
 }
 
 /// A settings notifier whose latest load failed: [state] is not the active
@@ -437,6 +453,80 @@ void main() {
       );
       expect(refreshed!.findings, hasLength(1));
       expect(refreshed.findings.single.ruleId, SafetyRuleId.sawtoothProfile);
+    },
+  );
+  // PR #3445 review: invalidation does not cancel a build already past its
+  // awaits, so a superseded build could still save and overwrite the review
+  // its replacement (or the Analyze all dives recompute) just wrote.
+  test('a build invalidated mid-computation does not save', () async {
+    final repo = _CountingRepo();
+    final gate = Completer<void>();
+    final profile = rapidAscentProfile();
+    final analysis = analyzeFixture(
+      depths: profile.depths,
+      timestamps: profile.timestamps,
+    ).copyWith(inputsFingerprint: defaultFingerprint());
+    final container = ProviderContainer(
+      overrides: [
+        settingsProvider.overrideWith((ref) => MockSettingsNotifier()),
+        safetyFindingsRepositoryProvider.overrideWithValue(repo),
+        safetyReviewEnabledProvider.overrideWithValue(true),
+        profileAnalysisProvider('d1').overrideWith((ref) async {
+          await gate.future;
+          return analysis;
+        }),
+      ],
+    );
+    addTearDown(container.dispose);
+    final sub = container.listen(safetyReviewProvider('d1'), (_, _) {});
+    addTearDown(sub.close);
+
+    // The first build is now parked on the analysis.
+    await pumpEventQueue();
+    container.invalidate(safetyReviewProvider('d1'));
+    final replacement = container.read(safetyReviewProvider('d1').future);
+    gate.complete();
+    await replacement;
+    await pumpEventQueue();
+
+    expect(
+      repo.saves,
+      1,
+      reason: 'only the build that replaced the invalidated one may save',
+    );
+  });
+  test(
+    'a build invalidated with nothing rebuilding it does not save',
+    () async {
+      // The sweep's case: the old build is superseded by an invalidation, and
+      // the replacement build only starts once the recompute has written.
+      final repo = _CountingRepo();
+      final gate = Completer<void>();
+      final profile = rapidAscentProfile();
+      final analysis = analyzeFixture(
+        depths: profile.depths,
+        timestamps: profile.timestamps,
+      ).copyWith(inputsFingerprint: defaultFingerprint());
+      final container = ProviderContainer(
+        overrides: [
+          settingsProvider.overrideWith((ref) => MockSettingsNotifier()),
+          safetyFindingsRepositoryProvider.overrideWithValue(repo),
+          safetyReviewEnabledProvider.overrideWithValue(true),
+          profileAnalysisProvider('d1').overrideWith((ref) async {
+            await gate.future;
+            return analysis;
+          }),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      unawaited(container.read(safetyReviewProvider('d1').future));
+      await pumpEventQueue();
+      container.invalidate(safetyReviewProvider('d1'));
+      gate.complete();
+      await pumpEventQueue();
+
+      expect(repo.saves, 0, reason: 'the invalidated build stands down');
     },
   );
 }

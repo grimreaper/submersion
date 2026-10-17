@@ -107,6 +107,10 @@ class SafetyReviewSweep {
         // value and never run the compute-through-cache, leaving the review
         // missing until an app restart.
         if (recompute) {
+          // Before the recompute, so a build already under way for this dive
+          // (its detail page is open) stands down instead of saving its
+          // result over the recompute's.
+          _ref.invalidate(safetyReviewProvider(diveId));
           _ref.invalidate(safetyReviewRecomputeProvider(diveId));
           await _ref.read(safetyReviewRecomputeProvider(diveId).future);
           // Read once; drop it so a long sweep holds no review per dive.

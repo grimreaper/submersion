@@ -72,6 +72,13 @@ Future<SafetyReview?> _reviewDive(
   String diveId, {
   required bool recompute,
 }) async {
+  // Set the moment this build is invalidated or rebuilt: Riverpod runs
+  // onDispose callbacks then, whereas ref.mounted turns false only once the
+  // replacement build starts, which for an unlistened provider is its next
+  // read.
+  var superseded = false;
+  ref.onDispose(() => superseded = true);
+
   final repo = ref.watch(safetyFindingsRepositoryProvider);
 
   // Compare against the active diver's settings, not the placeholder or the
@@ -103,6 +110,11 @@ Future<SafetyReview?> _reviewDive(
   // since this analysis was computed (it rebuilds, and this with it), or an
   // analysis that records none, which cannot show it used the diver's.
   if (analysis.inputsFingerprint != currentInputs) return stored;
+  // Invalidated while awaiting above: a newer build owns this dive's review,
+  // so a save here could land after it and overwrite its result (or the
+  // Analyze all dives recompute) with this older one. Invalidation does not
+  // cancel the awaits, so this build has to stand down itself.
+  if (superseded) return stored;
 
   final now = DateTime.now();
   // Return what was stored, not the engine's raw output: a kept finding
