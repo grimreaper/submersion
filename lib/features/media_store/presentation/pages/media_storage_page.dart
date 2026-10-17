@@ -378,7 +378,7 @@ class _MediaStoragePageState extends ConsumerState<MediaStoragePage> {
       // wait on a sync.
       _showSnack(
         report.deferred
-            ? '$summary ${l10n.settings_mediaStorage_verify_deferred}'
+            ? '$summary\n${l10n.settings_mediaStorage_verify_deferred}'
             : summary,
       );
     } on MediaStoreException catch (e) {
