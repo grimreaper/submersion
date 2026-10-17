@@ -35723,6 +35723,10 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get settings_mediaStorage_verify_deferred =>
+      'Rien n\'a été supprimé : les suppressions attendent que cet appareil ait terminé sa synchronisation.';
+
+  @override
   String get settings_mediaStorage_backfill_action =>
       'Envoyer la bibliothèque existante';
 
@@ -50465,11 +50469,21 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String settings_storageUsage_reclaimWaitingSync(String size) {
+    return '$size de plus seront récupérables une fois la synchronisation de cet appareil terminée';
+  }
+
+  @override
   String get settings_storageUsage_reclaimAction => 'Récupérer de l\'espace';
 
   @override
   String settings_storageUsage_reclaimDone(String size) {
     return '$size récupérés';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneDeferred(String size) {
+    return '$size récupérés. Le nettoyage du cloud attend que cet appareil ait terminé sa synchronisation.';
   }
 
   @override

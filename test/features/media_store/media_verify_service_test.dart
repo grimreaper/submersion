@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -11,7 +13,6 @@ import 'package:submersion/features/media/domain/entities/media_source_type.dart
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
 import 'package:submersion/features/media_store/data/media_verify_service.dart';
 import 'package:submersion/features/media_store/data/orphan_delete_policy.dart';
-import 'package:submersion/core/services/media_store/network_status_service.dart';
 import 'package:submersion/core/database/local_cache_database.dart';
 
 import '../../helpers/in_memory_media_object_store.dart';
@@ -60,6 +61,17 @@ class _DuplicatingStore extends InMemoryMediaObjectStore
 
 /// Repeats every listed key, as a paged listing might, while holding one
 /// object per key.
+/// Records the prefix of every listing.
+class _CountingStore extends InMemoryMediaObjectStore {
+  final listedPrefixes = <String>[];
+
+  @override
+  Stream<StoreObjectInfo> list(String keyPrefix) {
+    listedPrefixes.add(keyPrefix);
+    return super.list(keyPrefix);
+  }
+}
+
 class _RepeatingStore extends InMemoryMediaObjectStore {
   @override
   Stream<StoreObjectInfo> list(String keyPrefix) async* {
@@ -331,88 +343,70 @@ void main() {
     expect(report.sessionsAborted, 2);
   });
 
-  group('shouldAutoVerify', () {
-    final now = DateTime.utc(2026, 7, 23);
-
-    test('never swept + unmetered runs', () {
-      expect(
-        shouldAutoVerify(
-          lastSweepAt: null,
-          network: NetworkKind.unmetered,
-          now: now,
-        ),
-        isTrue,
-      );
-    });
-
-    test('stale sweep + unmetered runs', () {
-      expect(
-        shouldAutoVerify(
-          lastSweepAt: now.subtract(const Duration(days: 31)),
-          network: NetworkKind.unmetered,
-          now: now,
-        ),
-        isTrue,
-      );
-    });
-
-    test('fresh sweep skips', () {
-      expect(
-        shouldAutoVerify(
-          lastSweepAt: now.subtract(const Duration(days: 5)),
-          network: NetworkKind.unmetered,
-          now: now,
-        ),
-        isFalse,
-      );
-    });
-
-    test('a slightly-future stamp reads as freshly swept and skips', () {
-      expect(
-        shouldAutoVerify(
-          lastSweepAt: now.add(const Duration(hours: 2)),
-          network: NetworkKind.unmetered,
-          now: now,
-        ),
-        isFalse,
-      );
-    });
-
-    test('a far-future stamp is bogus clock skew and does not suppress', () {
-      expect(
-        shouldAutoVerify(
-          lastSweepAt: now.add(const Duration(days: 90)),
-          network: NetworkKind.unmetered,
-          now: now,
-        ),
-        isTrue,
-      );
-    });
-
-    test('cellular and offline never run', () {
-      for (final kind in [NetworkKind.cellular, NetworkKind.offline]) {
-        expect(
-          shouldAutoVerify(lastSweepAt: null, network: kind, now: now),
-          isFalse,
-        );
-      }
-    });
-  });
-
-  test('onProgress reports monotonically increasing counts', () async {
-    await insertDive('d1');
-    seedObject(StoreKeys.objectKey('x1', extension: 'jpg'), modified: old);
-    seedObject(StoreKeys.thumbKey('x2'), modified: old);
-    final seen = <int>[];
-    await service.run(onProgress: seen.add);
-    expect(seen, isNotEmpty);
-    expect(seen.last, 2);
-    for (var i = 1; i < seen.length; i++) {
-      expect(seen[i], greaterThanOrEqualTo(seen[i - 1]));
-    }
-  });
-
   group('storage GC', () {
+    test('lists the store once for every namespace', () async {
+      // Most adapters list the whole folder whatever the prefix, so one
+      // listing per namespace fetched the store three times.
+      final counting = _CountingStore();
+      counting.objects[StoreKeys.markerKey] = [1];
+      counting.objects[StoreKeys.objectKey('aabb', extension: 'jpg')] = [1, 2];
+      counting.objects[StoreKeys.thumbKey('aabb')] = [3];
+      final sweep = MediaVerifyService(
+        store: counting,
+        mediaRepository: repo,
+        queue: queue,
+        now: () => now,
+      );
+
+      final report = await sweep.run(dryRun: true);
+
+      expect(counting.listedPrefixes, ['smv1/']);
+      expect(report.objectsChecked, 2, reason: 'the marker is not an object');
+      expect(report.totalBytes, 3);
+      expect(counting.objects.keys, contains(StoreKeys.markerKey));
+    });
+
+    test('a key a listing repeats counts once in the total', () async {
+      // Only a store that can hold copies has more than one; on any other a
+      // repeat is a listing artefact.
+      final repeating = _RepeatingStore();
+      repeating.objects[StoreKeys.objectKey('aabb', extension: 'jpg')] = [1, 2];
+      final sweep = MediaVerifyService(
+        store: repeating,
+        mediaRepository: repo,
+        queue: queue,
+        now: () => now,
+      );
+
+      final report = await sweep.run(dryRun: true);
+
+      expect(report.totalBytes, 2);
+    });
+
+    test('a long sweep gives the event loop a turn', () async {
+      // The classification passes are pure CPU between awaits; on a large
+      // store they would freeze the UI isolate until the end.
+      for (var i = 0; i < 1200; i++) {
+        final hash = '${i.toRadixString(16).padLeft(4, '0')}ff';
+        seedObject(StoreKeys.objectKey(hash, extension: 'jpg'), modified: old);
+      }
+      var finished = false;
+      bool? timerRanDuringSweep;
+
+      await service.run(
+        dryRun: true,
+        onProgress: (checked) {
+          if (checked == 1200) {
+            Timer.run(() => timerRanDuringSweep = !finished);
+          }
+        },
+      );
+      finished = true;
+      await Future<void>.delayed(Duration.zero);
+
+      expect(timerRanDuringSweep, isTrue);
+    });
+
     test('stops deleting once the delete guard turns false', () async {
       // A sync that starts mid-sweep may bring rows the sweep's reference
       // snapshot does not have; nothing may be deleted after that.

@@ -1,4 +1,5 @@
 import 'package:submersion/core/services/media_store/media_key_reference.dart';
+import 'package:submersion/core/services/media_store/store_keys.dart';
 
 /// The three content-addressed namespaces of the smv1 media store.
 enum StoreNamespace { objects, thumbs, renditions }
@@ -29,7 +30,9 @@ bool isKeyReferenced({
       (r) => r.hasOriginalStamp && r.originalExtension == extension,
     ),
     StoreNamespace.renditions => refs.any(
-      (r) => r.hasRenditionStamp && extension == (r.isVideo ? 'mp4' : 'jpg'),
+      (r) =>
+          r.hasRenditionStamp &&
+          extension == StoreKeys.renditionExtension(isVideo: r.isVideo),
     ),
   };
 }

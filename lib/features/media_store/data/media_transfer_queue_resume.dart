@@ -21,13 +21,42 @@ extension MediaTransferQueueResume on MediaTransferQueueRepository {
             .get();
     return [
       for (final r in rows)
-        DroppedResume(mediaId: r.mediaId, resumeStateJson: r.resumeStateJson!),
+        // A row a drain has claimed still reads pending, but its session is
+        // the one the drain is about to resume.
+        if (!_held.contains(r.id))
+          DroppedResume(
+            mediaId: r.mediaId,
+            resumeStateJson: r.resumeStateJson!,
+          ),
     ];
   }
 
+  /// [enqueueReupload], returning the resumable sessions of the rows it
+  /// dropped so the caller can abandon them. Read in the same transaction
+  /// as the drop, and never a row a drain holds: its session is live.
+  Future<List<DroppedResume>> reenqueueForReupload({
+    required String mediaId,
+    required String overrideLevel,
+  }) => _db.transaction(() async {
+    final dropped = await resumeStatesFor(mediaId);
+    await enqueueReupload(mediaId: mediaId, overrideLevel: overrideLevel);
+    return dropped;
+  });
+
+  /// Deletes row [id] (the Transfers page's delete) and returns its
+  /// resumable session to abandon, or null; same rules as
+  /// [reenqueueForReupload].
+  Future<DroppedResume?> deleteDroppingSession(int id) =>
+      _db.transaction(() async {
+        final dropped = await resumeStateOf(id);
+        await delete(id);
+        return dropped;
+      });
+
   /// The resumable session row [id] holds, or null; read before [delete].
-  /// Null for a `transferring` row too: its session is live, and abandoning
-  /// it would abort the upload the worker is running.
+  /// Null for a `transferring` row too, or one a drain has claimed: its
+  /// session is live, and abandoning it would abort the upload the worker
+  /// is running.
   Future<DroppedResume?> resumeStateOf(int id) async {
     final row = await (_db.select(
       _db.mediaTransferQueue,
@@ -36,7 +65,8 @@ extension MediaTransferQueueResume on MediaTransferQueueRepository {
     if (row == null ||
         json == null ||
         row.direction != 'upload' ||
-        row.state == 'transferring') {
+        row.state == 'transferring' ||
+        _held.contains(row.id)) {
       return null;
     }
     return DroppedResume(mediaId: row.mediaId, resumeStateJson: json);

@@ -2552,18 +2552,6 @@ class MediaRepository {
     return rows.map((r) => r.read(id)!).toList();
   }
 
-  /// Every distinct non-null content hash - the verify sweep's referenced
-  /// set (orphan-prevention spec 6.1). Same conservative rule as
-  /// [countRowsWithHash]: a hash counts whether or not its rows uploaded.
-  Future<Set<String>> getAllContentHashes() async {
-    final hash = _db.media.contentHash;
-    final query = _db.selectOnly(_db.media, distinct: true)
-      ..addColumns([hash])
-      ..where(hash.isNotNull());
-    final rows = await query.get();
-    return rows.map((r) => r.read(hash)!).toSet();
-  }
-
   /// Every row with a content hash, grouped by hash, with the facts that
   /// decide which media store keys it can resolve to (storage GC design,
   /// leak 3). The verify sweep uses it to tell a sibling object some row

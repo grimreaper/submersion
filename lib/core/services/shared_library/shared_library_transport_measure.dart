@@ -13,15 +13,24 @@ extension SharedLibraryTransportMeasure on SharedLibraryTransport {
     var bytes = 0;
     var partial = false;
     final seen = <String>{};
-    for (final folder in <Future<String> Function()>[
-      _rootId,
-      _membersId,
-      _sitesId,
-      _suggestionsId,
-      _backupsId,
+    for (final (folder, mayBeAbsent) in <(Future<String> Function(), bool)>[
+      (_rootId, false),
+      (_membersId, false),
+      (_sitesId, false),
+      (_suggestionsId, true),
+      (_backupsId, true),
     ]) {
+      final String folderId;
       try {
-        final folderId = await folder();
+        folderId = await folder();
+      } on Exception {
+        // A library that has never had a suggestion or a backup has no
+        // folder for them, and a reader may not create one: nothing to
+        // count, and no reason to call the figure partial.
+        if (!mayBeAbsent) partial = true;
+        continue;
+      }
+      try {
         for (final f in await _provider.listFiles(folderId: folderId)) {
           final ours = SharedLibraryTransport._directlyIn(folderId, f);
           if (!ours || !seen.add(f.id)) continue;

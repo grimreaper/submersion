@@ -20,7 +20,7 @@ class _RecordingCoordinator extends StorageGcCoordinator {
   _RecordingCoordinator(StorageGcStore store)
     : super(
         deviceSweeps: const [],
-        localCacheSweep: (_) async {},
+        localCacheSweep: (_, {required force}) async {},
         network: () async => NetworkKind.unmetered,
         isSyncBusy: () => false,
         hasTransferringUploads: () async => false,
@@ -36,6 +36,10 @@ class _RecordingCoordinator extends StorageGcCoordinator {
   final runs = <StorageGcTrigger>[];
   Completer<void>? hold;
   int reclaims = 0;
+  bool cloudDeferred = false;
+
+  @override
+  bool get lastPassCloudDeferred => cloudDeferred;
 
   @override
   Future<int> run(StorageGcTrigger trigger) async {
@@ -138,6 +142,32 @@ void main() {
       );
     });
 
+    testWidgets('a waiting line held back by sync says so', (tester) async {
+      // Deletes deferred until this device catches up wait on a sync, not on
+      // the safety wait; saying the latter would send the diver nowhere.
+      await tester.pumpWidget(
+        harness(
+          const StorageReclaimCard(),
+          view: StorageGcView(
+            running: false,
+            cloudUsage: CloudUsage(
+              scannedAt: at,
+              mediaBytes: 1,
+              mediaWaitingBytes: 7 * 1024 * 1024,
+              mediaDeferred: true,
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(
+        find.text(
+          '7.0 MB more will be reclaimable once this device has finished syncing',
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('no waiting line at zero', (tester) async {
       await tester.pumpWidget(harness(const StorageReclaimCard()));
       await tester.pumpAndSettle();
@@ -178,6 +208,26 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.text('Reclaimed 600 MB'), findsOneWidget);
+  });
+
+  testWidgets('the snackbar says when cloud deletes were held back', (
+    tester,
+  ) async {
+    coordinator.reclaims = 5 * 1024 * 1024;
+    coordinator.cloudDeferred = true;
+    await tester.pumpWidget(harness(const StorageReclaimCard()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Reclaim storage'));
+    await tester.pumpAndSettle();
+
+    expect(
+      find.text(
+        'Reclaimed 5.0 MB. The cloud cleanup waits until this device has '
+        'finished syncing.',
+      ),
+      findsOneWidget,
+    );
   });
 
   group('CloudStorageGroup', () {

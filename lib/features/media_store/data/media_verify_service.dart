@@ -1,7 +1,6 @@
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/services/media_store/media_key_reference.dart';
 import 'package:submersion/core/services/media_store/media_object_store.dart';
-import 'package:submersion/core/services/media_store/network_status_service.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media_store/data/media_key_references.dart';
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
@@ -60,25 +59,6 @@ class VerifyLibraryReport {
   });
 }
 
-/// True when an opportunistic verify sweep should run (orphan-prevention
-/// spec 6.4): unmetered network and no fleet-wide sweep in the last 30
-/// days. Pure so the gating is unit-testable apart from the runtime.
-bool shouldAutoVerify({
-  required DateTime? lastSweepAt,
-  required NetworkKind network,
-  required DateTime now,
-}) {
-  if (network != NetworkKind.unmetered) return false;
-  if (lastSweepAt == null) return true;
-  // The stamp is synced, so a device with a broken clock can plant a
-  // FUTURE timestamp fleet-wide. Within ordinary cross-device skew a
-  // slightly-future stamp means "someone just swept" (skip); beyond that
-  // it is bogus and must not suppress the cadence until real time catches
-  // up - run, and this device's completion stamp overwrites it.
-  if (lastSweepAt.isAfter(now.add(const Duration(days: 1)))) return true;
-  return now.difference(lastSweepAt) >= const Duration(days: 30);
-}
-
 /// Verify Library sweep (orphan-prevention spec section 6): reconciles the
 /// store's namespaces against the media table.
 ///
@@ -97,9 +77,13 @@ class MediaVerifyService {
        _queue = queue,
        _now = now;
 
-  static const graceWindow = Duration(days: 7);
   static const staleSessionAge = Duration(days: 7);
 
+  /// How many keys the classification passes handle between event-loop
+  /// turns.
+  static const _yieldEvery = 500;
+
+  static const _layoutPrefix = 'smv1/';
   static const _objectsPrefix = 'smv1/objects/';
   static const _thumbsPrefix = 'smv1/thumbs/';
   static const _renditionsPrefix = 'smv1/renditions/';
@@ -148,24 +132,41 @@ class MediaVerifyService {
     // in ANY namespace (the resolver falls back across extension variants,
     // StoreKeys.objectKeyPrefix), and a key listed more than once (two
     // devices racing one key on Google Drive) has to be counted first.
-    final listings = <StoreNamespace, Map<String, _Listed>>{};
-    final listedCounts = <StoreNamespace, int>{};
-    for (final ns in StoreNamespace.values) {
-      final prefix = _prefixFor(ns);
-      final keys = <String, _Listed>{};
-      var listed = 0;
-      await for (final info in _store.list(prefix)) {
-        listed++;
-        objectsChecked++;
-        onProgress?.call(objectsChecked);
-        final listedSize = info.sizeBytes;
-        if (listedSize == null) sizesUnknown = true;
-        totalBytes += listedSize ?? 0;
-        final prev = keys[info.key];
-        keys[info.key] = _Listed(prev?.info ?? info, (prev?.copies ?? 0) + 1);
+    // One listing serves every namespace: most adapters list the whole
+    // folder whatever the prefix, so a listing per namespace fetched it
+    // three times.
+    final listings = {
+      for (final ns in StoreNamespace.values) ns: <String, _Listed>{},
+    };
+    final listedCounts = {for (final ns in StoreNamespace.values) ns: 0};
+    await for (final info in _store.list(_layoutPrefix)) {
+      final ns = _namespaceOf(info.key);
+      if (ns == null) continue; // the store marker, or not ours to judge
+      listedCounts[ns] = listedCounts[ns]! + 1;
+      objectsChecked++;
+      onProgress?.call(objectsChecked);
+      if (info.sizeBytes == null) sizesUnknown = true;
+      final keys = listings[ns]!;
+      final prev = keys[info.key];
+      keys[info.key] = _Listed(prev?.info ?? info, (prev?.copies ?? 0) + 1);
+    }
+    // A key listed twice is two objects only on a store that can hold
+    // copies; anywhere else the repeat is a listing artefact.
+    final holdsCopies = _store is DuplicateKeyStore;
+    for (final keys in listings.values) {
+      for (final listed in keys.values) {
+        final size = listed.info.sizeBytes ?? 0;
+        totalBytes += holdsCopies ? size * listed.copies : size;
       }
-      listings[ns] = keys;
-      listedCounts[ns] = listed;
+    }
+
+    // The passes below are CPU work between rare awaits; on a large store
+    // they would hold the UI isolate for the whole sweep without a turn.
+    var sinceYield = 0;
+    Future<void> yieldNow() async {
+      if (++sinceYield < _yieldEvery) return;
+      sinceYield = 0;
+      await Future<void>.delayed(Duration.zero);
     }
 
     // Hashes with at least one copy a row resolves to, in originals or
@@ -176,6 +177,7 @@ class MediaVerifyService {
       StoreNamespace.renditions,
     ]) {
       for (final key in listings[ns]!.keys) {
+        await yieldNow();
         final parsed = _parseKey(key, _prefixFor(ns));
         if (parsed == null) continue;
         final refs = references[parsed.hash];
@@ -229,6 +231,7 @@ class MediaVerifyService {
         StoreNamespace.renditions => presentRenditions,
       };
       for (final listed in listings[ns]!.values) {
+        await yieldNow();
         final info = listed.info;
         final size = info.sizeBytes ?? 0;
         final parsed = _parseKey(info.key, _prefixFor(ns));
@@ -279,13 +282,12 @@ class MediaVerifyService {
 
         if (!deletesAllowed() ||
             rules.verdictFor(info.lastModified) != OrphanVerdict.delete) {
-          waitingBytes +=
-              (_store is DuplicateKeyStore ? listed.copies : 1) * size;
+          waitingBytes += (holdsCopies ? listed.copies : 1) * size;
           continue;
         }
         // Only a store that can hold copies holds more than one; elsewhere a
         // repeated key is a listing artefact and one delete removes it.
-        final copies = _store is DuplicateKeyStore ? listed.copies : 1;
+        final copies = holdsCopies ? listed.copies : 1;
         reclaimableBytes += copies * size;
         if (!dryRun) await deleteCopies(info.key, copies, size);
       }
@@ -373,6 +375,13 @@ class MediaVerifyService {
       deferred: deferred,
       sizesUnknown: sizesUnknown,
     );
+  }
+
+  static StoreNamespace? _namespaceOf(String key) {
+    for (final ns in StoreNamespace.values) {
+      if (key.startsWith(_prefixFor(ns))) return ns;
+    }
+    return null;
   }
 
   static String _prefixFor(StoreNamespace ns) => switch (ns) {

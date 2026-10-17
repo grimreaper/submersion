@@ -18,6 +18,7 @@ import 'package:submersion/core/services/shared_library/shared_library_transport
 import 'package:submersion/core/services/storage/gc/storage_gc_coordinator.dart';
 import 'package:submersion/core/services/storage/gc/storage_gc_store.dart';
 import 'package:submersion/core/services/storage/local_cache_sweep.dart';
+import 'package:submersion/core/services/storage/scratch_sweep.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media/data/resolvers/media_store_resolver.dart';
 import 'package:submersion/features/media/domain/entities/media_item.dart';
@@ -207,19 +208,45 @@ void main() {
   });
 
   test(
-    'with no media_stores row the fleet cadence is kept on this device',
+    "the fleet cadence is the attached store's, not the newest row",
     () async {
-      final c = container();
+      // A device still attached to an older store sweeps that store; stamping
+      // whichever row is newest would hold off the other store's cleanup.
+      await registerStore();
+      await knownPhoto();
+      deadObject();
+      await MediaStoresRepository().upsertActive(
+        storeId: 'store-2',
+        providerType: 's3',
+        displayHint: 'newer',
+      );
+      final c = container(syncOn: false);
 
       await c.read(storageGcCoordinatorProvider).run(StorageGcTrigger.manual);
 
-      expect(
-        c.read(storageGcStoreProvider).localFleetSweep,
-        isNull,
-        reason: 'sync on and no snapshot: the sweep was deferred',
-      );
+      final stores = MediaStoresRepository();
+      expect((await stores.getById('store-1'))!.lastSweepAt, isNotNull);
+      expect((await stores.getById('store-2'))!.lastSweepAt, isNull);
     },
   );
+
+  test('no cloud deletes when only another store has a row', () async {
+    await knownPhoto();
+    deadObject();
+    await MediaStoresRepository().upsertActive(
+      storeId: 'store-2',
+      providerType: 's3',
+      displayHint: 'another',
+    );
+    final c = container(syncOn: false);
+
+    await c.read(storageGcCoordinatorProvider).run(StorageGcTrigger.manual);
+
+    expect(
+      store.objects.keys,
+      contains(StoreKeys.objectKey('dead', extension: 'jpg')),
+    );
+  });
 
   test('a manual run that may delete stamps the active descriptor', () async {
     await registerStore();
@@ -317,6 +344,52 @@ void main() {
     await c.read(storageGcCoordinatorProvider).run(StorageGcTrigger.launch);
 
     expect(c.read(storageGcStoreProvider).postRestoreCloudPending, isTrue);
+  });
+
+  test('the device figure is worked out once per visit', () async {
+    // It used to rebuild when the page's state stream delivered its first
+    // value, walking every device folder twice and throwing one away.
+    final gcStore = StorageGcStore(prefs);
+    await gcStore.setLastDeviceResult(
+      AreaResult(bytes: 5, items: 1, at: DateTime(2026, 10, 1)),
+    );
+    var dryRuns = 0;
+    final c = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        storageGcCoordinatorProvider.overrideWith((ref) {
+          final coordinator = StorageGcCoordinator(
+            deviceSweeps: [
+              ({required now, required dryRun}) async {
+                if (dryRun) dryRuns++;
+                return ScratchSweepReport.empty;
+              },
+            ],
+            localCacheSweep: (_, {required force}) async {},
+            network: () async => NetworkKind.offline,
+            isSyncBusy: () => false,
+            hasTransferringUploads: () async => false,
+            mediaSweep: ({required dryRun}) async => null,
+            deletesAllowed: () async => false,
+            fleetSweepDue: (_) async => false,
+            stampFleetSweep: (_) async {},
+            measureSync: () async => null,
+            measureLibraries: () async => null,
+            store: gcStore,
+          );
+          ref.onDispose(coordinator.dispose);
+          return coordinator;
+        }),
+      ],
+    );
+    addTearDown(c.dispose);
+
+    c.listen(storageGcStateProvider, (_, _) {});
+    c.listen(deviceReclaimableBytesProvider, (_, _) {});
+    await c.read(deviceReclaimableBytesProvider.future);
+    await pumpEventQueue();
+
+    expect(dryRuns, 1);
   });
 
   test('last reclaimed adds the device and cloud results of one pass', () {

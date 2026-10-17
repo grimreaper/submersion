@@ -33536,6 +33536,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get settings_mediaStorage_verify_deferred => '未删除任何内容：删除操作将等待此设备完成同步。';
+
+  @override
   String get settings_mediaStorage_backfill_action => '上传现有媒体库';
 
   @override
@@ -47251,11 +47254,21 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String settings_storageUsage_reclaimWaitingSync(String size) {
+    return '此设备完成同步后还可回收 $size';
+  }
+
+  @override
   String get settings_storageUsage_reclaimAction => '回收存储空间';
 
   @override
   String settings_storageUsage_reclaimDone(String size) {
     return '已回收 $size';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneDeferred(String size) {
+    return '已回收 $size。云端清理将等待此设备完成同步。';
   }
 
   @override

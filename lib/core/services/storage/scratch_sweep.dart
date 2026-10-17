@@ -4,26 +4,6 @@ import 'package:path/path.dart' as p;
 
 import 'package:submersion/core/services/logger_service.dart';
 
-/// SharedPreferences key holding the last sweep's epoch millis.
-///
-/// Per-device by nature, so it lives in prefs rather than a synced column:
-/// what this device has cleaned off its own disk is not news to a peer.
-const String kScratchSweepStampKey = 'storage_scratch_sweep_last_run_ms';
-
-/// Whether a scratch sweep is due. One run per day.
-///
-/// A stamp far in the future can only come from a broken clock, and must not
-/// suppress sweeping until real time catches up: the same defence as
-/// `shouldAutoScan` and `shouldAutoVerify`.
-bool shouldSweepScratch({
-  required DateTime? lastSweptAt,
-  required DateTime now,
-}) {
-  if (lastSweptAt == null) return true;
-  if (lastSweptAt.isAfter(now.add(const Duration(days: 1)))) return true;
-  return now.difference(lastSweptAt) >= const Duration(days: 1);
-}
-
 /// When a file was last written or created, for the sweeps' age checks.
 ///
 /// The modification time alone is not enough: File.copy keeps the source's

@@ -35,7 +35,7 @@ typedef DeviceSweep =
 ///
 /// A stamp more than a day in the future can only come from a broken clock
 /// and must not suppress the work until real time catches up: the same
-/// defence as `shouldSweepScratch` and `shouldAutoVerify`.
+/// defence as `shouldSweepLocalCache` and `shouldAutoScan`.
 bool isCadenceDue(DateTime? last, DateTime now, Duration period) {
   if (last == null) return true;
   if (last.isAfter(now.add(const Duration(days: 1)))) return true;
@@ -64,7 +64,8 @@ bool isCadenceDue(DateTime? last, DateTime now, Duration period) {
 class StorageGcCoordinator {
   StorageGcCoordinator({
     required List<DeviceSweep> deviceSweeps,
-    required Future<void> Function(DateTime now) localCacheSweep,
+    required Future<void> Function(DateTime now, {required bool force})
+    localCacheSweep,
     required Future<NetworkKind> Function() network,
     required bool Function() isSyncBusy,
     required Future<bool> Function() hasTransferringUploads,
@@ -92,14 +93,23 @@ class StorageGcCoordinator {
        _now = now ?? DateTime.now;
 
   static const devicePeriod = Duration(days: 1);
+
+  /// How soon an automatic device pass is tried again after one that failed.
+  static const deviceRetry = Duration(hours: 1);
   static const cloudAttemptPeriod = Duration(days: 1);
   static const measurePeriod = Duration(days: 7);
+
+  /// How long a sync folder or library measurement may take before the pass
+  /// moves on without it (the total is then partial). A stalled call would
+  /// otherwise hold the pass, and every caller that joins it, for good.
+  static const measureTimeout = Duration(minutes: 2);
 
   /// How often a pending post-restore cloud cleanup retries while deferred.
   static const postRestoreRetry = Duration(hours: 1);
 
   final List<DeviceSweep> _deviceSweeps;
-  final Future<void> Function(DateTime now) _localCacheSweep;
+  final Future<void> Function(DateTime now, {required bool force})
+  _localCacheSweep;
   final Future<NetworkKind> Function() _network;
   final bool Function() _isSyncBusy;
   final Future<bool> Function() _hasTransferringUploads;
@@ -121,11 +131,49 @@ class StorageGcCoordinator {
   final _changes = StreamController<void>.broadcast();
   Future<int>? _current;
   bool _disposed = false;
+  bool _lastPassCloudDeferred = false;
 
   StorageGcStore get store => _store;
 
   /// Whether a run is in progress.
   bool get isRunning => _current != null;
+
+  /// Whether the last pass wanted cloud deletes and held them back (not
+  /// caught up with sync, a sync running, an upload transferring). Read
+  /// after awaiting [run], it describes that pass.
+  bool get lastPassCloudDeferred => _lastPassCloudDeferred;
+
+  /// Records a media sweep run outside a pass (Verify Library), so the
+  /// Storage usage page shows what it reclaimed and the media figures it
+  /// found. The other areas keep the figures of the last scan.
+  Future<void> recordMediaSweep(VerifyLibraryReport report) async {
+    final now = _now();
+    await _recordCloudResult(report, now);
+    final usage = _store.cloudUsage;
+    if (usage != null) {
+      await _store.setCloudUsage(
+        usage.copyWith(
+          mediaBytes: report.totalBytes - report.bytesReclaimed,
+          mediaReclaimableBytes:
+              report.reclaimableBytes - report.bytesReclaimed,
+          mediaWaitingBytes: report.waitingBytes,
+          mediaDeferred: report.deferred,
+        ),
+      );
+    }
+    _notify();
+  }
+
+  Future<void> _recordCloudResult(VerifyLibraryReport report, DateTime at) {
+    if (report.orphansRemoved == 0) return Future.value();
+    return _store.setLastCloudResult(
+      AreaResult(
+        bytes: report.bytesReclaimed,
+        items: report.orphansRemoved,
+        at: at,
+      ),
+    );
+  }
 
   /// Fires when a run starts and when it ends.
   Stream<void> get changes => _changes.stream;
@@ -174,6 +222,7 @@ class StorageGcCoordinator {
 
   Future<int> _run(StorageGcTrigger trigger) async {
     final now = _now();
+    _lastPassCloudDeferred = false;
     var effective = trigger;
     final automatic =
         trigger == StorageGcTrigger.launch ||
@@ -200,12 +249,13 @@ class StorageGcCoordinator {
   /// Returns the bytes the device sweeps reclaimed.
   Future<int> _devicePart(StorageGcTrigger trigger, DateTime now) async {
     if (trigger == StorageGcTrigger.rescan) return 0;
-    final forced =
-        trigger == StorageGcTrigger.manual ||
-        trigger == StorageGcTrigger.postRestore;
+    final manual = trigger == StorageGcTrigger.manual;
+    final forced = manual || trigger == StorageGcTrigger.postRestore;
+    if (!manual && _retryWaiting(now)) return 0;
     if (!forced && !isCadenceDue(_store.lastDeviceRun, now, devicePeriod)) {
       return 0;
     }
+    if (!manual) await _store.setLastDeviceAttempt(now);
     var total = ScratchSweepReport.empty;
     var failed = false;
     for (final sweep in _deviceSweeps) {
@@ -217,7 +267,7 @@ class StorageGcCoordinator {
       }
     }
     try {
-      await _localCacheSweep(now);
+      await _localCacheSweep(now, force: forced);
     } catch (e) {
       failed = true;
       _log.warning('Local cache sweep failed (will retry)', error: e);
@@ -239,6 +289,16 @@ class StorageGcCoordinator {
       await _store.clearPostRestorePending();
     }
     return total.bytesReclaimed;
+  }
+
+  /// Whether an automatic device pass tried less than [deviceRetry] ago. A
+  /// restore since that attempt is new work, so it never waits.
+  bool _retryWaiting(DateTime now) {
+    final attempt = _store.lastDeviceAttempt;
+    if (attempt == null) return false;
+    final restored = _store.postRestorePendingSince;
+    if (restored != null && !attempt.isAfter(restored)) return false;
+    return !isCadenceDue(attempt, now, deviceRetry);
   }
 
   /// Returns the bytes the cloud cleanup reclaimed.
@@ -293,15 +353,10 @@ class StorageGcCoordinator {
     }
 
     var reclaimed = 0;
-    if (report != null && report.orphansRemoved > 0) {
+    if (report != null) {
       reclaimed = report.bytesReclaimed;
-      await _store.setLastCloudResult(
-        AreaResult(
-          bytes: report.bytesReclaimed,
-          items: report.orphansRemoved,
-          at: now,
-        ),
-      );
+      await _recordCloudResult(report, now);
+      _lastPassCloudDeferred = wantDelete && (!deleting || report.deferred);
     }
     // Only a completed sweep counts: a deferred or failed one is retried.
     if (deleting && !mediaFailed && (report == null || !report.deferred)) {
@@ -312,7 +367,7 @@ class StorageGcCoordinator {
     var partial = mediaFailed || (report?.sizesUnknown ?? false);
     int? syncBytes;
     try {
-      final sync = await _measureSync();
+      final sync = await _measureSync().timeout(measureTimeout);
       syncBytes = sync?.bytes;
       partial = partial || (sync?.partial ?? false);
     } catch (e) {
@@ -321,7 +376,7 @@ class StorageGcCoordinator {
     }
     ({int bytes, bool partial})? libraries;
     try {
-      libraries = await _measureLibraries();
+      libraries = await _measureLibraries().timeout(measureTimeout);
     } catch (e) {
       partial = true;
       _log.warning('Shared library measurement failed', error: e);
@@ -345,6 +400,9 @@ class StorageGcCoordinator {
         mediaWaitingBytes: mediaFailed
             ? previous?.mediaWaitingBytes
             : r?.waitingBytes,
+        mediaDeferred: mediaFailed
+            ? previous?.mediaDeferred ?? false
+            : (r?.deferred ?? false) || _lastPassCloudDeferred,
         syncBytes: syncBytes,
         librariesBytes: libraries?.bytes,
         partial: partial || (libraries?.partial ?? false),

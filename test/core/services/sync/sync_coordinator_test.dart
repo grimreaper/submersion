@@ -35,15 +35,6 @@ void main() {
     expect(await SyncCoordinator.run(() async => 'ok'), 'ok');
   });
 
-  test(
-    'started counts every body queued, so a later check sees a new sync',
-    () async {
-      final before = SyncCoordinator.started;
-      await SyncCoordinator.run(() async {});
-      expect(SyncCoordinator.started, before + 1);
-    },
-  );
-
   test('quietGuard turns false for good once a sync starts', () async {
     final guard = SyncCoordinator.quietGuard();
     expect(guard(), isTrue);

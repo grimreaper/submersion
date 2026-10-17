@@ -225,13 +225,16 @@ and its preconditions. Exact interface is the builder's call.
 Schedule (approved):
 
 - **Device sweeps:** at launch, at most once a day (local cache sweep keeps its
-  weekly cadence inside that).
+  weekly cadence inside that). An automatic pass in which a sweep failed is tried
+  again after an hour, not on every resume.
 - **Cloud scan and cleanup:** about weekly, unmetered network only, fleet-wide for
-  the media store (the synced `media_stores.last_sweep_at` stamp means one device
-  does it for all). Measurement is per device (designer's call): each device lists
+  the media store (the synced `media_stores.last_sweep_at` stamp of the store
+  this device is attached to means one device does it for all). Measurement is per device (designer's call): each device lists
   the cloud areas on its own weekly, device-local cadence so every device has
   figures to show; when the device also wins the fleet cleanup, one listing serves
-  both. Sync folder and shared library sizes are measured on the same scan.
+  both. Sync folder and shared library sizes are measured on the same scan; a
+  measurement that takes over two minutes is dropped and the total marked
+  partial, so a stalled call cannot hold the pass.
 - **After a restore:** an extra run of both, regardless of cadence (cloud still
   needs an unmetered network). A restore ends in a soft restart that does not
   re-run `StartupPage`, so trigger it from the post-restore path (for example the
@@ -243,6 +246,9 @@ Schedule (approved):
   unmetered-network requirement (approved: the diver asked for it, so it runs on
   cellular too), under the same safety rules (grace, early delete, caught up,
   in flight). No override of those. Rescan likewise runs on any network.
+  Reclaim also runs the local cache sweep whatever its weekly stamp says.
+- **Verify Library** (Media storage page) runs under the same gates as the
+  cleanup, and its result shows on the Storage usage page.
 
 Results of each run (per area: bytes and items reclaimed, time) are kept
 device-locally (SharedPreferences). The cloud "last reclaimed" therefore shows what

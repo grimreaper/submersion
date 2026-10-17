@@ -35545,6 +35545,10 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get settings_mediaStorage_verify_deferred =>
+      'Nichts wurde gelöscht: Löschvorgänge warten, bis dieses Gerät die Synchronisierung abgeschlossen hat.';
+
+  @override
   String get settings_mediaStorage_backfill_action =>
       'Vorhandene Bibliothek hochladen';
 
@@ -50244,11 +50248,21 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String settings_storageUsage_reclaimWaitingSync(String size) {
+    return 'Weitere $size werden freigebbar, sobald dieses Gerät die Synchronisierung abgeschlossen hat';
+  }
+
+  @override
   String get settings_storageUsage_reclaimAction => 'Speicher freigeben';
 
   @override
   String settings_storageUsage_reclaimDone(String size) {
     return '$size freigegeben';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneDeferred(String size) {
+    return '$size freigegeben. Die Cloud-Bereinigung wartet, bis dieses Gerät die Synchronisierung abgeschlossen hat.';
   }
 
   @override

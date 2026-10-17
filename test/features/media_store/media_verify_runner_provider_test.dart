@@ -9,8 +9,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/local_cache_database.dart';
 import 'package:submersion/core/services/media_store/media_store_attach_state.dart';
+import 'package:submersion/core/services/media_store/store_keys.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media/data/resolvers/media_store_resolver.dart';
+import 'package:submersion/features/media/domain/entities/media_item.dart';
+import 'package:submersion/features/media/domain/entities/media_source_type.dart';
 import 'package:submersion/features/media/presentation/providers/media_providers.dart';
 import 'package:submersion/features/media_store/data/media_cache_store.dart';
 import 'package:submersion/features/media_store/data/media_stores_repository.dart';
@@ -18,6 +21,7 @@ import 'package:submersion/features/media_store/data/media_transfer_queue_reposi
 import 'package:submersion/features/media_store/data/orphan_delete_policy.dart';
 import 'package:submersion/features/media_store/presentation/providers/media_store_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
+import 'package:submersion/features/settings/presentation/providers/storage_gc_providers.dart';
 
 import '../../helpers/fake_path_provider.dart';
 import '../../helpers/in_memory_media_object_store.dart';
@@ -124,6 +128,64 @@ void main() {
 
     expect(report.deferred, isTrue);
     expect((await storesRepository.getActive())!.lastSweepAt, isNull);
+  });
+
+  /// A photo this database knows, and an old object nothing references.
+  Future<void> knownPhotoAndDeadObject() async {
+    final repo = MediaRepository();
+    final created = await repo.createMedia(
+      MediaItem(
+        id: '',
+        mediaType: MediaType.photo,
+        sourceType: MediaSourceType.localFile,
+        originalFilename: 'kept.jpg',
+        takenAt: DateTime(2026, 1, 1),
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+      ),
+    );
+    await repo.stampContentIdentity(
+      created.id,
+      contentHash: 'aabb',
+      sizeBytes: 3,
+    );
+    await repo.stampRemoteUploaded(created.id, uploadedAt: DateTime(2026, 2));
+    final old = DateTime.now().subtract(const Duration(days: 30));
+    store.objects[StoreKeys.objectKey('aabb', extension: 'jpg')] = [1, 2, 3];
+    store.modified[StoreKeys.objectKey('aabb', extension: 'jpg')] = old;
+    store.objects[StoreKeys.objectKey('dead', extension: 'jpg')] = [4, 5];
+    store.modified[StoreKeys.objectKey('dead', extension: 'jpg')] = old;
+  }
+
+  test(
+    'an upload in flight holds the deletes back, as in the cleanup',
+    () async {
+      await knownPhotoAndDeadObject();
+      final queue = MediaTransferQueueRepository(database: cacheDb);
+      final id = await queue.enqueueUpload(mediaId: 'other');
+      await queue.markTransferring(id);
+
+      final report = await container(
+        policy: () => OrphanDeletePolicy.unrestricted(DateTime.now()),
+      ).read(mediaVerifyRunnerProvider)();
+
+      expect(report.deferred, isTrue);
+      expect(
+        store.objects.keys,
+        contains(StoreKeys.objectKey('dead', extension: 'jpg')),
+      );
+    },
+  );
+
+  test('a Verify Library run shows on the Storage usage page', () async {
+    await knownPhotoAndDeadObject();
+    final c = container(
+      policy: () => OrphanDeletePolicy.unrestricted(DateTime.now()),
+    );
+
+    await c.read(mediaVerifyRunnerProvider)();
+
+    expect(c.read(storageGcStoreProvider).lastCloudResult!.bytes, 2);
   });
 
   test('runner without an active descriptor still returns a report', () async {

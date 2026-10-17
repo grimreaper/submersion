@@ -36106,6 +36106,10 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get settings_mediaStorage_verify_deferred =>
+      'لم يُحذف أي شيء: تنتظر عمليات الحذف حتى ينتهي هذا الجهاز من المزامنة.';
+
+  @override
   String get settings_mediaStorage_backfill_action => 'رفع المكتبة الحالية';
 
   @override
@@ -50985,11 +50989,21 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String settings_storageUsage_reclaimWaitingSync(String size) {
+    return 'سيصبح $size إضافية قابلة للاسترداد بعد أن ينتهي هذا الجهاز من المزامنة';
+  }
+
+  @override
   String get settings_storageUsage_reclaimAction => 'استرداد مساحة التخزين';
 
   @override
   String settings_storageUsage_reclaimDone(String size) {
     return 'تم استرداد $size';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneDeferred(String size) {
+    return 'تم استرداد $size. ينتظر تنظيف السحابة حتى ينتهي هذا الجهاز من المزامنة.';
   }
 
   @override

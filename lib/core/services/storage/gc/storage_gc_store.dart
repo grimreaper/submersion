@@ -44,7 +44,7 @@ class StorageGcStore {
   static const _lastDeviceRunKey = 'storage_gc_last_device_run_ms';
   static const _lastCloudMeasureKey = 'storage_gc_last_cloud_measure_ms';
   static const _lastCloudAttemptKey = 'storage_gc_last_cloud_attempt_ms';
-  static const _localFleetSweepKey = 'storage_gc_local_fleet_sweep_ms';
+  static const _lastDeviceAttemptKey = 'storage_gc_last_device_attempt_ms';
   static const _lastRestoreKey = 'storage_gc_last_restore_ms';
   static const _postRestorePendingKey = 'storage_gc_post_restore_pending_ms';
   static const _postRestoreCloudKey = 'storage_gc_post_restore_cloud_pending';
@@ -84,9 +84,10 @@ class StorageGcStore {
   /// that keeps a deferred sweep from re-listing the store on every resume.
   DateTime? get lastCloudAttempt => _time(_lastCloudAttemptKey);
 
-  /// Fleet cadence stamp used when no `media_stores` row exists (a restore
-  /// from before the store was attached).
-  DateTime? get localFleetSweep => _time(_localFleetSweepKey);
+  /// The last automatic device pass, whatever it achieved: the throttle that
+  /// keeps a failing pass from walking every folder on each resume.
+  DateTime? get lastDeviceAttempt => _time(_lastDeviceAttemptKey);
+
   DateTime? get lastRestoreAt => _time(_lastRestoreKey);
   DateTime? get postRestorePendingSince => _time(_postRestorePendingKey);
   bool get postRestoreCloudPending =>
@@ -103,8 +104,8 @@ class StorageGcStore {
       _setTime(_lastCloudMeasureKey, at);
   Future<void> setLastCloudAttempt(DateTime at) =>
       _setTime(_lastCloudAttemptKey, at);
-  Future<void> setLocalFleetSweep(DateTime at) =>
-      _setTime(_localFleetSweepKey, at);
+  Future<void> setLastDeviceAttempt(DateTime at) =>
+      _setTime(_lastDeviceAttemptKey, at);
   Future<void> clearPostRestorePending() =>
       _prefs.remove(_postRestorePendingKey);
   Future<void> setPostRestoreCloudPending(bool pending) =>

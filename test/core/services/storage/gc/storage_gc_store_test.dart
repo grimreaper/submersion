@@ -18,7 +18,7 @@ void main() {
     await store.setLastDeviceRun(at);
     await store.setLastCloudMeasure(at);
     await store.setLastCloudAttempt(at);
-    await store.setLocalFleetSweep(at);
+    await store.setLastDeviceAttempt(at);
     await store.setLastDeviceResult(AreaResult(bytes: 10, items: 2, at: at));
     await store.setLastCloudResult(AreaResult(bytes: 30, items: 3, at: at));
     await store.setCloudUsage(CloudUsage(scannedAt: at, mediaBytes: 5));
@@ -27,7 +27,7 @@ void main() {
     expect(again.lastDeviceRun, at);
     expect(again.lastCloudMeasure, at);
     expect(again.lastCloudAttempt, at);
-    expect(again.localFleetSweep, at);
+    expect(again.lastDeviceAttempt, at);
     expect(again.lastDeviceResult!.bytes, 10);
     expect(again.lastDeviceResult!.items, 2);
     expect(again.lastCloudResult!.bytes, 30);

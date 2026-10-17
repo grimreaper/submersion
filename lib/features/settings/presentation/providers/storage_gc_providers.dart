@@ -15,6 +15,7 @@ import 'package:submersion/core/services/storage/restore_temp_sweep.dart';
 import 'package:submersion/core/services/storage/scratch_sweep.dart';
 import 'package:submersion/core/services/sync/sync_coordinator.dart';
 import 'package:submersion/features/media/presentation/providers/media_providers.dart';
+import 'package:submersion/features/media_store/data/media_stores_repository.dart';
 import 'package:submersion/features/media_store/data/media_verify_service.dart';
 import 'package:submersion/features/media_store/presentation/providers/media_store_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
@@ -50,38 +51,34 @@ final storageGcCoordinatorProvider = Provider<StorageGcCoordinator>((ref) {
         temporaryDirectory: getTemporaryDirectory,
       ).run(now: now, dryRun: dryRun),
     ],
-    localCacheSweep: (now) => _localCacheSweepIfDue(ref, now),
+    localCacheSweep: (now, {required force}) =>
+        _localCacheSweepIfDue(ref, now, force: force),
     network: () => ref.read(storageGcNetworkProvider)(),
     isSyncBusy: () => SyncCoordinator.busy,
     hasTransferringUploads: () =>
         ref.read(mediaTransferQueueRepositoryProvider).hasTransferringUploads(),
     mediaSweep: ({required dryRun}) => _mediaSweep(ref, dryRun: dryRun),
     deletesAllowed: () async {
-      // A database with no media_stores row never registered this store (a
-      // fresh dive log, a restore from before it was attached): it must not
-      // decide what in the store is orphaned.
-      final active = await ref.read(mediaStoresRepositoryProvider).getActive();
-      if (active == null) return false;
+      // A database with no media_stores row for this store never registered
+      // it (a fresh dive log, a restore from before it was attached): it
+      // must not decide what in the store is orphaned.
+      if (await _attachedDescriptor(ref) == null) return false;
       return ref.read(orphanDeletePolicyFactoryProvider)().deletesAllowed;
     },
-    fleetSweepDue: (now) async {
-      final active = await ref.read(mediaStoresRepositoryProvider).getActive();
-      return isCadenceDue(
-        active?.lastSweepAt ?? store.localFleetSweep,
-        now,
-        const Duration(days: 7),
-      );
-    },
+    // The attached store's row, not the newest one: a device still attached
+    // to an older store sweeps that store, and must neither skip it on
+    // another store's stamp nor stamp the other store done.
+    fleetSweepDue: (now) async => isCadenceDue(
+      (await _attachedDescriptor(ref))?.lastSweepAt,
+      now,
+      const Duration(days: 7),
+    ),
     stampFleetSweep: (now) async {
-      final stores = ref.read(mediaStoresRepositoryProvider);
-      final active = await stores.getActive();
-      if (active != null) {
-        await stores.stampLastSweep(active.id, now);
-      } else {
-        // No descriptor (a restore from before the store was attached):
-        // keep the cadence on this device until a peer syncs the row back.
-        await store.setLocalFleetSweep(now);
-      }
+      final attached = await _attachedDescriptor(ref);
+      if (attached == null) return;
+      await ref
+          .read(mediaStoresRepositoryProvider)
+          .stampLastSweep(attached.id, now);
     },
     measureSync: () async {
       final provider = ref.read(cloudStorageProviderProvider);
@@ -155,28 +152,47 @@ final storageGcStateProvider = StreamProvider<StorageGcView>((ref) async* {
 // cleanup pass reclaims on the device (its watch on storageGcStateProvider),
 // and the page's Recalculate action invalidates it.
 final deviceReclaimableBytesProvider = FutureProvider.autoDispose<int>((ref) {
-  // Recomputed only when a device pass recorded a result: a run that
-  // reclaimed nothing on the device left the figure as it was.
-  ref.watch(
-    storageGcStateProvider.select((s) => s.value?.lastDeviceResult?.at),
-  );
-  return ref.read(storageGcCoordinatorProvider).deviceReclaimableBytes();
+  final coordinator = ref.watch(storageGcCoordinatorProvider);
+  // Recomputed only when a device pass recorded a new result: a run that
+  // reclaimed nothing on the device left the figure as it was. Compared
+  // with the stored result itself, not the state stream's view of it,
+  // whose first value would otherwise look like a change.
+  final seen = coordinator.store.lastDeviceResult?.at;
+  final sub = coordinator.changes.listen((_) {
+    if (coordinator.store.lastDeviceResult?.at != seen) ref.invalidateSelf();
+  });
+  ref.onDispose(sub.cancel);
+  return coordinator.deviceReclaimableBytes();
 });
 
-/// The weekly local cache database sweep, on its own stamp as before.
-Future<void> _localCacheSweepIfDue(Ref ref, DateTime now) async {
+/// The weekly local cache database sweep, on its own stamp as before;
+/// [force] (Reclaim, a restore) runs it whatever the stamp says.
+Future<void> _localCacheSweepIfDue(
+  Ref ref,
+  DateTime now, {
+  required bool force,
+}) async {
   final prefs = ref.read(sharedPreferencesProvider);
   final stampMs = prefs.getInt(kLocalCacheSweepStampKey);
   final last = stampMs == null
       ? null
       : DateTime.fromMillisecondsSinceEpoch(stampMs);
-  if (!shouldSweepLocalCache(lastSweptAt: last, now: now)) return;
+  if (!force && !shouldSweepLocalCache(lastSweptAt: last, now: now)) return;
   await LocalCacheSweep(
     localCache: LocalCacheDatabaseService.instance.database,
     library: DatabaseService.instance.database,
   ).run(now: now);
   // Stamped after the pass, so a sweep that throws part way retries.
   await prefs.setInt(kLocalCacheSweepStampKey, now.millisecondsSinceEpoch);
+}
+
+/// The media_stores row of the store this device is attached to, or null.
+Future<MediaStoreDescriptor?> _attachedDescriptor(Ref ref) async {
+  final storeId = await ref
+      .read(mediaStoreAttachStateProvider)
+      .attachedStoreId();
+  if (storeId == null) return null;
+  return ref.read(mediaStoresRepositoryProvider).getById(storeId);
 }
 
 Future<VerifyLibraryReport?> _mediaSweep(
@@ -193,7 +209,7 @@ Future<VerifyLibraryReport?> _mediaSweep(
       ).run(
         policy: ref.read(orphanDeletePolicyFactoryProvider)(),
         dryRun: dryRun,
-        deleteGuard: mediaSweepDeleteGuard(ref),
+        deleteGuard: await mediaSweepDeleteGuard(ref),
       );
   // Repairs the sweep queued drain now rather than on the next trigger.
   if (!dryRun) unawaited(runtime.worker?.drain());

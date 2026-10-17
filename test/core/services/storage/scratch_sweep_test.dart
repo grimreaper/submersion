@@ -5,56 +5,6 @@ import 'package:path/path.dart' as p;
 import 'package:submersion/core/services/storage/scratch_sweep.dart';
 
 void main() {
-  group('shouldSweepScratch', () {
-    final now = DateTime.utc(2026, 8, 31, 12);
-
-    test('a device that has never swept is due', () {
-      expect(shouldSweepScratch(lastSweptAt: null, now: now), isTrue);
-    });
-
-    test('a sweep within the last day is not due', () {
-      expect(
-        shouldSweepScratch(
-          lastSweptAt: now.subtract(const Duration(hours: 23)),
-          now: now,
-        ),
-        isFalse,
-      );
-    });
-
-    test('a sweep a day old is due', () {
-      expect(
-        shouldSweepScratch(
-          lastSweptAt: now.subtract(const Duration(days: 1)),
-          now: now,
-        ),
-        isTrue,
-      );
-    });
-
-    test('a stamp far in the future is due rather than suppressing', () {
-      // A broken clock must not stop the sweep until real time catches up.
-      // Same defence as shouldAutoScan and shouldAutoVerify.
-      expect(
-        shouldSweepScratch(
-          lastSweptAt: now.add(const Duration(days: 400)),
-          now: now,
-        ),
-        isTrue,
-      );
-    });
-
-    test('a slightly future stamp still counts as a recent sweep', () {
-      expect(
-        shouldSweepScratch(
-          lastSweptAt: now.add(const Duration(hours: 2)),
-          now: now,
-        ),
-        isFalse,
-      );
-    });
-  });
-
   group('StorageScratchSweep', () {
     late Directory root;
     late Directory temp;

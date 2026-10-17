@@ -39,10 +39,14 @@ class _StorageReclaimCardState extends ConsumerState<StorageReclaimCard> {
       if (mounted) setState(() => _running = false);
     }
     if (!mounted) return;
+    // Held-back cloud deletes are not "nothing left": they wait on a sync.
+    final size = formatBytes(bytes);
     messenger.showSnackBar(
       SnackBar(
         content: Text(
-          l10n.settings_storageUsage_reclaimDone(formatBytes(bytes)),
+          coordinator.lastPassCloudDeferred
+              ? l10n.settings_storageUsage_reclaimDoneDeferred(size)
+              : l10n.settings_storageUsage_reclaimDone(size),
         ),
       ),
     );
@@ -93,7 +97,13 @@ class _StorageReclaimCardState extends ConsumerState<StorageReclaimCard> {
             if (waiting > 0) ...[
               const SizedBox(height: 4),
               Text(
-                l10n.settings_storageUsage_reclaimWaiting(formatBytes(waiting)),
+                cloud?.mediaDeferred ?? false
+                    ? l10n.settings_storageUsage_reclaimWaitingSync(
+                        formatBytes(waiting),
+                      )
+                    : l10n.settings_storageUsage_reclaimWaiting(
+                        formatBytes(waiting),
+                      ),
                 style: muted,
               ),
             ],

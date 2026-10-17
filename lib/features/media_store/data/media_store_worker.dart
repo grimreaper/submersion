@@ -606,8 +606,10 @@ class MediaStoreWorker {
   /// Enqueues a forced re-upload of [mediaId] at [level] (per-item override)
   /// and kicks a background drain.
   Future<void> reuploadAndKick(String mediaId, MediaUploadQuality level) async {
-    final dropped = await _queue.resumeStatesFor(mediaId);
-    await _queue.enqueueReupload(mediaId: mediaId, overrideLevel: level.name);
+    final dropped = await _queue.reenqueueForReupload(
+      mediaId: mediaId,
+      overrideLevel: level.name,
+    );
     await _pipeline.abandonDroppedSessions(dropped);
     _activeDrain = drain();
     unawaited(_activeDrain!);
@@ -618,9 +620,8 @@ class MediaStoreWorker {
   Future<void> deleteEntries(List<int> ids) async {
     final dropped = <DroppedResume>[];
     for (final id in ids) {
-      final resume = await _queue.resumeStateOf(id);
+      final resume = await _queue.deleteDroppingSession(id);
       if (resume != null) dropped.add(resume);
-      await _queue.delete(id);
     }
     await _pipeline.abandonDroppedSessions(dropped);
   }

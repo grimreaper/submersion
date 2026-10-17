@@ -306,7 +306,9 @@ class MediaUploadPipeline {
           await _bestEffortDelete(
             StoreKeys.renditionKey(
               digest.hash,
-              ext: item.mediaType == MediaType.video ? 'mp4' : 'jpg',
+              ext: StoreKeys.renditionExtension(
+                isVideo: item.mediaType == MediaType.video,
+              ),
             ),
             'abandoned rendition',
           );

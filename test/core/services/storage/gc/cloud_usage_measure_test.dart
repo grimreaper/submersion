@@ -36,6 +36,31 @@ class _PathProvider extends FakeCloudStorageProvider {
   ];
 }
 
+/// A reader's view of a WebDAV library: folders that exist resolve, and
+/// creating one that does not is refused.
+class _ReadOnlyProvider extends _PathProvider {
+  final created = <String>[];
+
+  @override
+  Future<String> createFolder(
+    String folderName, {
+    String? parentFolderId,
+  }) async {
+    final path = await super.createFolder(
+      folderName,
+      parentFolderId: parentFolderId,
+    );
+    final exists =
+        path.split('/').length < 3 ||
+        files.keys.any((k) => k.startsWith('$path/'));
+    if (!exists) {
+      created.add(path);
+      throw CloudStorageException('MKCOL refused: $path');
+    }
+    return path;
+  }
+}
+
 void main() {
   test('sums only sync files', () async {
     final cloud = FakeCloudStorageProvider();
@@ -85,6 +110,29 @@ void main() {
     expect(measured.partial, isFalse);
   });
 
+  test(
+    'a library without suggestions or backups is measured in full',
+    () async {
+      // A reader may not create the folders a library has never needed; the
+      // measurement must not try, nor call the total partial for their lack.
+      final cloud = _ReadOnlyProvider();
+      const root = 'submersion-sites/site-sync';
+      cloud.files.addAll({
+        '$root/keyslots.json': 6,
+        '$root/sites/site-a.json': 10,
+        '$root/members/member-m1.json': 3,
+      });
+
+      final measured = await SharedLibraryTransport(
+        cloud,
+        prefix: 'site-sync',
+      ).measureBytes();
+
+      expect(measured.bytes, 6 + 10 + 3);
+      expect(measured.partial, isFalse);
+    },
+  );
+
   test('a file without a size marks the library partial', () async {
     final cloud = _PathProvider();
     cloud.files['submersion-sites/site-sync/sites/site-a.json'] = null;
@@ -107,6 +155,7 @@ void main() {
       syncBytes: 30,
       librariesBytes: null,
       partial: true,
+      mediaDeferred: true,
       scannedAt: DateTime(2026, 10, 17, 12),
     );
 
@@ -118,6 +167,22 @@ void main() {
     expect(back.syncBytes, 30);
     expect(back.librariesBytes, isNull);
     expect(back.partial, isTrue);
+    expect(back.mediaDeferred, isTrue);
     expect(back.scannedAt, usage.scannedAt);
+  });
+
+  test('CloudUsage copyWith replaces only what it is given', () {
+    final usage = CloudUsage(
+      scannedAt: DateTime(2026, 10, 17),
+      mediaBytes: 100,
+      syncBytes: 30,
+    );
+
+    final next = usage.copyWith(mediaBytes: 60, mediaDeferred: true);
+
+    expect(next.mediaBytes, 60);
+    expect(next.mediaDeferred, isTrue);
+    expect(next.syncBytes, 30);
+    expect(next.scannedAt, usage.scannedAt);
   });
 }

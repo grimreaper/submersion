@@ -42,6 +42,7 @@ class CloudUsage {
     this.syncBytes,
     this.librariesBytes,
     this.partial = false,
+    this.mediaDeferred = false,
   });
 
   final DateTime scannedAt;
@@ -51,6 +52,31 @@ class CloudUsage {
   final int? syncBytes;
   final int? librariesBytes;
   final bool partial;
+
+  /// Whether the last media sweep held its deletes back (this device was
+  /// not caught up with sync, or a sync started during it), so the waiting
+  /// figure waits on a sync rather than on the safety wait.
+  final bool mediaDeferred;
+
+  CloudUsage copyWith({
+    DateTime? scannedAt,
+    int? mediaBytes,
+    int? mediaReclaimableBytes,
+    int? mediaWaitingBytes,
+    int? syncBytes,
+    int? librariesBytes,
+    bool? partial,
+    bool? mediaDeferred,
+  }) => CloudUsage(
+    scannedAt: scannedAt ?? this.scannedAt,
+    mediaBytes: mediaBytes ?? this.mediaBytes,
+    mediaReclaimableBytes: mediaReclaimableBytes ?? this.mediaReclaimableBytes,
+    mediaWaitingBytes: mediaWaitingBytes ?? this.mediaWaitingBytes,
+    syncBytes: syncBytes ?? this.syncBytes,
+    librariesBytes: librariesBytes ?? this.librariesBytes,
+    partial: partial ?? this.partial,
+    mediaDeferred: mediaDeferred ?? this.mediaDeferred,
+  );
 
   /// Sum of every measured area, or null when no area is set up.
   int? get totalBytes {
@@ -66,6 +92,7 @@ class CloudUsage {
     'syncBytes': syncBytes,
     'librariesBytes': librariesBytes,
     'partial': partial,
+    'mediaDeferred': mediaDeferred,
   };
 
   factory CloudUsage.fromJson(Map<String, Object?> json) => CloudUsage(
@@ -76,5 +103,6 @@ class CloudUsage {
     syncBytes: json['syncBytes'] as int?,
     librariesBytes: json['librariesBytes'] as int?,
     partial: json['partial'] as bool? ?? false,
+    mediaDeferred: json['mediaDeferred'] as bool? ?? false,
   );
 }

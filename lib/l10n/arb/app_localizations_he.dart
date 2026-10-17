@@ -34729,6 +34729,10 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
+  String get settings_mediaStorage_verify_deferred =>
+      'דבר לא נמחק: המחיקות ימתינו עד שהמכשיר הזה יסיים לסנכרן.';
+
+  @override
   String get settings_mediaStorage_backfill_action => 'העלה ספריה קיימת';
 
   @override
@@ -49285,11 +49289,21 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
+  String settings_storageUsage_reclaimWaitingSync(String size) {
+    return 'עוד $size יהיו ניתנים לפינוי לאחר שהמכשיר הזה יסיים לסנכרן';
+  }
+
+  @override
   String get settings_storageUsage_reclaimAction => 'פינוי אחסון';
 
   @override
   String settings_storageUsage_reclaimDone(String size) {
     return 'פונו $size';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneDeferred(String size) {
+    return 'פונו $size. הניקוי בענן ימתין עד שהמכשיר הזה יסיים לסנכרן.';
   }
 
   @override

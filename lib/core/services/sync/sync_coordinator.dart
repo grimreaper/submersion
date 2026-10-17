@@ -14,11 +14,6 @@ abstract final class SyncCoordinator {
   /// Whether a body is running or queued.
   static bool get busy => _depth > 0;
 
-  /// How many bodies have been queued since launch. A long task that must not
-  /// overlap a merge compares this before and after: a change means a merge
-  /// started in between, even one that has already finished.
-  static int get started => _started;
-
   /// A check that stays true only while no sync has run or started since
   /// this call, and is false from the start if one is running now. The
   /// storage cleanup asks it before every cloud delete: its reference set is

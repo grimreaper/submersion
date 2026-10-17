@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:submersion/core/services/media_store/network_status_service.dart';
@@ -54,9 +55,11 @@ class _Harness {
   final deviceRuns = <bool>[]; // dryRun flag per call of the first sweep
   final secondSweepRuns = <bool>[];
   var localCacheRuns = 0;
+  final localCacheForced = <bool>[];
   final mediaRuns = <bool>[]; // dryRun flag per media sweep
   var fleetStamps = 0;
   Completer<void>? holdFirstSweep;
+  Completer<void>? holdSyncMeasure;
 
   StorageGcCoordinator build() => StorageGcCoordinator(
     deviceSweeps: [
@@ -71,7 +74,10 @@ class _Harness {
         return const ScratchSweepReport(filesDeleted: 1, bytesReclaimed: 50);
       },
     ],
-    localCacheSweep: (now) async => localCacheRuns++,
+    localCacheSweep: (now, {required force}) async {
+      localCacheRuns++;
+      localCacheForced.add(force);
+    },
     network: () async => network,
     isSyncBusy: () => syncBusy,
     hasTransferringUploads: () async => transferring,
@@ -84,7 +90,10 @@ class _Harness {
     deletesAllowed: () async => deletesAllowed,
     fleetSweepDue: (now) async => fleetDue,
     stampFleetSweep: (now) async => fleetStamps++,
-    measureSync: () async => (bytes: syncBytes, partial: syncPartial),
+    measureSync: () async {
+      await holdSyncMeasure?.future;
+      return (bytes: syncBytes, partial: syncPartial);
+    },
     measureLibraries: () async => libraries,
     store: store,
     now: () => now,
@@ -300,6 +309,23 @@ void main() {
     expect(h.store.postRestorePendingSince, isNotNull);
   });
 
+  test('a stalled measurement does not hold the pass forever', () {
+    // A half-open connection with no request timeout would otherwise keep
+    // the pass running, and every later trigger and tap would join it.
+    fakeAsync((async) {
+      h.holdSyncMeasure = Completer<void>();
+      var finished = false;
+      coordinator.run(StorageGcTrigger.rescan).then((_) => finished = true);
+
+      async.elapse(StorageGcCoordinator.measureTimeout);
+      async.flushMicrotasks();
+
+      expect(finished, isTrue);
+      expect(h.store.cloudUsage!.partial, isTrue);
+      expect(h.store.cloudUsage!.librariesBytes, 4);
+    });
+  });
+
   test('records last reclaimed per area', () async {
     await coordinator.run(StorageGcTrigger.launch);
     final device = h.store.lastDeviceResult!;
@@ -316,15 +342,86 @@ void main() {
     expect(h.mediaRuns, isNotEmpty);
   });
 
-  test('a failed device pass retries on the next trigger', () async {
+  test('a failed device pass retries within the hour, not a day', () async {
     h.failFirstSweep = true;
     await coordinator.run(StorageGcTrigger.launch);
     expect(h.store.lastDeviceRun, isNull);
 
     h.failFirstSweep = false;
+    h.now = h.now.add(StorageGcCoordinator.deviceRetry);
     await coordinator.run(StorageGcTrigger.resume);
     expect(h.deviceRuns, [false, false]);
     expect(h.store.lastDeviceRun, h.now);
+  });
+
+  test('a failing device pass is not retried on every trigger', () async {
+    // A persistent failure (a full disk, a folder it may not read) would
+    // otherwise walk every folder again on each resume and timer tick.
+    h.failFirstSweep = true;
+    await coordinator.run(StorageGcTrigger.launch);
+    h.now = h.now.add(const Duration(minutes: 10));
+    await coordinator.run(StorageGcTrigger.resume);
+    await coordinator.run(StorageGcTrigger.timer);
+
+    expect(h.deviceRuns, [false]);
+
+    await coordinator.run(StorageGcTrigger.manual);
+    expect(h.deviceRuns, [false, false], reason: 'the diver asked');
+  });
+
+  test('a restore after a failed pass is not held by the retry wait', () async {
+    h.failFirstSweep = true;
+    await coordinator.run(StorageGcTrigger.launch);
+    h.now = h.now.add(const Duration(minutes: 10));
+    await StorageGcStore.markRestored(
+      await SharedPreferences.getInstance(),
+      h.now,
+    );
+
+    await coordinator.run(StorageGcTrigger.resume);
+
+    expect(h.deviceRuns, [false, false]);
+  });
+
+  test('Reclaim forces the weekly local cache sweep', () async {
+    await coordinator.run(StorageGcTrigger.launch);
+    h.now = h.now.add(const Duration(days: 2));
+    await coordinator.run(StorageGcTrigger.manual);
+
+    expect(h.localCacheForced, [false, true]);
+  });
+
+  test('a pass whose cloud deletes were held back says so', () async {
+    h.mediaReport = _report(deferred: true, waiting: 40);
+
+    await coordinator.run(StorageGcTrigger.manual);
+
+    expect(coordinator.lastPassCloudDeferred, isTrue);
+    expect(h.store.cloudUsage!.mediaDeferred, isTrue);
+
+    h.mediaReport = _report();
+    await coordinator.run(StorageGcTrigger.manual);
+    expect(coordinator.lastPassCloudDeferred, isFalse);
+    expect(h.store.cloudUsage!.mediaDeferred, isFalse);
+  });
+
+  test('a Verify Library result updates the page figures', () async {
+    await coordinator.run(StorageGcTrigger.rescan);
+    final notified = <void>[];
+    final sub = coordinator.changes.listen(notified.add);
+    addTearDown(sub.cancel);
+
+    await coordinator.recordMediaSweep(
+      _report(total: 90, reclaimable: 30, reclaimed: 30, removed: 3),
+    );
+    await Future<void>.delayed(Duration.zero);
+
+    final usage = h.store.cloudUsage!;
+    expect(usage.mediaBytes, 60);
+    expect(usage.mediaReclaimableBytes, 0);
+    expect(usage.syncBytes, 30, reason: 'other areas keep their figures');
+    expect(h.store.lastCloudResult!.bytes, 30);
+    expect(notified, isNotEmpty);
   });
 
   test(
