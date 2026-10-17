@@ -2,9 +2,11 @@ import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:submersion/core/constants/enums.dart';
-import 'package:submersion/core/database/database.dart' show DiveTanksCompanion;
+import 'package:submersion/core/database/database.dart'
+    show DiveTank, DiveTanksCompanion, GasSwitchesCompanion;
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/features/dive_log/data/repositories/dive_repository_impl.dart';
+import 'package:submersion/features/dive_log/data/repositories/tank_pressure_repository.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart'
     as domain;
 import 'package:submersion/features/transmitters/data/repositories/transmitter_repository.dart';
@@ -79,6 +81,8 @@ void main() {
     String role = 'backGas',
     String? roleSource,
     String? equipmentId,
+    double o2 = 21,
+    double he = 0,
   }) async {
     final db = DatabaseService.instance.database;
     await db
@@ -95,6 +99,8 @@ void main() {
             tankRole: Value(role),
             roleSource: Value(roleSource),
             equipmentId: Value(equipmentId),
+            o2Percent: Value(o2),
+            hePercent: Value(he),
           ),
         );
   }
@@ -213,7 +219,7 @@ void main() {
 
       final result = await repo.applyToExistingDives(entry);
 
-      expect(result, (tanksUpdated: 2, divesUpdated: 2));
+      expect(result, (tanksUpdated: 2, divesUpdated: 2, mixesKept: 0));
       final db = DatabaseService.instance.database;
       final k1 = await (db.select(
         db.diveTanks,
@@ -489,5 +495,117 @@ void main() {
         )
         .getSingle();
     expect(tombstones.read<int>('n'), 1);
+  });
+
+  // #3307: a bailout entry applied to past dives must not leave each "OC"
+  // transmitter on the 100% default beside a duplicate bailout cylinder.
+  group('applying a bailout entry fixes the mix', () {
+    Future<void> seedOcDive() async {
+      await seedDiverAndDive();
+      await seedTank(
+        id: 'k1',
+        diveId: 'd1',
+        serial: '180777',
+        sourceIndex: 0,
+        role: 'oxygenSupply',
+        roleSource: 'transmitterName',
+        o2: 100,
+      );
+      await seedTank(
+        id: 'dil',
+        diveId: 'd1',
+        serial: '111',
+        order: 1,
+        sourceIndex: 1,
+        role: 'diluent',
+        o2: 10,
+        he: 50,
+      );
+      await seedTank(
+        id: 'oc',
+        diveId: 'd1',
+        order: 3,
+        sourceIndex: 3,
+        role: 'bailout',
+        o2: 18,
+        he: 45,
+      );
+    }
+
+    Future<DiveTank?> tankRow(String id) {
+      final db = DatabaseService.instance.database;
+      return (db.select(
+        db.diveTanks,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
+    }
+
+    test('from the OC cylinder that was breathed', () async {
+      await seedOcDive();
+      final db = DatabaseService.instance.database;
+      await db
+          .into(db.gasSwitches)
+          .insert(
+            const GasSwitchesCompanion(
+              id: Value('s1'),
+              diveId: Value('d1'),
+              timestamp: Value(2400),
+              tankId: Value('oc'),
+              createdAt: Value(0),
+            ),
+          );
+      await TankPressureRepository().insertTankPressures('d1', {
+        'k1': [
+          for (var t = 0; t <= 3000; t += 10)
+            (
+              timestamp: t,
+              pressure: t < 2400 ? 200.0 : 200.0 - (t - 2400) / 10,
+            ),
+        ],
+      });
+      final entry = await repo.create(_entry(role: TankRole.bailout));
+
+      final result = await repo.applyToExistingDives(entry);
+
+      final k1 = (await tankRow('k1'))!;
+      expect(k1.tankRole, 'bailout');
+      expect(k1.roleSource, isNull);
+      expect(k1.o2Percent, 18);
+      expect(k1.hePercent, 45);
+      expect(await tankRow('oc'), isNull);
+      expect(result.mixesKept, 0);
+    });
+
+    test('falls back to the single sensorless bailout', () async {
+      await seedOcDive();
+      final entry = await repo.create(_entry(role: TankRole.bailout));
+
+      final result = await repo.applyToExistingDives(entry);
+
+      final k1 = (await tankRow('k1'))!;
+      expect(k1.o2Percent, 18);
+      expect(await tankRow('oc'), isNull);
+      expect(result.mixesKept, 0);
+    });
+
+    test('keeps the mix and counts it when there is no source', () async {
+      await seedDiverAndDive();
+      await seedTank(
+        id: 'k1',
+        diveId: 'd1',
+        serial: '180777',
+        sourceIndex: 0,
+        role: 'oxygenSupply',
+        roleSource: 'transmitterName',
+        o2: 100,
+      );
+      final entry = await repo.create(_entry(role: TankRole.bailout));
+
+      final result = await repo.applyToExistingDives(entry);
+
+      final k1 = (await tankRow('k1'))!;
+      expect(k1.tankRole, 'bailout');
+      expect(k1.o2Percent, 100);
+      expect(result.mixesKept, 1);
+    });
   });
 }

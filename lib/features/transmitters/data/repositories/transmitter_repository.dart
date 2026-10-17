@@ -9,6 +9,7 @@ import 'package:submersion/core/services/sync/sync_event_bus.dart';
 import 'package:submersion/core/text/text_sort.dart';
 import 'package:submersion/features/data_quality/data/services/quality_scan_service.dart';
 import 'package:submersion/features/dive_log/domain/services/transmitter_serial.dart';
+import 'package:submersion/features/transmitters/data/services/bailout_mix_fixer.dart';
 import 'package:submersion/features/transmitters/domain/entities/transmitter.dart';
 
 /// Thrown when an entry would share a serial (per diver) or a
@@ -26,7 +27,13 @@ class TransmitterConflictException implements Exception {
 typedef UnassignedTransmitterSerial = ({String serial, int diveCount});
 
 /// Outcome of [TransmitterRepository.applyToExistingDives].
-typedef ApplyToExistingResult = ({int tanksUpdated, int divesUpdated});
+/// [mixesKept]: dives where a bailout entry changed the role but found no
+/// bailout mix to give the tank, so it kept the one it had (issue #3307).
+typedef ApplyToExistingResult = ({
+  int tanksUpdated,
+  int divesUpdated,
+  int mixesKept,
+});
 
 class TransmitterRepository {
   AppDatabase get _db => DatabaseService.instance.database;
@@ -287,6 +294,7 @@ class TransmitterRepository {
     return (
       tanksUpdated: candidates.length,
       divesUpdated: candidates.map((r) => r.diveId).toSet().length,
+      mixesKept: 0,
     );
   }
 
@@ -299,16 +307,25 @@ class TransmitterRepository {
   /// One transaction; a failure leaves no half-applied dive.
   Future<ApplyToExistingResult> applyToExistingDives(Transmitter t) async {
     final candidates = await _tanksForEntry(t);
-    if (candidates.isEmpty) return (tanksUpdated: 0, divesUpdated: 0);
+    if (candidates.isEmpty) {
+      return (tanksUpdated: 0, divesUpdated: 0, mixesKept: 0);
+    }
     final now = DateTime.now().millisecondsSinceEpoch;
     final touchedDives = <String>{};
     var tanks = 0;
+    var mixesKept = 0;
+    final mixFixer = BailoutMixFixer();
     await _db.transaction(() async {
       for (final row in candidates) {
         final hasVolume = row.volume != null && row.volume! > 0;
         final nameDerived =
             TankRoleSource.fromName(row.roleSource) ==
             TankRoleSource.transmitterName;
+        // A bailout entry also replaces the importer's 100% O2 default with
+        // the bailout's own mix, before the role write below (#3307).
+        if (nameDerived && t.role == TankRole.bailout) {
+          if (!await mixFixer.fix(row)) mixesKept++;
+        }
         final companion = DiveTanksCompanion(
           volume: !hasVolume && t.volumeL != null
               ? Value(t.volumeL)
@@ -354,7 +371,11 @@ class TransmitterRepository {
       }
     });
     if (tanks > 0) SyncEventBus.notifyLocalChange();
-    return (tanksUpdated: tanks, divesUpdated: touchedDives.length);
+    return (
+      tanksUpdated: tanks,
+      divesUpdated: touchedDives.length,
+      mixesKept: mixesKept,
+    );
   }
 
   Future<List<DiveTank>> _tanksForEntry(Transmitter t) async {
