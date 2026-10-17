@@ -77,6 +77,16 @@ Future<void> deleteDiverRows(
 // stats-scope-exempt: deletion cascade. Deletes the diver's dives, excluded
 // ones included.
 const List<DiverDeleteStep> diverDiveSteps = [
+  // Documents first: their owner links (dive, site, trip, gear, course,
+  // cert, buddy, center) point at rows deleted below, and documents.diver_id
+  // has no ON DELETE action. Documents follow the diver who filed them,
+  // including those on a shared site that survives the delete (#2613).
+  (
+    table: 'document_pages',
+    entityType: 'documentPages',
+    where: 'document_id IN (SELECT id FROM documents WHERE diver_id = ?1)',
+  ),
+  (table: 'documents', entityType: 'documents', where: 'diver_id = ?1'),
   (table: 'dives', entityType: 'dives', where: 'diver_id = ?1'),
 ];
 
@@ -118,11 +128,32 @@ const List<DiverDeleteStep> diverTripAndSiteSteps = [
     entityType: 'tripDayWeather',
     where: _ofDiverTrips,
   ),
+  (table: 'trip_equipment', entityType: 'tripEquipment', where: _ofDiverTrips),
+  // The diver's own hides, and every profile's hides of the diver's trips
+  // and sites (issue #2594). They would cascade; deleting them first
+  // tombstones them.
+  (
+    table: 'trip_hides',
+    entityType: 'tripHides',
+    where: 'diver_id = ?1 OR $_ofDiverTrips',
+  ),
+  (
+    table: 'site_hides',
+    entityType: 'siteHides',
+    where:
+        'diver_id = ?1 OR '
+        'site_id IN (SELECT id FROM dive_sites WHERE diver_id = ?1)',
+  ),
   (table: 'trips', entityType: 'trips', where: 'diver_id = ?1'),
   (table: 'dive_sites', entityType: 'diveSites', where: 'diver_id = ?1'),
 ];
 
 const _diverGear = 'SELECT id FROM equipment WHERE diver_id = ?1';
+
+/// The diver's own certifications and their buddies' certifications.
+const _diverCertifications =
+    'SELECT id FROM certifications WHERE diver_id = ?1 '
+    'OR buddy_id IN (SELECT id FROM buddies WHERE diver_id = ?1)';
 
 /// The diver's gear, with the children `EquipmentRepository.deleteEquipment`
 /// tombstones. They would cascade with the gear; deleting them first is the
@@ -163,6 +194,11 @@ const List<DiverDeleteStep> diverGearSteps = [
   // Shares of the diver's gear, and the diver's own shares of other
   // profiles' gear (issue #2046).
   (
+    table: 'trip_equipment',
+    entityType: 'tripEquipment',
+    where: 'equipment_id IN ($_diverGear)',
+  ),
+  (
     table: 'equipment_shares',
     entityType: 'equipmentShares',
     where: 'equipment_id IN ($_diverGear) OR diver_id = ?1',
@@ -172,6 +208,13 @@ const List<DiverDeleteStep> diverGearSteps = [
   (
     table: 'equipment_ownership_events',
     entityType: 'equipmentOwnershipEvents',
+    where: 'equipment_id IN ($_diverGear)',
+  ),
+  // The location log of the diver's gear (v268). Moves on other profiles'
+  // gear stay; their places are kept by retireDiverEquipmentLocations.
+  (
+    table: 'equipment_location_moves',
+    entityType: 'equipmentLocationMoves',
     where: 'equipment_id IN ($_diverGear)',
   ),
   (table: 'equipment', entityType: 'equipment', where: 'diver_id = ?1'),
@@ -193,6 +236,19 @@ const List<DiverDeleteStep> diverLibrarySteps = [
     table: 'equipment_sets',
     entityType: 'equipmentSets',
     where: 'diver_id = ?1',
+  ),
+  // Currency prefs and events cascade with their certification, and a
+  // cascade writes no tombstones, so they are logged first, as
+  // CertificationRepository.deleteCertification logs them.
+  (
+    table: 'certification_currency_prefs',
+    entityType: 'certificationCurrencyPrefs',
+    where: 'certification_id IN ($_diverCertifications)',
+  ),
+  (
+    table: 'certification_currency_events',
+    entityType: 'certificationCurrencyEvents',
+    where: 'certification_id IN ($_diverCertifications)',
   ),
   (
     table: 'certifications',
@@ -219,6 +275,13 @@ const List<DiverDeleteStep> diverLibrarySteps = [
     where: 'diver_id = ?1 AND is_built_in = 0',
   ),
   (table: 'tank_presets', entityType: 'tankPresets', where: 'diver_id = ?1'),
+  // Before their computers: `deleteComputer` tombstones a computer's
+  // connections (v279, issue #3106), so the diver delete does too.
+  (
+    table: 'dive_computer_connections',
+    entityType: 'diveComputerConnections',
+    where: 'computer_id IN (SELECT id FROM dive_computers WHERE diver_id = ?1)',
+  ),
   (
     table: 'dive_computers',
     entityType: 'diveComputers',
@@ -227,6 +290,13 @@ const List<DiverDeleteStep> diverLibrarySteps = [
   (
     table: 'diver_weight_entries',
     entityType: 'diverWeightEntries',
+    where: 'diver_id = ?1',
+  ),
+  // Observation dismissals (#2381) would cascade; deleting them first
+  // tombstones them so peers drop them too.
+  (
+    table: 'insight_observation_dismissals',
+    entityType: 'insightObservationDismissals',
     where: 'diver_id = ?1',
   ),
 ];

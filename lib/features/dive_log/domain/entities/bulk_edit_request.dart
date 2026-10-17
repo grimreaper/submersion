@@ -33,6 +33,13 @@ class DiveTypesOp extends BulkCollectionOp {
   const DiveTypesOp({required this.mode, required this.diveTypeIds});
 }
 
+/// A dive's training courses (issue #2515).
+class DiveCoursesOp extends BulkCollectionOp {
+  final BulkCollectionMode mode; // add | remove | replace
+  final List<String> courseIds;
+  const DiveCoursesOp({required this.mode, required this.courseIds});
+}
+
 class EquipmentOp extends BulkCollectionOp {
   final BulkCollectionMode mode;
   final List<String> equipmentIds;
@@ -54,6 +61,14 @@ class BuddiesOp extends BulkCollectionOp {
     required this.buddies,
     this.overwriteRole = true,
   });
+}
+
+/// The diver's own roles on every selected dive, replaced by [roleIds]
+/// (issue #1221). Replace is the only mode: the gated "My role" row sets
+/// exactly the picked set, as every gated field does.
+class DiverRolesOp extends BulkCollectionOp {
+  final List<String> roleIds;
+  const DiverRolesOp({required this.roleIds});
 }
 
 class TanksOp extends BulkCollectionOp {

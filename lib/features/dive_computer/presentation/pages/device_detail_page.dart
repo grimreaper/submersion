@@ -4,6 +4,10 @@ import 'package:libdivecomputer_plugin/libdivecomputer_plugin.dart' as pigeon;
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/utils/log_failure.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
+import 'package:submersion/features/dive_computer/domain/entities/dive_computer_connection.dart';
+import 'package:submersion/features/dive_computer/presentation/providers/dive_computer_connection_providers.dart';
+import 'package:submersion/features/dive_computer/presentation/utils/connection_presentation.dart';
+import 'package:submersion/features/dive_computer/presentation/widgets/dive_computer_connections_card.dart';
 import 'package:submersion/features/dive_computer/presentation/utils/last_download_formatter.dart';
 import 'package:submersion/features/equipment/presentation/widgets/service_status_indicator.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
@@ -13,6 +17,8 @@ import 'package:submersion/features/dive_computer/domain/services/dive_computer_
 import 'package:submersion/features/dive_computer/presentation/providers/clock_sync_providers.dart';
 import 'package:submersion/features/dive_computer/presentation/providers/reparse_providers.dart';
 import 'package:submersion/features/dive_computer/presentation/widgets/dive_computer_merge_sheet.dart';
+import 'package:submersion/features/dive_computer/presentation/widgets/raw_dive_data_discard.dart';
+import 'package:submersion/features/dive_log/presentation/navigation/open_dive_list.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_computer.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_computer_providers.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_providers.dart';
@@ -64,6 +70,9 @@ class DeviceDetailPage extends ConsumerWidget {
   ) {
     final colorScheme = theme.colorScheme;
     final units = UnitFormatter(ref.watch(settingsProvider));
+    final connections =
+        ref.watch(diveComputerConnectionsProvider(computer.id)).valueOrNull ??
+        const <DiveComputerConnection>[];
 
     return Scaffold(
       appBar: AppBar(
@@ -119,7 +128,14 @@ class DeviceDetailPage extends ConsumerWidget {
           crossAxisAlignment: CrossAxisAlignment.start,
           children: [
             _buildDuplicateBanner(context, ref, computer),
-            _buildInfoCard(context, computer, colorScheme),
+            _buildInfoCard(
+              context,
+              computer,
+              colorScheme,
+              computerConnectionIcon(computer, connections),
+            ),
+            const SizedBox(height: 16),
+            DiveComputerConnectionsCard(computer: computer),
             const SizedBox(height: 16),
             _buildStatsCard(context, computer, colorScheme, units),
             const SizedBox(height: 16),
@@ -205,6 +221,7 @@ class DeviceDetailPage extends ConsumerWidget {
     BuildContext context,
     DiveComputer computer,
     ColorScheme colorScheme,
+    IconData icon,
   ) {
     final theme = Theme.of(context);
 
@@ -224,7 +241,7 @@ class DeviceDetailPage extends ConsumerWidget {
                     borderRadius: BorderRadius.circular(12),
                   ),
                   child: Icon(
-                    _getConnectionIcon(computer.connectionType),
+                    icon,
                     size: 32,
                     color: colorScheme.onPrimaryContainer,
                   ),
@@ -262,11 +279,6 @@ class DeviceDetailPage extends ConsumerWidget {
                 context.l10n.diveLog_detail_label_serialNumber,
                 computer.serialNumber!,
               ),
-            _buildInfoRow(
-              context,
-              context.l10n.diveComputer_detail_labelConnection,
-              _getConnectionName(context, computer.connectionType),
-            ),
             if (computer.equipmentId != null)
               _LinkedGearRow(equipmentId: computer.equipmentId!),
             _TransmittersRow(computerId: computer.id),
@@ -531,6 +543,22 @@ class DeviceDetailPage extends ConsumerWidget {
                             style: Theme.of(context).textTheme.bodySmall,
                           ),
                         ),
+                        Align(
+                          alignment: AlignmentDirectional.centerStart,
+                          child: TextButton.icon(
+                            key: const ValueKey('discard_raw_data_button'),
+                            onPressed: () =>
+                                confirmAndDiscardComputerRawDiveData(
+                                  context,
+                                  ref,
+                                  computer,
+                                ),
+                            icon: const Icon(Icons.delete_outline),
+                            label: Text(
+                              context.l10n.diveComputer_rawData_discardButton,
+                            ),
+                          ),
+                        ),
                       ],
                     );
                   },
@@ -585,10 +613,7 @@ class DeviceDetailPage extends ConsumerWidget {
     WidgetRef ref,
     DiveComputer computer,
   ) {
-    ref.read(diveFilterProvider.notifier).state = DiveFilterState(
-      computerId: computer.id,
-    );
-    context.go('/dives');
+    openDiveList(context, ref, DiveFilterState(computerId: computer.id));
   }
 
   Future<void> _confirmReimportAll(
@@ -694,8 +719,6 @@ class DeviceDetailPage extends ConsumerWidget {
         ),
       );
     }
-
-    ref.invalidate(rawDataCountProvider(computerId));
   }
 
   void _handleMenuAction(
@@ -917,42 +940,6 @@ class DeviceDetailPage extends ConsumerWidget {
         ],
       ),
     );
-  }
-
-  IconData _getConnectionIcon(String? connectionType) {
-    switch (connectionType?.toLowerCase()) {
-      case 'ble':
-      case 'bluetooth':
-      case 'bluetoothclassic':
-        return Icons.bluetooth;
-      case 'usb':
-        return Icons.usb;
-      case 'wifi':
-        return Icons.wifi;
-      case 'infrared':
-        return Icons.sensors;
-      default:
-        return Icons.watch;
-    }
-  }
-
-  String _getConnectionName(BuildContext context, String? connectionType) {
-    final l10n = context.l10n;
-    switch (connectionType?.toLowerCase()) {
-      case 'ble':
-        return l10n.diveComputer_connectionType_ble;
-      case 'bluetooth':
-      case 'bluetoothclassic':
-        return l10n.diveComputer_connectionType_bluetooth;
-      case 'usb':
-        return l10n.diveComputer_connectionType_usb;
-      case 'wifi':
-        return l10n.diveComputer_connectionType_wifi;
-      case 'infrared':
-        return l10n.diveComputer_connectionType_infrared;
-      default:
-        return l10n.diveComputer_connectionType_unknown;
-    }
   }
 }
 

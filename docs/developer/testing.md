@@ -342,22 +342,23 @@ Performance tests ensure the app scales with large datasets.
 
 ## Test Database Helper
 
-All tests use the `TestDatabase` helper:
+Repository tests open an in-memory database through
+`test/helpers/test_database.dart`:
 
 ```dart
-class TestDatabase {
-  late AppDatabase database;
-
-  static Future<TestDatabase> create() async {
-    final db = TestDatabase();
-    db.database = AppDatabase(NativeDatabase.memory());
-    return db;
-  }
-
-  Future<void> dispose() async {
-    await database.close();
-  }
+AppDatabase createTestDatabase() {
+  return AppDatabase(NativeDatabase.memory(setup: registerAppSqlFunctions));
 }
+```
+
+The `setup:` matters. The app registers its own SQL functions on every
+connection it opens (`unicode_lower`, which folds case for every script where
+SQLite's `LOWER()` folds ASCII only, issue #3032), and a test that builds its
+own `NativeDatabase` must register them too, or any query that folds case
+fails with `no such function: unicode_lower`. Pass `registerAppSqlFunctions`
+from `lib/core/database/app_sql_functions.dart`, or call it first inside a
+fixture's own `setup:` callback.
+
 ```text
 ### Usage
 
@@ -418,16 +419,32 @@ CI bundle, or through `flutter test` locally.
   `package:http`, images and most plugins use), or a plain `Socket`, to any
   host but this machine fails with `A test reached the network: <URL>`. A TLS
   socket opened directly with `SecureSocket.connect` connects below the hook
-  and is not covered; nothing in `lib/` opens one. Inject a fake client (`MockClient` from
-  `package:http/testing.dart`), serve the response from a loopback
-  `HttpServer` (`HttpServer.bind(InternetAddress.loopbackIPv4, 0)`), or call
-  `loadPdfRoboto()` for PDF fonts. The overrides live in
+  and is not covered; nothing in `lib/` opens one. The overrides live in
   `test/helpers/blocked_network.dart`, and `HttpOverrides.runZoned` still wins
-  inside its zone. The refusal is a `StateError`: code under test that catches
-  every error swallows it, so no request leaves the machine but the test does
-  not fail on it. A widget test that waits for such a lookup with
-  `pumpAndSettle` can then wait forever; pump a bounded number of times
-  instead, or fake the service.
+  inside its zone. A refusal fails the test even when the code under test
+  catches it: the harness records it and fails the test in a tear-down, naming
+  the URL. A test that is refused on purpose calls `expectNetworkRefusals()`.
+  A refusal caught outside any test (in a `setUpAll`, while a file declares
+  its tests, or in work an earlier test left running) fails the next test.
+- **Answering a public service.** When the code under test calls a service
+  such as Nominatim, Open-Meteo, the OSM tile server or the PDF font host,
+  declare it in `setUp`:
+
+  ```dart
+  setUp(() {
+    // The code under test calls Open-Meteo; it answers as offline.
+    serveFakeHost('api.open-meteo.com');
+  });
+  ```
+
+  The harness's `HttpClient` then answers that host from memory
+  (`test/helpers/fake_hosts.dart`): a 503 "offline" by default, which is what
+  the code meets on a device without a network, or a given response such as
+  `FakeResponse.json({...})`. `fakeHostRequests` lists what was asked. The
+  answer arrives inside a widget test's fake clock, and declarations last one
+  test. Where the code takes a client, injecting one (`MockClient` from
+  `package:http/testing.dart`) works too; `loadPdfRoboto()` loads real fonts
+  for a PDF test that needs them.
 - **A time limit per test.** A test fails after `testTimeLimit`
   (`test/helpers/test_timeouts.dart`, two minutes), set for plain tests in
   `dart_test.yaml` and for widget tests on the binding in
@@ -539,6 +556,48 @@ a `main` that is `async` or takes parameters.
 The comment `// test-bundle: run-alone <reason>`, on a line of its own, does the
 same for any file. It is there to unblock main while a conflict is fixed, not
 to leave one in place.
+
+## Pre-push Hook and Inherited Failures
+
+The pre-push hook (`hooks/pre-push`) runs a ranked selection of the tests your
+push affects, chosen by what imports the changed files. Repo-wide guards read
+a whole tree from disk instead of importing it, so no import can show that a
+new file breaks one (issue #2611). The hook runs them by the trees they read:
+
+- everything in `test/architecture/` runs when the push changes any file
+  under `lib/`;
+- a guard elsewhere declares the path prefixes it reads with a comment line,
+  such as `// pre-push: scans lib/` or `// pre-push: scans lib/l10n/arb/`
+  (several prefixes are separated by spaces), and runs when the push changes
+  a file under one of them. The widget adoption guards in
+  `test/shared/widgets/` scan `lib/`; every test that reads the ARB files
+  scans `lib/l10n/arb/`, so it runs for an ARB edit and not for other
+  changes.
+
+Mark a new test that reads source files from disk the same way, or put a
+guard that scans all of `lib/` in `test/architecture/`. CI still runs the full suite on every pull request that
+changes code; a docs-only or CI-only change skips it unless `[full-ci]` is in
+the title or a commit message.
+
+A pull request's CI tests the merge of the branch into `main`, so a failure on
+`main` turns every open pull request red too. When a required job fails on a
+pull request, `CI Success` compares each failed job with the same job in
+`main`'s CI/CD run (`scripts/report_inherited_failures.py`) and annotates it:
+
+| Annotation | Meaning |
+|---|---|
+| Also failing on main (warning) | `main` fails the same job. The failure is probably inherited; the annotation links `main`'s run |
+| Not failing on main (notice) | `main` passes that job, so the failure is new on this pull request |
+| No result on main (notice) | `main` skipped, cancelled or never ran that job, so there is nothing to compare |
+
+The baseline is `main`'s run at the commit the merge was built on, or else
+the newest runs that actually ran the failed jobs (a docs-only commit skips
+them). The pull request stays red either way. Test shards are compared as one
+job, since a branch that changes the test files moves them between shards. A
+failing shard can still hide a second failure your branch added on top of
+`main`'s, so read the log before assuming the failure is not yours.
+Re-running the old job does not pick up a fix on `main`; push a commit or
+merge `main` instead.
 
 ## Best Practices
 

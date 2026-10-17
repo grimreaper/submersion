@@ -1,4 +1,3 @@
-import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/constants/list_view_mode.dart';
 import 'package:submersion/core/constants/sort_options.dart';
 import 'package:submersion/core/models/sort_state.dart';
@@ -11,10 +10,14 @@ import 'package:submersion/features/dive_log/presentation/providers/dive_provide
 import 'package:submersion/features/dive_log/presentation/providers/dive_repository_provider.dart';
 import 'package:submersion/features/dive_log/presentation/providers/view_config_providers.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
+import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/shared/models/entity_card_view_config.dart';
 import 'package:submersion/shared/models/entity_table_config.dart';
 import 'package:submersion/shared/providers/entity_table_config_providers.dart';
 import 'package:submersion/core/utils/log_failure.dart';
+import 'package:submersion/features/certification_agencies/domain/certification_catalog.dart';
+import 'package:submersion/features/certifications/domain/entities/certification.dart';
+import 'package:submersion/features/certifications/presentation/providers/certification_providers.dart';
 
 /// Repository provider
 final courseRepositoryProvider = Provider<CourseRepository>((ref) {
@@ -66,8 +69,10 @@ final courseSortProvider = StateProvider<SortState<CourseSortField>>(
 /// Apply sorting to a list of courses
 List<Course> applyCourseSorting(
   List<Course> courses,
-  SortState<CourseSortField> sort,
-) {
+  SortState<CourseSortField> sort, {
+  CertificationCatalog? catalog,
+}) {
+  final cat = catalog ?? CertificationCatalog.builtInOnly;
   final sorted = List<Course>.from(courses);
 
   sorted.sort((a, b) {
@@ -83,7 +88,10 @@ List<Course> applyCourseSorting(
       case CourseSortField.startDate:
         comparison = a.startDate.compareTo(b.startDate);
       case CourseSortField.agency:
-        comparison = a.agency.displayName.compareTo(b.agency.displayName);
+        comparison = cat
+            .agency(a.agency)
+            .interchangeName
+            .compareTo(cat.agency(b.agency).interchangeName);
       case CourseSortField.status:
         // In progress first, then completed (by completion date)
         if (a.isInProgress && !b.isInProgress) {
@@ -118,8 +126,8 @@ final courseByIdProvider = FutureProvider.family<Course?, String>((
   return repository.getCourseById(id);
 });
 
-/// Course for a specific dive
-final courseForDiveProvider = FutureProvider.family<Course?, String>((
+/// A dive's courses, the representative first (#2515).
+final coursesForDiveProvider = FutureProvider.family<List<Course>, String>((
   ref,
   diveId,
 ) async {
@@ -127,7 +135,7 @@ final courseForDiveProvider = FutureProvider.family<Course?, String>((
   ref.invalidateSelfWhen(
     ref.watch(diveRepositoryProvider).watchDiveDetailChanges(),
   );
-  return repository.getCourseForDive(diveId);
+  return repository.getCoursesForDive(diveId);
 });
 
 /// Course for a specific certification
@@ -137,8 +145,18 @@ final courseForCertificationProvider = FutureProvider.family<Course?, String>((
 ) async {
   final repository = ref.watch(courseRepositoryProvider);
   ref.invalidateSelfWhen(repository.watchCoursesChanges());
+  // The link lives on the certification row (#2515).
+  ref.invalidateSelfWhen(repository.watchCourseLinkChanges());
   return repository.getCourseForCertification(certificationId);
 });
+
+/// The certifications a course earned, earliest issued first (#2515).
+final certificationsForCourseProvider =
+    FutureProvider.family<List<Certification>, String>((ref, courseId) async {
+      final repository = ref.watch(certificationRepositoryProvider);
+      ref.invalidateSelfWhen(repository.watchCertificationsChanges());
+      return repository.getCertificationsForCourse(courseId);
+    });
 
 /// Dives for a specific course.
 ///
@@ -157,6 +175,10 @@ final courseDivesProvider = FutureProvider.family<List<Dive>, String>((
   final diveRepository = ref.watch(diveRepositoryProvider);
 
   ref.invalidateSelfWhen(diveRepository.watchDivesChanges());
+  // A link-only change touches dive_courses alone (#2515).
+  ref.invalidateSelfWhen(
+    ref.watch(courseRepositoryProvider).watchCourseLinkChanges(),
+  );
 
   return diveRepository.getDivesForCourse(courseId);
 });
@@ -167,7 +189,7 @@ final courseDivesProvider = FutureProvider.family<List<Dive>, String>((
 /// writes; `getDiveCountForCourse` counts the same rows.
 ///
 /// Deliberately does NOT take the courses tick: the count is over
-/// `dives.course_id`, so it changes only on dives-table writes and a course
+/// `dive_courses` (#2515), so it changes only on link writes and a course
 /// rename would rebuild it for nothing.
 final courseDiveCountProvider = FutureProvider.family<int, String>((
   ref,
@@ -177,23 +199,23 @@ final courseDiveCountProvider = FutureProvider.family<int, String>((
   final diveRepository = ref.watch(diveRepositoryProvider);
 
   ref.invalidateSelfWhen(diveRepository.watchDivesChanges());
+  ref.invalidateSelfWhen(repository.watchCourseLinkChanges());
 
   return repository.getDiveCountForCourse(courseId);
 });
 
-/// Courses by agency
-final coursesByAgencyProvider =
-    FutureProvider.family<List<Course>, CertificationAgency>((
-      ref,
-      agency,
-    ) async {
-      final repository = ref.watch(courseRepositoryProvider);
-      final validatedDiverId = await ref.watch(
-        validatedCurrentDiverIdProvider.future,
-      );
-      ref.invalidateSelfWhen(repository.watchCoursesChanges());
-      return repository.getCoursesByAgency(agency, diverId: validatedDiverId);
-    });
+/// Courses by agency id (built-in enum name or custom id)
+final coursesByAgencyProvider = FutureProvider.family<List<Course>, String>((
+  ref,
+  agency,
+) async {
+  final repository = ref.watch(courseRepositoryProvider);
+  final validatedDiverId = await ref.watch(
+    validatedCurrentDiverIdProvider.future,
+  );
+  ref.invalidateSelfWhen(repository.watchCoursesChanges());
+  return repository.getCoursesByAgency(agency, diverId: validatedDiverId);
+});
 
 /// Course search provider
 final courseSearchProvider = FutureProvider.family<List<Course>, String>((
@@ -318,25 +340,27 @@ class CourseListNotifier extends StateNotifier<AsyncValue<List<Course>>> {
 
   Future<void> linkDiveToCourse(String diveId, String courseId) async {
     await _repository.linkDiveToCourse(diveId, courseId);
-    _ref.invalidate(courseForDiveProvider(diveId));
+    _ref.invalidate(coursesForDiveProvider(diveId));
     _ref.invalidate(courseDivesProvider(courseId));
     _ref.invalidate(courseDiveCountProvider(courseId));
   }
 
   Future<void> unlinkDiveFromCourse(String diveId, String courseId) async {
-    await _repository.unlinkDiveFromCourse(diveId);
-    _ref.invalidate(courseForDiveProvider(diveId));
+    await _repository.unlinkDiveFromCourse(diveId, courseId);
+    _ref.invalidate(coursesForDiveProvider(diveId));
     _ref.invalidate(courseDivesProvider(courseId));
     _ref.invalidate(courseDiveCountProvider(courseId));
   }
 
-  Future<void> linkCourseToCertification(
+  /// Makes the course's earned certifications exactly [certificationIds]
+  /// (#2515).
+  Future<void> setCourseCertifications(
     String courseId,
-    String certificationId,
+    List<String> certificationIds,
   ) async {
-    await _repository.linkCourseToCertification(courseId, certificationId);
+    await _repository.setCourseCertifications(courseId, certificationIds);
     _ref.invalidate(courseByIdProvider(courseId));
-    _ref.invalidate(courseForCertificationProvider(certificationId));
+    _ref.invalidate(certificationsForCourseProvider(courseId));
     await refresh();
   }
 }
@@ -357,10 +381,11 @@ final inProgressCourseCountProvider = FutureProvider<int>((ref) async {
 // Course List View Mode
 // ============================================================================
 
-/// In-memory view mode for the course list. Defaults to detailed.
-/// Not persisted in AppSettings — resets to detailed on app restart.
+/// Runtime-scoped course list view mode. Same contract as
+/// [certificationListViewModeProvider]: seeded once from the saved setting
+/// (v262) with `ref.read`, overridden by the list's menu for the session.
 final courseListViewModeProvider = StateProvider<ListViewMode>((ref) {
-  return ListViewMode.detailed;
+  return ref.read(settingsProvider).courseListViewMode;
 });
 
 // ============================================================================

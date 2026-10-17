@@ -78,4 +78,62 @@ abstract final class SubmersionIcons {
 
   /// Pouch under a pointed flap held down by a snap.
   static const IconData gearPocket = IconData(0xe90e, fontFamily: fontFamily);
+
+  /// A lens barrel seen side-on: mount, ribbed grip and a flared front.
+  static const IconData lens = IconData(0xe90f, fontFamily: fontFamily);
+
+  /// A dome port seen side-on: a half-dome on its mounting collar.
+  static const IconData port = IconData(0xe910, fontFamily: fontFamily);
+
+  /// A camera tray with a handle rising at each end and a camera on it.
+  static const IconData trayHandle = IconData(0xe911, fontFamily: fontFamily);
+
+  /// Two arm segments with ball ends, joined by a ball clamp with its knob.
+  static const IconData armClamp = IconData(0xe912, fontFamily: fontFamily);
+
+  /// A video light seen front-on: a square head round a wide LED, on a ball
+  /// mount.
+  static const IconData videoLight = IconData(0xe913, fontFamily: fontFamily);
+
+  /// A foam float: a fat banded body with a ball at each end.
+  static const IconData floatArm = IconData(0xe914, fontFamily: fontFamily);
+
+  /// A sleeveless vest with an attached hood and a front zip (#3108).
+  static const IconData vest = IconData(0xe915, fontFamily: fontFamily);
+
+  /// A sock seen side-on: a ribbed cuff over the leg and a rounded foot,
+  /// with no sole, which is what tells it apart from the bootie.
+  static const IconData socks = IconData(0xe916, fontFamily: fontFamily);
+
+  // Tank roles (#2901): one glyph per way a cylinder is carried. Picked by
+  // `TankRole.icon`, never directly.
+
+  /// An upright cylinder with its valve and handwheel: back gas.
+  static const IconData tankBackGas = IconData(0xe917, fontFamily: fontFamily);
+
+  /// A pair of cylinders with the left one solid: sidemount left.
+  static const IconData tankSidemountLeft = IconData(
+    0xe918,
+    fontFamily: fontFamily,
+  );
+
+  /// A pair of cylinders with the right one solid: sidemount right.
+  static const IconData tankSidemountRight = IconData(
+    0xe919,
+    fontFamily: fontFamily,
+  );
+
+  /// A tilted cylinder on a leash with a bolt snap at each end: stage, deco
+  /// and bailout.
+  static const IconData tankSlung = IconData(0xe91a, fontFamily: fontFamily);
+
+  /// A short bottle strapped beside a full-size cylinder: pony.
+  static const IconData tankPony = IconData(0xe91b, fontFamily: fontFamily);
+
+  /// A stubby cylinder beside a scrubber canister: a rebreather's diluent or
+  /// oxygen supply.
+  static const IconData tankRebreather = IconData(
+    0xe91c,
+    fontFamily: fontFamily,
+  );
 }

@@ -10,6 +10,7 @@ import 'package:submersion/features/site_types/data/mappers/site_type_row_mapper
 import 'package:submersion/features/site_types/domain/entities/site_type_entity.dart';
 import 'package:submersion/features/tags/data/mappers/tag_row_mapper.dart';
 import 'package:submersion/features/tags/domain/entities/tag.dart' as domain;
+import 'package:submersion/core/services/shared_library/library_edit_stamper.dart';
 
 /// Reads and writes a site's types and tags (issue #1765): the
 /// `site_site_types` and `site_tags` junctions.
@@ -24,6 +25,7 @@ import 'package:submersion/features/tags/domain/entities/tag.dart' as domain;
 class SiteClassificationRepository {
   AppDatabase get _db => DatabaseService.instance.database;
   final SyncRepository _syncRepository = SyncRepository();
+  final LibraryEditStamper _libraryStamper = LibraryEditStamper();
   final _uuid = const Uuid();
 
   /// Emits when either junction, or the type or tag vocabulary, changes.
@@ -166,12 +168,21 @@ class SiteClassificationRepository {
     String siteId,
     List<String> typeIds, {
     bool notify = true,
+    String? actingDiverId,
   }) async {
-    await _db.transaction(() async {
+    // A library site [actingDiverId] may not edit (a reader's): never
+    // changed here, or the list would differ from the library's for good
+    // (issue #2567). The bridge applying a pulled list does not notify.
+    if (notify &&
+        !await _libraryStamper.mayEdit(siteId, actingDiverId: actingDiverId)) {
+      return;
+    }
+    final changed = await _db.transaction(() async {
       final wanted = typeIds.toSet();
       final existing = await (_db.select(
         _db.siteSiteTypes,
       )..where((t) => t.siteId.equals(siteId))).get();
+      var removed = false;
       for (final row in existing) {
         if (wanted.contains(row.siteTypeId)) continue;
         await (_db.delete(
@@ -181,14 +192,26 @@ class SiteClassificationRepository {
           entityType: 'siteSiteTypes',
           recordId: row.id,
         );
+        removed = true;
       }
       final have = {for (final r in existing) r.siteTypeId};
-      await _insertTypes(siteId, [
+      final added = [
         for (final id in wanted)
           if (!have.contains(id)) id,
-      ]);
+      ];
+      await _insertTypes(siteId, added);
+      return removed || added.isNotEmpty;
     });
-    if (notify) SyncEventBus.notifyLocalChange();
+    if (notify) {
+      // A shared site library clock only for a real change (issue #2567): a fresh
+      // clock on an unchanged list would beat another member's edit.
+      if (changed) {
+        await _libraryStamper.stamp(siteId, {
+          'siteTypes',
+        }, actingDiverId: actingDiverId);
+      }
+      SyncEventBus.notifyLocalChange();
+    }
   }
 
   /// Adds [typeIds] to [siteId]'s types; never removes one.
@@ -196,19 +219,36 @@ class SiteClassificationRepository {
     String siteId,
     List<String> typeIds, {
     bool notify = true,
+    String? actingDiverId,
   }) async {
+    // A library site [actingDiverId] may not edit (a reader's): never
+    // changed here, or the list would differ from the library's for good
+    // (issue #2567). The bridge applying a pulled list does not notify.
+    if (notify &&
+        !await _libraryStamper.mayEdit(siteId, actingDiverId: actingDiverId)) {
+      return;
+    }
     if (typeIds.isEmpty) return;
-    await _db.transaction(() async {
+    final changed = await _db.transaction(() async {
       final existing = await (_db.select(
         _db.siteSiteTypes,
       )..where((t) => t.siteId.equals(siteId))).get();
       final have = {for (final r in existing) r.siteTypeId};
-      await _insertTypes(siteId, [
+      final added = [
         for (final id in typeIds.toSet())
           if (!have.contains(id)) id,
-      ]);
+      ];
+      await _insertTypes(siteId, added);
+      return added.isNotEmpty;
     });
-    if (notify) SyncEventBus.notifyLocalChange();
+    if (notify) {
+      if (changed) {
+        await _libraryStamper.stamp(siteId, {
+          'siteTypes',
+        }, actingDiverId: actingDiverId);
+      }
+      SyncEventBus.notifyLocalChange();
+    }
   }
 
   /// Makes [siteId]'s tags exactly [tagIds].
@@ -216,12 +256,21 @@ class SiteClassificationRepository {
     String siteId,
     List<String> tagIds, {
     bool notify = true,
+    String? actingDiverId,
   }) async {
-    await _db.transaction(() async {
+    // A library site [actingDiverId] may not edit (a reader's): never
+    // changed here, or the list would differ from the library's for good
+    // (issue #2567). The bridge applying a pulled list does not notify.
+    if (notify &&
+        !await _libraryStamper.mayEdit(siteId, actingDiverId: actingDiverId)) {
+      return;
+    }
+    final changed = await _db.transaction(() async {
       final wanted = tagIds.toSet();
       final existing = await (_db.select(
         _db.siteTags,
       )..where((t) => t.siteId.equals(siteId))).get();
+      var removed = false;
       for (final row in existing) {
         if (wanted.contains(row.tagId)) continue;
         await (_db.delete(
@@ -231,14 +280,24 @@ class SiteClassificationRepository {
           entityType: 'siteTags',
           recordId: row.id,
         );
+        removed = true;
       }
       final have = {for (final r in existing) r.tagId};
-      await _insertTags(siteId, [
+      final added = [
         for (final id in wanted)
           if (!have.contains(id)) id,
-      ]);
+      ];
+      await _insertTags(siteId, added);
+      return removed || added.isNotEmpty;
     });
-    if (notify) SyncEventBus.notifyLocalChange();
+    if (notify) {
+      if (changed) {
+        await _libraryStamper.stamp(siteId, {
+          'tags',
+        }, actingDiverId: actingDiverId);
+      }
+      SyncEventBus.notifyLocalChange();
+    }
   }
 
   /// Adds [tagIds] to [siteId]'s tags; never removes one.
@@ -246,19 +305,36 @@ class SiteClassificationRepository {
     String siteId,
     List<String> tagIds, {
     bool notify = true,
+    String? actingDiverId,
   }) async {
+    // A library site [actingDiverId] may not edit (a reader's): never
+    // changed here, or the list would differ from the library's for good
+    // (issue #2567). The bridge applying a pulled list does not notify.
+    if (notify &&
+        !await _libraryStamper.mayEdit(siteId, actingDiverId: actingDiverId)) {
+      return;
+    }
     if (tagIds.isEmpty) return;
-    await _db.transaction(() async {
+    final changed = await _db.transaction(() async {
       final existing = await (_db.select(
         _db.siteTags,
       )..where((t) => t.siteId.equals(siteId))).get();
       final have = {for (final r in existing) r.tagId};
-      await _insertTags(siteId, [
+      final added = [
         for (final id in tagIds.toSet())
           if (!have.contains(id)) id,
-      ]);
+      ];
+      await _insertTags(siteId, added);
+      return added.isNotEmpty;
     });
-    if (notify) SyncEventBus.notifyLocalChange();
+    if (notify) {
+      if (changed) {
+        await _libraryStamper.stamp(siteId, {
+          'tags',
+        }, actingDiverId: actingDiverId);
+      }
+      SyncEventBus.notifyLocalChange();
+    }
   }
 
   /// Moves the duplicates' links onto [survivorId] during a site merge.

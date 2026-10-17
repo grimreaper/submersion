@@ -45,6 +45,7 @@ void main() {
     String diveId = 'd1',
     String diverId = 'diver-1',
     String? computerId,
+    DateTime? dateTime,
   }) async {
     final db = DatabaseService.instance.database;
     await db.customStatement(
@@ -60,7 +61,7 @@ void main() {
     await DiveRepository().createDive(
       domain.Dive(
         id: diveId,
-        dateTime: DateTime.utc(2026, 9, 1, 10),
+        dateTime: dateTime ?? DateTime.utc(2026, 9, 1, 10),
         diverId: diverId,
         computerId: computerId,
       ),
@@ -76,6 +77,8 @@ void main() {
     String? computerId,
     double? volume,
     String role = 'backGas',
+    String? roleSource,
+    String? equipmentId,
   }) async {
     final db = DatabaseService.instance.database;
     await db
@@ -90,6 +93,8 @@ void main() {
             computerId: Value(computerId),
             volume: Value(volume),
             tankRole: Value(role),
+            roleSource: Value(roleSource),
+            equipmentId: Value(equipmentId),
           ),
         );
   }
@@ -231,6 +236,60 @@ void main() {
     },
   );
 
+  test('applyToExistingDives replaces a role read off the transmitter name, '
+      'even with Back Gas, and drops its source (#2595)', () async {
+    await seedDiverAndDive();
+    await seedDiverAndDive(diveId: 'd2');
+    // A bailout the diver named "OC" was imported as the oxygen supply.
+    await seedTank(
+      id: 'k1',
+      diveId: 'd1',
+      serial: '180777',
+      role: 'oxygenSupply',
+      roleSource: 'transmitterName',
+    );
+    // The same role on a dive where the diver set it stays theirs.
+    await seedTank(id: 'k2', diveId: 'd2', serial: '180777', role: 'diluent');
+    final entry = await repo.create(_entry(role: TankRole.backGas));
+
+    await repo.applyToExistingDives(entry);
+
+    final db = DatabaseService.instance.database;
+    final k1 = await (db.select(
+      db.diveTanks,
+    )..where((t) => t.id.equals('k1'))).getSingle();
+    expect(k1.tankRole, 'backGas');
+    expect(k1.roleSource, isNull);
+    final k2 = await (db.select(
+      db.diveTanks,
+    )..where((t) => t.id.equals('k2'))).getSingle();
+    expect(k2.tankRole, 'diluent');
+  });
+
+  test('applyToExistingDives confirms a name-derived role the entry agrees '
+      'with (#2595)', () async {
+    await seedDiverAndDive();
+    await seedTank(
+      id: 'k1',
+      diveId: 'd1',
+      serial: '180777',
+      volume: 2.0,
+      role: 'oxygenSupply',
+      roleSource: 'transmitterName',
+    );
+    final entry = await repo.create(_entry());
+
+    final result = await repo.applyToExistingDives(entry);
+
+    expect(result.tanksUpdated, 1);
+    final db = DatabaseService.instance.database;
+    final k1 = await (db.select(
+      db.diveTanks,
+    )..where((t) => t.id.equals('k1'))).getSingle();
+    expect(k1.tankRole, 'oxygenSupply');
+    expect(k1.roleSource, isNull);
+  });
+
   test(
     'applyToExistingDives matches a channel entry on the source index',
     () async {
@@ -280,6 +339,141 @@ void main() {
       expect(k1.volume, 11.1);
     },
   );
+
+  test(
+    'lastRoleForEquipment returns the most recently dived role (#3367)',
+    () async {
+      final db = DatabaseService.instance.database;
+      await seedDiverAndDive(dateTime: DateTime.utc(2026, 9, 1, 10));
+      await seedDiverAndDive(
+        diveId: 'd2',
+        dateTime: DateTime.utc(2026, 9, 10, 10),
+      );
+      await db.customStatement(
+        "INSERT INTO equipment (id, diver_id, name, type, created_at, "
+        "updated_at) VALUES ('tank1', 'diver-1', 'Sidemount AL80', 'tank', "
+        "1, 1)",
+      );
+      await seedTank(
+        id: 'k1',
+        diveId: 'd1',
+        equipmentId: 'tank1',
+        role: 'backGas',
+      );
+      await seedTank(
+        id: 'k2',
+        diveId: 'd2',
+        equipmentId: 'tank1',
+        role: 'sidemountLeft',
+      );
+
+      final role = await repo.lastRoleForEquipment('tank1');
+
+      expect(role, TankRole.sidemountLeft);
+    },
+  );
+
+  test(
+    'lastRoleForEquipment falls back to backGas with no dive history (#3367)',
+    () async {
+      final role = await repo.lastRoleForEquipment('no-such-equipment');
+
+      expect(role, TankRole.backGas);
+    },
+  );
+
+  test("lastRoleForEquipment ignores another profile's history on a cylinder "
+      'shared with it (#3378)', () async {
+    await seedDiverAndDive(dateTime: DateTime.utc(2026, 9, 1, 10));
+    await seedDiverAndDive(
+      diveId: 'd2',
+      diverId: 'diver-2',
+      dateTime: DateTime.utc(2026, 9, 10, 10),
+    );
+    final db = DatabaseService.instance.database;
+    await db.customStatement(
+      "INSERT INTO equipment (id, diver_id, name, type, created_at, "
+      "updated_at) VALUES ('tank1', 'diver-1', 'Shared AL80', 'tank', 1, "
+      "1)",
+    );
+    await seedTank(
+      id: 'k1',
+      diveId: 'd1',
+      equipmentId: 'tank1',
+      role: 'backGas',
+    );
+    // A more recent dive on the same shared cylinder, but another
+    // profile's own, which must never supply diver-1's suggested role.
+    await seedTank(
+      id: 'k2',
+      diveId: 'd2',
+      equipmentId: 'tank1',
+      role: 'sidemountLeft',
+    );
+
+    final role = await repo.lastRoleForEquipment('tank1', diverId: 'diver-1');
+
+    expect(role, TankRole.backGas);
+  });
+
+  test("lastRoleForEquipment skips a role read off the transmitter's name "
+      '(#3378)', () async {
+    await seedDiverAndDive(dateTime: DateTime.utc(2026, 9, 1, 10));
+    await seedDiverAndDive(
+      diveId: 'd2',
+      dateTime: DateTime.utc(2026, 9, 10, 10),
+    );
+    final db = DatabaseService.instance.database;
+    await db.customStatement(
+      "INSERT INTO equipment (id, diver_id, name, type, created_at, "
+      "updated_at) VALUES ('tank1', 'diver-1', 'Bailout AL40', 'tank', 1, "
+      "1)",
+    );
+    await seedTank(
+      id: 'k1',
+      diveId: 'd1',
+      equipmentId: 'tank1',
+      role: 'bailout',
+    );
+    // The computer's unconfirmed guess from a name like 'OC': suggesting
+    // it would let applyToExistingDives confirm it on every dive.
+    await seedTank(
+      id: 'k2',
+      diveId: 'd2',
+      equipmentId: 'tank1',
+      role: 'oxygenSupply',
+      roleSource: 'transmitterName',
+    );
+
+    final role = await repo.lastRoleForEquipment('tank1', diverId: 'diver-1');
+
+    expect(role, TankRole.bailout);
+  });
+
+  test('lastRoleForEquipment ignores a planned dive (#3378)', () async {
+    await seedDiverAndDive(dateTime: DateTime.utc(2026, 9, 1, 10));
+    await seedDiverAndDive(
+      diveId: 'd2',
+      dateTime: DateTime.utc(2026, 12, 1, 10),
+    );
+    final db = DatabaseService.instance.database;
+    await db.customStatement("UPDATE dives SET is_planned = 1 WHERE id = 'd2'");
+    await db.customStatement(
+      "INSERT INTO equipment (id, diver_id, name, type, created_at, "
+      "updated_at) VALUES ('tank1', 'diver-1', 'AL80', 'tank', 1, 1)",
+    );
+    await seedTank(
+      id: 'k1',
+      diveId: 'd1',
+      equipmentId: 'tank1',
+      role: 'backGas',
+    );
+    await seedTank(id: 'k2', diveId: 'd2', equipmentId: 'tank1', role: 'stage');
+
+    final role = await repo.lastRoleForEquipment('tank1', diverId: 'diver-1');
+
+    expect(role, TankRole.backGas);
+  });
 
   test('delete removes the row and logs a tombstone', () async {
     await seedDiverAndDive();

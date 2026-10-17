@@ -22,9 +22,10 @@ void main() {
         membershipSql(ConnectionKind.site),
         contains('site_id IS NOT NULL'),
       );
+      // A dive's courses come from the junction (#2515).
       expect(
         membershipSql(ConnectionKind.course),
-        contains('course_id IS NOT NULL'),
+        contains('FROM dive_courses'),
       );
     });
   });
@@ -138,6 +139,16 @@ void main() {
   });
 
   group('buildNodeSql', () {
+    test('reads each entity first dive in scope', () {
+      final r = buildNodeSql(
+        kind: ConnectionKind.site,
+        diverId: 'me',
+        filter: const DiveFilterState(),
+      );
+      expect(r.sql, contains('MIN(d.dive_date_time) AS first_ms'));
+      expect(r.sql, contains('c.first_ms AS first_ms'));
+    });
+
     test('joins counts to the label table and selects extra columns', () {
       final r = buildNodeSql(
         kind: ConnectionKind.site,
@@ -172,7 +183,10 @@ void main() {
         labelLike: '%tur%',
         limit: 5,
       );
-      expect(r.sql, contains("t.common_name LIKE ? ESCAPE '\\'"));
+      expect(
+        r.sql,
+        contains("unicode_lower(t.common_name) LIKE ? ESCAPE '\\'"),
+      );
       expect(r.sql, contains('LIMIT ?'));
       expect(r.params, ['me', 'sp1', '%tur%', 5]);
     });
@@ -182,13 +196,16 @@ void main() {
       expect(escapeLike('plain'), 'plain');
     });
 
-    test('the buddy role query keeps only unanimous roles', () {
+    test('the buddy role query returns every in-scope link (#1221)', () {
+      // The reader resolves each link's role set; the SQL no longer decides
+      // unanimity on the primary role alone.
       final r = buildBuddyRoleSql(
         diverId: 'me',
         filter: const DiveFilterState(),
         buddyIds: ['a'],
       );
-      expect(r.sql, contains('HAVING COUNT(DISTINCT db.role) = 1'));
+      expect(r.sql, contains('db.dive_id AS dive_id'));
+      expect(r.sql, isNot(contains('HAVING')));
       expect(r.params, ['me', 'a']);
     });
   });

@@ -4,6 +4,8 @@ import 'dart:typed_data';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/features/buddies/domain/entities/buddy.dart';
+import 'package:submersion/features/certification_agencies/domain/certification_catalog.dart';
+import 'package:submersion/features/certification_agencies/domain/entities/custom_certification_agency.dart';
 import 'package:submersion/features/certifications/domain/entities/certification.dart';
 import 'package:submersion/features/dive_centers/domain/entities/dive_center.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
@@ -36,6 +38,7 @@ void main() {
     List<DiveTypeEntity> diveTypes = const [],
     Map<String, String> existingSourceUuidByDiveId = const {},
     bool checkIntraBatch = false,
+    bool checkWithinFile = false,
   }) {
     return checker.check(
       payload: payload ?? const ImportPayload(entities: {}),
@@ -50,6 +53,7 @@ void main() {
       existingDiveTypes: diveTypes,
       existingSourceUuidByDiveId: existingSourceUuidByDiveId,
       checkIntraBatch: checkIntraBatch,
+      checkWithinFile: checkWithinFile,
     );
   }
 
@@ -469,11 +473,56 @@ void main() {
           Certification(
             id: '1',
             name: 'Open Water',
-            agency: CertificationAgency.padi,
+            agency: CertificationAgency.padi.name,
             createdAt: now,
             updatedAt: now,
           ),
         ],
+      );
+
+      expect(result.duplicates[ImportEntityType.certifications], {0});
+    });
+
+    test('a custom agency matches by its name on re-import (issue #690)', () {
+      final catalog = CertificationCatalog(
+        agencies: [
+          CustomCertificationAgency(
+            id: 'club-x-id',
+            diverId: 'a',
+            name: 'Club X',
+            colorArgb: 0xFF3B82F6,
+            createdAt: now,
+            updatedAt: now,
+          ),
+        ],
+      );
+      final result = checker.check(
+        payload: const ImportPayload(
+          entities: {
+            ImportEntityType.certifications: [
+              {'name': 'Club Diver', 'agency': 'Club X'},
+              {'name': 'Club Diver', 'agency': 'Club Y'},
+            ],
+          },
+        ),
+        existingDives: const [],
+        existingSites: const [],
+        existingTrips: const [],
+        existingEquipment: const [],
+        existingBuddies: const [],
+        existingDiveCenters: const [],
+        existingCertifications: [
+          Certification(
+            id: '1',
+            name: 'Club Diver',
+            agency: 'club-x-id',
+            createdAt: now,
+            updatedAt: now,
+          ),
+        ],
+        existingTags: const [],
+        existingDiveTypes: const [],
+        certificationCatalog: catalog,
       );
 
       expect(result.duplicates[ImportEntityType.certifications], {0});
@@ -1101,6 +1150,114 @@ void main() {
       expect(result.diveMatches[1]!.diveId, '');
       expect(result.diveMatches[0]!.inBatchIndex, isNull);
       expect(result.diveMatches[0]!.diveId, 'existing-1');
+    });
+  });
+
+  group('Within-file dive duplicates (#3110)', () {
+    Map<String, dynamic> dive(
+      DateTime at, {
+      double depth = 18.4,
+      int minutes = 41,
+      Map<String, dynamic> extra = const {},
+    }) => {
+      'dateTime': at,
+      'maxDepth': depth,
+      'duration': Duration(minutes: minutes),
+      ...extra,
+    };
+
+    final start = DateTime.utc(2026, 8, 1, 10, 15);
+
+    ImportDuplicateResult checkFile(List<Map<String, dynamic>> dives) =>
+        checkWith(
+          payload: ImportPayload(entities: {ImportEntityType.dives: dives}),
+          checkWithinFile: true,
+        );
+
+    test('the same dive twice in one file is flagged', () {
+      final result = checkFile([dive(start), dive(start, depth: 18.3)]);
+      expect(result.diveMatches.keys, [1]);
+      expect(result.diveMatches[1]!.inBatchIndex, 0);
+      expect(result.diveMatches[1]!.diveId, '');
+    });
+
+    test('the copy with less data is flagged, the richer one kept', () {
+      final result = checkFile([
+        dive(start),
+        dive(
+          start,
+          extra: {
+            'site': {'uddfId': 's1'},
+            'buddyRefs': ['Sam'],
+          },
+        ),
+      ]);
+      expect(result.diveMatches.keys, [0]);
+      expect(result.diveMatches[0]!.inBatchIndex, 1);
+    });
+
+    test('copies a second apart across a minute boundary are one dive', () {
+      // Two dives cannot start a second apart, so with the same depth and
+      // duration these are one dive logged twice, whichever minute each
+      // clock put it in.
+      final result = checkFile([
+        dive(DateTime.utc(2026, 8, 1, 10, 15, 59)),
+        dive(DateTime.utc(2026, 8, 1, 10, 16)),
+      ]);
+      expect(result.diveMatches.keys, [1]);
+    });
+
+    test('of three copies the richest is kept, the others point at it', () {
+      final result = checkFile([
+        dive(start),
+        dive(start, extra: {'notes': 'medium'}),
+        dive(start, extra: {'notes': 'rich', 'rating': 4}),
+      ]);
+      expect(result.diveMatches.keys, unorderedEquals([0, 1]));
+      expect(result.diveMatches[0]!.inBatchIndex, 2);
+      expect(result.diveMatches[1]!.inBatchIndex, 2);
+    });
+
+    test('dives a full minute apart are not flagged', () {
+      final result = checkFile([
+        dive(start),
+        dive(start.add(const Duration(minutes: 1))),
+      ]);
+      expect(result.diveMatches, isEmpty);
+    });
+
+    test('dives minutes apart in one file are not flagged', () {
+      // Two real dives can share a depth and length; within one file only
+      // starts under a minute apart make them one dive.
+      final result = checkFile([
+        dive(start),
+        dive(start.add(const Duration(minutes: 3))),
+      ]);
+      expect(result.diveMatches, isEmpty);
+    });
+
+    test('a different depth or duration at the same minute is not flagged', () {
+      final result = checkFile([
+        dive(start),
+        dive(start, depth: 25),
+        dive(start.add(const Duration(days: 1))),
+        dive(start.add(const Duration(days: 1)), minutes: 55),
+      ]);
+      expect(result.diveMatches, isEmpty);
+    });
+
+    test('pairs are found throughout the file, not only adjacent rows', () {
+      final other = start.add(const Duration(days: 30));
+      final result = checkFile([
+        dive(start),
+        dive(other),
+        dive(start.add(const Duration(days: 2))),
+        dive(other),
+        dive(start),
+      ]);
+      expect(result.diveMatches.keys, unorderedEquals([3, 4]));
+      expect(result.diveMatches[3]!.inBatchIndex, 1);
+      expect(result.diveMatches[4]!.inBatchIndex, 0);
     });
   });
 }

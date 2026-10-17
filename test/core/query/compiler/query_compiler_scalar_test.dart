@@ -2,6 +2,10 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/query/compiler/query_compiler.dart';
 import 'package:submersion/core/query/compiler/sql_templates.dart';
 import 'package:submersion/core/query/domain/query_node.dart';
+import 'package:submersion/core/query/domain/query_subject.dart';
+import 'package:submersion/core/query/registry/query_entity.dart';
+import 'package:submersion/core/query/registry/query_field.dart';
+import 'package:submersion/core/query/registry/query_registry.dart';
 import 'package:submersion/core/util/wall_clock_utc.dart';
 
 import '../fixtures/fixture_registry.dart';
@@ -81,7 +85,7 @@ void main() {
         const StringValue('Manta'),
       ),
     );
-    expect(e.where, '(LOWER(r0.notes) = LOWER(?))');
+    expect(e.where, '(unicode_lower(r0.notes) = unicode_lower(?))');
     expect(e.params, ['Manta']);
     final k = c(
       ConditionNode(
@@ -90,7 +94,7 @@ void main() {
         const StringValue('100%_x'),
       ),
     );
-    expect(k.where, "(r0.notes LIKE ? ESCAPE '\\')");
+    expect(k.where, "(unicode_lower(r0.notes) LIKE ? ESCAPE '\\')");
     expect(k.params, ['%100\\%\\_x%']);
   });
 
@@ -225,17 +229,35 @@ void main() {
     expect(range.params, [ms(DateTime(2025, 1, 1)), ms(DateTime(2026, 1, 1))]);
   });
 
-  test('text search ORs every template per word and ANDs words', () {
-    final q = c(TextNode(['night', 'dive']));
+  test('one text node is one term: a word, or a quoted phrase in order', () {
+    final word = c(TextNode(['night']));
     expect(
-      q.where,
-      "((r0.notes LIKE ? ESCAPE '\\' OR EXISTS (SELECT 1 FROM dive_sites ts "
-      "WHERE ts.id = r0.site_id AND ts.name LIKE ? ESCAPE '\\')) "
-      "AND (r0.notes LIKE ? ESCAPE '\\' OR EXISTS (SELECT 1 FROM dive_sites ts "
-      "WHERE ts.id = r0.site_id AND ts.name LIKE ? ESCAPE '\\')))",
+      word.where,
+      "((unicode_lower(r0.notes) LIKE ? ESCAPE '\\' OR EXISTS (SELECT 1 FROM dive_sites ts "
+      "WHERE ts.id = r0.site_id AND unicode_lower(ts.name) LIKE ? ESCAPE '\\')))",
+    );
+    expect(word.params, ['%night%', '%night%']);
+
+    // A multi-word node only comes from quotes or a builder text row: the
+    // words must appear together, in this order (#2773).
+    final phrase = c(TextNode(['night', 'dive']));
+    expect(phrase.where, word.where);
+    expect(phrase.params, ['%night dive%', '%night dive%']);
+    expect(phrase.tablesTouched, {'dives', 'dive_sites'});
+  });
+
+  test('bare words stay separate terms through an AND', () {
+    final q = c(
+      AndNode([
+        TextNode(['night']),
+        TextNode(['dive']),
+      ]),
     );
     expect(q.params, ['%night%', '%night%', '%dive%', '%dive%']);
-    expect(q.tablesTouched, {'dives', 'dive_sites'});
+  });
+
+  test('a phrase escapes LIKE wildcards like a word does', () {
+    expect(c(TextNode(['100%', 'night'])).params.first, '%100\\% night%');
   });
 
   test('AND, OR and NOT nest with parentheses', () {
@@ -319,7 +341,10 @@ void main() {
         ),
       ),
     );
-    expect(q.where, "(NOT COALESCE((r0.notes LIKE ? ESCAPE '\\'), 0))");
+    expect(
+      q.where,
+      "(NOT COALESCE((unicode_lower(r0.notes) LIKE ? ESCAPE '\\'), 0))",
+    );
   });
 
   test(
@@ -377,4 +402,63 @@ void main() {
       expect(d.params.first, lessThan(d.params.last as int));
     },
   );
+
+  group('a number field with rangeSql (issue #3226)', () {
+    // Its own entity, so the shared fixture (and the field pickers built on
+    // it) stay unchanged.
+    const rangeDives = QueryEntity(
+      subject: QuerySubject.dives,
+      table: 'dives',
+      fields: [
+        QueryField(
+          key: 'vis',
+          type: FieldType.number,
+          dimension: FieldDimension.depth,
+          sql: '{r}.vis',
+          emptySql: '{r}.vis IS NULL',
+          labelKey: 'x',
+          rangeSql: (low: '{r}.vis_lo', high: '{r}.vis_hi'),
+        ),
+      ],
+    );
+    final rangeRegistry = QueryRegistry([rangeDives]);
+    CompiledQuery vis(QueryOp op, QueryValue value) => compileQuery(
+      ConditionNode(FieldPath(['vis']), op, value),
+      rangeDives,
+      rangeRegistry,
+    );
+
+    test('>= matches the value, or a NULL value whose low end meets it', () {
+      final q = vis(QueryOp.gte, const NumberValue(10, null));
+      expect(q.where, '((r0.vis >= ?) OR (r0.vis IS NULL AND r0.vis_lo >= ?))');
+      expect(q.params, [10.0, 10.0]);
+    });
+
+    test('< needs the exclusive high end at or below the bound', () {
+      expect(
+        vis(QueryOp.lt, const NumberValue(10, null)).where,
+        '((r0.vis < ?) OR (r0.vis IS NULL AND r0.vis_hi <= ?))',
+      );
+    });
+
+    test('between needs both ends inside', () {
+      final q = vis(
+        QueryOp.between,
+        ListValue([const NumberValue(5, null), const NumberValue(20, null)]),
+      );
+      expect(
+        q.where,
+        '((r0.vis >= ? AND r0.vis <= ?) OR '
+        '(r0.vis IS NULL AND r0.vis_lo >= ? AND r0.vis_hi <= ?))',
+      );
+      expect(q.params, [5.0, 20.0, 5.0, 20.0]);
+    });
+
+    test('equality never matches a range', () {
+      expect(
+        vis(QueryOp.eq, const NumberValue(10, null)).where,
+        isNot(contains('vis_lo')),
+      );
+    });
+  });
 }

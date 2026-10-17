@@ -22,9 +22,24 @@ class UddfImportResult {
 
   /// Custom site type definitions (`id`, `name`, `sortOrder`), issue #1765.
   final List<Map<String, dynamic>> customSiteTypes;
+
+  /// The diver's custom service kinds from a full backup (issue #2651):
+  /// definitions, matched to the importing library by id then name.
+  final List<Map<String, dynamic>> serviceKinds;
   final List<Map<String, dynamic>> diveComputers;
   final List<Map<String, dynamic>> equipmentSets;
   final List<Map<String, dynamic>> courses;
+
+  /// Cylinder fills from a Submersion fills CSV (passports phase 5): rows
+  /// keyed by fill id and passport id, stored by CsvFillImporter.
+  final List<Map<String, dynamic>> fills;
+
+  /// Certification currency rows from a full backup (issue #2267): custom
+  /// rules, and the prefs and ledger events whose `certificationRef` names
+  /// a `<cert>` in the same file.
+  final List<Map<String, dynamic>> currencyRules;
+  final List<Map<String, dynamic>> currencyPrefs;
+  final List<Map<String, dynamic>> currencyEvents;
 
   /// The original filename of the imported file (e.g. "my_dives.uddf").
   ///
@@ -70,9 +85,14 @@ class UddfImportResult {
     this.customDiveTypes = const [],
     this.customDiveRoles = const [],
     this.customSiteTypes = const [],
+    this.serviceKinds = const [],
     this.diveComputers = const [],
     this.equipmentSets = const [],
     this.courses = const [],
+    this.fills = const [],
+    this.currencyRules = const [],
+    this.currencyPrefs = const [],
+    this.currencyEvents = const [],
     this.sourceFileName,
     this.dataSourcesByDiveRef = const {},
     this.unpairedDumps = 0,
@@ -96,9 +116,14 @@ class UddfImportResult {
       customDiveTypes.isEmpty &&
       customDiveRoles.isEmpty &&
       customSiteTypes.isEmpty &&
+      serviceKinds.isEmpty &&
       diveComputers.isEmpty &&
       equipmentSets.isEmpty &&
-      courses.isEmpty;
+      courses.isEmpty &&
+      fills.isEmpty &&
+      currencyRules.isEmpty &&
+      currencyPrefs.isEmpty &&
+      currencyEvents.isEmpty;
 
   /// Get total count of all items
   int get totalItems =>
@@ -118,7 +143,11 @@ class UddfImportResult {
       customDiveRoles.length +
       diveComputers.length +
       equipmentSets.length +
-      courses.length;
+      courses.length +
+      fills.length +
+      currencyRules.length +
+      currencyPrefs.length +
+      currencyEvents.length;
 
   /// Summary string for display
   String get summary {
@@ -151,6 +180,10 @@ class UddfImportResult {
       parts.add('${serviceRecords.length} service records');
     }
     if (courses.isNotEmpty) parts.add('${courses.length} courses');
+    if (fills.isNotEmpty) parts.add('${fills.length} fills');
+    if (currencyRules.isNotEmpty) {
+      parts.add('${currencyRules.length} currency rules');
+    }
     if (settings.isNotEmpty) parts.add('${settings.length} settings');
     return parts.isEmpty ? 'No data' : parts.join(', ');
   }
@@ -191,9 +224,14 @@ class UddfImportResult {
       customDiveTypes: customDiveTypes,
       customDiveRoles: customDiveRoles,
       customSiteTypes: customSiteTypes,
+      serviceKinds: serviceKinds,
       diveComputers: diveComputers,
       equipmentSets: equipmentSets,
       courses: courses,
+      fills: fills,
+      currencyRules: currencyRules,
+      currencyPrefs: currencyPrefs,
+      currencyEvents: currencyEvents,
       sourceFileName: sourceFileName,
       dataSourcesByDiveRef: dataSourcesByDiveRef,
       unpairedDumps: unpairedDumps,

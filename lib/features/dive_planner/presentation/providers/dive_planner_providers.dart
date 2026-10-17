@@ -6,7 +6,13 @@ import 'package:submersion/core/deco/entities/dive_environment.dart';
 import 'package:submersion/core/deco/entities/tissue_compartment.dart';
 import 'package:submersion/core/deco/schedule_policy.dart' show AirBreakPolicy;
 import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
+import 'package:submersion/features/equipment/domain/entities/equipment_item.dart';
+import 'package:submersion/features/equipment/presentation/providers/equipment_providers.dart';
+import 'package:submersion/features/planner/domain/entities/mission/dpv_mission.dart';
+import 'package:submersion/features/planner/domain/services/mission/mission_edits.dart';
+import 'package:submersion/features/planner/domain/services/mission/mission_engine.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/dive_planner/data/services/plan_calculator_service.dart';
 import 'package:submersion/features/dive_planner/domain/entities/plan_result.dart';
@@ -15,6 +21,7 @@ import 'package:submersion/features/equipment/domain/entities/gear_provenance.da
 import 'package:submersion/features/planner/data/repositories/dive_plan_repository.dart';
 import 'package:submersion/features/planner/domain/entities/dive_plan.dart'
     as domain;
+import 'package:submersion/features/planner/domain/services/ccr_loop_slots.dart';
 import 'package:submersion/features/planner/domain/services/dive_plan_state_mapper.dart';
 import 'package:submersion/features/planner/domain/services/segment_chain.dart';
 import 'package:submersion/features/planner/presentation/providers/plan_repository_providers.dart';
@@ -24,6 +31,10 @@ const _uuid = Uuid();
 /// A gradient factor pair as a percentage (0-100). The two halves are only
 /// meaningful together, so they travel as one value.
 typedef PlanGradientFactors = ({int low, int high});
+
+/// A CCR setpoint pair in bar. The two halves are only meaningful together,
+/// so they travel as one value.
+typedef CcrSetpoints = ({double low, double high});
 
 // ============================================================================
 // Service Providers
@@ -70,7 +81,14 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
   final double Function() _getDefaultReservePressure;
   final PlanGradientFactors Function() _getDefaultGradientFactors;
   final PlannerWaterType Function() _getDefaultPlannerWaterType;
+  final CcrSetpoints Function() _getDefaultCcrSetpoints;
   final DivePlanRepository? _repository;
+
+  /// Loads the diver's equipment, for refreshing a mission's scooters from
+  /// the items they were picked from when a plan is opened.
+  final Future<List<EquipmentItem>> Function() _loadEquipment;
+
+  static final _log = LoggerService.forClass(DivePlanNotifier);
 
   /// The persisted aggregate this state was loaded from (or last saved as);
   /// preserves fields the legacy state does not carry across a save cycle.
@@ -97,7 +115,9 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
     double Function()? getDefaultReservePressure,
     PlanGradientFactors Function()? getDefaultGradientFactors,
     PlannerWaterType Function()? getDefaultPlannerWaterType,
+    CcrSetpoints Function()? getDefaultCcrSetpoints,
     DivePlanRepository? repository,
+    Future<List<EquipmentItem>> Function()? loadEquipment,
   }) {
     return DivePlanNotifier._(
       calculator,
@@ -107,7 +127,9 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
           getDefaultGradientFactors ?? _fallbackGradientFactors,
       getDefaultPlannerWaterType:
           getDefaultPlannerWaterType ?? (() => PlannerWaterType.salt),
+      getDefaultCcrSetpoints: getDefaultCcrSetpoints ?? _fallbackCcrSetpoints,
       repository: repository,
+      loadEquipment: loadEquipment ?? (() async => const <EquipmentItem>[]),
     );
   }
 
@@ -116,11 +138,15 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
     required double Function() getDefaultReservePressure,
     required PlanGradientFactors Function() getDefaultGradientFactors,
     required PlannerWaterType Function() getDefaultPlannerWaterType,
+    required CcrSetpoints Function() getDefaultCcrSetpoints,
     DivePlanRepository? repository,
+    required Future<List<EquipmentItem>> Function() loadEquipment,
   }) : _getDefaultReservePressure = getDefaultReservePressure,
        _getDefaultGradientFactors = getDefaultGradientFactors,
        _getDefaultPlannerWaterType = getDefaultPlannerWaterType,
+       _getDefaultCcrSetpoints = getDefaultCcrSetpoints,
        _repository = repository,
+       _loadEquipment = loadEquipment,
        super(
          _createInitialState(
            reservePressure: getDefaultReservePressure(),
@@ -131,6 +157,11 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
 
   static PlanGradientFactors _fallbackGradientFactors() =>
       (low: DivePlanState.kFallbackGfLow, high: DivePlanState.kFallbackGfHigh);
+
+  static CcrSetpoints _fallbackCcrSetpoints() => (
+    low: domain.DivePlan.specSetpointLow,
+    high: domain.DivePlan.specSetpointHigh,
+  );
 
   static ({WaterType? waterType, double? salinityPpt}) _waterFieldsFor(
     PlannerWaterType type,
@@ -232,7 +263,85 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
 
   /// Load an existing plan for editing.
   void loadPlan(DivePlanState plan) {
-    state = plan;
+    state = _withCcrSlots(plan);
+  }
+
+  // --------------------------------------------------------------------------
+  // CCR loop slots (#3220)
+  // --------------------------------------------------------------------------
+
+  /// [s] with its two mandatory loop slots filled when it is a CCR plan
+  /// (see [CcrLoopSlots]), and every segment remapped onto a diluent
+  /// against that same, possibly just-updated, tank list; any other mode
+  /// is returned as it is. Filling a slot is not a diver edit, so
+  /// [DivePlanState.isDirty] is left alone.
+  ///
+  /// The remap matters even when [CcrLoopSlots.ensure] changes nothing
+  /// about an *existing* slot split: entering CCR on a plan whose only
+  /// pure-O2 cylinder is the segments' own gas (an ordinary OC/SCR O2 deco
+  /// bottle) has [CcrLoopSlots] claim that cylinder for the oxygen slot,
+  /// which leaves every segment referencing it in violation of "a CCR
+  /// segment always breathes a diluent" -- nothing else in [ensure] looks
+  /// at segments once a role is decided, so the remap has to happen here,
+  /// against the tanks [ensure] actually returned, not the input.
+  static DivePlanState _withCcrSlots(DivePlanState s) {
+    if (s.mode != domain.PlanMode.ccr) return s;
+    final slots = const CcrLoopSlots().ensure(
+      s.tanks,
+      segments: s.segments,
+      newId: _uuid.v4,
+    );
+    var segmentsChanged = false;
+    final segments = [
+      for (final segment in s.segments)
+        () {
+          final mapped = _segmentOnDiluent(segment, slots.tanks);
+          if (!identical(mapped, segment)) segmentsChanged = true;
+          return mapped;
+        }(),
+    ];
+    if (!slots.changed && !segmentsChanged) return s;
+    return s.copyWith(tanks: slots.tanks, segments: segments);
+  }
+
+  /// The plan's diluent cylinders, in list order.
+  static List<DiveTank> _diluents(List<DiveTank> tanks) =>
+      tanks.where((t) => t.role == TankRole.diluent).toList();
+
+  /// [segment] as it is when it already breathes one of [tanks]' diluents,
+  /// else moved onto the first diluent, mix and all -- the free-standing
+  /// form [_withCcrSlots] uses, against a tank list it computed itself
+  /// rather than `state.tanks` (which [updateMode] has not yet committed
+  /// at the point it needs this).
+  static PlanSegment _segmentOnDiluent(
+    PlanSegment segment,
+    List<DiveTank> tanks,
+  ) {
+    final diluents = _diluents(tanks);
+    if (diluents.isEmpty || diluents.any((t) => t.id == segment.tankId)) {
+      return segment;
+    }
+    final first = diluents.first;
+    return segment.copyWith(tankId: first.id, gasMix: first.gasMix);
+  }
+
+  /// On a CCR plan every segment breathes a diluent: [segment] as it is
+  /// when it already does, else moved onto the first diluent, mix and all.
+  /// The editor only offers diluents there, so this is the backstop for a
+  /// segment authored before the tank it names stopped being one.
+  PlanSegment _onDiluent(PlanSegment segment) {
+    if (state.mode != domain.PlanMode.ccr) return segment;
+    return _segmentOnDiluent(segment, state.tanks);
+  }
+
+  /// The cylinder a new segment starts on: the first diluent on a CCR plan,
+  /// the first cylinder otherwise.
+  DiveTank _defaultSegmentTank() {
+    if (state.mode == domain.PlanMode.ccr) {
+      final diluents = _diluents(state.tanks);
+      if (diluents.isNotEmpty) return diluents.first;
+    }
+    return state.tanks.first;
   }
 
   /// Load a persisted plan by id. Returns false when it does not exist.
@@ -242,7 +351,20 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
     final plan = await repository.getPlan(planId);
     if (plan == null || !mounted) return false;
     _loaded = plan;
-    state = stateFromDivePlan(plan);
+    state = _withCcrSlots(stateFromDivePlan(plan));
+    final mission = plan.mission;
+    if (mission != null) {
+      // A scooter picked from equipment follows the live item; a manual or
+      // deleted one keeps the numbers stored with the plan.
+      final live = MissionEdits.withLiveScooters(
+        mission,
+        await _liveEquipment(plan.id),
+      );
+      if (!mounted) return false;
+      // Regenerated once, so the profile always matches the mission it was
+      // saved with; an edit made while the equipment loaded wins.
+      if (state.mission == mission) _setMission(live, markDirty: false);
+    }
     return true;
   }
 
@@ -270,7 +392,7 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
 
   /// Add a new segment to the plan.
   void addSegment(PlanSegment segment) {
-    final segments = [...state.segments, segment];
+    final segments = [...state.segments, _onDiluent(segment)];
     _updateSegmentOrders(segments);
     state = state.copyWith(
       segments: segments,
@@ -281,8 +403,9 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
 
   /// Update an existing segment.
   void updateSegment(String id, PlanSegment segment) {
+    final updated = _onDiluent(segment);
     final segments = state.segments.map((s) {
-      return s.id == id ? segment : s;
+      return s.id == id ? updated : s;
     }).toList();
     state = state.copyWith(
       segments: segments,
@@ -350,7 +473,7 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
   }) {
     if (state.tanks.isEmpty) return;
 
-    final tank = state.tanks.first;
+    final tank = _defaultSegmentTank();
     final segments = <PlanSegment>[
       // Descends at the plan's own rate. The old call used PlanSegment
       // .descent without passing one, so the quick plan always dropped at
@@ -374,8 +497,11 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
       ),
     ];
 
+    // A quick plan replaces the whole profile, so it also ends a DPV mission
+    // that was generating the old one.
     state = state.copyWith(
       segments: segments,
+      clearMission: true,
       isDirty: true,
       updatedAt: DateTime.now(),
     );
@@ -388,10 +514,8 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
   /// Add a new tank to the plan.
   void addTank(DiveTank tank) {
     final tanks = [...state.tanks, tank];
-    state = state.copyWith(
-      tanks: tanks,
-      isDirty: true,
-      updatedAt: DateTime.now(),
+    state = _withMissionSegments(
+      state.copyWith(tanks: tanks, isDirty: true, updatedAt: DateTime.now()),
     );
   }
 
@@ -449,48 +573,86 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
   }
 
   /// Update an existing tank.
+  ///
+  /// On a CCR plan the two loop slots keep their identity through an edit
+  /// (#3220): the oxygen slot stays the oxygen supply on 100 %, and the only
+  /// diluent stays diluent -- the editor does not offer those changes, so
+  /// this is the backstop that keeps the plan from losing a slot.
   void updateTank(String id, DiveTank tank) {
+    var updated = tank;
+    if (state.mode == domain.PlanMode.ccr) {
+      final original = state.tanks.where((t) => t.id == id).firstOrNull;
+      if (original?.role == TankRole.oxygenSupply) {
+        updated = updated.copyWith(
+          role: TankRole.oxygenSupply,
+          gasMix: const GasMix(o2: 100),
+        );
+      } else if (original?.role == TankRole.diluent &&
+          updated.role != TankRole.diluent &&
+          _diluents(state.tanks).length == 1) {
+        updated = updated.copyWith(role: TankRole.diluent);
+      }
+    }
     final tanks = state.tanks.map((t) {
-      return t.id == id ? tank : t;
+      return t.id == id ? updated : t;
     }).toList();
 
     // Also update gas mix in segments using this tank
     final segments = state.segments.map((s) {
       if (s.tankId == id) {
-        return s.copyWith(gasMix: tank.gasMix);
+        return s.copyWith(gasMix: updated.gasMix);
       }
       return s;
     }).toList();
 
-    state = state.copyWith(
-      tanks: tanks,
-      segments: segments,
-      isDirty: true,
-      updatedAt: DateTime.now(),
+    state = _withMissionSegments(
+      state.copyWith(
+        tanks: tanks,
+        segments: segments,
+        isDirty: true,
+        updatedAt: DateTime.now(),
+      ),
     );
   }
 
   /// Remove a tank from the plan.
+  ///
+  /// On a CCR plan the oxygen slot and the last diluent cannot go (#3220):
+  /// the chip offers no delete for them, and this is the backstop.
   void removeTank(String id) {
     // Don't allow removing the last tank
     if (state.tanks.length <= 1) return;
+    final removed = state.tanks.where((t) => t.id == id).firstOrNull;
+    if (removed == null) return;
+    if (state.mode == domain.PlanMode.ccr) {
+      if (removed.role == TankRole.oxygenSupply) return;
+      if (removed.role == TankRole.diluent &&
+          _diluents(state.tanks).length == 1) {
+        return;
+      }
+    }
 
     final tanks = state.tanks.where((t) => t.id != id).toList();
 
-    // Reassign segments using removed tank to first tank
-    final firstTankId = tanks.first.id;
+    // Reassign segments using the removed tank: to the first diluent on a
+    // CCR plan, to the first tank otherwise.
+    final fallback = state.mode == domain.PlanMode.ccr
+        ? (_diluents(tanks).firstOrNull ?? tanks.first)
+        : tanks.first;
     final segments = state.segments.map((s) {
       if (s.tankId == id) {
-        return s.copyWith(tankId: firstTankId, gasMix: tanks.first.gasMix);
+        return s.copyWith(tankId: fallback.id, gasMix: fallback.gasMix);
       }
       return s;
     }).toList();
 
-    state = state.copyWith(
-      tanks: tanks,
-      segments: segments,
-      isDirty: true,
-      updatedAt: DateTime.now(),
+    state = _withMissionSegments(
+      state.copyWith(
+        tanks: tanks,
+        segments: segments,
+        isDirty: true,
+        updatedAt: DateTime.now(),
+      ),
     );
   }
 
@@ -528,14 +690,16 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
     double? finalStretch,
     double? descent,
   }) {
-    state = state.copyWith(
-      ascentRate: ascent,
-      intermediateAscentRate: intermediate,
-      shallowAscentRate: shallow,
-      finalAscentRate: finalStretch,
-      descentRate: descent,
-      isDirty: true,
-      updatedAt: DateTime.now(),
+    state = _withMissionSegments(
+      state.copyWith(
+        ascentRate: ascent,
+        intermediateAscentRate: intermediate,
+        shallowAscentRate: shallow,
+        finalAscentRate: finalStretch,
+        descentRate: descent,
+        isDirty: true,
+        updatedAt: DateTime.now(),
+      ),
     );
   }
 
@@ -642,11 +806,15 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
   /// [sacDeco], [ppO2Bottom], [ppO2Deco], and [o2Narcotic] are nullable
   /// overrides of the app-wide settings (or, for [sacDeco], of the 0.8x-of-
   /// bottom fallback) - pass the matching `clear*` flag to fall back again.
+  /// [gasSwitchStopSeconds] has no app-wide default to fall back to (#3225):
+  /// it is plan-only, same as every other field [DivePlan] keeps with no
+  /// matching Settings entry, so there is no `clear*` for it either.
   void updateGasOptions({
     double? sacDeco,
     bool clearSacDeco = false,
     double? sacFactor,
     int? problemSolvingMinutes,
+    int? gasSwitchStopSeconds,
     double? ppO2Bottom,
     bool clearPpO2Bottom = false,
     double? ppO2Deco,
@@ -660,6 +828,7 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
       clearSacDeco: clearSacDeco,
       sacFactor: sacFactor,
       problemSolvingMinutes: problemSolvingMinutes,
+      gasSwitchStopSeconds: gasSwitchStopSeconds,
       ppO2Bottom: ppO2Bottom,
       clearPpO2Bottom: clearPpO2Bottom,
       ppO2Deco: ppO2Deco,
@@ -673,9 +842,70 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
   }
 
   /// Switch between open circuit and CCR.
+  ///
+  /// Entering CCR seeds each setpoint still null (a fresh plan, one that has
+  /// never been in CCR mode, or one with only a hand-set half) from the
+  /// diver's own CCR ppO2 limits, independently per field. A setpoint the
+  /// diver already set (low or high, on its own) is never overwritten. A
+  /// null setpoint would still compute with the diver's Settings (the
+  /// engine's own fallback, issue #2801); the seed pins the values the plan
+  /// was built with, so a later Settings change does not move a plan the
+  /// diver has already started editing in CCR.
+  ///
+  /// Unlike [adoptGradientFactorsIfPristine], there is no later "adopt if
+  /// pristine" for these settings: switching mode is itself a diver edit and
+  /// already sets `isDirty`, so a plan can never be both in CCR mode and
+  /// pristine, and there is nothing left for a later settings change to
+  /// adopt into.
+  ///
+  /// Known limitation: a setpoint is seeded only once, the first time its
+  /// field is still null while entering CCR, so cycling CCR -> OC -> CCR
+  /// keeps that first seed even if the diver's Settings changed in between.
+  /// Clearing on exit would fix that but would also wipe a hand-tuned
+  /// setpoint on every OC/SCR/pSCR step of the mode-cycle button, a worse
+  /// regression for a rarer case.
   void updateMode(domain.PlanMode mode) {
+    final defaults =
+        mode == domain.PlanMode.ccr &&
+            (state.setpointLow == null || state.setpointHigh == null)
+        ? _getDefaultCcrSetpoints()
+        : null;
+    // Entering CCR fills the two mandatory loop slots (#3220): diluent and
+    // oxygen supply, adopted from what the plan already carries or added
+    // as placeholders. SCR/PSCR keep the older convenience only: diluent is
+    // the diver's explicit per-tank choice there (#3135), and entering with
+    // nothing marked yet marks the tank(s) the plan already breathes, once.
+    var tanks = state.tanks;
+    var segments = state.segments;
+    if (mode == domain.PlanMode.ccr) {
+      tanks = const CcrLoopSlots()
+          .ensure(tanks, segments: segments, newId: _uuid.v4)
+          .tanks;
+      // Claiming the oxygen slot can take a cylinder an existing segment
+      // already breathes (an ordinary OC/SCR O2 deco bottle, say) -- so
+      // every segment is remapped onto a diluent against the tanks just
+      // computed, the same backstop _onDiluent applies to a later edit
+      // (see _withCcrSlots for why this cannot be skipped just because
+      // the slots themselves were already both present).
+      segments = [
+        for (final segment in segments) _segmentOnDiluent(segment, tanks),
+      ];
+    } else if (mode != domain.PlanMode.oc &&
+        !tanks.any((t) => t.role == TankRole.diluent)) {
+      final breathedIds = state.segments.map((s) => s.tankId).toSet();
+      tanks = [
+        for (final tank in tanks)
+          breathedIds.contains(tank.id)
+              ? tank.copyWith(role: TankRole.diluent)
+              : tank,
+      ];
+    }
     state = state.copyWith(
       mode: mode,
+      tanks: tanks,
+      segments: segments,
+      setpointLow: state.setpointLow ?? defaults?.low,
+      setpointHigh: state.setpointHigh ?? defaults?.high,
       isDirty: true,
       updatedAt: DateTime.now(),
     );
@@ -709,6 +939,79 @@ class DivePlanNotifier extends StateNotifier<DivePlanState> {
       isDirty: true,
       updatedAt: DateTime.now(),
     );
+  }
+
+  // --------------------------------------------------------------------------
+  // DPV mission (issue #2086)
+  // --------------------------------------------------------------------------
+
+  /// Turns the plan into a DPV mission, starting from [starter].
+  void enableMission(DpvMission starter) => _setMission(starter);
+
+  /// Replaces the mission and regenerates the plan's segments from it.
+  void updateMission(DpvMission mission) => _setMission(mission);
+
+  /// Applies [edit] to the mission as it is now, not as a widget last saw
+  /// it: a value committed between a build and a callback survives. Does
+  /// nothing when no mission is on.
+  void editMission(DpvMission Function(DpvMission current) edit) {
+    final current = state.mission;
+    if (current == null) return;
+    final next = edit(current);
+    // An edit that changes nothing (0 typed over no current) is not a change
+    // to save.
+    if (next == current) return;
+    _setMission(next);
+  }
+
+  /// Turns the mission off. The segments it last generated stay as ordinary
+  /// segments the diver can edit.
+  void disableMission() {
+    state = state.copyWith(
+      clearMission: true,
+      isDirty: true,
+      updatedAt: DateTime.now(),
+    );
+  }
+
+  void _setMission(DpvMission mission, {bool markDirty = true}) {
+    state = _withMissionSegments(
+      state.copyWith(
+        mission: mission,
+        isDirty: markDirty ? true : state.isDirty,
+        updatedAt: markDirty ? DateTime.now() : state.updatedAt,
+      ),
+    );
+  }
+
+  /// [s] with its segments regenerated from its mission, when it has one.
+  /// The generated profile also reads the plan's tanks and rates, so every
+  /// edit to those passes through here too.
+  static DivePlanState _withMissionSegments(DivePlanState s) {
+    final mission = s.mission;
+    if (mission == null) return s;
+    return s.copyWith(
+      segments: const MissionEngine().roundTripSegments(
+        plan: divePlanFromState(s),
+        mission: mission,
+      ),
+    );
+  }
+
+  /// The diver's equipment, or none when it cannot be read: a mission's
+  /// stored scooters are complete, so the plan still opens.
+  Future<List<EquipmentItem>> _liveEquipment(String planId) async {
+    try {
+      return await _loadEquipment();
+    } catch (e, stackTrace) {
+      _log.warning(
+        'Could not load equipment to refresh the scooters of plan $planId; '
+        'using the stored ones',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return const [];
+    }
   }
 
   // --------------------------------------------------------------------------
@@ -900,6 +1203,12 @@ final divePlanNotifierProvider =
       PlanGradientFactors defaultGradientFactors() =>
           read(planGradientFactorSettingsProvider);
 
+      // A plan entering CCR mode starts on the diver's own CCR ppO2 limits.
+      CcrSetpoints defaultCcrSetpoints() => (
+        low: read(ccrSetpointLowProvider),
+        high: read(ccrSetpointHighProvider),
+      );
+
       final notifier = DivePlanNotifier(
         calculator,
         reservePressure: defaultReserve(),
@@ -907,7 +1216,9 @@ final divePlanNotifierProvider =
         getDefaultGradientFactors: defaultGradientFactors,
         getDefaultPlannerWaterType: () =>
             read(settingsProvider).defaultPlannerWaterType,
+        getDefaultCcrSetpoints: defaultCcrSetpoints,
         repository: read(divePlanRepositoryProvider),
+        loadEquipment: () => read(allEquipmentProvider.future),
       );
 
       // `listen`, never `watch`: this reacts to settings without rebuilding,
@@ -934,10 +1245,9 @@ final divePlanNotifierProvider =
 /// This automatically recalculates whenever the plan state changes.
 ///
 /// The gradient factors come from the plan, not the settings: the plan is
-/// seeded from the diver's settings but is editable per plan, and
-/// [planIsValidProvider] gates convert-to-dive off these results. Computing
-/// them on the settings pair would judge a plan by factors it is not using,
-/// and diverge from [planOutcomeProvider], which the canvas displays.
+/// seeded from the diver's settings but is editable per plan. Computing them
+/// on the settings pair would judge a plan by factors it is not using, and
+/// diverge from the plan outcome the canvas displays.
 final planResultsProvider = Provider<PlanResult>((ref) {
   final state = ref.watch(divePlanNotifierProvider);
   final calculator = ref
@@ -971,28 +1281,6 @@ final planProfilePointsProvider = Provider<List<DiveProfilePoint>>((ref) {
   final calculator = ref.watch(planCalculatorServiceProvider);
 
   return calculator.generateProfilePoints(state.segments);
-});
-
-/// Provider for checking if plan has warnings.
-final planHasWarningsProvider = Provider<bool>((ref) {
-  final results = ref.watch(planResultsProvider);
-  return results.warnings.isNotEmpty;
-});
-
-/// Provider for critical warnings only.
-final planCriticalWarningsProvider = Provider<List<PlanWarning>>((ref) {
-  final results = ref.watch(planResultsProvider);
-  return results.warnings
-      .where((w) => w.severity == PlanWarningSeverity.critical)
-      .toList();
-});
-
-/// Provider for plan validity (no critical warnings, has segments).
-final planIsValidProvider = Provider<bool>((ref) {
-  final state = ref.watch(divePlanNotifierProvider);
-  final criticalWarnings = ref.watch(planCriticalWarningsProvider);
-
-  return state.segments.isNotEmpty && criticalWarnings.isEmpty;
 });
 
 // ============================================================================

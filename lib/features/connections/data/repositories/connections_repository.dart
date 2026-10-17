@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/database/dive_stats_scope.dart';
 import 'package:submersion/core/services/database_service.dart';
+import 'package:submersion/core/util/wall_clock_utc.dart';
 import 'package:submersion/core/utils/stream_debounce.dart';
 import 'package:submersion/features/connections/data/connections_around_loader.dart';
 import 'package:submersion/features/connections/data/connections_map_loader.dart';
@@ -14,6 +15,7 @@ import 'package:submersion/features/connections/domain/entities/connection_node.
 import 'package:submersion/features/connections/domain/entities/graph_selection.dart';
 import 'package:submersion/features/connections/domain/entities/node_ref.dart';
 import 'package:submersion/features/connections/domain/views/map_spec.dart';
+import 'package:submersion/features/connections/domain/views/timeline_days.dart';
 import 'package:submersion/features/dive_log/data/repositories/dive_repository_impl.dart';
 import 'package:submersion/features/dive_log/domain/models/dive_filter_state.dart';
 
@@ -94,7 +96,9 @@ class ConnectionsRepository {
     final needle = text.trim();
     if (needle.isEmpty) return const [];
     final reader = ConnectionsReader(_db);
-    final pattern = '%${escapeLike(needle)}%';
+    // Lowered to meet unicode_lower on the label: LIKE folds ASCII only
+    // (#3032).
+    final pattern = '%${escapeLike(needle.toLowerCase())}%';
     final hits = <ConnectionNode>[
       for (final kind in ConnectionKind.values)
         ...await reader.nodes(
@@ -112,11 +116,9 @@ class ConnectionsRepository {
     return hits.take(limit).toList();
   }
 
-  /// First and last calendar year of the dives in scope, or null when there
-  /// are none. Drives the year slider.
-  Future<({int first, int last})?> diveYearSpan({
-    required String? diverId,
-  }) async {
+  /// First and last calendar day of the dives in scope, or null when there
+  /// are none. Drives the timeline slider.
+  Future<DayRange?> diveDateSpan({required String? diverId}) async {
     final scope = diveScopeSql(
       diverId: diverId,
       filter: const DiveFilterState(),
@@ -132,7 +134,10 @@ class ConnectionsRepository {
     final first = rows.single.readNullable<int>('first_ms');
     final last = rows.single.readNullable<int>('last_ms');
     if (first == null || last == null) return null;
-    return (first: _ms(first).year, last: _ms(last).year);
+    return (
+      start: calendarDay(wallClockUtcFromMillis(first)),
+      end: calendarDay(wallClockUtcFromMillis(last)),
+    );
   }
 
   /// The dive ids behind a selected node or edge, newest first, under the
@@ -176,6 +181,9 @@ class ConnectionsRepository {
           TableUpdateQuery.onTable(_db.dives),
           TableUpdateQuery.onTable(_db.diveBuddies),
           TableUpdateQuery.onTable(_db.buddies),
+          // A buddy's role subtitle reads the role sets (#1221).
+          TableUpdateQuery.onTable(_db.diveDiverRoles),
+          TableUpdateQuery.onTable(_db.diveBuddyRoles),
           TableUpdateQuery.onTable(_db.diveEquipment),
           TableUpdateQuery.onTable(_db.equipment),
           TableUpdateQuery.onTable(_db.sightings),
@@ -190,10 +198,8 @@ class ConnectionsRepository {
           TableUpdateQuery.onTable(_db.trips),
           TableUpdateQuery.onTable(_db.diveCenters),
           TableUpdateQuery.onTable(_db.courses),
+          TableUpdateQuery.onTable(_db.diveCourses),
         ]),
       )
       .debounce(DiveRepository.changeTickDebounce);
-
-  static DateTime _ms(int ms) =>
-      DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true);
 }

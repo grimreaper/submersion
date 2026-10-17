@@ -35,7 +35,9 @@ class QueryEditor extends StatefulWidget {
     required this.onChanged,
     required this.strings,
     this.onSave,
+    this.canSave,
     this.describeError,
+    this.initialTab = 0,
   });
 
   final QueryEditorContext context;
@@ -43,12 +45,21 @@ class QueryEditor extends StatefulWidget {
   final ValueChanged<QueryNode?> onChanged;
   final QueryEditorStrings strings;
 
-  /// Shown as a Save button when set; enabled while [value] is not null.
+  /// Shown as a Save button when set; enabled per [canSave].
   final VoidCallback? onSave;
+
+  /// Whether Save is enabled; while [value] is not null when unset. A
+  /// caller whose Save stores more than this editor's tree (a whole filter,
+  /// its other controls included) says so here (#2989).
+  final bool? canSave;
 
   /// How the text tab words a parse or validation error; the engine's
   /// English message when null.
   final String Function(QueryError error)? describeError;
+
+  /// The tab shown first: 0 is Text, 1 is the Builder (#2984: the dive
+  /// table's Add filter opens on the rule it just added).
+  final int initialTab;
 
   @override
   State<QueryEditor> createState() => _QueryEditorState();
@@ -56,7 +67,11 @@ class QueryEditor extends StatefulWidget {
 
 class _QueryEditorState extends State<QueryEditor>
     with SingleTickerProviderStateMixin {
-  late final TabController _tabs = TabController(length: 2, vsync: this);
+  late final TabController _tabs = TabController(
+    length: 2,
+    vsync: this,
+    initialIndex: widget.initialTab,
+  );
 
   @override
   void dispose() {
@@ -70,28 +85,32 @@ class _QueryEditorState extends State<QueryEditor>
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        Row(
-          children: [
-            Expanded(
-              child: TabBar(
-                controller: _tabs,
-                tabs: [
-                  Tab(text: strings.tabText),
-                  Tab(text: strings.tabBuilder),
-                ],
-              ),
-            ),
-            if (widget.onSave != null)
-              Padding(
-                padding: const EdgeInsetsDirectional.only(start: 8),
-                child: FilledButton.tonalIcon(
-                  icon: const Icon(Icons.bookmark_add_outlined),
-                  label: Text(strings.save),
-                  onPressed: widget.value == null ? null : widget.onSave,
-                ),
-              ),
+        // A Row with Save beside the tabs squeezed the second tab's label
+        // behind the button on any narrow host (a phone sheet, or the
+        // Refine panel's fixed 440dp desktop side panel, see #3076) -
+        // Save always sits on its own row below the tabs instead, which
+        // costs a little vertical space but never hides either label.
+        TabBar(
+          controller: _tabs,
+          tabs: [
+            Tab(text: strings.tabText),
+            Tab(text: strings.tabBuilder),
           ],
         ),
+        if (widget.onSave != null)
+          Padding(
+            padding: const EdgeInsets.only(top: 8),
+            child: Align(
+              alignment: AlignmentDirectional.centerEnd,
+              child: FilledButton.tonalIcon(
+                icon: const Icon(Icons.bookmark_add_outlined),
+                label: Text(strings.save),
+                onPressed: (widget.canSave ?? widget.value != null)
+                    ? widget.onSave
+                    : null,
+              ),
+            ),
+          ),
         const SizedBox(height: 8),
         // Not a TabBarView: that needs a bounded height, which a section
         // inside a ListView does not give it. Swapping the child takes the

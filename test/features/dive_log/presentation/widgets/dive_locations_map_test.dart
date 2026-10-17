@@ -5,6 +5,8 @@ import 'package:latlong2/latlong.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/dive_locations_map.dart';
 import 'package:submersion/features/dive_sites/domain/entities/dive_site.dart';
+import 'package:submersion/features/maps/presentation/widgets/locked_map_scroll_passthrough.dart';
+import 'package:submersion/features/maps/presentation/widgets/trackpad_zoom_map.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 
 import '../../../../helpers/mock_providers.dart';
@@ -77,13 +79,83 @@ void main() {
   testWidgets('the decorative map shows tiles instantly, without a fade', (
     tester,
   ) async {
+    // The header's configuration: a pinned camera nothing can move.
+    await _pump(
+      tester,
+      const DiveLocationsMap(
+        entry: GeoPoint(12.34567, 98.76543),
+        initialCenter: LatLng(12.34567, 98.76543),
+        initialZoom: 12,
+      ),
+    );
+
+    final tileLayer = tester.widget<TileLayer>(find.byType(TileLayer));
+    expect(tileLayer.tileDisplay, const TileDisplay.instantaneous());
+  });
+
+  // Instantaneous display prunes against a stale camera when a tile loads
+  // synchronously from the image cache, which blanked a map whose camera had
+  // just moved (issue #3285). Only a map whose camera never moves skips the
+  // fade.
+  group('a locked map whose camera can move fades its tiles in (#3285)', () {
+    testWidgets('when a controller can move it', (tester) async {
+      await _pump(
+        tester,
+        DiveLocationsMap(
+          entry: const GeoPoint(12.34567, 98.76543),
+          initialCenter: const LatLng(12.34567, 98.76543),
+          controller: MapController(),
+        ),
+      );
+
+      final tileLayer = tester.widget<TileLayer>(find.byType(TileLayer));
+      expect(tileLayer.tileDisplay, const TileDisplay.fadeIn());
+    });
+
+    testWidgets('when it fits its points after the first frame', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        const DiveLocationsMap(
+          entry: GeoPoint(12.34567, 98.76543),
+          exit: GeoPoint(12.34612, 98.76489),
+        ),
+      );
+
+      final tileLayer = tester.widget<TileLayer>(find.byType(TileLayer));
+      expect(tileLayer.tileDisplay, const TileDisplay.fadeIn());
+    });
+  });
+
+  testWidgets('a locked map takes no gestures, trackpad included (#3156)', (
+    tester,
+  ) async {
     await _pump(
       tester,
       const DiveLocationsMap(entry: GeoPoint(12.34567, 98.76543)),
     );
 
-    final tileLayer = tester.widget<TileLayer>(find.byType(TileLayer));
-    expect(tileLayer.tileDisplay, const TileDisplay.instantaneous());
+    final map = tester.widget<FlutterMap>(find.byType(FlutterMap));
+    expect(map.options.interactionOptions.flags, InteractiveFlag.none);
+    // The trackpad recognizer wins the arena against an enclosing scrollable,
+    // so wrapping a locked map would still zoom it on a trackpad scroll.
+    expect(find.byType(TrackpadZoomMap), findsNothing);
+    // flutter_map's scale recognizer would otherwise swallow it.
+    expect(find.byType(LockedMapScrollPassthrough), findsOneWidget);
+  });
+
+  testWidgets('an interactive map keeps trackpad zoom', (tester) async {
+    await _pump(
+      tester,
+      const DiveLocationsMap(
+        entry: GeoPoint(12.34567, 98.76543),
+        interactive: true,
+      ),
+    );
+
+    expect(find.byType(TrackpadZoomMap), findsOneWidget);
+    expect(find.byType(LockedMapScrollPassthrough), findsNothing);
   });
 
   testWidgets('an interactive map keeps the default tile fade', (tester) async {

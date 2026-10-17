@@ -7,6 +7,7 @@ import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/services/sync/sync_event_bus.dart';
 import 'package:submersion/features/data_quality/domain/entities/quality_finding.dart';
+import 'package:submersion/core/services/logger_service.dart';
 
 class ScanApplyResult {
   const ScanApplyResult({
@@ -20,6 +21,8 @@ class ScanApplyResult {
 }
 
 class QualityFindingsRepository {
+  static final _log = LoggerService.forClass(QualityFindingsRepository);
+
   QualityFindingsRepository();
 
   AppDatabase get _db => DatabaseService.instance.database;
@@ -171,21 +174,58 @@ class QualityFindingsRepository {
       );
     }
     final rows = await query.get();
-    return [for (final r in rows) _fromRow(r)];
+    return [for (final r in rows) ?_fromRow(r)];
   }
 
-  Stream<int> watchOpenCount() {
+  /// Open findings this build can read: the counts must match what the
+  /// inbox lists, and [_fromRow] skips a synced finding whose category or
+  /// severity a newer build added (issue #2853).
+  Expression<bool> get _openAndReadable =>
+      _db.qualityFindings.status.equals(QualityStatus.open.name) &
+      _db.qualityFindings.category.isIn([
+        for (final c in QualityCategory.values) c.name,
+      ]) &
+      _db.qualityFindings.severity.isIn([
+        for (final s in QualitySeverity.values) s.name,
+      ]);
+
+  /// Findings that name a dive of [diverId], as anchor or related dive.
+  ///
+  /// A finding has no diver of its own, so it reaches one through its dives.
+  /// Both ends count: a shared-gear pair spans two divers and is stored once,
+  /// anchored on the smaller dive id, and each diver must still see it
+  /// (issue #3049).
+  Expression<bool> _namesDiveOf(String diverId) {
+    Expression<bool> inDiverDives(Expression<String> column) {
+      final dives = _db.selectOnly(_db.dives)
+        ..addColumns([_db.dives.id])
+        ..where(_db.dives.diverId.equals(diverId));
+      return column.isInQuery(dives);
+    }
+
+    return inDiverDives(_db.qualityFindings.diveId) |
+        inDiverDives(_db.qualityFindings.relatedDiveId);
+  }
+
+  /// Open findings for [diverId]'s dives, or across every diver when null.
+  Stream<int> watchOpenCount({String? diverId}) {
     final count = _db.qualityFindings.id.count();
     final query = _db.selectOnly(_db.qualityFindings)
       ..addColumns([count])
-      ..where(_db.qualityFindings.status.equals(QualityStatus.open.name));
+      ..where(
+        diverId == null
+            ? _openAndReadable
+            : _openAndReadable & _namesDiveOf(diverId),
+      );
     return query.watchSingle().map((row) => row.read(count) ?? 0);
   }
 
-  Stream<List<QualityFinding>> watchFindings() {
+  /// Findings for [diverId]'s dives, or across every diver when null.
+  Stream<List<QualityFinding>> watchFindings({String? diverId}) {
     final query = _db.select(_db.qualityFindings)
       ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)]);
-    return query.watch().map((rows) => [for (final r in rows) _fromRow(r)]);
+    if (diverId != null) query.where((_) => _namesDiveOf(diverId));
+    return query.watch().map((rows) => [for (final r in rows) ?_fromRow(r)]);
   }
 
   Stream<int> watchOpenCountForDive(String diveId) {
@@ -193,7 +233,7 @@ class QualityFindingsRepository {
     final query = _db.selectOnly(_db.qualityFindings)
       ..addColumns([count])
       ..where(
-        _db.qualityFindings.status.equals(QualityStatus.open.name) &
+        _openAndReadable &
             (_db.qualityFindings.diveId.equals(diveId) |
                 _db.qualityFindings.relatedDiveId.equals(diveId)),
       );
@@ -210,7 +250,7 @@ class QualityFindingsRepository {
     final query = _db.selectOnly(_db.qualityFindings)
       ..addColumns([count])
       ..where(
-        _db.qualityFindings.status.equals(QualityStatus.open.name) &
+        _openAndReadable &
             (_db.qualityFindings.diveId.isIn(ids) |
                 _db.qualityFindings.relatedDiveId.isIn(ids)),
       );
@@ -242,18 +282,34 @@ class QualityFindingsRepository {
     SyncEventBus.notifyLocalChange();
   }
 
-  QualityFinding _fromRow(QualityFindingRow row) => QualityFinding(
-    id: row.id,
-    diveId: row.diveId,
-    relatedDiveId: row.relatedDiveId,
-    computerId: row.computerId,
-    detectorId: row.detectorId,
-    detectorVersion: row.detectorVersion,
-    category: QualityCategory.values.byName(row.category),
-    severity: QualitySeverity.values.byName(row.severity),
-    status: QualityStatus.values.byName(row.status),
-    params: (jsonDecode(row.params) as Map<String, dynamic>),
-    createdAt: DateTime.fromMillisecondsSinceEpoch(row.createdAt),
-    updatedAt: DateTime.fromMillisecondsSinceEpoch(row.updatedAt),
-  );
+  /// The finding in [row], or null when this build does not know its
+  /// category, severity or status: a newer build can sync one, and the
+  /// inbox must still list the rest (issue #2853). Logged every time, so no
+  /// process-wide state is kept.
+  QualityFinding? _fromRow(QualityFindingRow row) {
+    final category = QualityCategory.values.asNameMap()[row.category];
+    final severity = QualitySeverity.values.asNameMap()[row.severity];
+    final status = QualityStatus.values.asNameMap()[row.status];
+    if (category == null || severity == null || status == null) {
+      _log.warning(
+        'Skipping finding ${row.id}: unknown category, severity or status '
+        '(${row.category}, ${row.severity}, ${row.status})',
+      );
+      return null;
+    }
+    return QualityFinding(
+      id: row.id,
+      diveId: row.diveId,
+      relatedDiveId: row.relatedDiveId,
+      computerId: row.computerId,
+      detectorId: row.detectorId,
+      detectorVersion: row.detectorVersion,
+      category: category,
+      severity: severity,
+      status: status,
+      params: (jsonDecode(row.params) as Map<String, dynamic>),
+      createdAt: DateTime.fromMillisecondsSinceEpoch(row.createdAt),
+      updatedAt: DateTime.fromMillisecondsSinceEpoch(row.updatedAt),
+    );
+  }
 }

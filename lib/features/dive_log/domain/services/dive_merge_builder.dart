@@ -1,8 +1,9 @@
 import 'package:uuid/uuid.dart';
 
+import 'package:submersion/features/dive_log/domain/entities/computer_tissue_snapshot.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
+import 'package:submersion/features/dive_roles/domain/services/dive_role_set.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_custom_field.dart';
-import 'package:submersion/features/dive_log/domain/entities/dive_weight.dart';
 import 'package:submersion/features/dive_log/domain/services/sequential_tank_merge.dart';
 import 'package:submersion/features/equipment/domain/entities/gear_link.dart';
 import 'package:submersion/features/tags/domain/entities/tag.dart';
@@ -106,6 +107,24 @@ class DiveMergeBuilder {
       if (v != null) return v;
     }
     return null;
+  }
+
+  /// A snapshot is a start/end pair, so the combined dive starts in the
+  /// earliest segment's start state and ends in the latest segment's end
+  /// state. Another segment's state would sit in the middle of the combined
+  /// dive, so it is never used for either end; a side the end segment did
+  /// not report stays null.
+  ComputerTissueSnapshot? _mergedComputerTissue(List<Dive> sorted) {
+    final first = sorted.first.computerTissue;
+    final last = sorted.last.computerTissue;
+    final start = first?.start;
+    final end = last?.end;
+    if (start == null && end == null) return null;
+    return ComputerTissueSnapshot(
+      algorithm: (end != null ? last?.algorithm : null) ?? first?.algorithm,
+      start: start,
+      end: end,
+    );
   }
 
   String _mergedNotes(List<Dive> sorted) =>
@@ -214,13 +233,7 @@ class DiveMergeBuilder {
     );
     final mergedWeights = [
       for (final w in weightSource.weights)
-        DiveWeight(
-          id: idGen(),
-          diveId: mergedId,
-          weightType: w.weightType,
-          amountKg: w.amountKg,
-          notes: w.notes,
-        ),
+        w.copyWith(id: idGen(), diveId: mergedId),
     ];
 
     // Custom fields: union by key, first-in-order wins.
@@ -248,6 +261,14 @@ class DiveMergeBuilder {
         for (final t in tagsByDive[d.id] ?? const <Tag>[])
           if (seenTagIds.add(t.id)) t,
     ];
+
+    // Courses: ordered union, the earliest dive's courses first (#2515).
+    final mergedCourseIds = <String>[];
+    for (final d in sorted) {
+      for (final c in d.courseIds) {
+        if (!mergedCourseIds.contains(c)) mergedCourseIds.add(c);
+      }
+    }
 
     // Dive types: ordered union (first dive's representative type stays first).
     final mergedDiveTypeIds = <String>[];
@@ -304,6 +325,13 @@ class DiveMergeBuilder {
       }
     }
 
+    // Visibility comes whole from one source, by the same precedence every
+    // reader uses (issue #3226): picking each column independently could
+    // pair one source's measurement with another's range.
+    final visibilitySource =
+        sorted.where((d) => d.visibilityMeters != null).firstOrNull ??
+        sorted.where((d) => d.visibilityRange != null).firstOrNull ??
+        sorted.where((d) => d.visibility != null).firstOrNull;
     final mergedDive = Dive(
       id: mergedId,
       diverId: first.diverId,
@@ -334,10 +362,14 @@ class DiveMergeBuilder {
       tanks: mergedTanks,
       buddy: _firstNonNull(sorted, (d) => d.buddy),
       diveMaster: _firstNonNull(sorted, (d) => d.diveMaster),
-      diverRoleId: _firstNonNull(sorted, (d) => d.diverRoleId),
+      // Every role the diver held on any source (issue #1221), Solo
+      // yielding to another role as DiveRoleSet.normalize has it.
+      diverRoleIds: DiveRoleSet.union([for (final d in sorted) d.diverRoleIds]),
       rating: _firstNonNull(sorted, (d) => d.rating),
-      visibility: _firstNonNull(sorted, (d) => d.visibility),
-      visibilityMeters: _firstNonNull(sorted, (d) => d.visibilityMeters),
+      visibility: visibilitySource?.visibility,
+      visibilityMeters: visibilitySource?.visibilityMeters,
+      visibilityMinMeters: visibilitySource?.visibilityMinMeters,
+      visibilityMaxMeters: visibilitySource?.visibilityMaxMeters,
       waterTemp: _firstNonNull(sorted, (d) => d.waterTemp),
       airTemp: _firstNonNull(sorted, (d) => d.airTemp),
       currentDirection: _firstNonNull(sorted, (d) => d.currentDirection),
@@ -352,6 +384,7 @@ class DiveMergeBuilder {
       gradientFactorHigh: _firstNonNull(sorted, (d) => d.gradientFactorHigh),
       decoAlgorithm: _firstNonNull(sorted, (d) => d.decoAlgorithm),
       decoConservatism: _firstNonNull(sorted, (d) => d.decoConservatism),
+      computerTissue: _mergedComputerTissue(sorted),
       diveComputerModel: _firstNonNull(sorted, (d) => d.diveComputerModel),
       diveComputerSerial: _firstNonNull(sorted, (d) => d.diveComputerSerial),
       diveComputerFirmware: _firstNonNull(
@@ -376,7 +409,7 @@ class DiveMergeBuilder {
       loopO2Avg: _firstNonNull(sorted, (d) => d.loopO2Avg),
       loopVolume: _firstNonNull(sorted, (d) => d.loopVolume),
       scrubber: _firstNonNull(sorted, (d) => d.scrubber),
-      courseId: _firstNonNull(sorted, (d) => d.courseId),
+      courseIds: mergedCourseIds,
       importSource: _firstNonNull(sorted, (d) => d.importSource),
       importId: _firstNonNull(sorted, (d) => d.importId),
       diveTypeIds: mergedDiveTypeIds,
@@ -388,6 +421,10 @@ class DiveMergeBuilder {
       precipitation: _firstNonNull(sorted, (d) => d.precipitation),
       humidity: _firstNonNull(sorted, (d) => d.humidity),
       weatherDescription: _firstNonNull(sorted, (d) => d.weatherDescription),
+      diveOperator: _firstNonNull(sorted, (d) => d.diveOperator),
+      boatName: _firstNonNull(sorted, (d) => d.boatName),
+      boatCaptain: _firstNonNull(sorted, (d) => d.boatCaptain),
+      surfaceConditions: _firstNonNull(sorted, (d) => d.surfaceConditions),
       weatherSource: _firstNonNull(sorted, (d) => d.weatherSource),
       weatherFetchedAt: _firstNonNull(sorted, (d) => d.weatherFetchedAt),
     );

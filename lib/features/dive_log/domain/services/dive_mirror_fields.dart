@@ -8,7 +8,7 @@ import 'package:submersion/features/tags/domain/entities/tag.dart';
 /// exhaustive: every field is either mirrored or deliberately not.
 const Set<String> kMirroredDiveFields = {
   // identity and ownership (set by the service)
-  'id', 'diverId', 'outingId', 'isPlanned', 'diverRoleId',
+  'id', 'diverId', 'outingId', 'isPlanned', 'diverRoleIds',
   // when
   'dateTime', 'entryTime', 'exitTime',
   // where (resolved per profile by the service)
@@ -16,8 +16,11 @@ const Set<String> kMirroredDiveFields = {
   'altitude', 'surfacePressure', 'waterType',
   // conditions
   'waterTemp', 'airTemp', 'visibility', 'visibilityMeters',
+  'visibilityMinMeters', 'visibilityMaxMeters',
   'currentDirection', 'currentStrength', 'swellHeight',
   'entryMethod', 'exitMethod',
+  // the boat and the sea it left on (#3229)
+  'diveOperator', 'boatName', 'boatCaptain', 'surfaceConditions',
   // weather
   'windSpeed', 'windDirection', 'cloudCover', 'precipitation', 'humidity',
   'weatherDescription', 'weatherCode', 'weatherSource', 'weatherFetchedAt',
@@ -50,6 +53,8 @@ const Set<String> kUnmirroredDiveFields = {
   'gradientFactorHigh',
   'decoAlgorithm',
   'decoConservatism',
+  // The tissue state the diver's own computer reported (issue #1977).
+  'computerTissue',
   'diveComputerModel',
   'diveComputerSerial',
   'diveComputerFirmware',
@@ -77,7 +82,7 @@ const Set<String> kUnmirroredDiveFields = {
   'loopO2Avg',
   'loopVolume',
   'scrubber',
-  'courseId',
+  'courseIds',
   'importSource',
   'importId',
   'customFields',
@@ -96,14 +101,14 @@ Dive mirroredDiveFrom(
   required bool includeDiveCenter,
   required List<String> diveTypeIds,
   required List<Tag> tags,
-  required String? diverRoleId,
+  required List<String> diverRoleIds,
 }) {
   return Dive(
     id: '',
     diverId: targetDiverId,
     outingId: outingId,
     isPlanned: true,
-    diverRoleId: diverRoleId,
+    diverRoleIds: diverRoleIds,
     dateTime: source.dateTime,
     entryTime: source.entryTime,
     exitTime: source.exitTime,
@@ -119,9 +124,15 @@ Dive mirroredDiveFrom(
     airTemp: source.airTemp,
     visibility: source.visibility,
     visibilityMeters: source.visibilityMeters,
+    visibilityMinMeters: source.visibilityMinMeters,
+    visibilityMaxMeters: source.visibilityMaxMeters,
     currentDirection: source.currentDirection,
     currentStrength: source.currentStrength,
     swellHeight: source.swellHeight,
+    surfaceConditions: source.surfaceConditions,
+    diveOperator: source.diveOperator,
+    boatName: source.boatName,
+    boatCaptain: source.boatCaptain,
     entryMethod: source.entryMethod,
     exitMethod: source.exitMethod,
     windSpeed: source.windSpeed,

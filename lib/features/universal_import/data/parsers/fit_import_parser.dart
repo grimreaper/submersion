@@ -82,8 +82,14 @@ class FitImportParser implements ImportParser {
     if (dive.gfHigh != null) diveData['gradientFactorHigh'] = dive.gfHigh;
     if (dive.cnsEnd != null) diveData['cnsEnd'] = dive.cnsEnd;
     if (dive.otu != null) diveData['otu'] = dive.otu;
+    if (dive.computerTissue != null) {
+      diveData['computerTissue'] = dive.computerTissue;
+    }
     if (dive.computerModel != null) {
       diveData['diveComputerModel'] = dive.computerModel;
+    }
+    if (dive.computerManufacturer != null) {
+      diveData['diveComputerManufacturer'] = dive.computerManufacturer;
     }
     if (dive.computerSerial != null) {
       diveData['diveComputerSerial'] = dive.computerSerial;
@@ -147,6 +153,7 @@ class FitImportParser implements ImportParser {
         if (s.temperature != null) point['temperature'] = s.temperature;
         if (s.heartRate != null) point['heartRate'] = s.heartRate;
         if (s.cns != null) point['cns'] = s.cns;
+        if (s.n2Load != null) point['n2Load'] = s.n2Load;
         if (s.ndlSeconds != null) point['ndl'] = s.ndlSeconds;
         if (s.ttsSeconds != null) point['tts'] = s.ttsSeconds;
         if (s.ceiling != null) point['ceiling'] = s.ceiling;

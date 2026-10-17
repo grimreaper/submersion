@@ -7,7 +7,9 @@ import 'package:go_router/go_router.dart';
 import 'package:submersion/features/cylinder_passports/presentation/utils/scan_cylinder_tag.dart';
 import 'package:submersion/features/cylinder_passports/presentation/widgets/scan_tag_menu_entries.dart';
 import 'package:submersion/features/equipment/domain/services/equipment_ownership.dart';
+import 'package:submersion/features/equipment/presentation/widgets/equipment_default_view_empty_state.dart';
 import 'package:submersion/features/equipment/presentation/widgets/equipment_bulk_share.dart';
+import 'package:submersion/features/equipment/presentation/widgets/equipment_bulk_transfer.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_share_providers.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/equipment/presentation/utils/equipment_owner_sections.dart';
@@ -23,15 +25,17 @@ import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/features/equipment/presentation/widgets/service_status_indicator.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
+import 'package:submersion/shared/widgets/master_detail/keyboard_list_navigator.dart';
 import 'package:submersion/shared/selection/bulk_action.dart';
+import 'package:submersion/shared/selection/select_items_menu_entries.dart';
 import 'package:submersion/shared/selection/selectable_list_scope.dart';
 import 'package:submersion/shared/selection/selection_leading.dart';
 import 'package:submersion/shared/selection/selection_app_bar.dart';
-import 'package:submersion/shared/selection/selection_entry_bar.dart';
 import 'package:submersion/shared/selection/selection_controller.dart';
 import 'package:submersion/shared/selection/selection_state.dart';
 import 'package:submersion/shared/widgets/entity_table/entity_table_view.dart';
 import 'package:submersion/shared/widgets/list_view_mode_toggle.dart';
+import 'package:submersion/shared/widgets/master_detail/master_detail_form_scope.dart';
 import 'package:submersion/shared/widgets/master_detail/responsive_breakpoints.dart';
 import 'package:submersion/shared/widgets/debounced_search_results.dart';
 import 'package:submersion/features/equipment/domain/constants/equipment_field.dart';
@@ -61,6 +65,7 @@ import 'package:submersion/features/equipment/presentation/widgets/dense_equipme
 import 'package:submersion/features/equipment/presentation/widgets/equipment_filter_sheet.dart';
 import 'package:submersion/features/equipment/presentation/widgets/equipment_group_header.dart';
 import 'package:submersion/features/equipment/presentation/widgets/equipment_header_bar.dart';
+import 'package:submersion/features/equipment/presentation/providers/equipment_list_count_provider.dart';
 import 'package:submersion/features/equipment/presentation/widgets/equipment_list_sort_sheet.dart';
 import 'package:submersion/features/equipment/presentation/widgets/bulk_equipment_tag_sheet.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
@@ -69,6 +74,11 @@ import 'package:submersion/shared/widgets/max_width_fraction.dart';
 import 'package:submersion/features/equipment/presentation/utils/equipment_enum_display.dart';
 import 'package:submersion/features/equipment/presentation/utils/equipment_row_label.dart';
 import 'package:submersion/features/equipment/presentation/utils/equipment_row_labels_of.dart';
+import 'package:submersion/features/equipment/presentation/widgets/move_equipment_sheet.dart';
+import 'package:submersion/features/equipment/domain/entities/equipment_location.dart';
+import 'package:submersion/features/equipment/domain/services/equipment_location_arranger.dart';
+import 'package:submersion/features/equipment/presentation/providers/equipment_location_providers.dart';
+import 'package:submersion/features/equipment/presentation/widgets/equipment_location_group_header.dart';
 
 /// Content widget for the equipment list, used in master-detail layout.
 class EquipmentListContent extends ConsumerStatefulWidget {
@@ -84,9 +94,9 @@ class EquipmentListContent extends ConsumerStatefulWidget {
 
   /// Drives bulk selection from outside the list when set.
   ///
-  /// On phone the page's app bar carries the actions, "Select items" among
-  /// them, so the page has to reach the same controller the rows use. Left
-  /// null, the list owns its own.
+  /// On phone, and in table mode, the page's header carries the overflow
+  /// menu, "Select items" among it, so the page has to reach the same
+  /// controller the rows use. Left null, the list owns its own.
   final SelectionController? selectionController;
 
   /// Whether the list draws its own header bar.
@@ -233,7 +243,8 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
     final viewportHeight = _scrollController.position.viewportDimension;
     var rowTop = 0.0;
     for (final row in rows.take(index)) {
-      rowTop += row is _EquipmentHeadingRow
+      rowTop +=
+          row is _EquipmentHeadingRow || row is _EquipmentLocationHeadingRow
           ? estimatedHeadingHeight
           : estimatedItemHeight;
     }
@@ -337,12 +348,30 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
     // is rebuilt inside the selection listener on every check toggle, and
     // re-sorting the whole inventory there made bulk selection cost a full
     // sort per tap.
-    final visibleGroups = arrangeEquipment(
-      equipmentAsync.value ?? const <EquipmentItem>[],
-      arrangement,
-      typeLabel: (t) => t.localizedName(context.l10n),
-      compareItems: compareItems,
-    );
+    // Group by location (v268) is this page's own switch, layered over the
+    // shared arrangement: one section per place, the type groups inside it.
+    final groupByLocation =
+        _honoursArrangement(viewMode) &&
+        (ref.watch(equipmentGroupByLocationProvider).value ?? false);
+    final locationSections = groupByLocation
+        ? arrangeEquipmentByLocation(
+            equipmentAsync.value ?? const <EquipmentItem>[],
+            arrangement,
+            locationOf:
+                ref.watch(currentEquipmentLocationsProvider).value ??
+                const <String, EquipmentLocation>{},
+            typeLabel: (t) => t.localizedName(context.l10n),
+            compareItems: compareItems,
+          )
+        : null;
+    final visibleGroups = locationSections != null
+        ? [for (final section in locationSections) ...section.groups]
+        : arrangeEquipment(
+            equipmentAsync.value ?? const <EquipmentItem>[],
+            arrangement,
+            typeLabel: (t) => t.localizedName(context.l10n),
+            compareItems: compareItems,
+          );
     final sortedVisible = [for (final group in visibleGroups) ...group.items];
     final visibleIds = sortedVisible.map((e) => e.id).toList();
     // Labelled once per build, like the arrangement above and for the same
@@ -350,7 +379,12 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
     final rowLabels = equipmentRowLabelsOf(context, ref, sortedVisible);
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _selection.pruneTo(visibleIds);
+      if (mounted) {
+        _selection.pruneToSettled(
+          equipmentAsync,
+          (rows) => rows.map((e) => e.id),
+        );
+      }
     });
 
     // Built inside the selection listener below so rows re-render as checks
@@ -367,6 +401,7 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
                 arrangement,
                 tagsByEquipment: tagsByEquipment,
                 labels: rowLabels,
+                locationSections: locationSections,
               ),
         loading: () => const Center(child: CircularProgressIndicator()),
         error: (error, stack) => _buildErrorState(context, error),
@@ -396,6 +431,7 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
                 EquipmentHeaderBar(
                   toggleBuilder: widget.toggleBuilder,
                   actionsBuilder: _buildHeaderActions,
+                  subtitle: equipmentListCountLabel(context, ref),
                 ),
               if (filter.hasActiveFilters)
                 _buildActiveFiltersBar(context, filter),
@@ -418,6 +454,7 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
                   title: FeatureAppBarTitle(
                     featureId: 'equipment',
                     title: context.l10n.equipment_appBar_title,
+                    subtitle: equipmentListCountLabel(context, ref),
                   ),
                   actions: [
                     IconButton(
@@ -436,19 +473,11 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
                       tooltip: context.l10n.equipment_list_sortTooltip,
                       onPressed: () => _showSortSheet(context),
                     ),
-                    // The only way into bulk actions: entry by long-press was removed,
-                    // so nothing but this control opens selection mode on touch.
-                    IconButton(
-                      key: const ValueKey('enter_selection'),
-                      icon: const Icon(Icons.checklist),
-                      tooltip: context.l10n.common_selection_enterTooltip,
-                      onPressed: _selection.enterExplicit,
-                    ),
                     PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert),
                       onSelected: (value) {
                         if (value == scanTagMenuValue) {
-                          unawaited(scanAndOpenCylinderTag(context, ref));
+                          unawaited(scanAndOpenTag(context, ref));
                           return;
                         }
                         if (value.startsWith('view_')) {
@@ -467,6 +496,10 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
                         );
                         return [
                           ...scanTagMenuEntries(context),
+                          ...selectItemsMenuEntries(
+                            context,
+                            onSelect: _selection.enterExplicit,
+                          ),
                           ...ListViewModeToggle.menuItems(
                             context,
                             currentMode: currentMode,
@@ -525,14 +558,19 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
         id: 'retire',
         icon: Icons.archive,
         label: context.l10n.equipment_menu_retireEquipment,
-        isEnabled: (ids) => everyChecked(ids, (e) => e.isActive),
+        // Wishlist gear (#2025) is not owned, so it cannot be retired, even
+        // on an imported row whose isActive was left true.
+        isEnabled: (ids) => everyChecked(ids, (e) => e.isActive && !e.isWanted),
         onInvoke: () => _applyRetirement(retire: true),
       ),
       BulkAction(
         id: 'reactivate',
         icon: Icons.unarchive,
         label: context.l10n.equipment_menu_reactivate,
-        isEnabled: (ids) => everyChecked(ids, (e) => !e.isActive),
+        // Wanted gear is inactive too, but buying it is not reactivating it
+        // (#2025): the detail page's Mark as purchased does that.
+        isEnabled: (ids) =>
+            everyChecked(ids, (e) => !e.isActive && !e.isWanted),
         onInvoke: () => _applyRetirement(retire: false),
       ),
       BulkAction(
@@ -546,11 +584,32 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
         ),
       ),
       BulkAction(
+        id: 'moveToLocation',
+        icon: Icons.move_down,
+        label: context.l10n.equipment_location_bulkAction,
+        onInvoke: () async {
+          final ids = _selectedIds;
+          // The flow reports its own failure; either way a null keeps the
+          // selection so the diver can try again.
+          final moved = await showMoveEquipmentFlow(
+            context,
+            ref,
+            items: [
+              for (final e in equipment)
+                if (ids.contains(e.id)) e,
+            ],
+          );
+          return moved == null
+              ? BulkActionOutcome.cancelled
+              : BulkActionOutcome.completed;
+        },
+      ),
+      BulkAction(
         id: 'printLabels',
         icon: Icons.qr_code_2,
         label: context.l10n.passport_tag_printLabels,
-        isEnabled: (ids) =>
-            everyChecked(ids, (e) => e.type == EquipmentType.tank),
+        // Any gear the diver owns takes a label (issue #2652).
+        isEnabled: (ids) => everyChecked(ids, (e) => !e.isWanted),
         onInvoke: () async {
           final ids = _selectedIds.toList();
           final messenger = ScaffoldMessenger.of(context);
@@ -566,9 +625,9 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
           return BulkActionOutcome.completed;
         },
       ),
-      // Owner-only (issue #2046): enabled when every checked item is the
-      // active diver's own.
-      if (multipleDivers)
+      // Owner-only (issues #2046, #2852): enabled when every checked item is
+      // the active diver's own.
+      if (multipleDivers) ...[
         BulkAction(
           id: 'share',
           icon: Icons.share,
@@ -582,6 +641,20 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
             activeDiverId: activeDiverId,
           ),
         ),
+        BulkAction(
+          id: 'transfer',
+          icon: Icons.swap_horiz,
+          label: context.l10n.equipment_transfer_action,
+          isEnabled: (ids) =>
+              everyChecked(ids, (e) => canShareEquipment(e, activeDiverId)),
+          onInvoke: () async => (await transferEquipmentToProfile(
+            context,
+            ref,
+            equipmentIds: _selectedIds.toList(),
+            activeDiverId: activeDiverId,
+          )).outcome,
+        ),
+      ],
     ];
   }
 
@@ -707,7 +780,12 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
     // Same pruning the list path does: drop checked items that fell out of
     // the visible list, so the count always matches what is on screen.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _selection.pruneTo(visibleIds);
+      if (mounted) {
+        _selection.pruneToSettled(
+          equipmentAsync,
+          (rows) => rows.map((e) => e.id),
+        );
+      }
     });
 
     // The scope carries Escape, Ctrl/Cmd-A and the Android back handling, and
@@ -724,18 +802,17 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
               EquipmentHeaderBar(
                 toggleBuilder: widget.toggleBuilder,
                 actionsBuilder: _noActions,
+                // Kept while selecting, as every list's table mode does.
+                subtitle: equipmentListCountLabel(context, ref),
               ),
-            // Table mode has no app bar of its own, so both bars live here:
-            // the contextual one while selecting, and the Select affordance
-            // while not. They share a slot and a height, so the table does
-            // not shift as the mode opens.
+            // Table mode has no app bar of its own: "Select items" sits in the
+            // page header's overflow menu, and the contextual bar opens above
+            // the table while selecting.
             if (selection.isActive)
               _buildSelectionBar(
                 equipmentAsync.value ?? const <EquipmentItem>[],
                 SelectionBarShell.pane,
-              )
-            else
-              SelectionEntryBar(controller: _selection),
+              ),
             if (filter.hasActiveFilters)
               _buildActiveFiltersBar(context, filter),
             Expanded(
@@ -799,6 +876,7 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
           units: units,
           onSortFieldChanged: notifier.setSortField,
           onResizeColumn: notifier.resizeColumn,
+          onHideColumn: notifier.hideColumn,
           onEntityTapDown: (id) {
             ref.read(highlightedEquipmentIdProvider.notifier).state = id;
           },
@@ -853,15 +931,6 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
         dense: dense,
         onPressed: () => _showSortSheet(context),
       ),
-      // The only way into bulk actions: entry by long-press was removed,
-      // so nothing but this control opens selection mode on touch.
-      equipmentHeaderIconButton(
-        key: const ValueKey('enter_selection'),
-        icon: const Icon(Icons.checklist, size: 20),
-        tooltip: context.l10n.common_selection_enterTooltip,
-        dense: dense,
-        onPressed: _selection.enterExplicit,
-      ),
       equipmentHeaderMenuSlot(
         dense: dense,
         child: PopupMenuButton<String>(
@@ -869,7 +938,7 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
           padding: dense ? EdgeInsets.zero : const EdgeInsets.all(8),
           onSelected: (value) {
             if (value == scanTagMenuValue) {
-              unawaited(scanAndOpenCylinderTag(context, ref));
+              unawaited(scanAndOpenTag(context, ref));
               return;
             }
             if (value.startsWith('view_')) {
@@ -883,6 +952,10 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
             final currentMode = ref.read(equipmentListViewModeProvider);
             return [
               ...scanTagMenuEntries(context),
+              ...selectItemsMenuEntries(
+                context,
+                onSelect: _selection.enterExplicit,
+              ),
               ...ListViewModeToggle.menuItems(
                 context,
                 currentMode: currentMode,
@@ -971,6 +1044,12 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
                 () => ref.read(equipmentFilterProvider.notifier).state = filter
                     .copyWith(clearStatus: true),
               ),
+            if (filter.allStatuses)
+              _buildActiveFilterChip(
+                context.l10n.equipment_list_filterAll,
+                () => ref.read(equipmentFilterProvider.notifier).state = filter
+                    .copyWith(clearStatus: true),
+              ),
             if (filter.status != null)
               _buildActiveFilterChip(
                 filter.status!.localizedName(context.l10n),
@@ -1003,6 +1082,13 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
                       tagIds: filter.tagIds.where((id) => id != tagId).toSet(),
                     ),
                 icon: Icons.sell_outlined,
+              ),
+            if (filter.locationNames.isNotEmpty || filter.noLocation)
+              _buildActiveFilterChip(
+                context.l10n.equipment_location_activeFilter,
+                () => ref.read(equipmentFilterProvider.notifier).state = filter
+                    .copyWith(clearLocation: true),
+                icon: Icons.place_outlined,
               ),
             // One chip per top-level condition of the advanced query
             // (#2365), printed in the diver's units.
@@ -1045,14 +1131,29 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
     EquipmentArrangement arrangement, {
     required Map<String, List<Tag>> tagsByEquipment,
     required Map<String, EquipmentRowLabel> labels,
+    List<EquipmentLocationSection>? locationSections,
   }) {
     // One flat run of rows for the lazy builder: a heading before each group
-    // when the arrangement groups, then that group's gear.
+    // when the arrangement groups, then that group's gear. Grouped by
+    // location, each place's heading comes first, its type groups inside.
     final rows = <_EquipmentListRow>[
-      for (final group in groups) ...[
-        if (group.type != null) _EquipmentHeadingRow(group.type!),
-        for (final item in group.items) _EquipmentItemRow(item),
-      ],
+      if (locationSections != null)
+        for (final section in locationSections) ...[
+          _EquipmentLocationHeadingRow(section.location, section.itemCount),
+          for (final group in section.groups) ...[
+            if (group.type != null)
+              _EquipmentHeadingRow(
+                group.type!,
+                sectionKey: section.location?.id ?? 'none',
+              ),
+            for (final item in group.items) _EquipmentItemRow(item),
+          ],
+        ]
+      else
+        for (final group in groups) ...[
+          if (group.type != null) _EquipmentHeadingRow(group.type!),
+          for (final item in group.items) _EquipmentItemRow(item),
+        ],
     ];
 
     // Scroll to selected item when data is available but we haven't
@@ -1061,7 +1162,12 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
     // after the first frame, or the diver regrouping). The index counts
     // heading rows too, since they take space above the item.
     final selectedId = widget.selectedId;
-    final typeAxis = _typeAxisOf(arrangement, Localizations.localeOf(context));
+    // Regrouping by location moves rows as much as regrouping by type, so
+    // it re-scrolls to the selected item the same way.
+    final typeAxis = (
+      _typeAxisOf(arrangement, Localizations.localeOf(context)),
+      locationSections != null,
+    );
     _currentTypeAxis = typeAxis;
     if (selectedId != null &&
         (selectedId != _lastScrolledToId || typeAxis != _scrolledTypeAxis) &&
@@ -1079,56 +1185,92 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
         });
       }
     }
+    final itemsById = {
+      for (final row in rows)
+        if (row is _EquipmentItemRow) row.item.id: row.item,
+    };
     return RefreshIndicator(
       onRefresh: () async {
         _invalidateCurrentProvider(ref);
       },
-      child: ListView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.only(bottom: 80),
-        itemCount: rows.length,
-        itemBuilder: (context, index) {
-          final EquipmentItem item;
-          switch (rows[index]) {
-            case _EquipmentHeadingRow(:final type):
-              return Padding(
-                // Level with the card edges below it.
-                padding: const EdgeInsets.symmetric(horizontal: 16),
-                child: EquipmentGroupHeader(type: type),
-              );
-            case _EquipmentItemRow(item: final rowItem):
-              item = rowItem;
-          }
-          final isSelected =
-              widget.selectedId == item.id ||
-              ref.watch(highlightedEquipmentIdProvider) == item.id;
-          final viewMode = ref.watch(equipmentListViewModeProvider);
-          final isChecked = _selectedIds.contains(item.id);
-          void onCheckChanged(bool _) => _selection.toggle(item.id);
-          return switch (viewMode) {
-            ListViewMode.detailed || ListViewMode.compact => EquipmentListTile(
-              item: item,
-              isSelected: isSelected,
-              onTap: () => _handleRowTap(item),
-              isSelectionMode: _isSelectionMode,
-              isChecked: isChecked,
-              onCheckChanged: onCheckChanged,
-              // Chips only in the detailed mode; compact stays one line.
-              tags: viewMode == ListViewMode.detailed
-                  ? tagsByEquipment[item.id] ?? const []
-                  : const [],
-              label: labels[item.id],
-            ),
-            ListViewMode.dense || ListViewMode.table => DenseEquipmentListTile(
-              item: item,
-              isSelected: isSelected,
-              onTap: () => _handleRowTap(item),
-              isSelectionMode: _isSelectionMode,
-              isChecked: isChecked,
-              onCheckChanged: onCheckChanged,
-            ),
-          };
-        },
+      child: KeyboardListNavigator(
+        // The group headings are labels, not folds, so only items are stops.
+        keys: itemsById.keys.toList(),
+        currentKey:
+            widget.selectedId ?? ref.watch(highlightedEquipmentIdProvider),
+        onMove: (id) => moveListCursor(
+          context,
+          canOpen: !_isSelectionMode && widget.onItemSelected != null,
+          open: () => _handleRowTap(itemsById[id]!),
+          highlight: () =>
+              ref.read(highlightedEquipmentIdProvider.notifier).state = id,
+        ),
+        onActivate: (id) => _handleRowTap(itemsById[id]!),
+        child: ListView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.only(bottom: 80),
+          itemCount: rows.length,
+          itemBuilder: (context, index) {
+            final EquipmentItem item;
+            switch (rows[index]) {
+              case _EquipmentLocationHeadingRow(:final location, :final count):
+                return Padding(
+                  padding: const EdgeInsets.symmetric(horizontal: 16),
+                  child: EquipmentLocationGroupHeader(
+                    location: location,
+                    count: count,
+                  ),
+                );
+              case _EquipmentHeadingRow(:final type, :final sectionKey):
+                // Keyed by place and type: grouped by location, one type can
+                // head a run under several places.
+                return KeyedSubtree(
+                  key: ValueKey(
+                    'equipment-type-${sectionKey ?? ''}-${type.name}',
+                  ),
+                  child: Padding(
+                    // Level with the card edges below it.
+                    padding: const EdgeInsets.symmetric(horizontal: 16),
+                    child: EquipmentGroupHeader(type: type),
+                  ),
+                );
+              case _EquipmentItemRow(item: final rowItem):
+                item = rowItem;
+            }
+            final isSelected =
+                widget.selectedId == item.id ||
+                ref.watch(highlightedEquipmentIdProvider) == item.id;
+            final viewMode = ref.watch(equipmentListViewModeProvider);
+            final isChecked = _selectedIds.contains(item.id);
+            void onCheckChanged(bool _) => _selection.toggle(item.id);
+            final tile = switch (viewMode) {
+              ListViewMode.detailed ||
+              ListViewMode.compact => EquipmentListTile(
+                item: item,
+                isSelected: isSelected,
+                onTap: () => _handleRowTap(item),
+                isSelectionMode: _isSelectionMode,
+                isChecked: isChecked,
+                onCheckChanged: onCheckChanged,
+                // Chips only in the detailed mode; compact stays one line.
+                tags: viewMode == ListViewMode.detailed
+                    ? tagsByEquipment[item.id] ?? const []
+                    : const [],
+                label: labels[item.id],
+              ),
+              ListViewMode.dense ||
+              ListViewMode.table => DenseEquipmentListTile(
+                item: item,
+                isSelected: isSelected,
+                onTap: () => _handleRowTap(item),
+                isSelectionMode: _isSelectionMode,
+                isChecked: isChecked,
+                onCheckChanged: onCheckChanged,
+              ),
+            };
+            return KeyboardListItem(navigationKey: item.id, child: tile);
+          },
+        ),
       ),
     );
   }
@@ -1139,6 +1281,28 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
     required bool tagsEmptied,
   }) {
     final filter = ref.watch(effectiveEquipmentFilterProvider);
+
+    // The default view is the diver's choice (#2628) and can hide all they
+    // own; with no other filter set, that is the only cause left. Wishlist
+    // gear is not owned yet, and gear another diver shares is not theirs
+    // (ownerless gear is, as under the Mine filter), so a diver with only
+    // those still gets the add prompt.
+    final diverId = ref.watch(validatedCurrentDiverIdProvider).value;
+    final ownsHiddenGear =
+        ref
+            .watch(allEquipmentProvider)
+            .value
+            ?.any(
+              (e) =>
+                  e.status != EquipmentStatus.wanted &&
+                  (e.diverId == null ||
+                      diverId == null ||
+                      e.diverId == diverId),
+            ) ??
+        false;
+    if (!filter.hasActiveFilters && ownsHiddenGear) {
+      return const EquipmentDefaultViewEmptyState();
+    }
 
     // Blame the tags (issue #1942) when the category and its conditions left
     // items that none of the selected tags is on: a tag chip on a retired
@@ -1208,7 +1372,10 @@ class _EquipmentListContentState extends ConsumerState<EquipmentListContent> {
             ),
             textAlign: TextAlign.center,
           ),
-          if (!filter.hasActiveFilters) ...[
+          // Hidden beside an open form: it reads as the form's submit button
+          // but only reopens the create form (issue #3192).
+          if (!filter.hasActiveFilters &&
+              !MasterDetailFormScope.isFormOpenOf(context)) ...[
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: () {
@@ -1542,10 +1709,9 @@ class EquipmentSearchDelegate extends SearchDelegate<EquipmentItem?> {
                 return EquipmentListTile(
                   item: item,
                   label: labels[item.id],
-                  onTap: () {
-                    close(context, item);
-                    context.push('/equipment/${item.id}');
-                  },
+                  // Opened over the search rather than in place of it, so back
+                  // from the detail returns to these results (#3377).
+                  onTap: () => context.push('/equipment/${item.id}'),
                 );
               },
             );
@@ -1588,9 +1754,20 @@ sealed class _EquipmentListRow {
 }
 
 class _EquipmentHeadingRow extends _EquipmentListRow {
-  const _EquipmentHeadingRow(this.type);
+  const _EquipmentHeadingRow(this.type, {this.sectionKey});
 
   final EquipmentType type;
+
+  /// The place this type heading sits under when grouping by location.
+  final String? sectionKey;
+}
+
+/// A place's heading when the page groups by location (v268).
+class _EquipmentLocationHeadingRow extends _EquipmentListRow {
+  const _EquipmentLocationHeadingRow(this.location, this.count);
+
+  final EquipmentLocation? location;
+  final int count;
 }
 
 class _EquipmentItemRow extends _EquipmentListRow {

@@ -10,6 +10,7 @@ import 'package:submersion/features/dive_log/presentation/widgets/searchable_fil
 import 'package:submersion/features/dive_sites/domain/entities/dive_site.dart';
 import 'package:submersion/features/dive_sites/domain/utils/location_options.dart';
 import 'package:submersion/features/dive_sites/presentation/providers/site_providers.dart';
+import 'package:submersion/features/dive_sites/query/site_filter_query.dart';
 import 'package:submersion/features/dive_sites/query/site_query_entity.dart';
 import 'package:submersion/features/query/presentation/widgets/query_sheet_section.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
@@ -20,6 +21,7 @@ import 'package:submersion/features/tags/domain/entities/tag.dart';
 import 'package:submersion/features/tags/presentation/providers/tag_providers.dart';
 import 'package:submersion/shared/widgets/forms/number_field.dart';
 import 'package:submersion/shared/widgets/forms/number_input_validation.dart';
+import 'package:submersion/features/shared_library/presentation/providers/shared_library_providers.dart';
 
 /// Bottom sheet for filtering dive sites.
 ///
@@ -39,6 +41,7 @@ class _SiteFilterSheetState extends ConsumerState<SiteFilterSheet> {
   String? _country;
   String? _region;
   SiteDifficulty? _difficulty;
+  String? _libraryId;
   double? _minDepth;
   double? _maxDepth;
   double? _minRating;
@@ -62,6 +65,7 @@ class _SiteFilterSheetState extends ConsumerState<SiteFilterSheet> {
     _country = filter.country;
     _region = filter.region;
     _difficulty = filter.difficulty;
+    _libraryId = filter.libraryId;
     _minDepth = filter.minDepth;
     _maxDepth = filter.maxDepth;
     _minRating = filter.minRating;
@@ -151,6 +155,8 @@ class _SiteFilterSheetState extends ConsumerState<SiteFilterSheet> {
                           root: siteQueryEntity,
                           value: _query,
                           onChanged: (node) => setState(() => _query = node),
+                          saveNode: _draft().toQuery(),
+                          onLoad: _loadSaved,
                         ),
                         const SizedBox(height: 24),
                         _buildLocationSection(),
@@ -159,6 +165,7 @@ class _SiteFilterSheetState extends ConsumerState<SiteFilterSheet> {
                         const SizedBox(height: 24),
                         _buildSiteTypeSection(),
                         _buildTagSection(),
+                        _buildLibrarySection(),
                         _buildDepthSection(),
                         const SizedBox(height: 24),
                         _buildRatingSection(),
@@ -384,6 +391,68 @@ class _SiteFilterSheetState extends ConsumerState<SiteFilterSheet> {
         NumberInvalid() => previous,
       };
 
+  /// Personal sites or one shared site library (issue #2567). Hidden while no
+  /// library is connected, since every site is personal then.
+  Widget _buildLibrarySection() {
+    // The active profile's libraries only: another profile's library would
+    // filter to nothing, as its sites are not visible here.
+    final mine = {
+      for (final m
+          in ref.watch(currentMembershipsProvider).valueOrNull ?? const [])
+        m.libraryId,
+    };
+    final libraries = [
+      for (final l
+          in ref.watch(sharedLibrariesProvider).valueOrNull ?? const [])
+        if (mine.contains(l.id)) l,
+    ];
+    if (libraries.isEmpty) return const SizedBox.shrink();
+    // Its own bottom padding, like the tag section, so an absent section
+    // leaves no gap.
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 24),
+      child: Column(
+        crossAxisAlignment: CrossAxisAlignment.start,
+        children: [
+          Text(
+            context.l10n.sharedLibrary_filter_library,
+            style: Theme.of(context).textTheme.titleMedium,
+          ),
+          const SizedBox(height: 12),
+          Wrap(
+            spacing: 8,
+            runSpacing: 8,
+            children: [
+              FilterChip(
+                label: Text(context.l10n.diveSites_filter_difficulty_any),
+                selected: _libraryId == null,
+                onSelected: (selected) {
+                  if (selected) setState(() => _libraryId = null);
+                },
+              ),
+              FilterChip(
+                label: Text(context.l10n.sharedLibrary_filter_personal),
+                selected: _libraryId == SiteFilterState.personalLibrary,
+                onSelected: (selected) => setState(
+                  () => _libraryId = selected
+                      ? SiteFilterState.personalLibrary
+                      : null,
+                ),
+              ),
+              for (final library in libraries)
+                FilterChip(
+                  label: Text(library.name),
+                  selected: _libraryId == library.id,
+                  onSelected: (selected) =>
+                      setState(() => _libraryId = selected ? library.id : null),
+                ),
+            ],
+          ),
+        ],
+      ),
+    );
+  }
+
   Widget _buildDepthSection() {
     final depthSymbol = UnitFormatter(ref.watch(settingsProvider)).depthSymbol;
     return Column(
@@ -518,11 +587,20 @@ class _SiteFilterSheetState extends ConsumerState<SiteFilterSheet> {
     );
   }
 
+  /// A saved search is the whole search (#2989, spec 5.4): it may carry
+  /// any of the sheet's axes, so the controls clear rather than be ANDed
+  /// with it.
+  void _loadSaved(QueryNode? node) {
+    _clearAll();
+    setState(() => _query = node);
+  }
+
   void _clearAll() {
     setState(() {
       _country = null;
       _region = null;
       _difficulty = null;
+      _libraryId = null;
       _minDepth = null;
       _maxDepth = null;
       _minRating = null;
@@ -537,20 +615,24 @@ class _SiteFilterSheetState extends ConsumerState<SiteFilterSheet> {
     });
   }
 
+  /// The filter as the sheet shows it: what Apply writes and Save stores.
+  SiteFilterState _draft() => SiteFilterState(
+    country: _country,
+    region: _region,
+    difficulty: _difficulty,
+    libraryId: _libraryId,
+    minDepth: _minDepth,
+    maxDepth: _maxDepth,
+    minRating: _minRating,
+    hasCoordinates: _hasCoordinates,
+    hasDives: _hasDives,
+    siteTypeIds: _siteTypeIds,
+    tagIds: _tagIds,
+    query: _query,
+  );
+
   void _applyFilters() {
-    widget.ref.read(siteFilterProvider.notifier).state = SiteFilterState(
-      country: _country,
-      region: _region,
-      difficulty: _difficulty,
-      minDepth: _minDepth,
-      maxDepth: _maxDepth,
-      minRating: _minRating,
-      hasCoordinates: _hasCoordinates,
-      hasDives: _hasDives,
-      siteTypeIds: _siteTypeIds,
-      tagIds: _tagIds,
-      query: _query,
-    );
+    widget.ref.read(siteFilterProvider.notifier).state = _draft();
     Navigator.of(context).pop();
   }
 

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
+import 'package:submersion/core/router/back_navigation.dart';
 
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
@@ -348,17 +349,18 @@ class _UnifiedImportWizardBodyState
     }
   }
 
-  /// Waits for [SettingsNotifier]'s first load before the review step reads
-  /// the diver's saved auto-tag preference (issue #998).
+  /// Waits for [SettingsNotifier]'s current load before the review step reads
+  /// the diver's saved auto-tag preference (issues #998, #2564).
   ///
   /// Until that load lands, [settingsProvider] holds the defaults, where
   /// auto-tagging is on, so a wizard opened right after launch would ignore
-  /// a saved "off". A failed load is already logged where it started, in
-  /// the notifier's constructor, and leaves those defaults in place: they
-  /// are the documented fallback, so the failure is not re-raised here.
+  /// a saved "off"; right after a diver switch it holds the previous diver's
+  /// preference instead. A failed load is already logged where it started,
+  /// in the notifier, and leaves those settings in place: they are the
+  /// documented fallback, so the failure is not re-raised here.
   Future<void> _awaitSettingsLoad() async {
     try {
-      await ref.read(settingsProvider.notifier).initialLoad;
+      await ref.read(settingsProvider.notifier).settingsLoaded;
     } catch (_) {
       // See the doc comment: already logged, defaults are the fallback.
     }
@@ -388,6 +390,7 @@ class _UnifiedImportWizardBodyState
     // skipped.
     if (widget.adapter.sourceType == ImportSourceType.diveComputer ||
         widget.adapter.sourceType == ImportSourceType.suuntoCloud ||
+        widget.adapter.sourceType == ImportSourceType.suuntoFile ||
         widget.adapter.sourceType == ImportSourceType.garminCloud) {
       ref.invalidate(allDiveComputersProvider);
     }
@@ -401,8 +404,15 @@ class _UnifiedImportWizardBodyState
     );
   }
 
+  /// Leaves the wizard. Opened from Transfer there is a page to pop back
+  /// to; opened as a nav shortcut (#2936) the wizard is the only page, so it
+  /// goes home, where system Back from any top-level page leads.
   void _close() {
-    context.pop();
+    if (context.canPop()) {
+      context.pop();
+    } else {
+      context.go(kRootLocation);
+    }
   }
 
   void _navigateToDives() {

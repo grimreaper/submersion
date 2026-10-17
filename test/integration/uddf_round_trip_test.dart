@@ -13,6 +13,7 @@ import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/services/export/export_service.dart';
@@ -40,8 +41,15 @@ import '../helpers/mock_channels.dart';
 import '../helpers/python_script_runner.dart';
 import '../helpers/uddf_comparison_helper.dart';
 import 'uddf_test_importer.dart';
+import '../helpers/fake_hosts.dart';
 
 void main() {
+  // The code under test calls Nominatim; it answers as offline, as it
+  // would on a device without a network.
+  setUp(() {
+    serveFakeHost('nominatim.openstreetmap.org');
+  });
+
   late AppDatabase testDb;
   late ExportService exportService;
   late Directory tempDir;
@@ -78,7 +86,7 @@ void main() {
     LocationService.throttle = NominatimThrottle(minimumGap: Duration.zero);
     addTearDown(() => LocationService.throttle = NominatimThrottle());
     // Create fresh in-memory database for each test
-    testDb = AppDatabase(NativeDatabase.memory());
+    testDb = AppDatabase(NativeDatabase.memory(setup: registerAppSqlFunctions));
     DatabaseService.instance.setTestDatabase(testDb);
     exportService = ExportService();
   });

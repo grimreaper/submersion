@@ -95,6 +95,26 @@ void main() {
     expect(result.bytes, isNull);
   });
 
+  test('short unnamed bytes report undecodable, not a throw', () {
+    // With no name, package:image probes every format, and its PSD probe
+    // reads past the end of a short buffer with a RangeError, an Error
+    // rather than an Exception.
+    for (final bytes in [
+      [1, 2],
+      [4, 5, 6],
+    ]) {
+      final result = runImageEncodeRequest(
+        ImageEncodeRequest.fromBytes(
+          bytes: Uint8List.fromList(bytes),
+          spec: ImageEncodeSpec.avatar,
+        ),
+      );
+
+      expect(result.outcome, ImageEncodeOutcome.undecodable, reason: '$bytes');
+      expect(result.bytes, isNull);
+    }
+  });
+
   test('a source above maxSourcePixels reports tooLarge', () {
     final result = runImageEncodeRequest(
       ImageEncodeRequest.fromBytes(

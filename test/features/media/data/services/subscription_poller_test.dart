@@ -1,4 +1,4 @@
-// Adapted from plan `docs/superpowers/plans/2026-04-28-media-source-extension-phase3b.md`
+// Adapted from plan `docs/design/plans/2026-04-28-media-source-extension-phase3b.md`
 // Task 11. The plan's outlined test sketch points at six scenarios; each is
 // implemented end-to-end here against a real in-memory `AppDatabase`, real
 // `MediaRepository` / `ManifestSubscriptionRepository`, a real
@@ -11,6 +11,7 @@ import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/features/dive_log/data/repositories/dive_repository_impl.dart';
@@ -162,7 +163,7 @@ void main() {
   late _FakeDiveRepo diveRepo;
 
   setUp(() async {
-    db = AppDatabase(NativeDatabase.memory());
+    db = AppDatabase(NativeDatabase.memory(setup: registerAppSqlFunctions));
     DatabaseService.instance.setTestDatabase(db);
     subscriptions = ManifestSubscriptionRepository();
     mediaRepo = MediaRepository();

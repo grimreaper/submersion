@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 
 import 'package:submersion/features/data_quality/domain/entities/quality_finding.dart';
 import 'package:submersion/features/data_quality/domain/repairs/quality_repair_action.dart';
+import 'package:submersion/features/data_quality/domain/services/finding_ownership.dart';
 import 'package:submersion/features/data_quality/presentation/widgets/dive_identity_label.dart';
 import 'package:submersion/features/data_quality/presentation/widgets/quality_finding_message.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
@@ -17,6 +18,7 @@ class QualityFindingCard extends StatefulWidget {
     this.relatedDive,
     this.computerName,
     this.evidence,
+    this.foreignDiveId,
   });
 
   final QualityFinding finding;
@@ -40,6 +42,12 @@ class QualityFindingCard extends StatefulWidget {
   /// Optional expanded-state evidence (before/after chart, sparklines...),
   /// injected by the page so this widget stays synchronous.
   final Widget? evidence;
+
+  /// The dive of this finding that belongs to another profile, if any (see
+  /// `foreignDiveIdOf`). The card then names it but neither opens it nor
+  /// offers a repair on it, and "Go to dive" opens the active diver's own
+  /// dive; [relatedDive] labels the foreign one (issue #3049).
+  final String? foreignDiveId;
 
   @override
   State<QualityFindingCard> createState() => _QualityFindingCardState();
@@ -94,6 +102,10 @@ class _QualityFindingCardState extends State<QualityFindingCard> {
       GoToDiveRepair() => l10n.dataQuality_action_goToDive,
       AssignTransmitterRepair() =>
         l10n.dataQuality_repairLabel_assignTransmitter,
+      RemoveGearFromDiveRepair(:final diverName) =>
+        l10n.dataQuality_repairLabel_removeGearFromDive(
+          diverName.isEmpty ? l10n.sharedItems_ownerUnknown : diverName,
+        ),
     };
   }
 
@@ -107,42 +119,61 @@ class _QualityFindingCardState extends State<QualityFindingCard> {
     );
     // The card always renders its own "Go to dive" footer button, so drop any
     // GoToDiveRepair actions from the repair list to avoid a duplicate link.
+    final finding = widget.finding;
+    final foreign = widget.foreignDiveId;
     final actions = [
-      for (final a in repairOptionsFor(widget.finding))
-        if (a is! GoToDiveRepair) a,
+      for (final a in repairOptionsFor(finding))
+        if (a is! GoToDiveRepair &&
+            !(a is RemoveGearFromDiveRepair && a.diveId == foreign))
+          a,
     ];
     final primary = actions.isNotEmpty ? actions.first : null;
     final related = widget.relatedDive;
-    final relatedId = widget.finding.relatedDiveId;
+    final (own: ownDiveId, paired: pairedId) = diveSidesOf(finding, foreign);
     final computerName = widget.computerName;
 
     return Card(
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.stretch,
         children: [
+          // The primary repair sits on its own line under the detail rather
+          // than in trailing: a ListTile lays trailing out at its natural
+          // width first, so a long translated repair label there starves the
+          // finding title to one fragment per line (issue #2717).
           ListTile(
             leading: Icon(_icon, color: _color(scheme)),
             title: Text(message.title),
-            subtitle: Text(
-              message.detail,
-              maxLines: _expanded ? null : 1,
-              overflow: _expanded ? null : TextOverflow.ellipsis,
-            ),
-            trailing: primary == null
-                ? null
-                : FilledButton.tonal(
-                    onPressed: () => widget.onRepair(primary),
-                    child: Text(_repairLabel(context, primary)),
+            subtitle: Column(
+              mainAxisSize: MainAxisSize.min,
+              crossAxisAlignment: CrossAxisAlignment.start,
+              children: [
+                Text(
+                  message.detail,
+                  maxLines: _expanded ? null : 1,
+                  overflow: _expanded ? null : TextOverflow.ellipsis,
+                ),
+                if (primary != null)
+                  Padding(
+                    padding: const EdgeInsets.only(top: 8),
+                    child: FilledButton.tonal(
+                      style: FilledButton.styleFrom(
+                        visualDensity: VisualDensity.compact,
+                      ),
+                      onPressed: () => widget.onRepair(primary),
+                      child: Text(_repairLabel(context, primary)),
+                    ),
                   ),
+              ],
+            ),
             onTap: () => setState(() => _expanded = !_expanded),
           ),
           if (related != null)
             _ContextRow(
               icon: Icons.link_outlined,
               text: context.l10n.dataQuality_dive_pairedWith(related.headline),
-              onTap: relatedId == null
+              onTap: pairedId == null || pairedId == foreign
                   ? null
-                  : () => widget.onGoToDive(relatedId),
+                  : () => widget.onGoToDive(pairedId),
             ),
           if (computerName != null)
             _ContextRow(
@@ -173,7 +204,7 @@ class _QualityFindingCardState extends State<QualityFindingCard> {
                     child: Text(_repairLabel(context, action)),
                   ),
                 TextButton(
-                  onPressed: () => widget.onGoToDive(widget.finding.diveId),
+                  onPressed: () => widget.onGoToDive(ownDiveId),
                   child: Text(context.l10n.dataQuality_action_goToDive),
                 ),
                 TextButton(

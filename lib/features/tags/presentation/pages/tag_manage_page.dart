@@ -5,7 +5,6 @@ import 'package:uuid/uuid.dart';
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/utils/log_failure.dart';
 import 'package:submersion/features/dive_sites/presentation/providers/site_providers.dart';
-import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/tags/data/repositories/tag_repository.dart';
 import 'package:submersion/features/tags/domain/entities/tag.dart';
 import 'package:submersion/features/tags/presentation/providers/tag_providers.dart';
@@ -55,14 +54,19 @@ class _TagManagePageState extends ConsumerState<TagManagePage> {
   Widget build(BuildContext context) {
     final statsAsync = ref.watch(tagStatisticsProvider);
     final visibleIds = _visibleStats(
-      statsAsync.valueOrNull ?? const [],
+      statsAsync.value ?? const [],
     ).map((s) => s.tag.id).toList();
 
     // Drop checked tags that the search query hid, so a bulk delete can never
-    // reach a tag that is not on screen. pruneTo is a no-op when nothing
-    // changed, which keeps this off a rebuild loop.
+    // reach a tag that is not on screen. pruneToSettled is a no-op when
+    // nothing changed, which keeps this off a rebuild loop.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _selection.pruneTo(visibleIds);
+      if (mounted) {
+        _selection.pruneToSettled(
+          statsAsync,
+          (rows) => _visibleStats(rows).map((s) => s.tag.id),
+        );
+      }
     });
 
     return SelectableListScope(
@@ -72,7 +76,7 @@ class _TagManagePageState extends ConsumerState<TagManagePage> {
         valueListenable: _selection,
         builder: (context, selection, _) => Scaffold(
           appBar: selection.isActive
-              ? _buildSelectionAppBar(statsAsync.valueOrNull ?? const [])
+              ? _buildSelectionAppBar(statsAsync.value ?? const [])
               : AppBar(
                   title: Text(context.l10n.tags_manage_title),
                   leading: IconButton(
@@ -98,10 +102,6 @@ class _TagManagePageState extends ConsumerState<TagManagePage> {
                 ),
           body: Column(
             children: [
-              // Hidden during selection: this is a settings control, not
-              // part of the list being acted on, and the space is better
-              // spent on the list itself while a bulk action is in progress.
-              if (!selection.isActive) _buildAutoTagSection(),
               // Search stays visible during selection: narrowing the list
               // mid-selection is a supported move, and the selection prunes
               // to whatever remains.
@@ -118,46 +118,6 @@ class _TagManagePageState extends ConsumerState<TagManagePage> {
           ),
         ),
       ),
-    );
-  }
-
-  /// Whether the import wizard auto-tags every new import session (issue
-  /// #998), plus its switch.
-  ///
-  /// Placed above the search bar, not as a wizard step, so the choice is a
-  /// standing preference rather than something re-decided at every import.
-  /// This is only the starting point for a new session -- the review step's
-  /// Import Options sheet lets the diver override it for a single import
-  /// without touching this default.
-  ///
-  /// Watches only [AppSettings.autoTagImports] via `select`, not the whole
-  /// [settingsProvider]: a change to any other setting elsewhere in the app
-  /// would otherwise rebuild this switch for no reason.
-  Widget _buildAutoTagSection() {
-    final autoTagImports = ref.watch(
-      settingsProvider.select((s) => s.autoTagImports),
-    );
-    return Column(
-      children: [
-        Padding(
-          padding: const EdgeInsets.fromLTRB(16, 16, 16, 0),
-          child: Text(
-            context.l10n.tags_manage_importsSection,
-            style: Theme.of(context).textTheme.titleMedium?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-        ),
-        SwitchListTile(
-          title: Text(context.l10n.tags_manage_autoTagImports),
-          subtitle: Text(context.l10n.tags_manage_autoTagImports_subtitle),
-          value: autoTagImports,
-          onChanged: (value) {
-            ref.read(settingsProvider.notifier).setAutoTagImports(value);
-          },
-        ),
-        const Divider(height: 1),
-      ],
     );
   }
 
@@ -670,7 +630,7 @@ class _TagManagePageState extends ConsumerState<TagManagePage> {
   Future<BulkActionOutcome> _confirmDelete(BuildContext context) async {
     final repository = ref.read(tagRepositoryProvider);
     final statsAsync = ref.read(tagStatisticsProvider);
-    final stats = statsAsync.valueOrNull ?? [];
+    final stats = statsAsync.value ?? [];
 
     if (_selectedIds.length == 1) {
       final tagId = _selectedIds.first;
@@ -748,7 +708,7 @@ class _TagManagePageState extends ConsumerState<TagManagePage> {
 
   Future<BulkActionOutcome> _showMergeSheet(BuildContext context) async {
     final statsAsync = ref.read(tagStatisticsProvider);
-    final stats = statsAsync.valueOrNull ?? [];
+    final stats = statsAsync.value ?? [];
     final selectedStats = stats
         .where((s) => _selectedIds.contains(s.tag.id))
         .toList();

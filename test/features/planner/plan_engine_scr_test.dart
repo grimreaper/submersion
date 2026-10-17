@@ -1,4 +1,5 @@
 import 'package:flutter_test/flutter_test.dart';
+import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/deco/scr_calculator.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/dive_planner/domain/entities/plan_segment.dart';
@@ -13,6 +14,9 @@ const _tank = DiveTank(
   volume: 11.1,
   startPressure: 207.0,
   gasMix: _air,
+  // Diluent is now an explicit per-tank choice on a loop plan, honoured by
+  // TankRoleResolver and never inferred from being breathed.
+  role: TankRole.diluent,
 );
 
 List<PlanSegment> _segments() => [
@@ -156,6 +160,7 @@ const _ean32Tank = DiveTank(
   volume: 11.1,
   startPressure: 207.0,
   gasMix: _ean32,
+  role: TankRole.diluent,
 );
 
 domain.DivePlan _pscrPlan(domain.PlanMode mode) => domain.DivePlan(

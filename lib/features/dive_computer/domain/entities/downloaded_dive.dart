@@ -1,6 +1,7 @@
 import 'dart:typed_data';
 
 import 'package:submersion/core/constants/enums.dart';
+import 'package:submersion/features/dive_log/domain/entities/computer_tissue_snapshot.dart';
 
 /// Phases of the download process.
 enum DownloadPhase {
@@ -139,6 +140,11 @@ class DownloadedDive {
   /// Personal deco conservatism adjustment
   final int? decoConservatism;
 
+  /// Dive-level tissue state the computer itself reported (start/end
+  /// compartment loadings, CNS, OTU), when the source carries one. Never
+  /// computed by the app; persisted verbatim on the dive.
+  final ComputerTissueSnapshot? computerTissue;
+
   /// Dive events from the computer
   final List<DownloadedEvent> events;
 
@@ -199,6 +205,7 @@ class DownloadedDive {
     this.gfLow,
     this.gfHigh,
     this.decoConservatism,
+    this.computerTissue,
     this.diveMode = DiveMode.oc,
     this.events = const [],
     this.rawData,
@@ -360,6 +367,11 @@ class DownloadedTank {
   /// the default. Derived from the computer's tank usage / the gas mix.
   final String? role;
 
+  /// Where [role] came from when the computer took it from something
+  /// unverified, such as the transmitter's name (issue #2595); null when the
+  /// role is the computer's own data or the app's gas heuristic.
+  final TankRoleSource? roleSource;
+
   /// Serial of the air-integration transmitter that reported this tank, or
   /// null when the computer did not report one. Two computers paired to the
   /// same transmitter logged the same cylinder.
@@ -373,8 +385,31 @@ class DownloadedTank {
     this.endPressure,
     this.volumeLiters,
     this.role,
+    this.roleSource,
     this.transmitterSerial,
   });
+
+  DownloadedTank copyWith({
+    int? index,
+    double? o2Percent,
+    double? hePercent,
+    double? startPressure,
+    double? endPressure,
+    double? volumeLiters,
+    String? role,
+    TankRoleSource? roleSource,
+    String? transmitterSerial,
+  }) => DownloadedTank(
+    index: index ?? this.index,
+    o2Percent: o2Percent ?? this.o2Percent,
+    hePercent: hePercent ?? this.hePercent,
+    startPressure: startPressure ?? this.startPressure,
+    endPressure: endPressure ?? this.endPressure,
+    volumeLiters: volumeLiters ?? this.volumeLiters,
+    role: role ?? this.role,
+    roleSource: roleSource ?? this.roleSource,
+    transmitterSerial: transmitterSerial ?? this.transmitterSerial,
+  );
 
   /// Whether this is air (21% O2)
   bool get isAir => o2Percent >= 20.5 && o2Percent <= 21.5 && hePercent == 0.0;

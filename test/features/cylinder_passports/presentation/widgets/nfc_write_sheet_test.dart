@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart' show PlatformException;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:ndef_record/ndef_record.dart';
+import 'package:submersion/features/cylinder_passports/domain/entities/tag_fill.dart';
 import 'package:submersion/features/cylinder_passports/data/services/nfc_tag_service.dart';
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/models/log_entry.dart';
@@ -13,6 +14,9 @@ import 'package:submersion/features/cylinder_passports/domain/services/ndef_fit.
 import 'package:submersion/features/cylinder_passports/domain/services/passport_ndef.dart';
 import 'package:submersion/features/cylinder_passports/domain/services/passport_payload_codec.dart';
 import 'package:submersion/features/cylinder_passports/presentation/widgets/nfc_write_sheet.dart';
+import 'package:submersion/features/gear_passports/domain/entities/gear_tag_payload.dart';
+import 'package:submersion/features/gear_passports/domain/services/gear_tag_ndef.dart';
+import 'package:submersion/features/gear_passports/presentation/utils/gear_tag_write.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 
 import '../../../../helpers/fake_nfc.dart';
@@ -36,6 +40,7 @@ void main() {
     WidgetTester tester,
     FakeNfcTagService nfc, {
     void Function(ProviderContainer container)? beforeTap,
+    CylinderPassportPayload? writing,
   }) async {
     final overrides = await getBaseOverrides(nfcTagService: nfc);
     await tester.pumpWidget(
@@ -43,7 +48,8 @@ void main() {
         overrides: overrides,
         child: Builder(
           builder: (context) => TextButton(
-            onPressed: () => showNfcWriteSheet(context, payload: payload),
+            onPressed: () =>
+                showNfcWriteSheet(context, payload: writing ?? payload),
             child: const Text('open'),
           ),
         ),
@@ -264,4 +270,67 @@ void main() {
       expect(levels, isNot(contains(LogLevel.error)));
     },
   );
+
+  testWidgets('a written fill is named on the result', (tester) async {
+    final fill = TagFill(
+      id: '3f0c2b8e-6a1d-4c47-9e2a-5b7d8c9e0f11',
+      filledAt: DateTime.utc(2026, 9, 28, 9, 30),
+      o2Percent: 32,
+    );
+    final l10n = await open(
+      tester,
+      FakeNfcTagService(tag: FakeTagHandle()),
+      writing: payload.copyWith(fill: fill),
+    );
+    expect(find.text(l10n.passport_nfc_fillIncluded), findsOneWidget);
+  });
+
+  testWidgets('a write without a fill says nothing about one', (tester) async {
+    final l10n = await open(tester, FakeNfcTagService(tag: FakeTagHandle()));
+    expect(find.text(l10n.passport_nfc_fillIncluded), findsNothing);
+  });
+
+  testWidgets('a gear tag is written and names its own dropped fields', (
+    tester,
+  ) async {
+    final gear = GearTagPayload(
+      passportId: id,
+      typeCode: 'firstStage',
+      writtenOn: DateTime(2026, 10, 10),
+      name: 'Apeks XTX50 primary',
+      brand: 'Apeks',
+      model: 'XTX50',
+      serial: 'AB12345',
+      lastService: DateTime(2026, 3, 2),
+    );
+    final tag = FakeTagHandle(maxMessageBytes: 137, typeLabel: null);
+    final overrides = await getBaseOverrides(
+      nfcTagService: FakeNfcTagService(tag: tag),
+    );
+    await tester.pumpWidget(
+      testApp(
+        overrides: overrides,
+        child: Builder(
+          builder: (context) => TextButton(
+            onPressed: () =>
+                showTagWriteSheet(context, request: gearTagWriteRequest(gear)),
+            child: const Text('open'),
+          ),
+        ),
+      ),
+    );
+    final l10n = AppLocalizations.of(tester.element(find.text('open')));
+    await tester.tap(find.text('open'));
+    await tester.pumpAndSettle();
+    final plan = planGearMessage(gear, maxMessageBytes: 137)!;
+    expect(plan.droppedKeys.first, 'ls');
+    expect(find.text(l10n.passport_nfc_written), findsOneWidget);
+    final names = plan.droppedKeys
+        .map((k) => gearTagFieldLabel(l10n, k))
+        .join(', ');
+    expect(find.text(l10n.passport_nfc_fieldsDropped(names)), findsOneWidget);
+    expect(names, contains(l10n.gearPassport_field_lastService));
+    expect(firstPassportUri(tag.stored!), plan.url);
+    expect(plan.url, startsWith('https://submersion.app/g#'));
+  });
 }

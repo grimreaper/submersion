@@ -2,6 +2,7 @@ import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
 import 'package:submersion/core/data/repositories/sync_repository.dart';
+import 'package:submersion/core/data/visibility/shared_item_policy.dart';
 import 'package:submersion/core/data/visibility/visibility_filter.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/database_service.dart';
@@ -75,7 +76,8 @@ class SiteTypeRepository {
     final rows = await _db
         .customSelect(
           'SELECT * FROM site_types WHERE is_built_in = 0 AND diver_id = ? '
-          'AND lower(trim(name)) = lower(trim(?)) ORDER BY id LIMIT 1',
+          'AND unicode_lower(trim(name)) = unicode_lower(trim(?)) '
+          'ORDER BY id LIMIT 1',
           variables: [Variable.withString(diverId), Variable.withString(name)],
           readsFrom: {_db.siteTypes},
         )
@@ -186,6 +188,7 @@ class SiteTypeRepository {
       tableAlias: 'ds',
       diverId: diverId,
       conjunction: 'AND',
+      kind: SharedItemKind.site,
     );
     final where = diverId != null
         ? 'WHERE st.is_built_in = 1 OR (st.is_built_in = 0 AND st.diver_id = ?)'

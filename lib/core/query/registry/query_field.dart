@@ -1,6 +1,7 @@
 import 'package:meta/meta.dart';
 
 import 'package:submersion/core/query/domain/query_node.dart';
+import 'package:submersion/core/query/domain/query_subject.dart';
 
 enum FieldType { number, text, bool, enumName, date, id }
 
@@ -20,6 +21,9 @@ enum FieldDimension {
   depth,
   temperature,
   pressure,
+
+  /// Pressure per minute (SAC). Stored in bar per minute at the surface.
+  pressureRate,
   weight,
   volume,
   minutes,
@@ -61,6 +65,10 @@ const Set<QueryOp> kBoolOps = {QueryOp.eq, QueryOp.neq};
 ///
 /// [sql] and [emptySql] are written against the placeholder `{r}`, the alias
 /// of the entity's row at whatever nesting depth the compiler reaches it.
+/// A field that reads dives through its own subquery marks where the active
+/// diver narrows them with `{diver:<alias>}` (`kDiverToken`): the
+/// compiler binds ` AND <alias>.diver_id = ?` there when the caller names a
+/// diver, and nothing otherwise.
 @immutable
 class QueryField {
   final String key;
@@ -78,6 +86,12 @@ class QueryField {
   /// Stored names, for [FieldType.enumName]. The builder localizes them.
   final List<String>? enumValues;
 
+  /// For an enumName field whose values may also be custom ids (issue #690):
+  /// typed text that names no built-in resolves through this name-only
+  /// subject, and the validator accepts any value, since a stored custom id
+  /// is legitimate even when this build cannot name it.
+  final QuerySubject? customValueSubject;
+
   /// What each enum name binds as, when the column does not store the name
   /// itself (weekday stores 0..6). Defaults to the name.
   final Map<String, Object>? enumSqlValues;
@@ -85,6 +99,13 @@ class QueryField {
   /// For [FieldType.bool] fields that are predicates rather than columns:
   /// the SQL for `= true` and for `= false`. When set, [sql] is unused.
   final ({String whenTrue, String whenFalse})? boolSql;
+
+  /// For a number field whose rows may hold a range instead of a value: the
+  /// SQL of the range's inclusive low end and exclusive high end (issue
+  /// #3226). An ordering comparison then also matches a row whose value is
+  /// NULL and whose whole range satisfies it. Equality never matches a
+  /// range. Null for ordinary fields.
+  final ({String low, String high})? rangeSql;
 
   /// Validation range in storage units, inclusive.
   final ({double min, double max})? sanity;
@@ -106,8 +127,10 @@ class QueryField {
     required this.labelKey,
     Set<QueryOp>? ops,
     this.enumValues,
+    this.customValueSubject,
     this.enumSqlValues,
     this.boolSql,
+    this.rangeSql,
     this.sanity,
     this.dateFrame = DateFrame.wallClockUtc,
     this.tables = const [],

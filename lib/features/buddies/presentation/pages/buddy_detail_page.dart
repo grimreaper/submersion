@@ -6,15 +6,15 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:submersion/features/connections/domain/entities/connection_kind.dart';
 import 'package:submersion/features/connections/domain/entities/node_ref.dart';
 import 'package:submersion/features/connections/presentation/widgets/open_in_connections.dart';
+import 'package:submersion/shared/widgets/icon_detail_row.dart';
 import 'package:submersion/shared/widgets/profile_photo/profile_avatar.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 import 'package:submersion/features/buddies/presentation/buddy_certification_l10n.dart';
 import 'package:submersion/features/buddies/presentation/buddy_dive_share.dart';
-import 'package:submersion/core/constants/list_view_mode.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
+import 'package:submersion/core/router/pushed_route.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/shared/widgets/master_detail/detail_scroll_retainer.dart';
-import 'package:submersion/shared/widgets/master_detail/responsive_breakpoints.dart';
 import 'package:submersion/features/buddies/data/repositories/buddy_repository.dart';
 import 'package:submersion/features/buddies/domain/entities/buddy.dart';
 import 'package:submersion/features/buddies/presentation/providers/buddy_providers.dart';
@@ -24,6 +24,10 @@ import 'package:submersion/features/certifications/presentation/providers/certif
 import 'package:submersion/features/divers/domain/entities/diver.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/certifications/presentation/certification_title_l10n.dart';
+import 'package:submersion/features/certification_agencies/presentation/providers/certification_catalog_context.dart';
+import 'package:submersion/features/certification_agencies/presentation/providers/certification_catalog_providers.dart';
+import 'package:submersion/features/documents/presentation/widgets/documents_section.dart';
+import 'package:submersion/features/documents/domain/entities/document.dart';
 
 class BuddyDetailPage extends ConsumerStatefulWidget {
   final String buddyId;
@@ -50,20 +54,23 @@ class _BuddyDetailPageState extends ConsumerState<BuddyDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Desktop redirect: if not embedded and on desktop, redirect to master-detail view.
-    // Skip in table mode -- table view has no master-detail split to redirect into.
-    if (!widget.embedded &&
-        !_hasRedirected &&
-        ResponsiveBreakpoints.isMasterDetail(context)) {
-      final viewMode = ref.read(buddyListViewModeProvider);
-      if (viewMode != ListViewMode.table) {
-        _hasRedirected = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            context.go('/buddies?selected=${widget.buddyId}');
-          }
-        });
-      }
+    ref.watch(certificationCatalogSyncProvider);
+    // Desktop redirect: a root visit (deep link, sidebar) moves into the
+    // master-detail split. A pushed page, opened from a dive's details
+    // say, stays put: the redirect's go() would erase the page under it
+    // and its back arrow (#3292).
+    if (!_hasRedirected &&
+        shouldRedirectToMasterDetail(
+          context,
+          embedded: widget.embedded,
+          viewMode: ref.read(buddyListViewModeProvider),
+        )) {
+      _hasRedirected = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.go('/buddies?selected=${widget.buddyId}');
+        }
+      });
     }
 
     final buddyAsync = ref.watch(buddyByIdProvider(widget.buddyId));
@@ -124,6 +131,7 @@ class _BuddyDetailContent extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(certificationCatalogSyncProvider);
     final statsAsync = ref.watch(buddyStatsProvider(buddy.id));
     final units = UnitFormatter(ref.watch(settingsProvider));
 
@@ -157,6 +165,10 @@ class _BuddyDetailContent extends ConsumerWidget {
             _buildNotesSection(context),
             const SizedBox(height: 24),
           ],
+          DocumentsSection(
+            owner: DocumentOwner(DocumentOwnerKind.buddy, buddy.id),
+          ),
+          const SizedBox(height: 24),
 
           // Shared dives
           BuddySharedDivesSection(buddyId: buddy.id),
@@ -266,9 +278,18 @@ class _BuddyDetailContent extends ConsumerWidget {
                     fontWeight: FontWeight.bold,
                   ),
                 ),
-                if (buddyCertificationLineL10n(buddy, context.l10n) != null)
+                if (buddyCertificationLineL10n(
+                      buddy,
+                      context.l10n,
+                      catalog: context.certificationCatalog,
+                    ) !=
+                    null)
                   Text(
-                    buddyCertificationLineL10n(buddy, context.l10n)!,
+                    buddyCertificationLineL10n(
+                      buddy,
+                      context.l10n,
+                      catalog: context.certificationCatalog,
+                    )!,
                     style: theme.textTheme.bodySmall?.copyWith(
                       color: colorScheme.onSurfaceVariant,
                     ),
@@ -463,12 +484,17 @@ class _BuddyDetailContent extends ConsumerWidget {
                             contentPadding: EdgeInsets.zero,
                             leading: const Icon(Icons.card_membership),
                             title: Text(
-                              certificationTitleL10n(cert, context.l10n),
+                              certificationTitleL10n(
+                                cert,
+                                context.l10n,
+                                catalog: context.certificationCatalog,
+                              ),
                             ),
                             subtitle: Text(
                               certificationAgencyAndLevelL10n(
                                 cert,
                                 context.l10n,
+                                catalog: context.certificationCatalog,
                               ),
                             ),
                           ),
@@ -502,25 +528,25 @@ class _BuddyDetailContent extends ConsumerWidget {
             statsAsync.when(
               data: (stats) => Column(
                 children: [
-                  _StatRow(
+                  IconDetailRow(
                     icon: Icons.scuba_diving,
                     label: context.l10n.buddies_stat_divesTogether,
                     value: stats.totalDives.toString(),
                   ),
                   if (stats.firstDive != null)
-                    _StatRow(
+                    IconDetailRow(
                       icon: Icons.first_page,
                       label: context.l10n.buddies_stat_firstDive,
                       value: units.formatDate(stats.firstDive),
                     ),
                   if (stats.lastDive != null)
-                    _StatRow(
+                    IconDetailRow(
                       icon: Icons.last_page,
                       label: context.l10n.buddies_stat_lastDive,
                       value: units.formatDate(stats.lastDive),
                     ),
                   if (stats.favoriteSite != null)
-                    _StatRow(
+                    IconDetailRow(
                       icon: Icons.place,
                       label: context.l10n.buddies_stat_favoriteSite,
                       value: stats.favoriteSite!,
@@ -597,39 +623,5 @@ class _BuddyDetailContent extends ConsumerWidget {
     if (await canLaunchUrl(uri)) {
       await launchUrl(uri);
     }
-  }
-}
-
-class _StatRow extends StatelessWidget {
-  final IconData icon;
-  final String label;
-  final String value;
-
-  const _StatRow({
-    required this.icon,
-    required this.label,
-    required this.value,
-  });
-
-  @override
-  Widget build(BuildContext context) {
-    return Padding(
-      padding: const EdgeInsets.symmetric(vertical: 4),
-      child: Row(
-        children: [
-          Icon(icon, size: 20, color: Theme.of(context).colorScheme.primary),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(label, style: Theme.of(context).textTheme.bodyMedium),
-          ),
-          Text(
-            value,
-            style: Theme.of(
-              context,
-            ).textTheme.bodyMedium?.copyWith(fontWeight: FontWeight.bold),
-          ),
-        ],
-      ),
-    );
   }
 }

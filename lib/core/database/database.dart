@@ -3,23 +3,30 @@ import 'package:drift/drift.dart';
 import 'package:submersion/core/database/raw_dive_data_codec.dart';
 import 'package:submersion/core/database/tables/app_tables.dart';
 import 'package:submersion/core/database/tables/buddy_tables.dart';
+import 'package:submersion/core/database/tables/certification_currency_tables.dart';
 import 'package:submersion/core/database/tables/cylinder_tables.dart';
+import 'package:submersion/core/database/tables/dive_computer_connection_tables.dart';
 import 'package:submersion/core/database/tables/dive_lab_tables.dart';
 import 'package:submersion/core/database/tables/dive_plan_tables.dart';
+import 'package:submersion/core/database/tables/dive_derived_metrics_tables.dart';
 import 'package:submersion/core/database/tables/dive_plan_mission_tables.dart';
 import 'package:submersion/core/database/tables/dive_profile_tables.dart';
 import 'package:submersion/core/database/tables/dive_tables.dart';
 import 'package:submersion/core/database/tables/diver_tables.dart';
 import 'package:submersion/core/database/tables/equipment_condition_tables.dart';
+import 'package:submersion/core/database/tables/document_tables.dart';
+import 'package:submersion/core/database/tables/equipment_location_tables.dart';
 import 'package:submersion/core/database/tables/equipment_service_status_tables.dart';
 import 'package:submersion/core/database/tables/equipment_tables.dart';
 import 'package:submersion/core/database/tables/marine_life_tables.dart';
 import 'package:submersion/core/database/tables/media_tables.dart';
 import 'package:submersion/core/database/tables/pre_dive_tables.dart';
 import 'package:submersion/core/database/tables/quality_tables.dart';
+import 'package:submersion/core/database/tables/insight_tables.dart';
 import 'package:submersion/core/database/tables/query_tables.dart';
 import 'package:submersion/core/database/tables/safety_tables.dart';
 import 'package:submersion/core/database/tables/service_tables.dart';
+import 'package:submersion/core/database/tables/shared_library_tables.dart';
 import 'package:submersion/core/database/tables/site_tables.dart';
 import 'package:submersion/core/database/tables/sync_tables.dart';
 import 'package:submersion/core/database/tables/tag_tables.dart';
@@ -30,23 +37,30 @@ import 'package:submersion/core/database/migrations/app_database_migrations.dart
 
 export 'package:submersion/core/database/tables/app_tables.dart';
 export 'package:submersion/core/database/tables/buddy_tables.dart';
+export 'package:submersion/core/database/tables/certification_currency_tables.dart';
 export 'package:submersion/core/database/tables/cylinder_tables.dart';
 export 'package:submersion/core/database/tables/dive_lab_tables.dart';
 export 'package:submersion/core/database/tables/dive_plan_tables.dart';
+export 'package:submersion/core/database/tables/dive_derived_metrics_tables.dart';
 export 'package:submersion/core/database/tables/dive_plan_mission_tables.dart';
+export 'package:submersion/core/database/tables/dive_computer_connection_tables.dart';
 export 'package:submersion/core/database/tables/dive_profile_tables.dart';
 export 'package:submersion/core/database/tables/dive_tables.dart';
 export 'package:submersion/core/database/tables/diver_tables.dart';
 export 'package:submersion/core/database/tables/equipment_condition_tables.dart';
+export 'package:submersion/core/database/tables/document_tables.dart';
+export 'package:submersion/core/database/tables/equipment_location_tables.dart';
 export 'package:submersion/core/database/tables/equipment_service_status_tables.dart';
 export 'package:submersion/core/database/tables/equipment_tables.dart';
 export 'package:submersion/core/database/tables/marine_life_tables.dart';
 export 'package:submersion/core/database/tables/media_tables.dart';
 export 'package:submersion/core/database/tables/pre_dive_tables.dart';
 export 'package:submersion/core/database/tables/quality_tables.dart';
+export 'package:submersion/core/database/tables/insight_tables.dart';
 export 'package:submersion/core/database/tables/query_tables.dart';
 export 'package:submersion/core/database/tables/safety_tables.dart';
 export 'package:submersion/core/database/tables/service_tables.dart';
+export 'package:submersion/core/database/tables/shared_library_tables.dart';
 export 'package:submersion/core/database/tables/site_tables.dart';
 export 'package:submersion/core/database/tables/sync_tables.dart';
 export 'package:submersion/core/database/tables/tag_tables.dart';
@@ -113,6 +127,12 @@ String legacyDataSourceId(String diveId) => '$kLegacyDataSourceIdPrefix$diveId';
     DiveDiveTypes,
     DiveTypes,
     DiveRoles,
+    // Several roles per person on a dive (v272, issue #1221)
+    DiveDiverRoles,
+    DiveBuddyRoles,
+    // Custom certification agencies and levels (v261, issue #690)
+    CustomCertificationAgencies,
+    CustomCertificationLevels,
     TankPresets,
     WeightPresets,
     WeightPresetEntries,
@@ -126,6 +146,8 @@ String legacyDataSourceId(String diveId) => '$kLegacyDataSourceIdPrefix$diveId';
     EmergencyChambers,
     Incidents,
     DiveSensorSummaries,
+    // Explore derived metrics (v247, issue #2195), local only
+    DiveDerivedMetricsRows,
     EquipmentObservations,
     EquipmentFindings,
     EquipmentConditionReviews,
@@ -144,6 +166,9 @@ String legacyDataSourceId(String diveId) => '$kLegacyDataSourceIdPrefix$diveId';
     // Equipment sharing and its event log (v234, issue #2046)
     EquipmentShares,
     EquipmentOwnershipEvents,
+    // Equipment locations and their move log (v268)
+    EquipmentLocations,
+    EquipmentLocationMoves,
     // Equipment service cache for the query language (v242, issue
     // #2365), local only
     EquipmentServiceStatus,
@@ -156,6 +181,8 @@ String legacyDataSourceId(String diveId) => '$kLegacyDataSourceIdPrefix$diveId';
     // Course requirement tracker (v121)
     CourseRequirements,
     CourseRequirementDives,
+    // A dive's courses (v288, issue #2515)
+    DiveCourses,
     // Sync tables
     SyncMetadata,
     SyncRecords,
@@ -218,6 +245,30 @@ String legacyDataSourceId(String diveId) => '$kLegacyDataSourceIdPrefix$diveId';
     TripCylinderEvents,
     // Saved Connections maps (v235, issue #2322)
     ConnectionMaps,
+    // Gear packed for a trip (v248, issue #2338)
+    TripEquipment,
+    // Download connections per dive computer (v279, issue #3106)
+    DiveComputerConnections,
+    // A profile's hidden shared trips and sites (v250, issue #2594)
+    TripHides,
+    SiteHides,
+    // Insight observation dismissals (v265)
+    InsightObservationDismissals,
+    // Certification currency (v271, issue #2267)
+    CertificationCurrencyRules,
+    CertificationCurrencyPrefs,
+    CertificationCurrencyEvents,
+    // Documents store (v277, issue #2613)
+    Documents,
+    DocumentPages,
+    // Shared dive-site library (v289, issue #2567)
+    SharedLibraries,
+    SharedLibraryMembers,
+    SharedLibraryMemberships,
+    SharedSiteStates,
+    SharedSiteSuggestions,
+    SharedLibraryBackups,
+    LibrarySiteNotes,
   ],
 )
 class AppDatabase extends _$AppDatabase {
@@ -227,7 +278,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// The current schema version as a static constant so that pre-open checks
   /// (e.g. version-mismatch guard) can reference it without an instance.
-  static const int currentSchemaVersion = 244;
+  static const int currentSchemaVersion = 291;
 
   /// The oldest schema whose reader can apply this build's sync payloads
   /// without loss or misinterpretation (the compatibility floor).
@@ -313,7 +364,24 @@ class AppDatabase extends _$AppDatabase {
   /// prevent. Peers below 240 are held until they update; their own payloads
   /// still arrive here, and the merge's scope guard keeps their copies of
   /// deleted events from coming back.
-  static const int minimumCompatibleSchemaVersion = 240;
+  ///
+  /// Raised 240 -> 275 by the decimal start pressure (#3091): v275 retypes
+  /// the synced column diver_settings.default_start_pressure from INTEGER
+  /// to REAL, which the first rule above classifies as breaking. An older
+  /// reader decodes the field with a hard int cast in DiverSetting.fromJson,
+  /// so a start pressure entered in psi (206.84 bar for 3000 psi) would
+  /// throw there. Peers below 275 are held until they update. Their own
+  /// payloads still arrive here and decode cleanly: drift's fromJson widens
+  /// an int to a double.
+  ///
+  /// Raised 275 -> 280 by the WebDAV backend (#2361): AccountKind.webdav is
+  /// a new value in the synced column connected_accounts.kind, and every
+  /// build before 280 decodes that column with AccountKind.values.byName,
+  /// which throws on a name it does not know. Schema 280 changes no data; it
+  /// exists so the floor can rise past the 275 to 279 betas. From 280 on
+  /// the accounts repository skips unknown kinds, so later kinds need no
+  /// floor bump of their own.
+  static const int minimumCompatibleSchemaVersion = 280;
 
   /// Every schema version that has a migration block in onUpgrade.
   /// Used to calculate progress step counts. When adding a new migration,
@@ -982,6 +1050,15 @@ class AppDatabase extends _$AppDatabase {
     // to 240. Renumbered from 233 and then 235: main shipped 233 (#1921),
     // 234 (#2046) and 239 (#2275) while this was open.
     240,
+    // v241: tank_pressure_series.source_id (issue #2440), backfilled where
+    // the source is unambiguous. Additive nullable column, so the floor
+    // stays at 240. Renumbered from 232 and then 240 while in review: main
+    // shipped 232 to 234, 239 (#2275) and 240 (#1926) while this was open.
+    // Kept below v242, which main shipped with 241 left for this rung: a
+    // database already at 242 skips this step, the beforeOpen backstop
+    // adds the column there, and its series stay unattributed, which every
+    // reader already handles.
+    241,
     // v242: equipment_service_status, the local service-due cache the
     // query language's serviceDue field reads (issue #2365, PR 3). A table
     // with no hlc, never synced, so the floor does not move. 241 was held
@@ -994,6 +1071,208 @@ class AppDatabase extends _$AppDatabase {
     // Renumbered from 241: #2493 took it, main shipped 242 (#2541) and
     // an open branch claims 243 (#2409).
     244,
+    // v245: idx_certifications_buddy_id (issue #2365, PR 4). Index-only;
+    // the floor does not move. 243 was held by #2409 and 244 went to
+    // #2086 when this was taken.
+    245,
+    // v247: dive_derived_metrics, the Explore derived metrics the dive query
+    // fields read (issue #2195, phase 2). A table with no hlc, never synced,
+    // so the floor does not move. 246 is held by #2409 (open).
+    247,
+    // v248: trip_equipment, gear packed for a trip (issue #2338).
+    // Table-only rung, no backfill; the floor does not move. 246 is held by
+    // #2409 and 247 went to #2195 (Explore derived metrics).
+    248,
+    // v249: the trip fill forecast's inputs (issue #2325, PR 4): trips
+    // divers sharing and dives per day, itinerary planned dives, dive
+    // center fill hours. Additive columns, so the floor does not move. 248
+    // is trip_equipment (#2338).
+    249,
+    // v250: trip_hides and site_hides, the shared trips and sites a profile
+    // has hidden from itself (issue #2594). Table-only rung, no backfill;
+    // an older peer keeps the new entity types as inert unknowns, so the
+    // floor does not move. #2562 and #2409 held stale claims below 249
+    // when this was taken.
+    250,
+    // v251: dive_tanks.source_id (issue #2716), the data source a tank row
+    // came from, so two computer-less sources' copies of one cylinder come
+    // apart; backfilled where unambiguous. Additive nullable column, so the
+    // floor stays at 240. 250 is trip_hides and site_hides (#2594).
+    251,
+    // v252: nav_tracks.diver_id, the route's owner, backfilled from each
+    // linked route's dive (issue #2691 follow-up). Additive nullable column,
+    // so the floor does not move. 251 is dive_tanks.source_id (#2716).
+    252,
+    // v253: dive_safety_reviews.inputs_hash, the settings a review was
+    // computed from (issue #2592). An additive nullable column, so the floor
+    // does not move: the receiving overlay keeps it when an older peer's
+    // payload omits it. Merged after v254 (#2595): a database already at 254
+    // never runs this rung, and the beforeOpen backstop adds the column.
+    253,
+    // v254: dive_tanks.role_source, where a cylinder's role came from
+    // (issue #2595). An additive nullable column, so the floor does not
+    // move. 251 is dive_tanks.source_id (#2716) and 252
+    // nav_tracks.diver_id (#2703); 253 is
+    // dive_safety_reviews.inputs_hash (#2592).
+    254,
+    // v255: drops the ceilings safety stop samples carried from every
+    // stored profile series (issue #2550): a safety stop is no deco
+    // obligation, and its depth drew a deco stop band. Rewrites blobs in
+    // place without moving their sync stamp; an older peer's copy still
+    // reads as a safety stop, so the floor does not move. 254 is
+    // dive_tanks.role_source (#2595), 253 safety review inputs (#2592).
+    255,
+    // v256: dives.computer_tissue_json, the tissue state a dive computer
+    // reports for the dive (import of Garmin, Shearwater, Suunto, Ratio and
+    // UDDF tissue data, issue #1977). Additive nullable column, no
+    // backfill, so the floor stays. Renumbered from 220 and then 241: main
+    // shipped 220 to 255 while this was open.
+    256,
+    // v257: metadata-only profile revision history over existing
+    // dive_profile_series rows (#1197). No profile samples are copied:
+    // history rows point at existing series ids and track parent/branch
+    // relations. Local-only table, so the floor stays. Renumbered from 246
+    // and then 256: main shipped 247 through 256 while this branch was open.
+    257,
+    // v258: gas_switches.computer_id, the computer whose reading a switch
+    // came from (issue #2582), backfilled from the switch's cylinder.
+    // Additive nullable column, so the floor stays. Sits below 259, which
+    // main shipped first; a database already at 259 gains the column and
+    // its backfill through the beforeOpen backstop.
+    258,
+    // v259: dive_tanks.usage_duration, how long a cylinder was breathed as
+    // the source log recorded it (issue #1496). An additive nullable
+    // column, so the floor does not move: an older peer's payload omits it
+    // and the row keeps null. 258 is held by an open branch (#2828).
+    259,
+    // v260: dive_tanks.shared_computer_ids, the other computers on a
+    // consolidated dive that logged the same cylinder, so each computer is
+    // analysed on its own gas plan (issue #2560). Additive nullable column
+    // plus a local, deterministic backfill, so the floor stays. Renumbered
+    // from 241, 248, 250 and 251 while this was open; gas_switches.computer_id,
+    // which the analysis also reads, is v258 (#2582).
+    260,
+    // v261: drops diver_settings.default_ceiling_source (issue #767), unread
+    // since the ceiling line lost its source toggle at v137 (#755). Dropping
+    // a synced column normally raises the floor, but every reader the floor
+    // admits (240 and up) ignores the value and fills a missing key from its
+    // column default, so nothing it applies is lost or misread and the floor
+    // stays. Inbound, the generated fromJson ignores the legacy key.
+    261,
+    // v262: diver_settings certification/course list view modes and the
+    // formerly device-local profile "metrics follow viewport" and pSCR
+    // ratio (issue #2948). Additive columns, so the floor stays.
+    262,
+    263,
+    // v264: diver_settings.default_show_late_gas_switches (issue #2939).
+    // Additive column with a default, so the floor stays.
+    264,
+    // v265: insight_observation_dismissals (synced) and
+    // diver_settings.insights_muted_observation_rules (#2381). Additive, so
+    // the floor stays. Renumbered several times while this was open (262 is
+    // held by #2991; 261, 263 and 264 landed first).
+    265,
+    // v266: media.site_category and media.display_size, a site attachment's
+    // category and size override (issue #1039). Additive nullable columns,
+    // so the floor stays. Renumbered from 263, which main shipped first
+    // (#2030); 262 is claimed by an open branch.
+    266,
+    // v267: custom certification agencies and levels (issue #690). Two new
+    // synced tables and an index, no data migration, so the floor stays.
+    // Renumbered from 265 and 266, which main shipped first.
+    267,
+    // v268: equipment locations and their move log (issue #3037). Two new
+    // tables, so the floor stays.
+    268,
+    // v269: diver_settings.hidden_built_in_ids, the built-in dive types,
+    // roles, site types, service types and pre-dive templates each diver hid
+    // from the pickers (issue #401). Additive nullable column, no backfill,
+    // so the floor stays. Renumbered several times while this was open.
+    269,
+    // v270: dive_weights.label and weight_preset_entries.label, a diver's own
+    // name for a weight (issue #956). Additive defaulted columns, so the
+    // floor stays: an older peer's payload omits the key and the row keeps
+    // its local value or the '' default. Renumbered as other rungs shipped
+    // first (261 through 269).
+    270,
+    // v271: certification currency (issue #2267): the rule catalog with its
+    // built-in seed, per certification overrides and the event ledger. New
+    // synced tables only, so the floor stays. Built-in rules are reference
+    // data, re-seeded by INSERT OR IGNORE from onCreate, the rung and
+    // beforeOpen. Renumbered from 261, 262, 266, 267 and 269 as main shipped
+    // those first (and then 270); 268 is held by an open branch.
+    271,
+    // v272: dive_diver_roles and dive_buddy_roles, several roles per person
+    // on a dive (issue #1221). New synced child tables, no backfill: an
+    // older peer ignores them and its scalar role writes still resolve, so
+    // the floor stays. Renumbered from 262, 264, 267, 270 and 271 as main
+    // shipped those; 268 is held by an open branch (#3043).
+    272,
+    273,
+    // v274: diver_settings.has_accepted_planning_disclaimer (issue #3120).
+    274,
+    // v275: diver_settings.default_start_pressure retyped INTEGER to REAL
+    // (issue #3091), so a start pressure entered in psi is kept exactly.
+    // Retyping a synced column raises the floor to 275; see
+    // minimumCompatibleSchemaVersion.
+    275,
+    // v276: diver_settings.icd_warnings_enabled (issue #3121).
+    276,
+    // v277: documents and document_pages; insurance, medical clearance and
+    // certification card photos copied in (issue #2613).
+    277,
+    // v278: dives.visibility_min_meters / visibility_max_meters (issue #3226).
+    278,
+    // v279: dive_computer_connections (issue #3106). Table-only rung, no
+    // backfill; the floor does not move.
+    279,
+    // v280: no data change (issue #2361). AccountKind.webdav is a new value
+    // in the synced connected_accounts.kind column, which builds before this
+    // one decode with a throwing AccountKind.values.byName. Raising the
+    // floor to 280 holds them until they update; see
+    // minimumCompatibleSchemaVersion. Renumbered from 277, 278 and 279 as
+    // main shipped those first.
+    280,
+    // v281: diver_settings.trend_gap_collapse_months (issue #3251). Additive
+    // defaulted column, so the floor stays at 280. Renumbered from 278, 279
+    // and 280, which #3226, #3106 and #2361 shipped first.
+    281,
+    // v283: dive_profile_series.activated_at (issue #3189), backfilled from
+    // the primary flags and the local revision history. Additive nullable
+    // column, so the floor stays at 280. 282 is held by PR #3133.
+    283,
+    // v284: diver_settings.profile_color_* (issue #3012). Additive nullable
+    // columns, so the floor stays at 280. Renumbered from 282, which PR #3133
+    // holds, after #3296 shipped 283.
+    284,
+    // v285: nav_tracks.source_metadata (issue #3047). Additive nullable
+    // column, so the floor stays at 280. Renumbered from 282, which PR
+    // #3133 holds; 283 and 284 shipped first.
+    285,
+    // v286: diver_settings.equipment_default_statuses (issue #2628).
+    // Additive nullable column, so the floor stays at 280.
+    286,
+    // v287: dive_tanks.passport_id (issue #2650). Additive nullable column,
+    // so the floor stays at 280. Renumbered from 285 and 286, which #3306
+    // and #3319 shipped first.
+    287,
+    // v288: the dive_courses junction and the certification-side course link
+    // (issue #2515). A new table plus meaning-preserving backfills, so the
+    // floor stays at 280. Renumbered from 286 and 287, which #2628 and #2650
+    // shipped first.
+    288,
+    // v289: shared dive-site library tables and dive_sites.shared_library_id
+    // (issue #2567). New tables and a nullable column, so the floor stays
+    // at 280. Renumbered from 288 after #2515 shipped 288.
+    289,
+    // v290: dive_plan_segments.split_at_configured_rate (issue #3264).
+    // Additive defaulted column, so the floor stays at 280. Renumbered from
+    // 277, 282 then 286, as #2613's documents store, #3189, #3012, #3047,
+    // #2628, #2650, #2515 and #3324 shipped or claimed earlier rungs.
+    290,
+    // v291: shared_libraries.description (issue #3389). Additive nullable
+    // column, so the floor stays at 280.
+    291,
   ];
 
   /// Returns the number of migration steps that will execute when upgrading

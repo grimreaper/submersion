@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite3;
 
@@ -34,6 +35,7 @@ class FakeBackupDatabaseAdapter implements BackupDatabaseAdapter {
   int backupCallCount = 0;
   int restoreCallCount = 0;
   String? lastBackupPath;
+  String? lastBackupNote;
   String? lastRestorePath;
 
   /// When set, [restore] records the call and then throws this, modelling a
@@ -42,9 +44,10 @@ class FakeBackupDatabaseAdapter implements BackupDatabaseAdapter {
   Object? restoreError;
 
   @override
-  Future<void> backup(String destinationPath) async {
+  Future<void> backup(String destinationPath, {String? note}) async {
     backupCallCount++;
     lastBackupPath = destinationPath;
+    lastBackupNote = note;
     // Create the file so callers that check size don't throw
     final file = File(destinationPath);
     await file.parent.create(recursive: true);
@@ -352,8 +355,10 @@ void main() {
           postRestoreSyncStore: intentStore,
         );
         final src = File(
-          '${Directory.systemTemp.path}/restore_merge_'
-          '${DateTime.now().microsecondsSinceEpoch}.db',
+          p.join(
+            _isolatedTempDir.path,
+            'restore_merge_${DateTime.now().microsecondsSinceEpoch}.db',
+          ),
         );
         await src.writeAsString('db');
         addTearDown(() async {
@@ -380,8 +385,10 @@ void main() {
           postRestoreSyncStore: intentStore,
         );
         final src = File(
-          '${Directory.systemTemp.path}/restore_replace_'
-          '${DateTime.now().microsecondsSinceEpoch}.db',
+          p.join(
+            _isolatedTempDir.path,
+            'restore_replace_${DateTime.now().microsecondsSinceEpoch}.db',
+          ),
         );
         await src.writeAsString('db');
         addTearDown(() async {
@@ -406,8 +413,10 @@ void main() {
       // untouched live library as freshly restored on the way out.
       Future<File> vanishingSource(String tag) async {
         final src = File(
-          '${Directory.systemTemp.path}/restore_${tag}_'
-          '${DateTime.now().microsecondsSinceEpoch}.db',
+          p.join(
+            _isolatedTempDir.path,
+            'restore_${tag}_${DateTime.now().microsecondsSinceEpoch}.db',
+          ),
         );
         await src.writeAsString('db');
         addTearDown(() async {
@@ -479,6 +488,45 @@ void main() {
       });
     });
 
+    group('backup notes', () {
+      test('Backup Now passes the note to the copy and records it', () async {
+        final service = BackupService(
+          dbAdapter: fakeDb,
+          preferences: preferences,
+        );
+        final record = await service.performBackup(
+          note: 'Before merging sites',
+        );
+        expect(fakeDb.lastBackupNote, 'Before merging sites');
+        expect(record.note, 'Before merging sites');
+        expect(preferences.getHistory().single.note, 'Before merging sites');
+      });
+
+      test('an automatic backup ignores a note it is handed', () async {
+        final service = BackupService(
+          dbAdapter: fakeDb,
+          preferences: preferences,
+        );
+        final record = await service.performBackup(
+          isAutomatic: true,
+          note: 'Should not stick',
+        );
+        expect(fakeDb.lastBackupNote, isNull);
+        expect(record.note, isNull);
+      });
+
+      test('an automatic backup carries no note', () async {
+        final service = BackupService(
+          dbAdapter: fakeDb,
+          preferences: preferences,
+        );
+        final record = await service.performBackup(isAutomatic: true);
+        expect(fakeDb.backupCallCount, 1);
+        expect(fakeDb.lastBackupNote, isNull);
+        expect(record.note, isNull);
+      });
+    });
+
     group('restore re-baselines sync', () {
       test('restoreFromFile replaces the DB and re-baselines sync, preserving '
           'the live device id', () async {
@@ -490,8 +538,10 @@ void main() {
         );
 
         final src = File(
-          '${Directory.systemTemp.path}/restore_src_'
-          '${DateTime.now().microsecondsSinceEpoch}.db',
+          p.join(
+            _isolatedTempDir.path,
+            'restore_src_${DateTime.now().microsecondsSinceEpoch}.db',
+          ),
         );
         await src.writeAsString('db');
         addTearDown(() async {
@@ -532,8 +582,10 @@ void main() {
         );
 
         final src = File(
-          '${Directory.systemTemp.path}/restore_src_'
-          '${DateTime.now().microsecondsSinceEpoch}.db',
+          p.join(
+            _isolatedTempDir.path,
+            'restore_src_${DateTime.now().microsecondsSinceEpoch}.db',
+          ),
         );
         await src.writeAsString('db');
         addTearDown(() async {
@@ -1069,6 +1121,29 @@ void main() {
     });
 
     group('exportBackupToPath', () {
+      test('passes the note to the copy and records it', () async {
+        final tempDir = await Directory.systemTemp.createTemp('backup_test_');
+        final destPath = p.join(tempDir.path, 'my_backup.db');
+        final service = BackupService(
+          dbAdapter: fakeDb,
+          preferences: preferences,
+        );
+        try {
+          final record = await service.exportBackupToPath(
+            destPath,
+            note: '  Before the Cozumel trip ',
+          );
+          expect(fakeDb.lastBackupNote, 'Before the Cozumel trip');
+          expect(record.note, 'Before the Cozumel trip');
+          expect(
+            preferences.getHistory().single.note,
+            'Before the Cozumel trip',
+          );
+        } finally {
+          await tempDir.delete(recursive: true);
+        }
+      });
+
       test('copies database to specified path', () async {
         final tempDir = await Directory.systemTemp.createTemp('backup_test_');
         final destPath = '${tempDir.path}/my_backup.db';
@@ -1112,6 +1187,15 @@ void main() {
     });
 
     group('exportBackupToTemp', () {
+      test('passes the note to the copy', () async {
+        final service = BackupService(
+          dbAdapter: fakeDb,
+          preferences: preferences,
+        );
+        await service.exportBackupToTemp(note: 'Shared with my buddy');
+        expect(fakeDb.lastBackupNote, 'Shared with my buddy');
+      });
+
       test('copies database to temp directory', () async {
         final service = BackupService(
           dbAdapter: fakeDb,
@@ -1773,7 +1857,7 @@ void main() {
               (call) async =>
                   call.method == 'getTemporaryDirectory' ||
                       call.method == 'getApplicationDocumentsDirectory'
-                  ? Directory.systemTemp.path
+                  ? _isolatedTempDir.path
                   : null,
             );
         if (sandbox.existsSync()) await sandbox.delete(recursive: true);

@@ -2,6 +2,123 @@ part of '../app_database_migrations.dart';
 
 /// Diver profiles and diver settings.
 extension DiverMigrations on AppDatabase {
+  /// v262: diver_settings columns for settings that now sync (issue #2948).
+  /// The two view modes are not null with a 'detailed' default; the two
+  /// moved preferences are nullable with no default, so null marks a row
+  /// that has never held a value. Idempotent, so it is safe to call from
+  /// both onUpgrade and the beforeOpen backstop.
+  Future<void> _assertSyncedDeviceSettingsColumns() async {
+    await _addColumnIfMissing(
+      'diver_settings',
+      'certification_list_view_mode',
+      "TEXT NOT NULL DEFAULT 'detailed'",
+    );
+    await _addColumnIfMissing(
+      'diver_settings',
+      'course_list_view_mode',
+      "TEXT NOT NULL DEFAULT 'detailed'",
+    );
+    await _addColumnIfMissing(
+      'diver_settings',
+      'profile_metrics_follow_viewport',
+      'INTEGER',
+    );
+    await _addColumnIfMissing('diver_settings', 'pscr_ratio', 'REAL');
+  }
+
+  /// v263: diver_settings.distance_unit (issue #2030). Not null, default
+  /// 'kilometers'. As the column is added, a diver who logs depth in feet
+  /// gets miles, so nobody's site distances change unit on upgrade. The
+  /// backfill runs only on the open that adds the column, so a choice made
+  /// afterwards is never rewritten, which makes this safe to call from both
+  /// onUpgrade and the beforeOpen backstop.
+  Future<void> _assertDistanceUnitColumn() async {
+    final cols = await customSelect(
+      "PRAGMA table_info('diver_settings')",
+    ).get();
+    if (cols.isEmpty) return; // partial fixture database: table absent
+    final names = {for (final c in cols) c.read<String>('name')};
+    if (names.contains('distance_unit')) return;
+    await customStatement(
+      'ALTER TABLE diver_settings ADD COLUMN distance_unit TEXT NOT NULL '
+      "DEFAULT 'kilometers'",
+    );
+    if (!names.contains('depth_unit')) return;
+    await customStatement(
+      "UPDATE diver_settings SET distance_unit = 'miles' "
+      "WHERE depth_unit = 'feet'",
+    );
+  }
+
+  /// The beforeOpen backstop for diver_settings display columns: v263's
+  /// distance unit, v262's synced view mode and device-preference columns
+  /// (#2948) and v237's dive figure switch. Grouped so the backstop list in
+  /// before_open.dart does not grow past its size cap.
+  Future<void> _assertDiverSettingsDisplayColumns() async {
+    await _assertDistanceUnitColumn();
+    await _assertSyncedDeviceSettingsColumns();
+    await _assertShowDiveFigureColumn();
+  }
+
+  /// v275: retypes diver_settings.default_start_pressure from INTEGER to
+  /// REAL (issue #3091), so a start pressure entered in psi is stored
+  /// exactly rather than rounded to whole bar. SQLite has no ALTER COLUMN,
+  /// so the value moves through a REAL twin that then takes the old name.
+  /// No index, trigger or view names the column. Idempotent, and a no-op
+  /// when the table is absent or the column is already REAL, so it is safe
+  /// to call from both onUpgrade and the beforeOpen backstop.
+  Future<void> _retypeDefaultStartPressureColumn() async {
+    final cols = await customSelect(
+      "PRAGMA table_info('diver_settings')",
+    ).get();
+    if (cols.isEmpty) return;
+    final type = [
+      for (final c in cols)
+        if (c.read<String>('name') == 'default_start_pressure')
+          c.read<String>('type').toUpperCase(),
+    ];
+    if (type.isEmpty) {
+      await customStatement(
+        'ALTER TABLE diver_settings ADD COLUMN default_start_pressure '
+        'REAL NOT NULL DEFAULT 200.0',
+      );
+      return;
+    }
+    if (type.single == 'REAL') return;
+    await customStatement(
+      'ALTER TABLE diver_settings ADD COLUMN default_start_pressure_v275 '
+      'REAL NOT NULL DEFAULT 200.0',
+    );
+    await customStatement(
+      'UPDATE diver_settings SET default_start_pressure_v275 = '
+      'CAST(default_start_pressure AS REAL)',
+    );
+    await customStatement(
+      'ALTER TABLE diver_settings DROP COLUMN default_start_pressure',
+    );
+    await customStatement(
+      'ALTER TABLE diver_settings '
+      'RENAME COLUMN default_start_pressure_v275 TO default_start_pressure',
+    );
+  }
+
+  /// v261: drops diver_settings.default_ceiling_source (issue #767). The
+  /// ceiling line lost its source toggle at v137 (#755), and nothing has
+  /// read the column since. No index, trigger or view names it, so SQLite's
+  /// DROP COLUMN applies. Idempotent and a no-op when the table is absent,
+  /// so it is safe to call from both onUpgrade and the beforeOpen backstop.
+  Future<void> _dropDefaultCeilingSourceColumn() async {
+    final cols = await customSelect(
+      "PRAGMA table_info('diver_settings')",
+    ).get();
+    if (!cols.any((c) => c.read<String>('name') == 'default_ceiling_source')) {
+      return;
+    }
+    await customStatement(
+      'ALTER TABLE diver_settings DROP COLUMN default_ceiling_source',
+    );
+  }
+
   /// v237: diver_settings.show_dive_figure (issue #2326). Additive, not
   /// null, default 0, so the dive figure starts off for every diver, new
   /// and existing. Idempotent, so it is safe to call from both onUpgrade
@@ -123,6 +240,32 @@ extension DiverMigrations on AppDatabase {
       );
     }
   }
+
+  /// The beforeOpen backstop for both hidden-picker-entry columns: v227's
+  /// tank presets (#2305) and v269's built-in catalog entries (#401). One
+  /// call keeps before_open.dart inside its line budget.
+  Future<void> _assertHiddenPickerEntryColumns() async {
+    await _assertHiddenTankPresetIdsColumn();
+    await _assertHiddenBuiltInIdsColumn();
+  }
+
+  /// v269: diver_settings.hidden_built_in_ids (issue #401). PRAGMA-guarded
+  /// and idempotent so both onUpgrade and the beforeOpen backstop can call it.
+  Future<void> _assertHiddenBuiltInIdsColumn() =>
+      _addColumnIfMissing('diver_settings', 'hidden_built_in_ids', 'TEXT');
+
+  /// v274: diver_settings.has_accepted_planning_disclaimer (issue #3120), the
+  /// one-time confirmation of the Planning/Gas Calculators safety disclaimer.
+  /// Defaults off, so an existing diver sees the dialog once after upgrading.
+  /// PRAGMA-guarded and idempotent so both onUpgrade and the beforeOpen
+  /// backstop can call it.
+  Future<void> _assertHasAcceptedPlanningDisclaimerColumn() =>
+      _addColumnIfMissing(
+        'diver_settings',
+        'has_accepted_planning_disclaimer',
+        'INTEGER NOT NULL DEFAULT 0 '
+            'CHECK (has_accepted_planning_disclaimer IN (0, 1))',
+      );
 
   /// v133: diver_settings deco stop band columns. PRAGMA-guarded and
   /// idempotent so it is safe to call from both onUpgrade and the beforeOpen
@@ -540,4 +683,111 @@ extension DiverMigrations on AppDatabase {
       'auto_tag_imports INTEGER NOT NULL DEFAULT 1',
     );
   }
+
+  /// v264: diver_settings.default_show_late_gas_switches (issue #2939).
+  /// Column only, defaulting on; re-asserted in beforeOpen.
+  Future<void> _assertLateGasSwitchSettingColumn() async {
+    final cols = await customSelect(
+      "PRAGMA table_info('diver_settings')",
+    ).get();
+    if (cols.isEmpty) return;
+    final names = cols.map((c) => c.read<String>('name')).toSet();
+    if (!names.contains('default_show_late_gas_switches')) {
+      await customStatement(
+        'ALTER TABLE diver_settings ADD COLUMN default_show_late_gas_switches '
+        'INTEGER NOT NULL DEFAULT 1 '
+        'CHECK (default_show_late_gas_switches IN (0, 1))',
+      );
+    }
+  }
+
+  /// v276: diver_settings.icd_warnings_enabled (issue #3121). Column only,
+  /// defaulting on; re-asserted in beforeOpen.
+  Future<void> _assertIcdWarningsColumn() async {
+    final cols = await customSelect(
+      "PRAGMA table_info('diver_settings')",
+    ).get();
+    if (cols.isEmpty) return;
+    final names = cols.map((c) => c.read<String>('name')).toSet();
+    if (!names.contains('icd_warnings_enabled')) {
+      await customStatement(
+        'ALTER TABLE diver_settings ADD COLUMN icd_warnings_enabled '
+        'INTEGER NOT NULL DEFAULT 1 '
+        'CHECK (icd_warnings_enabled IN (0, 1))',
+      );
+    }
+  }
+
+  /// v281: diver_settings.trend_gap_collapse_months (issue #3251). Column
+  /// only, defaulting to a year; re-asserted in beforeOpen. No CHECK: a peer
+  /// value outside 0, 6, 12, 24 reads as 12 rather than failing the upsert.
+  Future<void> _assertTrendGapCollapseColumn() async {
+    final cols = await customSelect(
+      "PRAGMA table_info('diver_settings')",
+    ).get();
+    if (cols.isEmpty) return;
+    final names = cols.map((c) => c.read<String>('name')).toSet();
+    if (!names.contains('trend_gap_collapse_months')) {
+      await customStatement(
+        'ALTER TABLE diver_settings ADD COLUMN trend_gap_collapse_months '
+        'INTEGER NOT NULL DEFAULT 12',
+      );
+    }
+  }
+
+  /// v284: diver_settings.profile_color_* (issue #3012). Nullable ARGB ints,
+  /// no default and no backfill: null is the metric's default colour.
+  /// Re-asserted in beforeOpen.
+  Future<void> _assertProfileMetricColorColumns() async {
+    final cols = await customSelect(
+      "PRAGMA table_info('diver_settings')",
+    ).get();
+    if (cols.isEmpty) return;
+    final names = cols.map((c) => c.read<String>('name')).toSet();
+    for (final column in _profileMetricColorColumns) {
+      if (!names.contains(column)) {
+        await customStatement(
+          'ALTER TABLE diver_settings ADD COLUMN $column INTEGER',
+        );
+      }
+    }
+  }
+
+  /// v286: diver_settings.equipment_default_statuses (issue #2628). Column
+  /// only, nullable and never backfilled; re-asserted in beforeOpen.
+  Future<void> _assertEquipmentDefaultStatusesColumn() async {
+    final cols = await customSelect(
+      "PRAGMA table_info('diver_settings')",
+    ).get();
+    if (cols.isEmpty) return;
+    final names = cols.map((c) => c.read<String>('name')).toSet();
+    if (!names.contains('equipment_default_statuses')) {
+      await customStatement(
+        'ALTER TABLE diver_settings ADD COLUMN equipment_default_statuses TEXT',
+      );
+    }
+  }
 }
+
+const List<String> _profileMetricColorColumns = [
+  'profile_color_depth',
+  'profile_color_temperature',
+  'profile_color_pressure',
+  'profile_color_heart_rate',
+  'profile_color_sac',
+  'profile_color_max_depth',
+  'profile_color_ceiling',
+  'profile_color_ndl',
+  'profile_color_tts',
+  'profile_color_gtr',
+  'profile_color_cns',
+  'profile_color_otu',
+  'profile_color_pp_o2',
+  'profile_color_pp_n2',
+  'profile_color_pp_he',
+  'profile_color_mod',
+  'profile_color_density',
+  'profile_color_gf',
+  'profile_color_surface_gf',
+  'profile_color_mean_depth',
+];

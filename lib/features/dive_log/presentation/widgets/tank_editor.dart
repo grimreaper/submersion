@@ -9,26 +9,37 @@ import 'package:submersion/shared/widgets/forms/number_input_validation.dart';
 import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/constants/gas_template_display.dart';
 import 'package:submersion/core/constants/gas_templates.dart';
-import 'package:submersion/core/constants/tank_preset_display.dart';
 import 'package:submersion/core/constants/tank_presets.dart';
 import 'package:submersion/core/constants/units.dart';
 import 'package:submersion/core/utils/number_display.dart';
 import 'package:submersion/core/utils/number_input.dart';
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
+import 'package:submersion/features/cylinder_passports/domain/entities/cylinder_fill.dart';
 import 'package:submersion/features/cylinder_passports/domain/services/passport_resolver.dart';
 import 'package:submersion/features/cylinder_passports/presentation/providers/cylinder_passport_providers.dart';
 import 'package:submersion/features/cylinder_passports/presentation/utils/scan_cylinder_tag.dart';
 import 'package:submersion/features/cylinder_passports/presentation/widgets/passport_scan_sheet.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/tank_presets/domain/entities/tank_preset_entity.dart';
-import 'package:submersion/features/tank_presets/domain/services/tank_preset_visibility.dart';
 import 'package:submersion/features/tank_presets/presentation/providers/tank_preset_providers.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
+import 'package:submersion/features/dive_log/domain/services/computer_recorded_tank.dart';
+import 'package:submersion/features/dive_log/presentation/widgets/computer_mix_note.dart';
+import 'package:submersion/features/dive_log/presentation/widgets/own_cylinder_picker_sheet.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/tank_enum_display.dart';
+import 'package:submersion/features/dive_log/presentation/widgets/tank_preset_dropdown.dart';
+import 'package:submersion/features/dive_log/presentation/widgets/tank_role_option.dart';
+import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
+import 'package:submersion/features/cylinder_passports/presentation/utils/import_tag_fill.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_item.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_providers.dart';
-import 'package:submersion/features/equipment/presentation/widgets/service_status_indicator.dart';
+import 'package:submersion/features/equipment/presentation/utils/equipment_enum_display.dart';
+import 'package:submersion/features/equipment/presentation/utils/equipment_row_labels_of.dart';
+import 'package:submersion/features/equipment/presentation/widgets/equipment_dropdown_label.dart';
+import 'package:submersion/features/trips/domain/entities/trip_cylinder_state.dart';
+import 'package:submersion/features/trips/domain/services/trip_cylinder_tank_link.dart';
+import 'package:submersion/features/trips/presentation/helpers/trip_cylinder_display.dart';
 
 final _log = LoggerService.forClass(TankEditor);
 
@@ -48,17 +59,39 @@ class TankEditor extends ConsumerStatefulWidget {
   /// (#797), which never writes pressures.
   final bool showPressures;
 
-  /// Called with the diver's own cylinder when its tag is scanned, so the
-  /// host can add it to the dive's gear (issue #2335). Awaited, so a failed
-  /// add is reported like any other scan failure. The tank itself never
-  /// records the link: `DiveTank.equipmentId` belongs to the transmitter
-  /// registry.
-  final Future<void> Function(EquipmentItem item)? onCylinderScanned;
+  /// Called with the diver's own cylinder when its tag is scanned (issue
+  /// #2335) or it is picked from "My cylinders" (issue #2599), so the host
+  /// can add it to the dive's gear. Awaited, so a failed add is reported
+  /// like any other failure. The tank itself never records the link:
+  /// `DiveTank.equipmentId` belongs to the transmitter registry. Null hides
+  /// the "My cylinders" picker and the cylinders in the preset dropdown
+  /// (issue #163), whose point is that gear add.
+  final Future<void> Function(EquipmentItem item)? onOwnCylinderUsed;
 
-  /// Called with a tag scan that has started resolving, including the
-  /// [onCylinderScanned] call it may make. A host that saves (the dive edit
-  /// page) waits for it, so Save cannot outrun the scan.
+  /// Called with a tag scan or cylinder pick that has started resolving,
+  /// including the [onOwnCylinderUsed] call it may make. A host that saves
+  /// (the dive edit page) waits for it, so Save cannot outrun it.
   final void Function(Future<void> scan)? onScanPending;
+
+  /// The dive's trip cylinders as they stood when the dive started (the
+  /// page watches them): when there are any, a picker links this tank to
+  /// one of them. Null (no trip) hides the picker.
+  final List<TripCylinderState>? tripCylinderStates;
+
+  /// Slots other tanks on this dive already hold: not offered, since two
+  /// tanks cannot breathe from one cylinder. Only tanks from this tank's
+  /// computer count ([tripCylinderIdsTakenFor]): another computer's tank
+  /// may be its copy of the same cylinder (issue #2661).
+  final Set<String> takenTripCylinderIds;
+
+  /// The link was preselected as a suggestion, so the picker says so until
+  /// the diver changes it or the dive is saved.
+  final bool suggested;
+
+  /// The saved dive this tank belongs to, so a tank its dive computer
+  /// recorded can say which mix the computer logged and restore it (issue
+  /// #3021). Null while creating a dive, and in bulk edits.
+  final String? diveId;
 
   const TankEditor({
     super.key,
@@ -68,8 +101,12 @@ class TankEditor extends ConsumerStatefulWidget {
     this.onRemove,
     this.canRemove = true,
     this.showPressures = true,
-    this.onCylinderScanned,
+    this.onOwnCylinderUsed,
     this.onScanPending,
+    this.tripCylinderStates,
+    this.takenTripCylinderIds = const {},
+    this.suggested = false,
+    this.diveId,
   });
 
   @override
@@ -90,9 +127,28 @@ class _TankEditorState extends ConsumerState<TankEditor> {
   late TankMaterial? _material;
   TankPresetEntity? _selectedPreset;
 
+  /// Counts the diver's spec choices: a preset, a cylinder, a scan or a trip
+  /// cylinder slot. A cylinder or a scan fills the tank only once its
+  /// database work is done, and only if no newer choice came in meanwhile,
+  /// which it would otherwise overwrite.
+  int _specChoice = 0;
+
   /// The regulator breathed from this cylinder (v202). Null until the diver
   /// picks one or a preset prefills it from the last pairing.
   String? _regulatorEquipmentId;
+
+  /// The tagged cylinder this tank came from (issue #2650). Set by a scan
+  /// or a cylinder pick, cleared by a preset or a trip slot, kept by hand
+  /// edits.
+  String? _passportId;
+
+  /// Whether the regulator dropdown also lists retired and sold regulators,
+  /// which the diver asks for with its last item (#3210).
+  bool _showLeftKitRegulators = false;
+
+  /// The value of that last item. Not a regulator: choosing it changes the
+  /// list, not the tank.
+  static const _showLeftKitValue = '__show-left-kit-regulators__';
 
   /// The last O2/He value each field actually parsed to, tracked separately
   /// from [widget.tank]: `_notifyChange` fires on every keystroke, so a
@@ -194,27 +250,35 @@ class _TankEditorState extends ConsumerState<TankEditor> {
     _role = widget.tank.role;
     _material = widget.tank.material;
     _regulatorEquipmentId = widget.tank.regulatorEquipmentId;
+    _passportId = widget.tank.passportId;
     // Initialize selected preset from tank's presetName
     // Check built-in presets first, async lookup for custom presets happens in build
-    if (widget.tank.presetName != null) {
-      final builtIn = TankPresets.byName(widget.tank.presetName!);
-      if (builtIn != null) {
-        _selectedPreset = TankPresetEntity.fromBuiltIn(builtIn);
-      }
-    }
+    // Reset on every read, not only set: a re-read after a fill from a
+    // slot with no preset must not keep the old preset, or the next
+    // keystroke would write it (and in cuft its volume) back.
+    final builtIn = widget.tank.presetName == null
+        ? null
+        : TankPresets.byName(widget.tank.presetName!);
+    _selectedPreset = builtIn == null
+        ? null
+        : TankPresetEntity.fromBuiltIn(builtIn);
   }
 
   @override
   void didUpdateWidget(TankEditor oldWidget) {
     super.didUpdateWidget(oldWidget);
-    if (oldWidget.tank.id != widget.tank.id) {
+    // A new tank, or a link set by the page (a suggestion, the log-dive
+    // shortcut, a trip change) that also filled the fields: re-read them,
+    // or the next keystroke would write the old text back over the fill.
+    if (oldWidget.tank.id != widget.tank.id ||
+        oldWidget.tank.tripCylinderId != widget.tank.tripCylinderId) {
       _mndDriven = false;
+      _disposeControllers();
       _initializeControllers();
     }
   }
 
-  @override
-  void dispose() {
+  void _disposeControllers() {
     _volumeController.dispose();
     _workingPressureController.dispose();
     _startPressureController.dispose();
@@ -222,6 +286,11 @@ class _TankEditorState extends ConsumerState<TankEditor> {
     _o2Controller.dispose();
     _heController.dispose();
     _mndController.dispose();
+  }
+
+  @override
+  void dispose() {
+    _disposeControllers();
     _mndFocusNode.removeListener(_onMndFocusChanged);
     _mndFocusNode.dispose();
     super.dispose();
@@ -366,7 +435,8 @@ class _TankEditorState extends ConsumerState<TankEditor> {
     return GasMix(o2: o2, he: he);
   }
 
-  void _notifyChange() {
+  /// The tank as the fields describe it now.
+  DiveTank _currentTank() {
     final settings = ref.read(settingsProvider);
     final units = UnitFormatter(settings);
     final specs = _metricSpecs();
@@ -378,35 +448,48 @@ class _TankEditorState extends ConsumerState<TankEditor> {
       _endPressureController.text,
     );
 
-    widget.onChanged(
-      DiveTank(
-        id: widget.tank.id,
-        name: widget.tank.name,
-        volume: specs.volumeLiters,
-        workingPressure: specs.workingPressureBar,
-        startPressure: startPressureDisplay != null
-            ? units.pressureToBar(startPressureDisplay)
-            : null,
-        endPressure: endPressureDisplay != null
-            ? units.pressureToBar(endPressureDisplay)
-            : null,
-        gasMix: _currentGasMix(),
-        role: _role,
-        material: _material,
-        order: widget.tank.order,
-        presetName: _selectedPreset?.name,
-        // Preserve source-computer attribution and transmitter identity
-        // through edits; only consolidation/unlink flows may change them.
-        computerId: widget.tank.computerId,
-        transmitterSerial: widget.tank.transmitterSerial,
-        regulatorEquipmentId: _regulatorEquipmentId,
-        // The slot link is carried, not edited, here; the picker that sets it
-        // arrives with the board (PR 3 of #2325). Dropping it would let
-        // updateDive wipe it on the next save.
-        tripCylinderId: widget.tank.tripCylinderId,
-      ),
+    return DiveTank(
+      id: widget.tank.id,
+      name: widget.tank.name,
+      volume: specs.volumeLiters,
+      workingPressure: specs.workingPressureBar,
+      startPressure: startPressureDisplay != null
+          ? units.pressureToBar(startPressureDisplay)
+          : null,
+      endPressure: endPressureDisplay != null
+          ? units.pressureToBar(endPressureDisplay)
+          : null,
+      gasMix: _currentGasMix(),
+      role: _role,
+      // A role the diver picks here is theirs; one left alone keeps the
+      // computer's source (issue #2595).
+      roleSource: _role == widget.tank.role ? widget.tank.roleSource : null,
+      material: _material,
+      order: widget.tank.order,
+      presetName: _selectedPreset?.name,
+      // Preserve source-computer attribution and transmitter identity
+      // through edits; only consolidation/unlink flows may change them.
+      computerId: widget.tank.computerId,
+      transmitterSerial: widget.tank.transmitterSerial,
+      // Computer-owned like the two above: which download and parsed tank
+      // the row came from, so the computer-recorded mix note keeps reading
+      // the right one after an edit (issue #3021).
+      sourceId: widget.tank.sourceId,
+      sourceTankIndex: widget.tank.sourceTankIndex,
+      sharedComputerIds: widget.tank.sharedComputerIds,
+      regulatorEquipmentId: _regulatorEquipmentId,
+      // Only the trip cylinder picker changes the link; every other edit
+      // carries it, or updateDive would wipe it on the next save.
+      tripCylinderId: widget.tank.tripCylinderId,
+      // Only a cylinder choice changes it; a hand edit is the same metal.
+      passportId: _passportId,
+      // Import-owned (issue #1496): carried so the edited tank still
+      // reports what the source log recorded.
+      usageDuration: widget.tank.usageDuration,
     );
   }
+
+  void _notifyChange() => widget.onChanged(_currentTank());
 
   @override
   Widget build(BuildContext context) {
@@ -446,6 +529,8 @@ class _TankEditorState extends ConsumerState<TankEditor> {
 
             // Regulator breathed from this cylinder (v202), so high-O2
             // contact reaches the regulator's service clocks.
+            if (widget.tripCylinderStates case final states?)
+              _buildTripCylinderPicker(states),
             _buildRegulatorPicker(),
             const SizedBox(height: 12),
 
@@ -505,6 +590,18 @@ class _TankEditorState extends ConsumerState<TankEditor> {
             ],
           ),
         ),
+        // The bridge from the diver's gear to this tank (issue #2599): only
+        // offered where the host records the cylinder as dive gear too.
+        // Retired and sold cylinders count too: the picker offers them on
+        // request, for a dive that used one (#3210).
+        if (widget.onOwnCylinderUsed != null &&
+            (_ownCylinders().isNotEmpty || _leftKitCylinders().isNotEmpty))
+          IconButton(
+            key: const Key('tank-from-own-cylinder'),
+            icon: const Icon(Icons.inventory_2_outlined),
+            tooltip: context.l10n.diveLog_tank_fromOwnCylinder,
+            onPressed: _pickOwnCylinder,
+          ),
         IconButton(
           key: const Key('tank-scan-tag'),
           icon: const Icon(Icons.qr_code_scanner),
@@ -523,88 +620,30 @@ class _TankEditorState extends ConsumerState<TankEditor> {
   }
 
   Widget _buildPresetAndRoleRow(UnitFormatter units) {
-    final presetsAsync = ref.watch(tankPresetsProvider);
-
     return Row(
       children: [
-        // Tank preset dropdown
         Expanded(
-          child: presetsAsync.when(
-            // A reload (a synced settings change, a preset edit) keeps the
-            // dropdown in place instead of swapping it for a progress bar.
-            skipLoadingOnReload: true,
-            loading: () => const LinearProgressIndicator(),
-            error: (e, st) => Text('Error: $e'),
-            data: (visiblePresets) {
-              final presetName =
-                  _selectedPreset?.name ?? widget.tank.presetName;
-              // A tank logged with a preset the diver has since hidden keeps
-              // showing it (issue #2305).
-              final presets = withKeptTankPresets(visiblePresets, [presetName]);
-              final customPresets = presets.where((p) => !p.isBuiltIn).toList();
-              final builtInPresets = presets.where((p) => p.isBuiltIn).toList();
-
-              // Find the matching preset from the loaded list to ensure object equality
-              // This is necessary because DropdownButtonFormField requires the value
-              // to be the exact same instance as one of the items
-              final matchingPreset = presetName != null
-                  ? presets.where((p) => p.name == presetName).firstOrNull
-                  : null;
-
-              return DropdownButtonFormField<TankPresetEntity?>(
-                key: ValueKey(matchingPreset?.id ?? 'no-preset'),
-                initialValue: matchingPreset,
-                // Each dropdown here is one Expanded of a shared Row, so it is
-                // narrow. Without this a long label (a custom preset name,
-                // "Carbon Fiber") overflows instead of ellipsizing.
-                isExpanded: true,
-                decoration: InputDecoration(
-                  labelText: context.l10n.diveLog_tank_label_tankPreset,
-                  isDense: true,
-                ),
-                items: [
-                  DropdownMenuItem<TankPresetEntity?>(
-                    value: null,
-                    child: Text(context.l10n.diveLog_tank_selectPreset),
-                  ),
-                  // Custom presets first (shown with a star icon)
-                  ...customPresets.map(
-                    (preset) => DropdownMenuItem(
-                      value: preset,
-                      child: Row(
-                        children: [
-                          const ExcludeSemantics(
-                            child: Icon(Icons.star, size: 16),
-                          ),
-                          const SizedBox(width: 8),
-                          Text(preset.displayName),
-                        ],
-                      ),
-                    ),
-                  ),
-                  // Built-in presets. Their stored displayName is the stable
-                  // English identifier that exports and sync carry, so the
-                  // localized label is resolved here at render time.
-                  ...builtInPresets.map(
-                    (preset) => DropdownMenuItem(
-                      value: preset,
-                      child: Text(
-                        builtInTankPresetName(context.l10n, preset.name) ??
-                            preset.displayName,
-                      ),
-                    ),
-                  ),
-                ],
-                onChanged: (preset) {
-                  if (preset != null) {
-                    _applyPreset(preset);
-                  } else {
-                    setState(() => _selectedPreset = null);
-                    _notifyChange();
-                  }
-                },
-              );
+          child: TankPresetDropdown(
+            key: const Key('tank-preset-dropdown'),
+            presetName: _selectedPreset?.name ?? widget.tank.presetName,
+            // Like the "My cylinders" button, only where the host records
+            // the cylinder as dive gear too.
+            cylinders: widget.onOwnCylinderUsed == null
+                ? const []
+                : cylindersWithSpec(_ownCylinders()),
+            onPresetChanged: (preset) {
+              if (preset != null) {
+                _applyPreset(preset);
+              } else {
+                _specChoice++;
+                setState(() {
+                  _selectedPreset = null;
+                  _passportId = null;
+                });
+                _notifyChange();
+              }
             },
+            onCylinderChosen: _chooseOwnCylinder,
           ),
         ),
         const SizedBox(width: 16),
@@ -621,7 +660,7 @@ class _TankEditorState extends ConsumerState<TankEditor> {
                 .map(
                   (role) => DropdownMenuItem(
                     value: role,
-                    child: Text(role.localizedName(context.l10n)),
+                    child: TankRoleOption(role: role),
                   ),
                 )
                 .toList(),
@@ -648,6 +687,82 @@ class _TankEditorState extends ConsumerState<TankEditor> {
     );
   }
 
+  Widget _buildTripCylinderPicker(List<TripCylinderState> all) {
+    final l10n = context.l10n;
+    final units = UnitFormatter(ref.watch(settingsProvider));
+    final linked = widget.tank.tripCylinderId;
+    // Slots other tanks hold are left out; this tank's own link always
+    // stays in the list.
+    final states = [
+      for (final s in all)
+        if (s.cylinder.id == linked ||
+            !widget.takenTripCylinderIds.contains(s.cylinder.id))
+          s,
+    ];
+    final known = states.any((s) => s.cylinder.id == linked);
+    // A link to a slot the list no longer has (deleted, or not on this
+    // trip) stays visible as such, so the diver sees it will not be kept.
+    final missing = linked != null && !known;
+    if (states.isEmpty && !missing) return const SizedBox.shrink();
+    return Padding(
+      padding: const EdgeInsets.only(bottom: 12),
+      child: DropdownButtonFormField<String?>(
+        key: const Key('tank-trip-cylinder-picker'),
+        initialValue: linked,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: l10n.diveLog_tank_tripCylinderLabel,
+          helperText: widget.suggested && known
+              ? l10n.diveLog_tank_tripCylinderSuggested
+              : null,
+          isDense: true,
+        ),
+        items: [
+          DropdownMenuItem<String?>(
+            value: null,
+            child: Text(l10n.diveLog_tank_tripCylinderNone),
+          ),
+          if (missing)
+            DropdownMenuItem<String?>(
+              value: linked,
+              child: Text(l10n.diveLog_tank_tripCylinderMissing),
+            ),
+          for (final s in states)
+            DropdownMenuItem<String?>(
+              value: s.cylinder.id,
+              child: Text(
+                tripCylinderPickerLabel(l10n, units, s),
+                overflow: TextOverflow.ellipsis,
+              ),
+            ),
+        ],
+        onChanged: (id) => _pickTripCylinder(states, id),
+      ),
+    );
+  }
+
+  /// Links the tank to the slot [id] and fills it from that slot (decided
+  /// 2026-09-28), or clears only the link for None. The page's new tank
+  /// comes back through didUpdateWidget, which re-reads the fields.
+  void _pickTripCylinder(List<TripCylinderState> states, String? id) {
+    // The dropdown reports the current item again when it is re-picked;
+    // refilling from the slot would overwrite the fields behind the
+    // diver's back (on an existing dive, from a state that includes it).
+    if (id == widget.tank.tripCylinderId) return;
+    // A slot fills the spec too: a newer choice than a cylinder or scan
+    // still resolving.
+    _specChoice++;
+    final current = _currentTank();
+    final slot = states.where((s) => s.cylinder.id == id).firstOrNull;
+    widget.onChanged(
+      slot == null
+          // None only unlinks the slot, keeping any tagged cylinder; a slot
+          // replaces it (issue #2650).
+          ? current.copyWith(clearTripCylinderId: true)
+          : tankFromTripCylinder(current, slot),
+    );
+  }
+
   Widget _buildRegulatorPicker() {
     final regs =
         // `value`, not `valueOrNull`: it keeps the previous list while the
@@ -662,40 +777,70 @@ class _TankEditorState extends ConsumerState<TankEditor> {
                   e.id == _regulatorEquipmentId,
             )
             .toList();
-    final known = regs.any((r) => r.id == _regulatorEquipmentId);
-    return DropdownButtonFormField<String?>(
-      key: const Key('tank-regulator-picker'),
-      initialValue: known ? _regulatorEquipmentId : null,
-      isExpanded: true,
-      decoration: InputDecoration(
-        labelText: context.l10n.diveLog_tank_regulatorLabel,
-        isDense: true,
-      ),
-      items: [
-        DropdownMenuItem<String?>(
-          value: null,
-          child: Text(context.l10n.diveLog_tank_regulatorNone),
+    final leftKit =
+        (ref.watch(leftKitEquipmentProvider).value ?? const <EquipmentItem>[])
+            .where((e) => e.type == EquipmentType.regulator)
+            .toList();
+    // Retired and sold regulators only on request (#3210), except the one
+    // this tank already uses, so a dive breathing from a regulator since
+    // retired never reads "None".
+    final options = [
+      ...regs,
+      for (final r in leftKit)
+        if (_showLeftKitRegulators || r.id == _regulatorEquipmentId) r,
+    ];
+    final offerShowLeftKit = options.length < regs.length + leftKit.length;
+    final known = options.any((r) => r.id == _regulatorEquipmentId);
+    // Labelled as one list, so regulators sharing a name show their ID and,
+    // if that is not enough, the next detail that differs (#1549, #3191).
+    final labels = equipmentRowLabelsOf(context, ref, options);
+    // Keyed on the show choice: the field holds its value internally, and
+    // choosing the show item would otherwise leave it on that item's value.
+    // A fresh field starts again from the tank's regulator.
+    return KeyedSubtree(
+      key: ValueKey(_showLeftKitRegulators),
+      child: DropdownButtonFormField<String?>(
+        key: const Key('tank-regulator-picker'),
+        initialValue: known ? _regulatorEquipmentId : null,
+        isExpanded: true,
+        decoration: InputDecoration(
+          labelText: context.l10n.diveLog_tank_regulatorLabel,
+          isDense: true,
         ),
-        for (final r in regs)
+        items: [
           DropdownMenuItem<String?>(
-            value: r.id,
-            child: Row(
-              mainAxisSize: MainAxisSize.min,
-              children: [
-                ServiceStatusIndicatorFor(
-                  equipmentId: r.id,
-                  density: ServiceIndicatorDensity.dot,
-                ),
-                const SizedBox(width: 6),
-                Flexible(child: Text(r.name, overflow: TextOverflow.ellipsis)),
-              ],
-            ),
+            value: null,
+            child: Text(context.l10n.diveLog_tank_regulatorNone),
           ),
-      ],
-      onChanged: (value) {
-        setState(() => _regulatorEquipmentId = value);
-        _notifyChange();
-      },
+          for (final r in options)
+            DropdownMenuItem<String?>(
+              value: r.id,
+              child: EquipmentDropdownLabel(
+                item: r,
+                label: labels[r.id],
+                note: r.hasLeftKit
+                    ? r.effectiveStatus.localizedName(context.l10n)
+                    : null,
+              ),
+            ),
+          if (offerShowLeftKit)
+            DropdownMenuItem<String?>(
+              value: _showLeftKitValue,
+              child: Text(
+                context.l10n.diveLog_tank_regulatorShowLeftKit,
+                style: TextStyle(color: Theme.of(context).colorScheme.primary),
+              ),
+            ),
+        ],
+        onChanged: (value) {
+          if (value == _showLeftKitValue) {
+            setState(() => _showLeftKitRegulators = true);
+            return;
+          }
+          setState(() => _regulatorEquipmentId = value);
+          _notifyChange();
+        },
+      ),
     );
   }
 
@@ -850,6 +995,12 @@ class _TankEditorState extends ConsumerState<TankEditor> {
               ),
             ),
           ],
+        ),
+        ComputerMixNote(
+          diveId: widget.diveId,
+          tank: widget.tank,
+          currentMix: _currentGasMix(),
+          onRestore: _setGasMix,
         ),
       ],
     );
@@ -1056,22 +1207,84 @@ class _TankEditorState extends ConsumerState<TankEditor> {
         .catchError((Object _) {});
   }
 
+  List<EquipmentItem> _ownCylinders() => ownCylinders(
+    ref.watch(activeEquipmentProvider).value ?? const <EquipmentItem>[],
+  );
+
+  List<EquipmentItem> _leftKitCylinders() => ownCylinders(
+    ref.watch(leftKitEquipmentProvider).value ?? const <EquipmentItem>[],
+  );
+
+  Future<void> _pickOwnCylinder() async {
+    final item = await showOwnCylinderPicker(context);
+    if (item == null || !mounted) return;
+    await _chooseOwnCylinder(item);
+  }
+
+  /// Fills the tank from [item], picked from "My cylinders" or chosen in the
+  /// preset dropdown (issue #163).
+  Future<void> _chooseOwnCylinder(EquipmentItem item) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final l10n = context.l10n;
+    final choice = ++_specChoice;
+    // Like a scan, the cylinder reaches the dive's gear through database
+    // work Save must wait for.
+    final use = _fillFromOwnCylinder(item, choice, messenger, l10n);
+    widget.onScanPending?.call(use);
+    await use;
+  }
+
+  /// Fills the tank from a picked [item], unless a newer spec choice than
+  /// [choice] came in while its fills loaded: then the diver changed their
+  /// mind, and the cylinder neither fills the tank nor joins the gear. Never
+  /// throws: a failure is logged and reported.
+  Future<void> _fillFromOwnCylinder(
+    EquipmentItem item,
+    int choice,
+    ScaffoldMessengerState messenger,
+    AppLocalizations l10n,
+  ) async {
+    try {
+      final fills = await ref.read(fillsForEquipmentProvider(item.id).future);
+      // Already resolved for the fills above.
+      final passportId = await ref.read(passportIdProvider(item.id).future);
+      if (!mounted || choice != _specChoice) return;
+      await _useOwnCylinder(item, fills, passportId, messenger, l10n);
+    } catch (e, stackTrace) {
+      _log.error(
+        'Failed to fill a tank from an own cylinder',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      if (!mounted) return;
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.diveLog_tank_ownCylinderFailed)),
+      );
+    }
+  }
+
   Future<void> _scanCylinder() async {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = context.l10n;
     final text = await ref.read(passportScanLauncherProvider)(context);
     if (text == null || !mounted) return;
+    final choice = ++_specChoice;
     // From here the scan is database work the host may need to wait for:
     // Save must not run before the scanned cylinder reaches the dive.
-    final scan = _fillFromTag(text, messenger, l10n);
+    final scan = _fillFromTag(text, choice, messenger, l10n);
     widget.onScanPending?.call(scan);
     await scan;
   }
 
-  /// Resolves a scanned [text] and fills the tank from it. Never throws: a
-  /// failure is logged and reported with a snack bar.
+  /// Resolves a scanned [text] and fills the tank from it, unless a newer
+  /// spec choice than [choice] came in while it resolved: then the tag
+  /// neither fills the tank nor adds its cylinder to the gear. A fill the
+  /// tag carries is still recorded, since it is the cylinder's history, not
+  /// a choice about this tank. Never throws: a failure is logged and
+  /// reported with a snack bar.
   Future<void> _fillFromTag(
     String text,
+    int choice,
     ScaffoldMessengerState messenger,
     AppLocalizations l10n,
   ) async {
@@ -1084,46 +1297,44 @@ class _TankEditorState extends ConsumerState<TankEditor> {
           final item = await ref
               .read(equipmentRepositoryProvider)
               .getEquipmentById(equipmentId);
+          if (!mounted) return;
+          // A fill the tag carries joins the history first, so a newer one
+          // is the mix used below (spec section 11).
+          await importTagFill(ref, tag: tag, equipmentId: equipmentId);
+          if (!mounted) return;
           final fills = await ref
               .read(cylinderFillRepositoryProvider)
               .getForCylinder(
                 passportId: tag.passportId,
                 equipmentId: equipmentId,
               );
-          if (!mounted) return;
+          if (!mounted || choice != _specChoice) return;
           // The passport lookup found it, but the row is gone (deleted on
           // another device): say so rather than do nothing.
           if (item == null) {
             throw StateError('Scanned cylinder $equipmentId has no row');
           }
-          final filled = _applyScannedSpec(
-            volumeL: item.volumeL,
-            workingPressureBar: item.workingPressureBar,
-            material: item.tankMaterial,
-            mix: fills.isEmpty ? null : fills.first.gasMix,
-          );
-          // The cylinder joins the dive's gear even when it records no spec.
-          await widget.onCylinderScanned?.call(item);
-          if (filled) {
-            messenger.showSnackBar(
-              SnackBar(content: Text(l10n.passport_scan_filledFrom(item.name))),
-            );
-          }
+          await _useOwnCylinder(item, fills, tag.passportId, messenger, l10n);
         case ForeignCylinder(:final tag):
+          if (choice != _specChoice) return;
           final filled = _applyScannedSpec(
+            passportId: tag.passportId,
             volumeL: tag.volumeL,
             workingPressureBar: tag.workingPressureBar?.toDouble(),
             material: tag.material,
-            mix: null,
+            mix: tag.fill?.gasMix,
           );
+          final name = tag.name ?? l10n.passport_foreign_defaultName;
+          // A rental used before is recognised (issue #2650).
+          final earlier = filled ? await _earlierUses(tag.passportId) : 0;
           messenger.showSnackBar(
             SnackBar(
               content: Text(
-                filled
-                    ? l10n.passport_scan_filledFrom(
-                        tag.name ?? l10n.passport_foreign_defaultName,
-                      )
-                    : l10n.passport_foreign_noDetails,
+                !filled
+                    ? l10n.passport_foreign_noDetails
+                    : earlier > 0
+                    ? l10n.passport_scan_filledFromUsed(name, earlier)
+                    : l10n.passport_scan_filledFrom(name),
               ),
             ),
           );
@@ -1145,20 +1356,78 @@ class _TankEditorState extends ConsumerState<TankEditor> {
     }
   }
 
+  /// How many of the active diver's other dives used the cylinder whose
+  /// passport id is [passportId] (issue #2650); this dive does not count.
+  /// Zero when the lookup fails: the fill already happened, and a count is
+  /// not worth reporting it as a failure.
+  Future<int> _earlierUses(String passportId) async {
+    try {
+      final diverId = await ref.read(validatedCurrentDiverIdProvider.future);
+      final dives = await ref
+          .read(passportUsageRepositoryProvider)
+          .usageFor(passportId, diverId: diverId, excludeDiveId: widget.diveId);
+      return dives.length;
+    } catch (e, stackTrace) {
+      _log.error(
+        'Failed to count earlier uses of a cylinder',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return 0;
+    }
+  }
+
+  /// The diver's own cylinder, scanned or picked, fills the tank with its
+  /// spec, newest of [fills] and [passportId] (issue #2650), then goes to
+  /// the host to join the dive's gear: a copy, never a link
+  /// (`DiveTank.equipmentId` belongs to the transmitter registry). Throws
+  /// what the host's gear add throws.
+  Future<void> _useOwnCylinder(
+    EquipmentItem item,
+    List<CylinderFill> fills,
+    String? passportId,
+    ScaffoldMessengerState messenger,
+    AppLocalizations l10n,
+  ) async {
+    final filled = _applyScannedSpec(
+      passportId: passportId,
+      volumeL: item.volumeL,
+      workingPressureBar: item.workingPressureBar,
+      material: item.tankMaterial,
+      mix: fills.isEmpty ? null : fills.first.gasMix,
+    );
+    // The cylinder joins the dive's gear even when it records no spec.
+    await widget.onOwnCylinderUsed?.call(item);
+    if (filled) {
+      messenger.showSnackBar(
+        SnackBar(content: Text(l10n.passport_scan_filledFrom(item.name))),
+      );
+    }
+  }
+
   /// Fills the spec fields (and the mix, when given) the way choosing a
-  /// preset does, in the diver's units, then reports the tank. Returns false,
-  /// changing nothing, when there is nothing to fill: a tag that carries only
-  /// its identity must not clear the tank's preset.
+  /// preset does, in the diver's units, and records [passportId], the
+  /// cylinder they came from (issue #2650), then reports the tank. Returns
+  /// false, changing only the passport id, when there is nothing to fill: a
+  /// tag that carries only its identity must not clear the tank's preset.
   bool _applyScannedSpec({
+    required String? passportId,
     double? volumeL,
     double? workingPressureBar,
     TankMaterial? material,
     GasMix? mix,
   }) {
+    final idChanged = passportId != _passportId;
+    _passportId = passportId;
+    // A computer logged what this tank breathed; the cylinder's last fill
+    // does not replace it (issue #3021).
+    final fillMix = isComputerRecordedTank(widget.tank) ? null : mix;
     if (volumeL == null &&
         workingPressureBar == null &&
         material == null &&
-        mix == null) {
+        fillMix == null) {
+      // Nothing to fill, but the tag still says which cylinder this is.
+      if (idChanged) _notifyChange();
       return false;
     }
     final settings = ref.read(settingsProvider);
@@ -1203,12 +1472,12 @@ class _TankEditorState extends ConsumerState<TankEditor> {
         );
       }
       if (material != null) _material = material;
-      if (mix != null) {
+      if (fillMix != null) {
         _mndDriven = false;
-        _o2Controller.text = formatDecimalForInput(mix.o2);
-        _heController.text = formatDecimalForInput(mix.he);
-        _lastValidO2 = mix.o2;
-        _lastValidHe = mix.he;
+        _o2Controller.text = formatDecimalForInput(fillMix.o2);
+        _heController.text = formatDecimalForInput(fillMix.he);
+        _lastValidO2 = fillMix.o2;
+        _lastValidHe = fillMix.he;
       }
     });
     _notifyChange();
@@ -1216,11 +1485,14 @@ class _TankEditorState extends ConsumerState<TankEditor> {
   }
 
   void _applyPreset(TankPresetEntity preset) {
+    _specChoice++;
     final settings = ref.read(settingsProvider);
     final units = UnitFormatter(settings);
     _prefillRegulatorFor(preset.name);
 
     setState(() {
+      // A preset describes a size, not this cylinder (issue #2650).
+      _passportId = null;
       _selectedPreset = preset;
       // For volume: use cuft (gas capacity) for imperial, liters (water volume) for metric
       // This is because "tank size" in imperial is rated by gas capacity (e.g., AL80 = 80 cuft),
@@ -1249,13 +1521,17 @@ class _TankEditorState extends ConsumerState<TankEditor> {
     }
   }
 
-  void _applyGasTemplate(GasTemplate template) {
+  void _applyGasTemplate(GasTemplate template) =>
+      _setGasMix(GasMix(o2: template.o2, he: template.he));
+
+  /// Puts [mix] in the O2/He fields and reports the tank.
+  void _setGasMix(GasMix mix) {
     _mndDriven = false;
     setState(() {
-      _o2Controller.text = formatDecimalForInput(template.o2);
-      _heController.text = formatDecimalForInput(template.he);
-      _lastValidO2 = template.o2;
-      _lastValidHe = template.he;
+      _o2Controller.text = formatDecimalForInput(mix.o2);
+      _heController.text = formatDecimalForInput(mix.he);
+      _lastValidO2 = mix.o2;
+      _lastValidHe = mix.he;
     });
     _notifyChange();
   }

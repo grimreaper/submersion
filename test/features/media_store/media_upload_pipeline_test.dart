@@ -8,6 +8,7 @@ import 'dart:ui' show Size;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/local_cache_database.dart';
 import 'package:submersion/core/services/media_store/store_keys.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
@@ -17,7 +18,6 @@ import 'package:submersion/features/media/domain/entities/media_item.dart'
 import 'package:submersion/features/media/domain/entities/media_source_type.dart';
 import 'package:submersion/features/media/domain/services/media_source_resolver.dart';
 import 'package:submersion/features/media/domain/value_objects/media_source_data.dart';
-import 'package:submersion/features/media/domain/value_objects/media_source_metadata.dart';
 import 'package:submersion/features/media/domain/value_objects/verify_result.dart';
 import 'package:submersion/features/media_store/data/media_cache_store.dart';
 import 'package:submersion/features/media_store/data/media_store_worker.dart';
@@ -117,10 +117,6 @@ class _FakeLocalFileResolver implements MediaSourceResolver {
   }) async => thumbnailData ?? data;
 
   @override
-  Future<MediaSourceMetadata?> extractMetadata(domain.MediaItem item) async =>
-      null;
-
-  @override
   Future<VerifyResult> verify(domain.MediaItem item) async =>
       VerifyResult.available;
 }
@@ -139,7 +135,9 @@ void main() {
     SharedPreferences.setMockInitialValues({});
     await setUpTestDatabase();
     mediaRepository = MediaRepository();
-    cacheDb = LocalCacheDatabase(NativeDatabase.memory());
+    cacheDb = LocalCacheDatabase(
+      NativeDatabase.memory(setup: registerAppSqlFunctions),
+    );
     root = await Directory.systemTemp.createTemp('pipeline_test');
     fakeStore = InMemoryMediaObjectStore();
     cache = MediaCacheStore(database: cacheDb, root: root);

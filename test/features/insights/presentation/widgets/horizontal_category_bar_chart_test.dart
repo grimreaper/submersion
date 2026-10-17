@@ -35,6 +35,44 @@ void main() {
     expect(factors, [1.0, 0.5]);
   });
 
+  // Issue #3421: shares of a whole draw against the whole, so a bar's
+  // length matches its printed percentage.
+  testWidgets('a scale draws bars against it instead of the largest', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        const HorizontalCategoryBarChart(
+          data: [(label: 'Stage', count: 2)],
+          scaleTo: 200,
+        ),
+      ),
+    );
+
+    final factor = tester
+        .widget<FractionallySizedBox>(find.byType(FractionallySizedBox))
+        .widthFactor;
+    expect(factor, 0.01);
+  });
+
+  testWidgets('a count above the scale draws a full bar, not past it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        const HorizontalCategoryBarChart(
+          data: [(label: 'Stage', count: 12)],
+          scaleTo: 10,
+        ),
+      ),
+    );
+
+    final factor = tester
+        .widget<FractionallySizedBox>(find.byType(FractionallySizedBox))
+        .widthFactor;
+    expect(factor, 1.0);
+  });
+
   testWidgets('rows keep the order they are given', (tester) async {
     await tester.pumpWidget(
       _wrap(
@@ -47,6 +85,30 @@ void main() {
     expect(
       tester.getTopLeft(find.text('A')).dy,
       lessThan(tester.getTopLeft(find.text('B')).dy),
+    );
+  });
+
+  // Issue #3048: the Gas page now uses this chart, so a right-to-left
+  // locale must fill each bar from the label's side, not the left edge.
+  testWidgets('bars grow from the start edge in right-to-left text', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      _wrap(
+        const Directionality(
+          textDirection: TextDirection.rtl,
+          child: HorizontalCategoryBarChart(
+            data: [(label: 'A', count: 4), (label: 'B', count: 1)],
+          ),
+        ),
+      ),
+    );
+
+    final track = find.byType(FractionallySizedBox).last;
+    final fill = find.descendant(of: track, matching: find.byType(Container));
+    expect(
+      tester.getTopRight(fill).dx,
+      moreOrLessEquals(tester.getTopRight(track).dx),
     );
   });
 

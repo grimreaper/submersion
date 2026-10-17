@@ -15,12 +15,9 @@ import 'package:submersion/l10n/l10n_extension.dart';
 import 'package:submersion/shared/widgets/global_drop_target.dart';
 import 'package:submersion/shared/widgets/nav/nav_destinations.dart';
 import 'package:submersion/shared/widgets/nav/nav_order_provider.dart';
+import 'package:submersion/shared/widgets/nav/nav_selection.dart';
 import 'package:submersion/shared/widgets/nav/nav_slot_count.dart';
-
-/// Fraction of the screen height the phone overflow ("More") sheet may fill.
-///
-/// The remainder is scrim the user can tap to dismiss the sheet.
-const double _moreSheetMaxHeight = 0.85;
+import 'package:submersion/shared/widgets/shell_chrome_scope.dart';
 
 class MainScaffold extends ConsumerStatefulWidget {
   final Widget child;
@@ -38,6 +35,36 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
   /// user overrode it for this session (#1424), same as before this setting
   /// existed -- it is not persisted, so it resets on restart.
   bool? _isCollapsedOverride;
+
+  /// Hide requests from pages inside the shell, such as the media viewer's
+  /// fullscreen mode (#1087).
+  final ShellChromeController _chromeController = ShellChromeController();
+
+  void _onChromeChanged() => setState(() {});
+
+  @override
+  void initState() {
+    super.initState();
+    _chromeController.addListener(_onChromeChanged);
+  }
+
+  @override
+  void dispose() {
+    _chromeController
+      ..removeListener(_onChromeChanged)
+      ..dispose();
+    super.dispose();
+  }
+
+  /// The layout while a page holds a hide request: the page alone, edge to
+  /// edge, with no rail, bottom bar, banner, strip or SafeArea inset.
+  ///
+  /// Moving [MainScaffold.child] between this and the chromed layout keeps
+  /// every page on the shell navigator alive: go_router builds that
+  /// navigator with a GlobalKey (ShellRoute.navigatorKey), so the element is
+  /// reparented rather than rebuilt.
+  Widget _buildChromelessScaffold() =>
+      Scaffold(body: GlobalDropTarget(child: widget.child));
 
   /// Builds a per-destination accent color lookup for the navigation surfaces.
   ///
@@ -59,34 +86,30 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
     return (id) => accents?.of(id);
   }
 
-  /// [railDestinations] is only read when [isWideScreen] is true and
-  /// [primaryDestinations] only when it is false, so the caller may pass an
-  /// empty list for the surface it is not rendering rather than subscribing
-  /// to that surface's order.
+  /// The index of the most specific destination for the current location
+  /// (see `navMatchScore`), so a nav shortcut (#2936) wins over the section
+  /// its page sits in. On phone the bar slots and the More sheet compete
+  /// together, and a winner in the sheet selects More.
+  ///
+  /// [railDestinations] is only read when [isWideScreen] is true, and
+  /// [primaryDestinations] and [overflowDestinations] only when it is false,
+  /// so the caller may pass empty lists for the surface it is not rendering
+  /// rather than subscribing to that surface's order.
   int _calculateSelectedIndex(
     BuildContext context, {
     required bool isWideScreen,
     required List<NavDestination> railDestinations,
     required List<NavDestination> primaryDestinations,
+    required List<NavDestination> overflowDestinations,
   }) {
-    final location = GoRouterState.of(context).uri.path;
-
-    if (isWideScreen) {
-      // Wide-screen rail: pinned Home, then the user's saved rail order.
-      for (var i = 0; i < railDestinations.length; i++) {
-        if (location.startsWith(railDestinations[i].route)) return i;
-      }
-      return 0;
-    }
-
-    // Mobile: [dashboard, ...middle slots, more]; the slot count is dynamic
-    // (#1424), so the More sentinel is always the last entry, not a fixed
-    // index.
-    for (var i = 0; i < primaryDestinations.length - 1; i++) {
-      final route = primaryDestinations[i].route;
-      if (route.isNotEmpty && location.startsWith(route)) return i;
-    }
-    return primaryDestinations.length - 1; // fall through to More
+    final location = GoRouterState.of(context).uri;
+    return isWideScreen
+        ? railSelectedIndex(railDestinations, location)
+        : phoneSelectedIndex(
+            primary: primaryDestinations,
+            overflow: overflowDestinations,
+            location: location,
+          );
   }
 
   /// Handles a tap on the rail or the bottom bar.
@@ -142,7 +165,8 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       // it so tapping outside stays an obvious way out.
       useSafeArea: true,
       constraints: BoxConstraints(
-        maxHeight: MediaQuery.of(context).size.height * _moreSheetMaxHeight,
+        maxHeight:
+            MediaQuery.of(context).size.height * kNavSheetMaxHeightFraction,
       ),
       // Not redundant with useSafeArea: that inserts SafeArea(bottom: false),
       // so the sheet deliberately runs to the bottom edge of the screen. This
@@ -181,7 +205,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
                     ListTile(
                       leading: Icon(
                         destination.icon,
-                        color: navAccent(destination.id),
+                        color: navAccent(destination.accentId),
                       ),
                       title: Text(destination.label(sheetContext.l10n)),
                       subtitle: destination.subtitle != null
@@ -225,7 +249,12 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
         if (didPop || upLocation == null) return;
         context.go(upLocation);
       },
-      child: _buildScaffold(context),
+      child: ShellChromeScope(
+        controller: _chromeController,
+        child: _chromeController.isHidden
+            ? _buildChromelessScaffold()
+            : _buildScaffold(context),
+      ),
     );
   }
 
@@ -261,6 +290,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       isWideScreen: isWideScreen,
       railDestinations: railDestinations,
       primaryDestinations: primaryDestinations,
+      overflowDestinations: overflowDestinations,
     );
 
     if (isWideScreen) {
@@ -319,7 +349,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
                                   icon: _railIcon(
                                     Icon(
                                       destination.icon,
-                                      color: navAccent(destination.id),
+                                      color: navAccent(destination.accentId),
                                     ),
                                     label: destination.label(context.l10n),
                                     labelsHidden: !showExtended,
@@ -327,7 +357,7 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
                                   selectedIcon: _railIcon(
                                     Icon(
                                       destination.selectedIcon,
-                                      color: navAccent(destination.id),
+                                      color: navAccent(destination.accentId),
                                     ),
                                     label: destination.label(context.l10n),
                                     labelsHidden: !showExtended,
@@ -439,10 +469,13 @@ class _MainScaffoldState extends ConsumerState<MainScaffold> {
       destinations: [
         for (final destination in primary)
           NavigationDestination(
-            icon: Icon(destination.icon, color: navAccent(destination.id)),
+            icon: Icon(
+              destination.icon,
+              color: navAccent(destination.accentId),
+            ),
             selectedIcon: Icon(
               destination.selectedIcon,
-              color: navAccent(destination.id),
+              color: navAccent(destination.accentId),
             ),
             label: destination.label(context.l10n),
           ),

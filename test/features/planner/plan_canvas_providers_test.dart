@@ -1,11 +1,15 @@
+import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/constants/map_style.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/dive_planner/presentation/providers/dive_planner_providers.dart';
+import 'package:submersion/features/planner/domain/entities/dive_plan.dart'
+    as domain;
 import 'package:submersion/features/planner/domain/entities/plan_outcome.dart';
 import 'package:submersion/features/planner/domain/services/plan_engine.dart';
+import 'package:submersion/features/planner/domain/services/plan_state_outcome.dart';
 import 'package:submersion/features/planner/presentation/chart/plan_chart_backdrop_painter.dart';
 import 'package:submersion/features/planner/presentation/providers/plan_canvas_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
@@ -14,24 +18,49 @@ class _TestSettingsNotifier extends StateNotifier<AppSettings>
     implements SettingsNotifier {
   // Null means "leave at the AppSettings default", so these fixtures cannot
   // drift away from the real defaults.
-  _TestSettingsNotifier({int? gfLow, int? gfHigh, double? endLimit})
-    : super(
-        const AppSettings().copyWith(
-          gfLow: gfLow,
-          gfHigh: gfHigh,
-          endLimit: endLimit,
-        ),
-      );
+  _TestSettingsNotifier({
+    int? gfLow,
+    int? gfHigh,
+    double? endLimit,
+    double? ccrSetpointLow,
+    double? ccrSetpointHigh,
+  }) : super(
+         const AppSettings().copyWith(
+           gfLow: gfLow,
+           gfHigh: gfHigh,
+           endLimit: endLimit,
+           ccrSetpointLow: ccrSetpointLow,
+           ccrSetpointHigh: ccrSetpointHigh,
+         ),
+       );
 
   @override
   Future<void> setMapStyle(MapStyle style) async =>
       state = state.copyWith(mapStyle: style);
 
   @override
+  Future<void> setThemeMode(ThemeMode mode) async =>
+      state = state.copyWith(themeMode: mode);
+
+  @override
+  Future<void> setEndLimit(double value) async =>
+      state = state.copyWith(endLimit: value);
+
+  @override
+  Future<void> setO2Narcotic(bool value) async =>
+      state = state.copyWith(o2Narcotic: value);
+
+  @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
 
-ProviderContainer _container({int? gfLow, int? gfHigh, double? endLimit}) {
+ProviderContainer _container({
+  int? gfLow,
+  int? gfHigh,
+  double? endLimit,
+  double? ccrSetpointLow,
+  double? ccrSetpointHigh,
+}) {
   final container = ProviderContainer(
     overrides: [
       settingsProvider.overrideWith(
@@ -39,6 +68,8 @@ ProviderContainer _container({int? gfLow, int? gfHigh, double? endLimit}) {
           gfLow: gfLow,
           gfHigh: gfHigh,
           endLimit: endLimit,
+          ccrSetpointLow: ccrSetpointLow,
+          ccrSetpointHigh: ccrSetpointHigh,
         ),
       ),
     ],
@@ -47,10 +78,64 @@ ProviderContainer _container({int? gfLow, int? gfHigh, double? endLimit}) {
   return container;
 }
 
+/// A stand-in for the planner's real dependents (the plan outcome, the
+/// bailout and contingency checks, the range table), counting how often
+/// [planEngineConfigProvider] makes it rebuild.
+({Provider<PlanEngineConfig> provider, int Function() builds})
+_countingDependent() {
+  var builds = 0;
+  final provider = Provider<PlanEngineConfig>((ref) {
+    builds++;
+    return ref.watch(planEngineConfigProvider);
+  });
+  return (provider: provider, builds: () => builds);
+}
+
 int _totalStopSeconds(ProviderContainer container) => container
     .read(planOutcomeProvider)
     .stops
     .fold(0, (sum, stop) => sum + stop.durationSeconds);
+
+/// [outcome] with its issues replaced.
+PlanOutcome _withIssues(PlanOutcome outcome, List<PlanIssue> issues) {
+  return PlanOutcome(
+    runtimeSeconds: outcome.runtimeSeconds,
+    maxDepth: outcome.maxDepth,
+    ndlAtBottom: outcome.ndlAtBottom,
+    ttsAtBottom: outcome.ttsAtBottom,
+    stops: outcome.stops,
+    schedule: outcome.schedule,
+    segmentOutcomes: outcome.segmentOutcomes,
+    tankUsages: outcome.tankUsages,
+    cnsEnd: outcome.cnsEnd,
+    otuTotal: outcome.otuTotal,
+    issues: issues,
+    endTissue: outcome.endTissue,
+    tissueTimeline: outcome.tissueTimeline,
+    ceilingTrace: outcome.ceilingTrace,
+    authoredDecoSeconds: outcome.authoredDecoSeconds,
+  );
+}
+
+/// A container whose engine outcome is computed for real but reports exactly
+/// [issues], so a test can pin what the engine says independently of the
+/// plan the legacy calculator sees.
+ProviderContainer _containerWithEngineIssues(List<PlanIssue> issues) {
+  final container = ProviderContainer(
+    overrides: [
+      settingsProvider.overrideWith((ref) => _TestSettingsNotifier()),
+      planOutcomeProvider.overrideWith((ref) {
+        final real = computeOutcomeForState(
+          ref.watch(divePlanNotifierProvider),
+          config: ref.watch(planEngineConfigProvider),
+        );
+        return _withIssues(real, issues);
+      }),
+    ],
+  );
+  addTearDown(container.dispose);
+  return container;
+}
 
 void main() {
   test('scrub provider defaults to null', () {
@@ -231,6 +316,36 @@ void main() {
     expect(container.read(planEngineConfigProvider).endLimitMeters, 40.0);
   });
 
+  test('planEngineConfig carries the Settings CCR setpoints (issue #2801)', () {
+    final container = _container(ccrSetpointLow: 0.6, ccrSetpointHigh: 1.2);
+    final config = container.read(planEngineConfigProvider);
+    expect(config.ccrSetpointLow, 0.6);
+    expect(config.ccrSetpointHigh, 1.2);
+  });
+
+  test('a CCR plan loaded without setpoints computes with the Settings '
+      'setpoints, not the spec 0.7 / 1.3 (issue #2801)', () {
+    final container = _container(ccrSetpointLow: 0.6, ccrSetpointHigh: 1.2);
+    final notifier = container.read(divePlanNotifierProvider.notifier);
+    notifier.addSimplePlan(maxDepth: 60, bottomTimeMinutes: 25);
+    // The shape of a plan saved before the CCR seed existed, or imported
+    // from a file without setpoints: CCR, but no updateMode seed.
+    notifier.loadPlan(
+      container
+          .read(divePlanNotifierProvider)
+          .copyWith(mode: domain.PlanMode.ccr),
+    );
+    final state = container.read(divePlanNotifierProvider);
+    expect(state.mode, domain.PlanMode.ccr);
+    expect(state.setpointHigh, isNull);
+
+    final bottom = container
+        .read(planOutcomeProvider)
+        .schedule
+        .firstWhere((r) => r.kind == PlanScheduleRowKind.level);
+    expect(bottom.ppO2, closeTo(1.2, 0.005));
+  });
+
   test('an air leg at 32 m raises no END warning under a 40 m END limit '
       '(issue #1499)', () {
     final container = _container(endLimit: 40.0);
@@ -242,5 +357,128 @@ void main() {
       issues.map((i) => i.type),
       isNot(contains(PlanIssueType.endExceeded)),
     );
+  });
+
+  group('planEngineConfig rebuilds only for its own inputs (issue #2632)', () {
+    test(
+      'a theme or map style change does not rebuild its dependents',
+      () async {
+        final container = _container();
+        final dependent = _countingDependent();
+        container.listen(dependent.provider, (_, _) {});
+        final before = container.read(planEngineConfigProvider);
+        expect(dependent.builds(), 1);
+
+        await container
+            .read(settingsProvider.notifier)
+            .setThemeMode(ThemeMode.dark);
+        await container
+            .read(settingsProvider.notifier)
+            .setMapStyle(MapStyle.esriSatellite);
+        container.read(dependent.provider);
+
+        expect(container.read(settingsProvider).themeMode, ThemeMode.dark);
+        expect(dependent.builds(), 1);
+        expect(
+          identical(container.read(planEngineConfigProvider), before),
+          isTrue,
+          reason: 'an unrelated setting must not rebuild the config itself',
+        );
+      },
+    );
+
+    test('an END limit change still rebuilds its dependents', () async {
+      final container = _container();
+      final dependent = _countingDependent();
+      container.listen(dependent.provider, (_, _) {});
+      expect(dependent.builds(), 1);
+
+      await container.read(settingsProvider.notifier).setEndLimit(40);
+      container.read(dependent.provider);
+
+      expect(container.read(planEngineConfigProvider).endLimitMeters, 40);
+      expect(dependent.builds(), 2);
+    });
+
+    test('an O2-narcotic change still rebuilds its dependents', () async {
+      final container = _container();
+      final dependent = _countingDependent();
+      container.listen(dependent.provider, (_, _) {});
+      expect(container.read(planEngineConfigProvider).o2Narcotic, isTrue);
+      expect(dependent.builds(), 1);
+
+      await container.read(settingsProvider.notifier).setO2Narcotic(false);
+      container.read(dependent.provider);
+
+      expect(container.read(planEngineConfigProvider).o2Narcotic, isFalse);
+      expect(dependent.builds(), 2);
+    });
+  });
+
+  group('planIsValidProvider (convert to dive gate, issue #3094)', () {
+    test('an empty plan is not valid', () {
+      final container = _container();
+      expect(container.read(planIsValidProvider), isFalse);
+    });
+
+    test('a plan with no critical engine issue is valid', () {
+      final container = _container();
+      container
+          .read(divePlanNotifierProvider.notifier)
+          .addSimplePlan(maxDepth: 18.0, bottomTimeMinutes: 20);
+
+      expect(container.read(planOutcomeProvider).isDiveable, isTrue);
+      expect(container.read(planIsValidProvider), isTrue);
+    });
+
+    test('a critical issue only the engine reports blocks conversion', () {
+      // Air at 50 m: ppO2 is within limits, but the gas density is past the
+      // engine's critical limit, a check the legacy calculator never made.
+      final container = _container();
+      container
+          .read(divePlanNotifierProvider.notifier)
+          .addSimplePlan(maxDepth: 50.0, bottomTimeMinutes: 5);
+
+      expect(
+        container
+            .read(planOutcomeProvider)
+            .issues
+            .map((i) => (i.type, i.severity)),
+        contains((
+          PlanIssueType.gasDensityCritical,
+          PlanIssueSeverity.critical,
+        )),
+      );
+      expect(container.read(planIsValidProvider), isFalse);
+    });
+
+    test(
+      'a plan the engine passes converts whatever the legacy model says',
+      () {
+        // Air at 70 m breaks the legacy calculator's ppO2 limit; with the
+        // engine reporting nothing critical, the gate follows the engine.
+        final container = _containerWithEngineIssues(const []);
+        container
+            .read(divePlanNotifierProvider.notifier)
+            .addSimplePlan(maxDepth: 70.0, bottomTimeMinutes: 10);
+
+        expect(container.read(planIsValidProvider), isTrue);
+      },
+    );
+
+    test('a critical engine issue blocks conversion of any plan', () {
+      final container = _containerWithEngineIssues(const [
+        PlanIssue(
+          type: PlanIssueType.hypoxicGas,
+          severity: PlanIssueSeverity.critical,
+          message: 'hypoxic',
+        ),
+      ]);
+      container
+          .read(divePlanNotifierProvider.notifier)
+          .addSimplePlan(maxDepth: 18.0, bottomTimeMinutes: 20);
+
+      expect(container.read(planIsValidProvider), isFalse);
+    });
   });
 }

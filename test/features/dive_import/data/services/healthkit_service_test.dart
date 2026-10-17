@@ -518,8 +518,17 @@ void main() {
         expect(result, hasLength(1));
         expect(result.first.sourceId, equals('dive-uuid-123'));
         expect(result.first.source, equals(ImportSource.appleWatch));
-        expect(result.first.startTime, equals(DateTime(2024, 1, 15, 9, 0)));
-        expect(result.first.endTime, equals(DateTime(2024, 1, 15, 10, 0)));
+        // HealthKit reports real instants; a dive carries the wall clock the
+        // diver saw, flagged UTC, like every other importer (#2810). DateTime
+        // equality compares that flag, so a raw instant fails in any zone.
+        expect(result.first.startTime, equals(DateTime.utc(2024, 1, 15, 9, 0)));
+        expect(result.first.endTime, equals(DateTime.utc(2024, 1, 15, 10, 0)));
+        // The real instant rides along, so a re-import can recognize a dive
+        // saved before #2811 stored it as is (#2812).
+        expect(
+          result.first.startInstant,
+          equals(DateTime(2024, 1, 15, 9, 0).toUtc()),
+        );
         expect(result.first.sourceFileFormat, equals('healthkit'));
       });
 

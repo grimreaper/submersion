@@ -279,13 +279,12 @@ class DecoClassificationCache extends Table {
 /// no HLC, never synced, never backed up; rows with an older schema version
 /// are dropped on read.
 class RecentQueries extends Table {
-  /// Diver, normalized sentence and locale, so a retyped sentence bumps its
-  /// row and two divers on one device never share one.
-  TextColumn get key => text()();
-
   /// The diver who asked. A sentence names that diver's own buddies and
   /// sites, and its pinned identities are theirs.
   TextColumn get diverId => text()();
+
+  /// The normalized sentence, so a retyped sentence bumps its row.
+  TextColumn get key => text()();
   TextColumn get sentence => text()();
   TextColumn get locale => text()();
   TextColumn get parsedJson => text()();
@@ -293,8 +292,13 @@ class RecentQueries extends Table {
   TextColumn get subject => text()();
   IntColumn get lastUsedAt => integer()();
 
+  /// typed (a query the diver wrote) or asked (a sentence put to the
+  /// model); the v18 rows were all asked (#2773).
+  TextColumn get kind => text().withDefault(const Constant('asked'))();
+
+  /// One row per diver, language and sentence.
   @override
-  Set<Column> get primaryKey => {key};
+  Set<Column> get primaryKey => {diverId, locale, key};
 }
 
 @DriftDatabase(
@@ -317,7 +321,7 @@ class LocalCacheDatabase extends _$LocalCacheDatabase {
   LocalCacheDatabase(super.e);
 
   @override
-  int get schemaVersion => 18;
+  int get schemaVersion => 19;
 
   @override
   MigrationStrategy get migration => MigrationStrategy(
@@ -485,6 +489,18 @@ class LocalCacheDatabase extends _$LocalCacheDatabase {
       if (from < 18) {
         await m.createTable(recentQueries);
       }
+      // v19: recent searches gain a kind, typed or asked (#2773). Rows the
+      // v18 rung created were all asked; the column default says so. A
+      // table v18 created below this step already has the column.
+      if (from < 19) {
+        final cols = await customSelect(
+          "PRAGMA table_info('recent_queries')",
+        ).get();
+        final names = cols.map((c) => c.read<String>('name')).toSet();
+        if (names.isNotEmpty && !names.contains('kind')) {
+          await m.addColumn(recentQueries, recentQueries.kind);
+        }
+      }
     },
     beforeOpen: (details) async {
       // Ladder-collision self-heal: a parallel branch that also claimed v7
@@ -566,29 +582,45 @@ class LocalCacheDatabase extends _$LocalCacheDatabase {
           PRIMARY KEY (dive_id)
         )
       ''');
-      // v18 mirror, same collision self-heal as above. A development build
-      // of v18 created the table before rows carried a diver; the rows are
-      // a convenience cache, so that shape is dropped and recreated.
+      // v18 mirror, same collision self-heal as above. Development builds
+      // of v18 created the table keyed on the sentence alone; the rows are a
+      // convenience cache, so any shape whose key lacks the diver is dropped
+      // and recreated.
       final recentColumns = await customSelect(
-        "SELECT name FROM pragma_table_info('recent_queries')",
+        "SELECT name, pk FROM pragma_table_info('recent_queries')",
       ).get();
       if (recentColumns.isNotEmpty &&
-          !recentColumns.any((r) => r.read<String>('name') == 'diver_id')) {
+          !recentColumns.any(
+            (r) =>
+                r.read<String>('name') == 'diver_id' && r.read<int>('pk') > 0,
+          )) {
         await customStatement('DROP TABLE recent_queries');
       }
       await customStatement('''
         CREATE TABLE IF NOT EXISTS recent_queries (
-          key TEXT NOT NULL,
           diver_id TEXT NOT NULL,
+          key TEXT NOT NULL,
           sentence TEXT NOT NULL,
           locale TEXT NOT NULL,
           parsed_json TEXT NOT NULL,
           schema_version INTEGER NOT NULL,
           subject TEXT NOT NULL,
           last_used_at INTEGER NOT NULL,
-          PRIMARY KEY (key)
+          kind TEXT NOT NULL DEFAULT 'asked',
+          PRIMARY KEY (diver_id, locale, key)
         )
       ''');
+      // v19 mirror: a table a colliding branch created without the kind.
+      final recentKind = await customSelect(
+        "SELECT name FROM pragma_table_info('recent_queries') "
+        "WHERE name = 'kind'",
+      ).get();
+      if (recentKind.isEmpty) {
+        await customStatement(
+          "ALTER TABLE recent_queries ADD COLUMN kind TEXT NOT NULL "
+          "DEFAULT 'asked'",
+        );
+      }
       await customStatement('''
         CREATE TABLE IF NOT EXISTS swiss_bathy_tile_cache (
           tile_key TEXT NOT NULL,

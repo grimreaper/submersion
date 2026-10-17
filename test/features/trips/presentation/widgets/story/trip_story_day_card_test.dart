@@ -1,4 +1,7 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
+import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:submersion/core/constants/enums.dart';
@@ -49,10 +52,39 @@ ItineraryDay _itin({String? port, String notes = ''}) => ItineraryDay(
   updatedAt: DateTime(2026, 1, 1),
 );
 
+TripStoryDay _pastDay(List<String> diveIds) => TripStoryDay(
+  date: DateTime(2026, 3, 8),
+  dayNumber: 2,
+  kind: TripStoryDayKind.past,
+  dives: [
+    for (final (i, id) in diveIds.indexed)
+      createTestDiveWithBottomTime(
+        id: id,
+        diveNumber: i + 1,
+        bottomTime: const Duration(minutes: 45),
+        maxDepth: 20.0,
+      ),
+  ],
+);
+
+/// A dive pin at its own site, kilometres from the others, so each dive
+/// keeps its own pin rather than sharing a badge.
+TripStoryMapPoint _pin(String diveId, int number) => TripStoryMapPoint(
+  latitude: 12.1,
+  longitude: -68.2 + number * 0.05,
+  dayIndex: 1,
+  label: 'Site $number',
+  siteId: 'site-$number',
+  diveId: diveId,
+  diveNumber: number,
+);
+
 Future<void> pumpCard(
   WidgetTester tester,
   TripStoryDay day, {
   List<Override> extra = const [],
+  List<TripStoryMapPoint> mapPoints = const [],
+  void Function(TripStoryDay, List<TripStoryMapPoint>)? onExpandMap,
 }) async {
   final overrides = await getBaseOverrides();
   final router = GoRouter(
@@ -61,7 +93,12 @@ Future<void> pumpCard(
         path: '/',
         builder: (context, state) => Scaffold(
           body: SingleChildScrollView(
-            child: TripStoryDayCard(day: day, tripId: 'trip-1'),
+            child: TripStoryDayCard(
+              day: day,
+              tripId: 'trip-1',
+              mapPoints: mapPoints,
+              onExpandMap: onExpandMap,
+            ),
           ),
         ),
       ),
@@ -327,5 +364,304 @@ void main() {
 
     expect(find.text('Bring a reef hook'), findsOneWidget);
     expect(find.textContaining('6 past dives here'), findsOneWidget);
+  });
+
+  testWidgets('a day with map points opens with its map', (tester) async {
+    await pumpCard(
+      tester,
+      _pastDay(['d1', 'd2']),
+      mapPoints: [_pin('d1', 1), _pin('d2', 2)],
+    );
+    expect(find.byType(FlutterMap), findsOneWidget);
+    final map = tester.getRect(find.byType(FlutterMap));
+    final band = tester.getRect(find.byKey(const Key('day-summary-band')));
+    expect(map.height, 180);
+    expect(map.bottom, lessThanOrEqualTo(band.top));
+  });
+
+  testWidgets('a day with no map points shows no map', (tester) async {
+    await pumpCard(tester, _pastDay(['d1']));
+    expect(find.byType(FlutterMap), findsNothing);
+  });
+
+  testWidgets('tapping a pin highlights its row, tapping again clears it', (
+    tester,
+  ) async {
+    await pumpCard(
+      tester,
+      _pastDay(['d1', 'd2']),
+      mapPoints: [_pin('d1', 1), _pin('d2', 2)],
+    );
+    bool highlighted(String id) => tester
+        .widgetList<DiveListItem>(find.byType(DiveListItem))
+        .firstWhere((w) => w.summary.id == id)
+        .isHighlighted;
+    expect(highlighted('d1'), isFalse);
+    await tester.tap(find.byKey(const Key('day-map-pin-d2')));
+    await tester.pumpAndSettle();
+    expect(highlighted('d2'), isTrue);
+    expect(highlighted('d1'), isFalse);
+    await tester.tap(find.byKey(const Key('day-map-pin-d1')));
+    await tester.pumpAndSettle();
+    expect(highlighted('d1'), isTrue);
+    expect(highlighted('d2'), isFalse);
+    await tester.tap(find.byKey(const Key('day-map-pin-d1')));
+    await tester.pumpAndSettle();
+    expect(highlighted('d1'), isFalse);
+  });
+
+  testWidgets('the expand button hands the day and its points up', (
+    tester,
+  ) async {
+    TripStoryDay? expandedDay;
+    List<TripStoryMapPoint>? expandedPoints;
+    await pumpCard(
+      tester,
+      _pastDay(['d1']),
+      mapPoints: [_pin('d1', 1)],
+      onExpandMap: (day, points) {
+        expandedDay = day;
+        expandedPoints = points;
+      },
+    );
+    await tester.tap(find.byKey(const Key('day-map-expand')));
+    expect(expandedDay?.dayNumber, 2);
+    expect(expandedPoints?.single.diveId, 'd1');
+  });
+
+  testWidgets('a pin scrolls only when its row is off screen', (tester) async {
+    tester.view.physicalSize = const Size(420, 560);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pumpCard(
+      tester,
+      _pastDay(['d1', 'd2', 'd3', 'd4']),
+      mapPoints: [_pin('d1', 1), _pin('d4', 4)],
+    );
+    final position = tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position;
+    expect(position.pixels, 0);
+    final row1 = tester.getRect(
+      find.byWidgetPredicate((w) => w is DiveListItem && w.summary.id == 'd1'),
+    );
+    expect(row1.bottom, lessThanOrEqualTo(560), reason: 'row 1 starts visible');
+    // Row 1 is in view: the map stays where it is.
+    await tester.tap(find.byKey(const Key('day-map-pin-d1')));
+    await tester.pumpAndSettle();
+    expect(position.pixels, 0);
+    // Row 4 is below the fold: the page brings it up.
+    await tester.tap(find.byKey(const Key('day-map-pin-d4')));
+    await tester.pumpAndSettle();
+    expect(position.pixels, greaterThan(0));
+  });
+
+  testWidgets('a drag on the day map scrolls the story, not the map', (
+    tester,
+  ) async {
+    tester.view.physicalSize = const Size(420, 560);
+    tester.view.devicePixelRatio = 1;
+    addTearDown(tester.view.reset);
+    await pumpCard(
+      tester,
+      _pastDay(['d1', 'd2', 'd3', 'd4']),
+      mapPoints: [_pin('d1', 1)],
+    );
+    final position = tester
+        .state<ScrollableState>(find.byType(Scrollable).first)
+        .position;
+    final camera = tester
+        .widget<FlutterMap>(find.byType(FlutterMap))
+        .mapController!
+        .camera
+        .center;
+    await tester.drag(find.byType(FlutterMap), const Offset(0, -200));
+    await tester.pumpAndSettle();
+    expect(position.pixels, greaterThan(0));
+    expect(
+      tester
+          .widget<FlutterMap>(find.byType(FlutterMap))
+          .mapController!
+          .camera
+          .center,
+      camera,
+    );
+  });
+
+  group('plan and conditions', () {
+    ItineraryDay planned(int dives, {String notes = '', String? port}) =>
+        _itin(notes: notes, port: port).copyWith(plannedDives: dives);
+
+    testWidgets('today with no dives shows its notes and plan', (tester) async {
+      final day = TripStoryDay(
+        date: DateTime(2026, 3, 8),
+        dayNumber: 2,
+        kind: TripStoryDayKind.today,
+        itineraryDay: planned(3, notes: 'Two-tank boat dive'),
+      );
+      await pumpCard(tester, day);
+      expect(find.text('Two-tank boat dive'), findsOneWidget);
+      expect(find.text('0 of 3 planned dives'), findsOneWidget);
+    });
+
+    testWidgets("today's card has a primary outline", (tester) async {
+      final day = TripStoryDay(
+        date: DateTime(2026, 3, 8),
+        dayNumber: 2,
+        kind: TripStoryDayKind.today,
+        itineraryDay: planned(2),
+      );
+      await pumpCard(tester, day);
+      final card = tester.widget<Card>(find.byType(Card).first);
+      final context = tester.element(find.byType(TripStoryDayCard));
+      final side = (card.shape! as RoundedRectangleBorder).side;
+      expect(side.color, Theme.of(context).colorScheme.primary);
+      expect(side.width, 2);
+    });
+
+    testWidgets('a past day compares logged with planned', (tester) async {
+      final day = TripStoryDay(
+        date: DateTime(2026, 3, 8),
+        dayNumber: 2,
+        kind: TripStoryDayKind.past,
+        itineraryDay: planned(3, notes: 'Reef day'),
+        dives: _pastDay(['d1', 'd2', 'd3', 'd4']).dives,
+      );
+      await pumpCard(tester, day);
+      expect(find.text('Reef day'), findsOneWidget);
+      expect(find.text('4 of 3 planned dives'), findsOneWidget);
+    });
+
+    testWidgets('a planned rest day shows no plan line', (tester) async {
+      final day = TripStoryDay(
+        date: DateTime(2026, 3, 8),
+        dayNumber: 2,
+        kind: TripStoryDayKind.today,
+        itineraryDay: planned(0, notes: 'Rest'),
+      );
+      await pumpCard(tester, day);
+      expect(find.textContaining('planned dive'), findsNothing);
+      expect(find.text('Rest'), findsOneWidget);
+    });
+
+    testWidgets('dives with conditions show the conditions line', (
+      tester,
+    ) async {
+      final base = _pastDay(['d1']);
+      final day = TripStoryDay(
+        date: base.date,
+        dayNumber: base.dayNumber,
+        kind: base.kind,
+        dives: [base.dives.single.copyWith(waterTemp: 27)],
+      );
+      await pumpCard(tester, day);
+      expect(find.byKey(const Key('day-conditions-line')), findsOneWidget);
+    });
+
+    testWidgets('a planned port with no history renders no card', (
+      tester,
+    ) async {
+      final day = TripStoryDay(
+        date: DateTime(2027, 1, 10),
+        dayNumber: 1,
+        kind: TripStoryDayKind.future,
+        itineraryDay: _itin(port: 'Kralendijk'),
+      );
+      await pumpCard(
+        tester,
+        day,
+        extra: [
+          siteHistoryByNameProvider('Kralendijk').overrideWith(
+            (ref) async =>
+                (diveCount: 0, avgWaterTemp: null, avgMaxDepth: null),
+          ),
+        ],
+      );
+      expect(find.byType(Card), findsNothing);
+    });
+
+    testWidgets('a planned port with history still shows its pills', (
+      tester,
+    ) async {
+      final day = TripStoryDay(
+        date: DateTime(2027, 1, 10),
+        dayNumber: 1,
+        kind: TripStoryDayKind.future,
+        itineraryDay: _itin(port: 'Kralendijk'),
+      );
+      await pumpCard(
+        tester,
+        day,
+        extra: [
+          siteHistoryByNameProvider('Kralendijk').overrideWith(
+            (ref) async =>
+                (diveCount: 3, avgWaterTemp: null, avgMaxDepth: null),
+          ),
+        ],
+      );
+      expect(find.textContaining('3 past dives here'), findsOneWidget);
+    });
+
+    testWidgets('a port with no history adds no space to a planned card', (
+      tester,
+    ) async {
+      final noHistory = siteHistoryByNameProvider('Kralendijk').overrideWith(
+        (ref) async => (diveCount: 0, avgWaterTemp: null, avgMaxDepth: null),
+      );
+      Future<double> cardHeight(String? port) async {
+        await pumpCard(
+          tester,
+          TripStoryDay(
+            date: DateTime(2027, 1, 10),
+            dayNumber: 1,
+            kind: TripStoryDayKind.future,
+            itineraryDay: _itin(port: port, notes: 'Bring a reef hook'),
+          ),
+          extra: [noHistory],
+        );
+        return tester.getSize(find.byType(Card)).height;
+      }
+
+      final withoutPort = await cardHeight(null);
+      final withPort = await cardHeight('Kralendijk');
+      expect(withPort, withoutPort);
+    });
+
+    testWidgets('a port card stays while its site history reloads', (
+      tester,
+    ) async {
+      final pending = Completer<SiteHistory>();
+      var loads = 0;
+      await pumpCard(
+        tester,
+        TripStoryDay(
+          date: DateTime(2027, 1, 10),
+          dayNumber: 1,
+          kind: TripStoryDayKind.future,
+          itineraryDay: _itin(port: 'Kralendijk'),
+        ),
+        extra: [
+          siteHistoryByNameProvider('Kralendijk').overrideWith(
+            (ref) => loads++ == 0
+                ? Future.value((
+                    diveCount: 3,
+                    avgWaterTemp: null,
+                    avgMaxDepth: null,
+                  ))
+                : pending.future,
+          ),
+        ],
+      );
+      expect(find.textContaining('3 past dives here'), findsOneWidget);
+
+      // What a dive edit does: the history query runs again.
+      ProviderScope.containerOf(
+        tester.element(find.byType(TripStoryDayCard)),
+      ).invalidate(siteHistoryByNameProvider('Kralendijk'));
+      await tester.pump();
+
+      expect(find.byType(Card), findsOneWidget);
+      expect(find.textContaining('3 past dives here'), findsOneWidget);
+    });
   });
 }

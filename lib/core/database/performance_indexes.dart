@@ -4,7 +4,7 @@
 /// blocks, so a database created fresh at a recent schema version -- or
 /// arriving via restore or sync-adopt -- never got them and every child-table
 /// lookup degraded to a full table scan (issue: large-DB performance,
-/// docs/superpowers/specs/2026-07-10-large-db-performance-design.md).
+/// docs/design/specs/2026-07-10-large-db-performance-design.md).
 ///
 /// This list is asserted idempotently on every open from
 /// AppDatabase.beforeOpen. Keep it in sync: any migration that adds a
@@ -40,12 +40,22 @@ const List<PerformanceIndex> kPerformanceIndexes = [
         'CREATE INDEX IF NOT EXISTS idx_dives_diver_exittime '
         'ON dives(diver_id, exit_time DESC)',
   ),
+  // The previous-dive seeks of diveSurfaceIntervalSecondsSql (#2984): a
+  // range on entry_time, and entry_time IS NULL plus a range on
+  // dive_date_time. Not diver-leading, because the detail page's previous
+  // dive is not diver-scoped.
+  (
+    name: 'idx_dives_entry_date',
+    ddl:
+        'CREATE INDEX IF NOT EXISTS idx_dives_entry_date '
+        'ON dives(entry_time, dive_date_time)',
+  ),
   // NOTE: an expression index on (diver_id, COALESCE(entry_time,
   // dive_date_time) DESC) matching the paginated list's sort key was
   // evaluated in the WS0 baseline and DROPPED: the planner never selected
   // it (sorting a ~1k-row candidate set beats maintaining expression-index
   // order), so it would cost write amplification for nothing. Evidence in
-  // docs/superpowers/specs/2026-07-10-large-db-performance-findings.md.
+  // docs/design/specs/2026-07-10-large-db-performance-findings.md.
   (
     name: 'idx_dives_site_id',
     ddl: 'CREATE INDEX IF NOT EXISTS idx_dives_site_id ON dives(site_id)',
@@ -123,6 +133,14 @@ const List<PerformanceIndex> kPerformanceIndexes = [
     ddl:
         'CREATE INDEX IF NOT EXISTS idx_dive_tanks_equipment '
         'ON dive_tanks(equipment_id)',
+  ),
+  // v287: a passport's usage card finds the dives whose tanks came from one
+  // tagged cylinder (issue #2650).
+  (
+    name: 'idx_dive_tanks_passport_id',
+    ddl:
+        'CREATE INDEX IF NOT EXISTS idx_dive_tanks_passport_id '
+        'ON dive_tanks(passport_id)',
   ),
   (
     name: 'idx_dive_equipment_dive_id',
@@ -215,6 +233,28 @@ const List<PerformanceIndex> kPerformanceIndexes = [
         'CREATE INDEX IF NOT EXISTS idx_equipment_ownership_events_equipment '
         'ON equipment_ownership_events(equipment_id, occurred_at)',
   ),
+  // An item's location history, newest first, and its current location
+  // (v268).
+  (
+    name: 'idx_equipment_location_moves_equipment',
+    ddl:
+        'CREATE INDEX IF NOT EXISTS idx_equipment_location_moves_equipment '
+        'ON equipment_location_moves(equipment_id, moved_at)',
+  ),
+  // "Is this place used anywhere", for archive versus delete (v268).
+  (
+    name: 'idx_equipment_location_moves_location',
+    ddl:
+        'CREATE INDEX IF NOT EXISTS idx_equipment_location_moves_location '
+        'ON equipment_location_moves(location_id)',
+  ),
+  // A computer's connections, for the detail page and merge (v279).
+  (
+    name: 'idx_dive_computer_connections_computer',
+    ddl:
+        'CREATE INDEX IF NOT EXISTS idx_dive_computer_connections_computer '
+        'ON dive_computer_connections(computer_id)',
+  ),
   (
     name: 'idx_equipment_components_component',
     ddl:
@@ -256,6 +296,13 @@ const List<PerformanceIndex> kPerformanceIndexes = [
   (
     name: 'idx_courses_diver',
     ddl: 'CREATE INDEX IF NOT EXISTS idx_courses_diver ON courses(diver_id)',
+  ),
+  // A course's dives through the junction (v288, issue #2515).
+  (
+    name: 'idx_dive_courses_course_id',
+    ddl:
+        'CREATE INDEX IF NOT EXISTS idx_dive_courses_course_id '
+        'ON dive_courses(course_id)',
   ),
   (
     name: 'idx_media_platform_asset_id',
@@ -470,6 +517,29 @@ const List<PerformanceIndex> kPerformanceIndexes = [
     ddl:
         'CREATE INDEX IF NOT EXISTS idx_saved_queries_diver '
         'ON saved_queries(diver_id, subject, sort_order)',
+  ),
+  // A passport's trips: packed links by item (v248, issue #2338).
+  (
+    name: 'idx_trip_equipment_equipment',
+    ddl:
+        'CREATE INDEX IF NOT EXISTS idx_trip_equipment_equipment '
+        'ON trip_equipment(equipment_id)',
+  ),
+  // A passport's trips: trip gas slots by item (issue #2338).
+  (
+    name: 'idx_trip_cylinders_equipment',
+    ddl:
+        'CREATE INDEX IF NOT EXISTS idx_trip_cylinders_equipment '
+        'ON trip_cylinders(equipment_id)',
+  ),
+  // -- library_site_notes --------------------------------------------
+  // Each library sync that pulled anything copies every library site's
+  // newest private note onto its row: one lookup per site.
+  (
+    name: 'idx_library_site_notes_site',
+    ddl:
+        'CREATE INDEX IF NOT EXISTS idx_library_site_notes_site '
+        'ON library_site_notes(site_id, updated_at)',
   ),
 ];
 

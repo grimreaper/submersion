@@ -68,6 +68,10 @@ void main() {
       expect(d['precipitation'], 'none');
       expect(d['humidity'], 71.0);
       expect(d['weatherDescription'], 'Sunny');
+      expect(d['diveOperator'], 'Buddy Dive');
+      expect(d['boatName'], 'Bonaire Breeze');
+      expect(d['boatCaptain'], 'Rik');
+      expect(d['surfaceConditions'], 'Calm');
       expect(d['customFields'], [
         {'key': 'Boat', 'value': 'Sea Dog'},
         {'key': 'Formula', 'value': '=1+1'},
@@ -163,6 +167,23 @@ void main() {
     expect(dives.first['dateTime'], DateTime.utc(2007, 9, 9, 9, 5));
   });
 
+  test('a two-digit year under a numeric header is not the year 91', () async {
+    // A spreadsheet kept the MM/DD/YYYY order but saved the year as two
+    // digits. Read literally, 12/05/91 is the year 91, which the Clock &
+    // timezone check then reports as dated before 1950 (#2617).
+    const numericDates = AppSettings(
+      dateFormat: DateFormatPreference.mmddyyyy,
+      timeFormat: TimeFormat.twentyFourHour,
+    );
+    final csv = CsvDivesWriter(
+      CsvExportUnits.fromSettings(numericDates),
+    ).write(goldenDives()).replaceAll('03/15/2025', '12/05/91');
+    final payload = await const SubmersionDivesCsvParser().parse(_bytes(csv));
+    expect(payload.warnings, isEmpty);
+    final dives = payload.entitiesOf(ImportEntityType.dives);
+    expect(dives.first['dateTime'], DateTime.utc(1991, 12, 5, 9, 5));
+  });
+
   test('a hand-edited unreadable number is left out with a warning', () async {
     final csv = CsvDivesWriter(
       CsvExportUnits.metric,
@@ -172,6 +193,44 @@ void main() {
     expect(dive.containsKey('maxDepth'), isFalse);
     expect(payload.warnings.single.field, 'Max Depth');
     expect(payload.warnings.single.severity, ImportWarningSeverity.warning);
+  });
+
+  test(
+    'a half-readable visibility range imports as no range (#3226)',
+    () async {
+      final dive = Dive(
+        id: 'r',
+        diveNumber: 30,
+        dateTime: DateTime.utc(2026, 3, 1, 9),
+        visibilityMinMeters: 6,
+        visibilityMaxMeters: 12,
+      );
+      // The min cell becomes unreadable; the max cell is still 12.
+      final csv = CsvDivesWriter(
+        CsvExportUnits.metric,
+      ).write([dive]).replaceFirst(',6.0,12.0', ',oops,12.0');
+      final payload = await const SubmersionDivesCsvParser().parse(_bytes(csv));
+      final parsed = payload.entitiesOf(ImportEntityType.dives).single;
+      expect(parsed['visibilityMinMeters'], isNull);
+      expect(parsed['visibilityMaxMeters'], isNull);
+    },
+  );
+
+  test('a metric visibility range imports every digit it was written with '
+      '(#3226)', () async {
+    // Finer than a nanometre: only a conversion from feet may be snapped.
+    final dive = Dive(
+      id: 'r',
+      diveNumber: 30,
+      dateTime: DateTime.utc(2026, 3, 1, 9),
+      visibilityMinMeters: 2.4999999995,
+      visibilityMaxMeters: 12.0000000004,
+    );
+    final csv = CsvDivesWriter(CsvExportUnits.metric).write([dive]);
+    final payload = await const SubmersionDivesCsvParser().parse(_bytes(csv));
+    final parsed = payload.entitiesOf(ImportEntityType.dives).single;
+    expect(parsed['visibilityMinMeters'], 2.4999999995);
+    expect(parsed['visibilityMaxMeters'], 12.0000000004);
   });
 
   test('a tank carrying only a working pressure is kept', () async {

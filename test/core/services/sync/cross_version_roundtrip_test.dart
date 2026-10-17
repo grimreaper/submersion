@@ -31,6 +31,13 @@
 // the events on that device for good. The direction the floor cannot reach,
 // an older peer republishing events we scope-deleted, is the merge guard's
 // job; the last group below covers it.
+//
+// The floor moved 240 -> 275 with the decimal start pressure (#3091): v275
+// retypes diver_settings.default_start_pressure from INTEGER to REAL, and an
+// older reader's DiverSetting.fromJson casts the field to int, so our
+// decimals would throw there. v275 adds no column, so no new projection is
+// needed. The direction the floor cannot reach, an older peer's whole-bar int
+// arriving here, is covered by sync_diver_settings_start_pressure_test.dart.
 import 'dart:convert';
 import 'dart:typed_data';
 
@@ -61,10 +68,16 @@ import '../../../helpers/test_database.dart';
 
 /// The dives-table JSON keys a schema-137 (v1.7.2) build does not know.
 /// From the migration ladder: v144 added dives.visibility_meters; no other
-/// dives column landed between 138 and 153. Extend this list when a later
-/// migration adds a dives column, so the projection stays a faithful model
-/// of what the oldest supported reader republishes.
-const postV137DiveKeys = ['visibilityMeters'];
+/// dives column landed between 138 and 153. v278 added
+/// dives.visibility_min_meters and visibility_max_meters (issue #3226).
+/// Extend this list when a later migration adds a dives column, so the
+/// projection stays a faithful model of what the oldest supported reader
+/// republishes.
+const postV137DiveKeys = [
+  'visibilityMeters',
+  'visibilityMinMeters',
+  'visibilityMaxMeters',
+];
 
 void main() {
   group('v137 peer round-trip through the real merge path (#1089)', () {

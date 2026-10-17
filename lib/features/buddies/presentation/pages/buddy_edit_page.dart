@@ -23,6 +23,9 @@ import 'package:submersion/features/buddies/data/repositories/buddy_profile_link
 import 'package:submersion/features/buddies/data/repositories/buddy_repository.dart';
 import 'package:submersion/features/buddies/presentation/pages/buddy_merge_form_controller.dart';
 import 'package:submersion/features/certifications/presentation/certification_title_l10n.dart';
+import 'package:submersion/features/certification_agencies/presentation/providers/certification_catalog_context.dart';
+import 'package:submersion/features/certification_agencies/presentation/providers/certification_catalog_providers.dart';
+import 'package:submersion/shared/widgets/label_with_control.dart';
 
 class BuddyEditPage extends ConsumerStatefulWidget {
   final String? buddyId;
@@ -259,6 +262,7 @@ class _BuddyEditPageState extends ConsumerState<BuddyEditPage> {
 
   @override
   Widget build(BuildContext context) {
+    ref.watch(certificationCatalogSyncProvider);
     final body = _isLoading
         ? const Center(child: CircularProgressIndicator())
         : _buildFormBody(context);
@@ -473,9 +477,19 @@ class _BuddyEditPageState extends ConsumerState<BuddyEditPage> {
                 ListTile(
                   contentPadding: EdgeInsets.zero,
                   leading: const Icon(Icons.card_membership),
-                  title: Text(certificationTitleL10n(cert, context.l10n)),
+                  title: Text(
+                    certificationTitleL10n(
+                      cert,
+                      context.l10n,
+                      catalog: context.certificationCatalog,
+                    ),
+                  ),
                   subtitle: Text(
-                    certificationAgencyAndLevelL10n(cert, context.l10n),
+                    certificationAgencyAndLevelL10n(
+                      cert,
+                      context.l10n,
+                      catalog: context.certificationCatalog,
+                    ),
                   ),
                   trailing: Row(
                     mainAxisSize: MainAxisSize.min,
@@ -574,41 +588,49 @@ class _BuddyEditPageState extends ConsumerState<BuddyEditPage> {
           bottom: BorderSide(color: colorScheme.outlineVariant, width: 1),
         ),
       ),
-      child: Row(
-        children: [
-          Icon(
-            isEditing ? Icons.edit : Icons.person_add,
-            color: colorScheme.primary,
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              isEditing
-                  ? context.l10n.buddies_title_edit
-                  : context.l10n.buddies_title_add,
-              style: theme.textTheme.titleMedium?.copyWith(
-                fontWeight: FontWeight.bold,
+      child: LabelWithControl(
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            Icon(
+              isEditing ? Icons.edit : Icons.person_add,
+              color: colorScheme.primary,
+            ),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                isEditing
+                    ? context.l10n.buddies_title_edit
+                    : context.l10n.buddies_title_add,
+                style: theme.textTheme.titleMedium?.copyWith(
+                  fontWeight: FontWeight.bold,
+                ),
               ),
             ),
-          ),
-          if (_isSaving)
-            const SizedBox(
-              width: 20,
-              height: 20,
-              child: CircularProgressIndicator(strokeWidth: 2),
-            )
-          else ...[
-            TextButton(
-              onPressed: _handleCancel,
-              child: Text(context.l10n.common_action_cancel),
-            ),
-            const SizedBox(width: 8),
-            FilledButton(
-              onPressed: _saveBuddy,
-              child: Text(context.l10n.common_action_save),
-            ),
           ],
-        ],
+        ),
+        control: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            if (_isSaving)
+              const SizedBox(
+                width: 20,
+                height: 20,
+                child: CircularProgressIndicator(strokeWidth: 2),
+              )
+            else ...[
+              TextButton(
+                onPressed: _handleCancel,
+                child: Text(context.l10n.common_action_cancel),
+              ),
+              const SizedBox(width: 8),
+              FilledButton(
+                onPressed: _saveBuddy,
+                child: Text(context.l10n.common_action_save),
+              ),
+            ],
+          ],
+        ),
       ),
     );
   }

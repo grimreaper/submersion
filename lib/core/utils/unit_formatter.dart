@@ -6,6 +6,7 @@ import 'package:submersion/core/deco/altitude_calculator.dart';
 import 'package:submersion/core/utils/coordinates/coordinate_formatter.dart'
     as coords;
 import 'package:submersion/core/utils/number_display.dart';
+import 'package:submersion/core/utils/per_minute.dart' as rate;
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 
@@ -62,7 +63,7 @@ class UnitFormatter {
   /// symbols from the unit enums, so it reads "/min" in every locale. Call
   /// sites use [depthRateSymbol], [sacSymbol] or [rmvSymbol] rather than
   /// interpolating "/min" themselves (issue #1932).
-  static String perMinute(String unitSymbol) => '$unitSymbol/min';
+  static String perMinute(String unitSymbol) => rate.perMinute(unitSymbol);
 
   /// Ascent/descent rate unit: "m/min" or "ft/min".
   String get depthRateSymbol => perMinute(depthSymbol);
@@ -76,6 +77,25 @@ class UnitFormatter {
       settings.depthUnit,
     );
     return '${formatFixedForDisplay(converted, decimals)}$depthRateSymbol';
+  }
+
+  /// Tide rate unit: "m/hr" or "ft/hr".
+  String get tideRateSymbol => '$depthSymbol/hr';
+
+  /// Format a tide's rate of change given in m/hr, signed so a rising tide
+  /// reads "+0.30m/hr" and a falling one "-0.25m/hr". The sign follows the
+  /// rounded figure, so a rate too small to show reads "0.00m/hr" rather
+  /// than "+0.00" or "-0.00".
+  String formatTideRate(double? metersPerHour, {int decimals = 2}) {
+    if (metersPerHour == null) return '--';
+    final converted = DepthUnit.meters.convert(
+      metersPerHour,
+      settings.depthUnit,
+    );
+    final magnitude = converted.abs().toStringAsFixed(decimals);
+    final shown = double.parse(magnitude);
+    final sign = shown == 0 ? '' : (converted > 0 ? '+' : '-');
+    return '$sign${localiseDecimalText(magnitude)}$tideRateSymbol';
   }
 
   // ============================================================================
@@ -124,13 +144,12 @@ class UnitFormatter {
   /// Format a geographic distance (meters) for site lists and pickers.
   ///
   /// Unlike [formatDistance] (depth-unit m/ft, for short surface drift), this
-  /// auto-scales across the full range of site distances and respects the
-  /// diver's metric/imperial preference (derived from depth unit): metric -> m
-  /// under 1 km else km; imperial -> ft under 1 mile else mi. Unit symbols are
-  /// latin (m/km/ft/mi), consistent with [formatDepth].
+  /// auto-scales across the full range of site distances in the diver's
+  /// distance unit (issue #2030): kilometres -> m under 1 km else km; miles ->
+  /// ft under 1 mile else mi. Unit symbols are latin (m/km/ft/mi),
+  /// consistent with [formatDepth].
   String formatGeoDistance(double meters) {
-    final isMetric = settings.depthUnit == DepthUnit.meters;
-    if (isMetric) {
+    if (settings.distanceUnit == DistanceUnit.kilometers) {
       if (meters < 1000) return '${meters.round()} m';
       final km = meters / 1000;
       final text = km < 10
@@ -138,10 +157,14 @@ class UnitFormatter {
           : km.round().toString();
       return '$text km';
     }
-    final feet = meters * 3.28084;
-    const feetPerMile = 5280.0;
-    if (feet < feetPerMile) return '${feet.round()} ft';
-    final miles = feet / feetPerMile;
+    final miles = DistanceUnit.kilometers.convert(
+      meters / 1000,
+      DistanceUnit.miles,
+    );
+    if (miles < 1) {
+      final feet = DepthUnit.meters.convert(meters, DepthUnit.feet);
+      return '${feet.round()} ft';
+    }
     final text = miles < 10
         ? formatFixedForDisplay(miles, 1)
         : miles.round().toString();
@@ -166,6 +189,21 @@ class UnitFormatter {
     );
     final text = localiseDecimalText(
       _trimTrailingZeros(converted.toStringAsFixed(decimals)),
+    );
+    return '$text°${settings.temperatureUnit.symbol}';
+  }
+
+  /// A temperature DIFFERENCE in the diver's unit, from a Celsius delta.
+  ///
+  /// Not [formatTemperature]: a difference scales by 9/5 without the 32-degree
+  /// offset a reading's conversion adds, so 2 C warmer is 3.6 F warmer, never
+  /// 35.6 F. Unsigned; the caller adds the sign it needs.
+  String formatTemperatureDelta(double celsiusDelta, {int decimals = 1}) {
+    final scaled = settings.temperatureUnit == TemperatureUnit.fahrenheit
+        ? celsiusDelta * 9 / 5
+        : celsiusDelta;
+    final text = localiseDecimalText(
+      _trimTrailingZeros(scaled.toStringAsFixed(decimals)),
     );
     return '$text°${settings.temperatureUnit.symbol}';
   }
@@ -399,7 +437,7 @@ class UnitFormatter {
 
   /// Whether body height should be shown in metric (cm) rather than imperial
   /// (feet/inches). There is no dedicated height unit, so this is derived from
-  /// the depth unit, consistent with [formatGeoDistance].
+  /// the depth unit, like [formatDistance].
   bool get heightIsMetric => settings.depthUnit == DepthUnit.meters;
 
   /// Format a stored height (centimeters) in the diver's preferred units:
@@ -563,6 +601,11 @@ class UnitFormatter {
     if (dateTime == null) return '--';
     return DateFormat(settings.timeFormat.pattern).format(dateTime);
   }
+
+  /// A time of day given as minutes after midnight (a dive center's fill
+  /// hours), in the diver's 12 or 24 hour format.
+  String formatMinutesOfDay(int minutes) =>
+      formatTime(DateTime(2000, 1, 1, minutes ~/ 60, minutes % 60));
 
   /// Format time to the second, still honouring the 12h/24h preference.
   /// Example: "2:30:07 PM" or "14:30:07"

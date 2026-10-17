@@ -66,6 +66,15 @@ enum ImportWarningCode {
   /// warning per photo.
   photosSkipped,
 
+  /// Pictures stored inside a logbook file (gear photos, site maps and the
+  /// like) that Submersion has nowhere to keep. [ImportWarning.count] is the
+  /// number of pictures.
+  logbookImagesNotImported,
+
+  /// Trips with no dates of their own and no dated dives, which a trip
+  /// cannot be saved without. [ImportWarning.names] lists the trips.
+  tripsNotImported,
+
   /// A MacDive XML file carries no certifications or equipment service
   /// records: MacDive leaves both out of its XML export.
   macdiveXmlOmitsCertsAndService,

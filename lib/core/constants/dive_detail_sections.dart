@@ -28,7 +28,6 @@ enum DiveDetailSectionId {
   surfaceGps,
   tide,
   navTrack,
-  reefHealth,
   weights,
   buoyancy,
   buddies,
@@ -38,6 +37,10 @@ enum DiveDetailSectionId {
   media,
   tags,
   notes,
+
+  /// Documents filed under the dive (issue #2613). After [notes], so an
+  /// order saved before it existed gains it there.
+  documents,
   customFields,
   diveLab,
   dataSources;
@@ -48,6 +51,13 @@ enum DiveDetailSectionId {
   /// [DiveDetailSectionConfig.sectionsFromJson] expands it into the two
   /// sections that replaced it.
   static const String legacyDecoO2Id = 'decoO2';
+
+  /// The retired section that showed satellite water conditions on a card of
+  /// its own, before they moved into the [environment] card (issue #3282).
+  ///
+  /// Saved orders written before then still name it;
+  /// [DiveDetailSectionConfig.sectionsFromJson] drops it.
+  static const String legacyReefHealthId = 'reefHealth';
 
   /// Human-readable name shown in the settings UI (English fallback).
   String get displayName {
@@ -61,9 +71,8 @@ enum DiveDetailSectionId {
       environment => 'Environment',
       altitude => 'Altitude',
       tide => 'Tide',
-      reefHealth => 'Water Conditions',
-      surfaceGps => 'Surface GPS',
-      navTrack => 'Underwater Route',
+      surfaceGps => 'Location',
+      navTrack => 'Underwater Track',
       weights => 'Weights',
       buoyancy => 'Buoyancy',
       tanks => 'Cylinders',
@@ -74,6 +83,7 @@ enum DiveDetailSectionId {
       media => 'Media',
       tags => 'Tags',
       notes => 'Notes',
+      documents => 'Documents',
       customFields => 'Custom Fields',
       diveLab => 'What if',
       dataSources => 'Data Sources',
@@ -93,9 +103,9 @@ enum DiveDetailSectionId {
       environment => 'Air/water temp, visibility, current',
       altitude => 'Altitude value, category, deco requirement',
       tide => 'Tide cycle graph and timing',
-      reefHealth => 'Satellite water conditions on the dive date',
-      surfaceGps => 'GPS entry/exit points and surface drift',
-      navTrack => 'Measured underwater route from a navigation console',
+      surfaceGps =>
+        'Map of the dive site, GPS entry/exit points and surface drift',
+      navTrack => 'Measured underwater track from a navigation console',
       weights => 'Weight breakdown, total weight',
       buoyancy => 'Buoyancy through the dive, swing, ditchable weight',
       tanks =>
@@ -107,6 +117,7 @@ enum DiveDetailSectionId {
       media => 'Photos/videos gallery',
       tags => 'Dive tags',
       notes => 'Dive notes/description',
+      documents => 'Permits, receipts and other papers filed under the dive',
       customFields => 'User-defined custom fields',
       diveLab => 'Saved what-if scenarios from the Dive Lab',
       dataSources => 'Connected dive computers, source management',
@@ -126,7 +137,6 @@ enum DiveDetailSectionId {
       environment => Icons.thermostat,
       altitude => Icons.terrain,
       tide => Icons.waves,
-      reefHealth => Icons.water,
       surfaceGps => Icons.gps_fixed,
       navTrack => Icons.route,
       weights => Icons.fitness_center,
@@ -139,6 +149,7 @@ enum DiveDetailSectionId {
       media => Icons.photo_library_outlined,
       tags => Icons.label_outline,
       notes => Icons.notes,
+      documents => Icons.folder_copy_outlined,
       customFields => Icons.tune,
       diveLab => Icons.science_outlined,
       dataSources => Icons.watch_outlined,
@@ -157,9 +168,8 @@ enum DiveDetailSectionId {
       environment => l10n.diveDetailSection_environment_name,
       altitude => l10n.diveDetailSection_altitude_name,
       tide => l10n.diveDetailSection_tide_name,
-      reefHealth => l10n.diveDetailSection_reefHealth_name,
       surfaceGps => l10n.diveDetailSection_surfaceGps_name,
-      navTrack => l10n.diveDetailSection_navTrack_name,
+      navTrack => l10n.diveDetailSection_navTrack_trackName,
       weights => l10n.diveDetailSection_weights_name,
       buoyancy => l10n.diveDetailSection_buoyancy_name,
       tanks => l10n.diveDetailSection_tanks_name,
@@ -170,6 +180,7 @@ enum DiveDetailSectionId {
       media => l10n.diveDetailSection_media_name,
       tags => l10n.diveDetailSection_tags_name,
       notes => l10n.diveDetailSection_notes_name,
+      documents => l10n.documents_section_title,
       customFields => l10n.diveDetailSection_customFields_name,
       diveLab => l10n.diveDetailSection_diveLab_name,
       dataSources => l10n.diveDetailSection_dataSources_name,
@@ -188,9 +199,8 @@ enum DiveDetailSectionId {
       environment => l10n.diveDetailSection_environment_description,
       altitude => l10n.diveDetailSection_altitude_description,
       tide => l10n.diveDetailSection_tide_description,
-      reefHealth => l10n.diveDetailSection_reefHealth_description,
       surfaceGps => l10n.diveDetailSection_surfaceGps_description,
-      navTrack => l10n.diveDetailSection_navTrack_description,
+      navTrack => l10n.diveDetailSection_navTrack_trackDescription,
       weights => l10n.diveDetailSection_weights_description,
       buoyancy => l10n.diveDetailSection_buoyancy_description,
       tanks => l10n.diveDetailSection_tanks_description,
@@ -201,6 +211,7 @@ enum DiveDetailSectionId {
       media => l10n.diveDetailSection_media_description,
       tags => l10n.diveDetailSection_tags_description,
       notes => l10n.diveDetailSection_notes_description,
+      documents => l10n.diveDetailSection_documents_description,
       customFields => l10n.diveDetailSection_customFields_description,
       diveLab => l10n.diveDetailSection_diveLab_description,
       dataSources => l10n.diveDetailSection_dataSources_description,
@@ -291,7 +302,6 @@ class DiveDetailSectionConfig {
     DiveDetailSectionConfig(id: DiveDetailSectionId.surfaceGps, visible: true),
     DiveDetailSectionConfig(id: DiveDetailSectionId.tide, visible: true),
     DiveDetailSectionConfig(id: DiveDetailSectionId.navTrack, visible: true),
-    DiveDetailSectionConfig(id: DiveDetailSectionId.reefHealth, visible: true),
     DiveDetailSectionConfig(id: DiveDetailSectionId.weights, visible: true),
     DiveDetailSectionConfig(id: DiveDetailSectionId.buoyancy, visible: true),
     DiveDetailSectionConfig(id: DiveDetailSectionId.buddies, visible: true),
@@ -301,6 +311,7 @@ class DiveDetailSectionConfig {
     DiveDetailSectionConfig(id: DiveDetailSectionId.media, visible: true),
     DiveDetailSectionConfig(id: DiveDetailSectionId.tags, visible: true),
     DiveDetailSectionConfig(id: DiveDetailSectionId.notes, visible: true),
+    DiveDetailSectionConfig(id: DiveDetailSectionId.documents, visible: true),
     DiveDetailSectionConfig(
       id: DiveDetailSectionId.customFields,
       visible: true,
@@ -355,13 +366,16 @@ class DiveDetailSectionConfig {
 
   /// The configs one saved JSON entry stands for.
   ///
-  /// One entry normally means one section. The retired `decoO2` id is the
-  /// exception: it covered the deco/tissue panel as a whole, so it expands
-  /// into both sections that replaced it, each inheriting the visibility and
-  /// fold state the diver had chosen for the combined panel.
+  /// One entry normally means one section. The retired ids are the
+  /// exceptions. `decoO2` covered the deco/tissue panel as a whole, so it
+  /// expands into both sections that replaced it, each inheriting the
+  /// visibility and fold state the diver had chosen for the combined panel.
+  /// `reefHealth` stands for nothing: its content now lives inside the
+  /// Environment card, which keeps its own entry.
   static Iterable<DiveDetailSectionConfig> _configsForEntry(
     Map<String, dynamic> json,
   ) {
+    if (json['id'] == DiveDetailSectionId.legacyReefHealthId) return const [];
     if (json['id'] == DiveDetailSectionId.legacyDecoO2Id) {
       final visible = json['visible'] as bool? ?? true;
       final expanded = json['expanded'] as bool? ?? false;

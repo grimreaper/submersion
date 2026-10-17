@@ -7,6 +7,7 @@ import 'package:submersion/core/services/sync/sync_event_bus.dart';
 import 'package:submersion/features/buddies/data/repositories/buddy_repository.dart';
 import 'package:submersion/features/buddies/domain/entities/buddy.dart';
 import 'package:submersion/features/dive_log/data/repositories/dive_repository_impl.dart';
+import 'package:submersion/features/dive_roles/data/repositories/dive_role_link_repository.dart';
 import 'package:submersion/features/dive_log/domain/entities/bulk_edit_request.dart';
 import 'package:submersion/features/dive_log/domain/entities/bulk_edit_snapshot.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart' as de;
@@ -29,6 +30,7 @@ class BulkDiveEditService {
   final BuddyRepository _buddyRepo;
   final SpeciesRepository _speciesRepo;
   final _sync = SyncRepository();
+  final _roleLinks = DiveRoleLinkRepository();
 
   AppDatabase get _db => DatabaseService.instance.database;
 
@@ -47,8 +49,10 @@ class BulkDiveEditService {
 
     Map<String, List<String>>? priorTagIds;
     Map<String, List<String>>? priorDiveTypeIds;
+    Map<String, List<String>>? priorCourseIds;
     Map<String, List<GearProvenance>>? priorGear;
     Map<String, List<BuddyWithRole>>? priorBuddies;
+    Map<String, List<String>>? priorDiverRoleIds;
     Map<String, List<DiveTank>>? priorTanks;
     List<DiveTank>? priorTankSpecRows;
     Map<String, List<DiveWeight>>? priorWeights;
@@ -83,6 +87,11 @@ class BulkDiveEditService {
               priorDiveTypeIds[row.id]!.add(row.diveType);
             }
           }
+        case DiveCoursesOp():
+          final current = await _diveRepo.courseIdsForDives(ids);
+          priorCourseIds = {
+            for (final id in ids) id: current[id] ?? const <String>[],
+          };
         case EquipmentOp():
           final rows = await (_db.select(
             _db.diveEquipment,
@@ -101,6 +110,8 @@ class BulkDiveEditService {
           priorBuddies = {
             for (final id in ids) id: await _buddyRepo.getBuddiesForDive(id),
           };
+        case DiverRolesOp():
+          priorDiverRoleIds = await _roleLinks.diverRoleIdsForDives(ids);
         case TanksOp():
           final rows = await (_db.select(
             _db.diveTanks,
@@ -151,8 +162,10 @@ class BulkDiveEditService {
       priorDiveRows: priorDiveRows,
       priorTagIds: priorTagIds,
       priorDiveTypeIds: priorDiveTypeIds,
+      priorCourseIds: priorCourseIds,
       priorGear: priorGear,
       priorBuddies: priorBuddies,
+      priorDiverRoleIds: priorDiverRoleIds,
       priorTanks: priorTanks,
       priorTankSpecRows: priorTankSpecRows,
       priorWeights: priorWeights,
@@ -181,6 +194,12 @@ class BulkDiveEditService {
         );
       }
 
+      final diverRoles = snapshot.priorDiverRoleIds;
+      if (diverRoles != null) {
+        for (final id in ids) {
+          await _roleLinks.writeDiverRoles(id, diverRoles[id] ?? const []);
+        }
+      }
       final tags = snapshot.priorTagIds;
       if (tags != null) {
         for (final id in ids) {
@@ -191,6 +210,14 @@ class BulkDiveEditService {
       if (diveTypes != null) {
         for (final id in ids) {
           await _diveRepo.bulkReplaceDiveTypes([id], diveTypes[id] ?? const []);
+        }
+      }
+      // After the dive rows, whose representative course_id the replace then
+      // rewrites from the restored set (#2515).
+      final courses = snapshot.priorCourseIds;
+      if (courses != null) {
+        for (final id in ids) {
+          await _diveRepo.bulkReplaceCourses([id], courses[id] ?? const []);
         }
       }
       final gear = snapshot.priorGear;
@@ -266,6 +293,17 @@ class BulkDiveEditService {
           case BulkCollectionMode.update:
             throw UnsupportedError('Dive types have no in-place update');
         }
+      case DiveCoursesOp(:final mode, :final courseIds):
+        switch (mode) {
+          case BulkCollectionMode.add:
+            await _diveRepo.bulkAddCourses(ids, courseIds);
+          case BulkCollectionMode.remove:
+            await _diveRepo.bulkRemoveCourses(ids, courseIds);
+          case BulkCollectionMode.replace:
+            await _diveRepo.bulkReplaceCourses(ids, courseIds);
+          case BulkCollectionMode.update:
+            throw UnsupportedError('Courses have no in-place update');
+        }
       case EquipmentOp(:final mode, :final equipmentIds):
         switch (mode) {
           case BulkCollectionMode.add:
@@ -299,6 +337,11 @@ class BulkDiveEditService {
             // that SHOULD travel with membership still rides
             // add + overwriteRole (#893).
             await _buddyRepo.bulkUpdateBuddyRoles(ids, buddies);
+        }
+      case DiverRolesOp(:final roleIds):
+        final now = DateTime.now().millisecondsSinceEpoch;
+        for (final id in ids) {
+          await _roleLinks.writeDiverRoles(id, roleIds, now: now);
         }
       // Owned collections never support remove; reject it explicitly so a
       // misconstructed op fails fast instead of silently doing an add. Tanks
@@ -370,15 +413,23 @@ class BulkDiveEditService {
                 (e) => e.name == r.tankMaterial,
                 orElse: () => en.TankMaterial.aluminum,
               ),
+        roleSource: en.TankRoleSource.fromName(r.roleSource),
         presetName: r.presetName,
         computerId: r.computerId,
         transmitterSerial: r.transmitterSerial,
+        sourceId: r.sourceId,
         regulatorEquipmentId: r.regulatorEquipmentId,
         tripCylinderId: r.tripCylinderId,
+        // The tagged cylinder (#2650), restore-only like the slot.
+        passportId: r.passportId,
         sourceTankIndex: r.sourceTankIndex,
         // The cylinder link the registry recorded; bulkReplaceTanks writes
         // it only when told this is a restore.
         equipmentId: r.equipmentId,
+        // What the source log recorded (#1496), likewise restore-only.
+        usageDuration: r.usageDuration != null
+            ? Duration(seconds: r.usageDuration!)
+            : null,
       ),
   ];
 
@@ -393,6 +444,7 @@ class BulkDiveEditService {
         ),
         amountKg: r.amountKg,
         notes: r.notes,
+        label: r.label,
       ),
   ];
 

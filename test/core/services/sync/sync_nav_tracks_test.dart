@@ -1,4 +1,6 @@
+import 'package:drift/drift.dart' show TableUpdateQuery;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/sync/sync_data_serializer.dart';
 import 'package:submersion/features/nav_track/data/repositories/nav_track_repository.dart';
 import 'package:submersion/features/nav_track/domain/entities/nav_track.dart';
@@ -17,9 +19,10 @@ import '../../../helpers/test_database.dart';
 void main() {
   late SyncDataSerializer serializer;
   late NavTrackRepository repo;
+  late AppDatabase db;
 
   setUp(() async {
-    await setUpTestDatabase();
+    db = await setUpTestDatabase();
     serializer = SyncDataSerializer();
     repo = NavTrackRepository();
   });
@@ -65,6 +68,209 @@ void main() {
     expect(restored.points.first.north, closeTo(0, 1e-9));
     expect(restored.points[1].east, closeTo(5, 1e-9));
     expect(restored.points.last.depth, closeTo(8.9, 1e-9));
+  });
+
+  test('a route\'s owner (v252 diver_id) travels with it', () async {
+    await db.customStatement(
+      "INSERT INTO divers (id, name, created_at, updated_at) "
+      "VALUES ('me', 'me', 1, 1)",
+    );
+    final id = await repo.insertImportedRoute(
+      points: samplePoints(),
+      source: NavTrackSource.seacraftEnc,
+      sourceRef: '008.DAT.csv',
+      diverId: 'me',
+    );
+
+    final fetched = await serializer.fetchRecord('navTracks', id);
+    expect(fetched!['diverId'], 'me');
+
+    await serializer.deleteRecord('navTracks', id);
+    await serializer.upsertRecord('navTracks', fetched);
+
+    final row = await db
+        .customSelect("SELECT diver_id FROM nav_tracks WHERE id = '$id'")
+        .getSingle();
+    expect(row.read<String?>('diver_id'), 'me');
+  });
+
+  test('a route\'s source metadata (v285) travels with it', () async {
+    const metadata = {
+      'DiveRouteQuality': 0,
+      'QualityFeatures': [16, 0.1],
+    };
+    final id = await repo.insertImportedRoute(
+      points: samplePoints(),
+      source: NavTrackSource.suuntoRoute,
+      sourceRef: 'suunto:NS-1:x',
+      sourceMetadata: metadata,
+    );
+
+    final fetched = (await serializer.fetchRecord('navTracks', id))!;
+    expect(fetched['sourceMetadata'], isA<String>());
+
+    await serializer.deleteRecord('navTracks', id);
+    await serializer.upsertRecord('navTracks', fetched);
+
+    expect((await repo.getById(id))!.sourceMetadata, metadata);
+  });
+
+  test('a row from a peer that predates source metadata keeps the local '
+      'value', () async {
+    const metadata = {'DiveRouteQuality': 0};
+    final id = await repo.insertImportedRoute(
+      points: samplePoints(),
+      source: NavTrackSource.suuntoRoute,
+      sourceRef: 'suunto:NS-1:x',
+      sourceMetadata: metadata,
+    );
+    final fetched = (await serializer.fetchRecord('navTracks', id))!;
+    // A peer below v285 omits the column it does not have.
+    final fromOlderPeer = {...fetched, 'name': 'Renamed'}
+      ..remove('sourceMetadata');
+
+    await serializer.upsertRecord('navTracks', fromOlderPeer);
+
+    final route = (await repo.getById(id))!;
+    expect(route.name, 'Renamed');
+    expect(route.sourceMetadata, metadata);
+  });
+
+  test('a linked route from a peer that predates its owner column takes its '
+      'dive\'s diver once the apply is repaired', () async {
+    await db.customStatement(
+      "INSERT INTO divers (id, name, created_at, updated_at) "
+      "VALUES ('me', 'me', 1, 1)",
+    );
+    await db.customStatement(
+      "INSERT INTO dives (id, diver_id, dive_date_time, created_at, "
+      "updated_at) VALUES ('my-dive', 'me', 1700000000000, 1, 1)",
+    );
+    final id = await seedRoute();
+    final fetched = (await serializer.fetchRecord('navTracks', id))!;
+    await serializer.deleteRecord('navTracks', id);
+    // What a v240-v251 peer sends after linking it: no diverId at all.
+    final fromOlderPeer = {...fetched, 'diveId': 'my-dive'}..remove('diverId');
+
+    await serializer.upsertRecord('navTracks', fromOlderPeer);
+    await serializer.repairDanglingForeignKeys();
+
+    final row = await db
+        .customSelect("SELECT diver_id FROM nav_tracks WHERE id = '$id'")
+        .getSingle();
+    expect(row.read<String?>('diver_id'), 'me');
+  });
+
+  test('an adopted or restored row from a peer that predates the owner '
+      'column keeps an unlinked route\'s local owner', () async {
+    await db.customStatement(
+      "INSERT INTO divers (id, name, created_at, updated_at) "
+      "VALUES ('me', 'me', 1, 1)",
+    );
+    final id = await repo.insertImportedRoute(
+      points: samplePoints(),
+      source: NavTrackSource.seacraftEnc,
+      sourceRef: '008.DAT.csv',
+      diverId: 'me',
+    );
+    final fetched = (await serializer.fetchRecord('navTracks', id))!;
+    // The adopt and restore paths hand a peer's row straight to
+    // upsertRecord, with no merge overlay; a v240-v251 peer omits diverId.
+    final fromOlderPeer = {...fetched, 'name': 'Renamed'}..remove('diverId');
+
+    await serializer.upsertRecord('navTracks', fromOlderPeer);
+    await serializer.repairDanglingForeignKeys();
+
+    final row = await db
+        .customSelect("SELECT diver_id, name FROM nav_tracks WHERE id = '$id'")
+        .getSingle();
+    expect(row.read<String?>('name'), 'Renamed');
+    expect(row.read<String?>('diver_id'), 'me');
+  });
+
+  test('the repair leaves an unlinked route\'s owner alone', () async {
+    await db.customStatement(
+      "INSERT INTO divers (id, name, created_at, updated_at) "
+      "VALUES ('me', 'me', 1, 1)",
+    );
+    final id = await repo.insertImportedRoute(
+      points: samplePoints(),
+      source: NavTrackSource.seacraftEnc,
+      sourceRef: '008.DAT.csv',
+      diverId: 'me',
+    );
+
+    await serializer.repairDanglingForeignKeys();
+
+    final row = await db
+        .customSelect("SELECT diver_id FROM nav_tracks WHERE id = '$id'")
+        .getSingle();
+    expect(row.read<String?>('diver_id'), 'me');
+  });
+
+  group('re-owning a linked route after a synced dive changes diver', () {
+    late String routeId;
+
+    setUp(() async {
+      for (final id in ['me', 'buddy']) {
+        await db.customStatement(
+          "INSERT INTO divers (id, name, created_at, updated_at) "
+          "VALUES ('$id', '$id', 1, 1)",
+        );
+      }
+      await db.customStatement(
+        "INSERT INTO dives (id, diver_id, dive_date_time, created_at, "
+        "updated_at) VALUES ('d', 'me', 1700000000000, 1, 1)",
+      );
+      routeId = await repo.insertImportedRoute(
+        points: samplePoints(),
+        source: NavTrackSource.seacraftEnc,
+        sourceRef: '008.DAT.csv',
+        diverId: 'me',
+      );
+      await repo.link(routeId, 'd', linkMode: NavTrackLinkMode.manual);
+    });
+
+    /// How many nav_tracks change notifications [body] sends, once its
+    /// transaction has committed and Drift has delivered them.
+    Future<int> routeNotificationsDuring(Future<void> Function() body) async {
+      // Let the seeding writes' own notifications drain first.
+      await pumpEventQueue();
+      var count = 0;
+      final sub = db
+          .tableUpdates(TableUpdateQuery.onTable(db.navTracks))
+          .listen((_) => count++);
+      addTearDown(sub.cancel);
+      await body();
+      await pumpEventQueue();
+      return count;
+    }
+
+    test('tells route watchers, so the routes list drops it (#2851)', () async {
+      final dive = (await serializer.fetchRecord('dives', 'd'))!;
+
+      final notifications = await routeNotificationsDuring(
+        () => serializer.applyInDeferredFkTransaction(() async {
+          // The dive alone arrives; its route is not in the payload.
+          await serializer.upsertRecord('dives', {...dive, 'diverId': 'buddy'});
+          await serializer.repairDanglingForeignKeys();
+        }),
+      );
+
+      final row = await db
+          .customSelect("SELECT diver_id FROM nav_tracks WHERE id = '$routeId'")
+          .getSingle();
+      expect(row.read<String?>('diver_id'), 'buddy');
+      expect(notifications, greaterThan(0));
+    });
+
+    test('stays quiet when every linked route already has its owner', () async {
+      final notifications = await routeNotificationsDuring(
+        serializer.alignLinkedRouteOwners,
+      );
+
+      expect(notifications, 0);
+    });
   });
 
   test(

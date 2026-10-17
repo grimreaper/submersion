@@ -7,13 +7,17 @@ import 'package:submersion/core/accessibility/semantic_helpers.dart';
 import 'package:submersion/core/constants/gas_consumption_display.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
+import 'package:submersion/features/insights/domain/focus/focus_metric.dart';
+import 'package:submersion/features/insights/domain/focus/focus_selection.dart';
+import 'package:submersion/features/insights/presentation/providers/insights_focus_providers.dart';
 import 'package:submersion/features/insights/presentation/providers/insights_gas_lane_provider.dart';
 import 'package:submersion/features/insights/presentation/providers/insights_providers.dart';
 import 'package:submersion/features/insights/presentation/providers/trend_chart_settings_provider.dart';
 import 'package:submersion/features/insights/presentation/widgets/ranking_list.dart';
-import 'package:submersion/features/insights/presentation/widgets/stat_charts.dart';
 import 'package:submersion/features/insights/presentation/widgets/stat_section_card.dart';
+import 'package:submersion/features/insights/presentation/widgets/tank_configuration_card.dart';
 import 'package:submersion/features/insights/presentation/widgets/insights_filter_bar.dart';
+import 'package:submersion/features/insights/presentation/widgets/horizontal_category_bar_chart.dart';
 import 'package:submersion/features/insights/presentation/widgets/insights_filter_action.dart';
 import 'package:submersion/features/insights/presentation/widgets/trend_chart_section.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
@@ -41,6 +45,8 @@ class InsightsGasPage extends ConsumerWidget {
           _buildSacTrendSection(context, ref, units),
           const SizedBox(height: 16),
           _buildGasMixSection(context, ref),
+          const SizedBox(height: 16),
+          const TankConfigurationCard(),
           const SizedBox(height: 16),
           _buildSacByRoleSection(context, ref, units),
           const SizedBox(height: 16),
@@ -133,16 +139,15 @@ class InsightsGasPage extends ConsumerWidget {
       title: context.l10n.insights_gas_gasMix_title,
       subtitle: context.l10n.insights_gas_gasMix_subtitle,
       child: gasMixAsync.when(
-        data: (data) => DistributionPieChart(
-          data: data,
-          colors: [
-            Colors.blue.shade400,
-            Colors.green.shade400,
-            Colors.purple.shade400,
-          ],
+        // Bars rather than a pie (issue #3048): a dive breathing more than
+        // one mix, such as air back gas with a nitrox deco tank, counts under
+        // each, so the counts are not shares of a whole.
+        data: (data) => HorizontalCategoryBarChart(
+          data: [for (final s in data) (label: s.label, count: s.count)],
+          barColor: Colors.blue.shade400,
         ),
         loading: () => const SizedBox(
-          height: 200,
+          height: 120,
           child: Center(child: CircularProgressIndicator()),
         ),
         error: (_, _) => StatEmptyState(
@@ -255,10 +260,27 @@ class InsightsGasPage extends ConsumerWidget {
     final isRmv = lane == GasConsumptionLane.rmv;
     final unitSymbol = isRmv ? units.rmvSymbol : units.sacSymbol;
     String format(double v) => isRmv ? units.formatRmv(v) : units.formatSac(v);
+    final records = sacRecordsAsync.value;
+    final hasRecords = records?.best != null || records?.worst != null;
 
     return StatSectionCard(
       title: context.l10n.insights_gas_sacRecords_title,
       subtitle: context.l10n.insights_gas_sacRecords_subtitle,
+      // Only with records to rank: with none, Dive focus would open empty.
+      trailing: hasRecords
+          ? TextButton(
+              key: const ValueKey('gas-records-see-top'),
+              onPressed: () {
+                ref
+                    .read(focusSelectionProvider.notifier)
+                    .state = FocusSelection(
+                  metric: isRmv ? FocusMetric.rmv : FocusMetric.sac,
+                );
+                context.push('/insights/focus');
+              },
+              child: Text(context.l10n.insights_gas_sacRecords_seeTop),
+            )
+          : null,
       child: sacRecordsAsync.when(
         data: (records) {
           if (records.best == null && records.worst == null) {

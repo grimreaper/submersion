@@ -8,31 +8,43 @@ import 'package:submersion/l10n/arb/app_localizations.dart';
 
 /// Identifies each configurable card on the Site Details page.
 ///
-/// Declaration order is the default display order: the order the page had
-/// before it became configurable. The map card and the name header above
-/// these cards are pinned, so neither appears here; everything below them
-/// is the diver's to arrange.
+/// Declaration order is the default display order (issue #3387), planning
+/// first: what the site is and whether it suits the diver, then how to get
+/// in and when, then what is down there, then the diver's own history and
+/// records. The map card and the name header above these cards are pinned,
+/// so neither appears here; everything below them is the diver's to
+/// arrange.
+///
+/// An order a diver has saved is kept as saved. This order also decides
+/// where a card missing from a saved order joins it: right after its
+/// nearest preceding card here (see `section_order.ensureAllSections`).
 ///
 /// The two pairs in `kSiteDetailSectionPairs` are declared adjacently, in
 /// left-then-right order, so the default order already reads the way the
 /// paired layout renders.
 enum SiteDetailSectionId {
-  diveStatistics,
   description,
-  location,
   depth,
-  altitude,
-  features,
-  tide,
-  reefHealth,
-  marineLife,
-  media,
-  tags,
   difficulty,
   rating,
   hazards,
   access,
-  notes;
+  location,
+  tide,
+
+  /// The site's underwater terrain in 3D, inline.
+  seascape,
+  features,
+  marineLife,
+  reefHealth,
+  media,
+  diveStatistics,
+  notes,
+  tags,
+  altitude,
+
+  /// Documents filed under the site (issue #2613).
+  documents;
 
   /// Icon standing in for the card in the display-options menu and, in the
   /// list layout, on the card's folded header row.
@@ -41,6 +53,7 @@ enum SiteDetailSectionId {
       diveStatistics => Icons.scuba_diving,
       description => Icons.description_outlined,
       location => Icons.public,
+      seascape => Icons.view_in_ar,
       depth => Icons.vertical_align_bottom,
       altitude => Icons.terrain,
       features => Icons.place_outlined,
@@ -54,6 +67,7 @@ enum SiteDetailSectionId {
       hazards => Icons.warning_amber,
       access => Icons.directions,
       notes => Icons.notes,
+      documents => Icons.folder_copy_outlined,
     };
   }
 
@@ -63,6 +77,7 @@ enum SiteDetailSectionId {
       diveStatistics => l10n.diveSites_detail_section_divesAtSite,
       description => l10n.diveSites_detail_section_description,
       location => l10n.diveSites_detail_section_location,
+      seascape => l10n.dive3d_seascape_siteTitle,
       depth => l10n.diveSites_detail_section_depthRange,
       altitude => l10n.diveSites_detail_section_altitude,
       features => l10n.siteFeature_sectionTitle,
@@ -76,6 +91,7 @@ enum SiteDetailSectionId {
       hazards => l10n.diveSites_detail_section_hazards,
       access => l10n.diveSites_detail_section_access,
       notes => l10n.diveSites_detail_section_notes,
+      documents => l10n.documents_section_title,
     };
   }
 
@@ -85,6 +101,7 @@ enum SiteDetailSectionId {
       diveStatistics => l10n.siteDetailSection_diveStatistics_description,
       description => l10n.siteDetailSection_description_description,
       location => l10n.siteDetailSection_location_description,
+      seascape => l10n.siteDetailSection_seascape_description,
       depth => l10n.siteDetailSection_depth_description,
       altitude => l10n.siteDetailSection_altitude_description,
       features => l10n.siteDetailSection_features_description,
@@ -98,6 +115,7 @@ enum SiteDetailSectionId {
       hazards => l10n.siteDetailSection_hazards_description,
       access => l10n.siteDetailSection_access_description,
       notes => l10n.siteDetailSection_notes_description,
+      documents => l10n.siteDetailSection_documents_description,
     };
   }
 }
@@ -156,25 +174,27 @@ class SiteDetailSectionConfig {
   }
 
   static const List<SiteDetailSectionConfig> defaultSections = [
-    SiteDetailSectionConfig(
-      id: SiteDetailSectionId.diveStatistics,
-      visible: true,
-    ),
     SiteDetailSectionConfig(id: SiteDetailSectionId.description, visible: true),
-    SiteDetailSectionConfig(id: SiteDetailSectionId.location, visible: true),
     SiteDetailSectionConfig(id: SiteDetailSectionId.depth, visible: true),
-    SiteDetailSectionConfig(id: SiteDetailSectionId.altitude, visible: true),
-    SiteDetailSectionConfig(id: SiteDetailSectionId.features, visible: true),
-    SiteDetailSectionConfig(id: SiteDetailSectionId.tide, visible: true),
-    SiteDetailSectionConfig(id: SiteDetailSectionId.reefHealth, visible: true),
-    SiteDetailSectionConfig(id: SiteDetailSectionId.marineLife, visible: true),
-    SiteDetailSectionConfig(id: SiteDetailSectionId.media, visible: true),
-    SiteDetailSectionConfig(id: SiteDetailSectionId.tags, visible: true),
     SiteDetailSectionConfig(id: SiteDetailSectionId.difficulty, visible: true),
     SiteDetailSectionConfig(id: SiteDetailSectionId.rating, visible: true),
     SiteDetailSectionConfig(id: SiteDetailSectionId.hazards, visible: true),
     SiteDetailSectionConfig(id: SiteDetailSectionId.access, visible: true),
+    SiteDetailSectionConfig(id: SiteDetailSectionId.location, visible: true),
+    SiteDetailSectionConfig(id: SiteDetailSectionId.tide, visible: true),
+    SiteDetailSectionConfig(id: SiteDetailSectionId.seascape, visible: true),
+    SiteDetailSectionConfig(id: SiteDetailSectionId.features, visible: true),
+    SiteDetailSectionConfig(id: SiteDetailSectionId.marineLife, visible: true),
+    SiteDetailSectionConfig(id: SiteDetailSectionId.reefHealth, visible: true),
+    SiteDetailSectionConfig(id: SiteDetailSectionId.media, visible: true),
+    SiteDetailSectionConfig(
+      id: SiteDetailSectionId.diveStatistics,
+      visible: true,
+    ),
     SiteDetailSectionConfig(id: SiteDetailSectionId.notes, visible: true),
+    SiteDetailSectionConfig(id: SiteDetailSectionId.tags, visible: true),
+    SiteDetailSectionConfig(id: SiteDetailSectionId.altitude, visible: true),
+    SiteDetailSectionConfig(id: SiteDetailSectionId.documents, visible: true),
   ];
 
   /// [sections] reordered as if [rendered] had its [oldIndex] entry dropped

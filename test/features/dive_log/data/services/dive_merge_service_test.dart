@@ -7,6 +7,7 @@ import 'package:submersion/features/dive_log/data/repositories/dive_repository_i
 import 'package:submersion/features/dive_log/data/repositories/profile_series_repository.dart';
 import 'package:submersion/features/dive_log/data/repositories/tank_pressure_series_repository.dart';
 import 'package:submersion/features/dive_log/data/services/dive_merge_service.dart';
+import 'package:submersion/features/dive_roles/data/repositories/dive_role_link_repository.dart';
 import 'package:submersion/features/dive_log/domain/codecs/profile_sample.dart';
 import 'package:submersion/features/dive_log/domain/codecs/tank_pressure_series_codec.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart'
@@ -154,6 +155,45 @@ void main() {
           ).copyWith(diveId: Value(id)),
         );
   }
+
+  group('role sets (#1221)', () {
+    test('roles are unioned per person and undo restores them', () async {
+      await seedDive('a', entry: DateTime.utc(2026, 7, 1, 9));
+      await seedDive('b', entry: DateTime.utc(2026, 7, 1, 10), runtimeMin: 20);
+      final roles = DiveRoleLinkRepository();
+      await roles.writeDiverRoles('a', ['instructor']);
+      await roles.writeDiverRoles('b', ['safetyDiver']);
+      await roles.writeBuddyRoles('a', 'buddy-cat-1', ['diveMaster']);
+      await roles.writeBuddyRoles('b', 'buddy-cat-1', ['diveGuide']);
+      final before = (
+        diver: await roles.diverRoleIdsForDives(['a', 'b']),
+        buddy: await roles.buddyRoleIdsForDives(['a', 'b']),
+      );
+
+      final outcome = await service.apply(['a', 'b']);
+      final mergedId = outcome.mergedDive.id;
+
+      expect((await roles.diverRoleIdsForDives([mergedId]))[mergedId], [
+        'instructor',
+        'safetyDiver',
+      ]);
+      expect(
+        (await roles.buddyRoleIdsForDives([
+          mergedId,
+        ]))[mergedId]!['buddy-cat-1'],
+        ['diveGuide', 'diveMaster'],
+      );
+
+      await service.undo(outcome.snapshot);
+
+      expect(await roles.diverRoleIdsForDives(['a', 'b']), before.diver);
+      expect(await roles.buddyRoleIdsForDives(['a', 'b']), before.buddy);
+      final leftovers = await (db.select(
+        db.diveBuddyRoles,
+      )..where((t) => t.diveId.equals(mergedId))).get();
+      expect(leftovers, isEmpty);
+    });
+  });
 
   group('captureSnapshot', () {
     test('captures every child table and media pointers', () async {
@@ -371,6 +411,40 @@ void main() {
       expect(
         hostSeries.every((s) => s.isPrimary && s.computerId == null),
         isTrue,
+      );
+    });
+
+    test('merged copies keep their activation times (#3189)', () async {
+      await seedDive('a', entry: DateTime.utc(2026, 7, 1, 9));
+      await profileSeries.insertSeries(
+        diveId: 'a',
+        computerId: 'sec-comp',
+        isPrimary: false,
+        activatedAt: const Value(5),
+        samples: const [ProfileSample(timestamp: 30, depth: 5)],
+        now: 0,
+      );
+      await profileSeries.insertSeries(
+        diveId: 'a',
+        computerId: 'third-comp',
+        isPrimary: false,
+        samples: const [ProfileSample(timestamp: 30, depth: 6)],
+        now: 0,
+      );
+      await seedDive('b', entry: DateTime.utc(2026, 7, 1, 10));
+
+      final outcome = await service.apply(['a', 'b']);
+
+      final merged = await profileSeries.getSeriesForDive(
+        outcome.mergedDive.id,
+      );
+      expect(
+        merged.singleWhere((s) => s.computerId == 'sec-comp').activatedAt,
+        5,
+      );
+      expect(
+        merged.singleWhere((s) => s.computerId == 'third-comp').activatedAt,
+        isNull,
       );
     });
 

@@ -3,6 +3,7 @@ import 'dart:async';
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/services/sync/sync_clock.dart';
@@ -67,6 +68,27 @@ Future<void> _insertDiveWithEntryLocation(
   );
 }
 
+Future<void> _insertDiver(AppDatabase db, String id) {
+  return db.customStatement(
+    "INSERT INTO divers (id, name, created_at, updated_at) "
+    "VALUES ('$id', '$id', 1, 1)",
+  );
+}
+
+Future<void> _insertDiveOwnedBy(AppDatabase db, String id, String diverId) {
+  return db.customStatement(
+    "INSERT INTO dives (id, diver_id, dive_date_time, created_at, updated_at) "
+    "VALUES ('$id', '$diverId', 1700000000000, 1, 1)",
+  );
+}
+
+Future<String?> _ownerOf(AppDatabase db, String routeId) async {
+  final row = await db
+      .customSelect("SELECT diver_id FROM nav_tracks WHERE id = '$routeId'")
+      .getSingle();
+  return row.read<String?>('diver_id');
+}
+
 void main() {
   late AppDatabase db;
   late NavTrackRepository repo;
@@ -84,6 +106,55 @@ void main() {
   });
 
   group('insertImportedRoute', () {
+    test('keeps the source metadata as-is (#3047)', () async {
+      const metadata = {
+        'DiveRouteQuality': 0,
+        'QualityFeatures': [16, 0.10000000149011612],
+      };
+      final id = await repo.insertImportedRoute(
+        points: _samplePoints(),
+        source: NavTrackSource.suuntoRoute,
+        sourceRef: 'suunto:NS-1:2026-10-09T10:00:00.000Z',
+        sourceMetadata: metadata,
+      );
+
+      expect((await repo.getById(id))!.sourceMetadata, metadata);
+    });
+
+    test('stores no source metadata when the source carried none', () async {
+      final id = await repo.insertImportedRoute(
+        points: _samplePoints(),
+        source: NavTrackSource.seacraftEnc,
+        sourceRef: '008.DAT.csv',
+      );
+
+      final row = await db
+          .customSelect(
+            "SELECT source_metadata FROM nav_tracks WHERE id = '$id'",
+          )
+          .getSingle();
+      expect(row.read<String?>('source_metadata'), isNull);
+      expect((await repo.getById(id))!.sourceMetadata, isNull);
+    });
+
+    test(
+      'reads unreadable stored metadata as none and still loads the route',
+      () async {
+        final id = await repo.insertImportedRoute(
+          points: _samplePoints(),
+          source: NavTrackSource.suuntoRoute,
+          sourceRef: 'suunto:NS-1:x',
+        );
+        await db.customStatement(
+          "UPDATE nav_tracks SET source_metadata = '[1,2]' WHERE id = '$id'",
+        );
+
+        final route = await repo.getById(id);
+        expect(route, isNotNull);
+        expect(route!.sourceMetadata, isNull);
+      },
+    );
+
     test('stores the route and its summary stats', () async {
       final points = _samplePoints();
       final id = await repo.insertImportedRoute(
@@ -150,6 +221,61 @@ void main() {
 
       final route = await repo.getById(id);
       expect(route!.anchor, const GeoPoint(47.1, 8.3));
+    });
+
+    test('an explicit anchor wins over the dive\'s entry fix (a Suunto '
+        'route is relative to its own DiveRouteOrigin)', () async {
+      await _insertDiveWithEntryLocation(
+        db,
+        'd1',
+        latitude: 47.2,
+        longitude: 8.4,
+      );
+
+      final id = await repo.insertImportedRoute(
+        points: _samplePoints(),
+        source: NavTrackSource.suuntoRoute,
+        sourceRef: 'suunto:NS-1:2026-04-19T13:44:40.000Z',
+        diveId: 'd1',
+        anchorLatitude: 47.25,
+        anchorLongitude: 8.45,
+      );
+
+      expect((await repo.getById(id))!.anchor, const GeoPoint(47.25, 8.45));
+    });
+
+    test('an explicit anchor wins over a chosen site', () async {
+      await _insertSite(db, 's1', latitude: 10, longitude: 20);
+
+      final id = await repo.insertImportedRoute(
+        points: _samplePoints(),
+        source: NavTrackSource.suuntoRoute,
+        sourceRef: 'r',
+        siteId: 's1',
+        anchorLatitude: 11,
+        anchorLongitude: 21,
+      );
+
+      expect((await repo.getById(id))!.anchor, const GeoPoint(11, 21));
+    });
+
+    test('a half-given anchor is ignored and the fallback applies', () async {
+      await _insertDiveWithEntryLocation(
+        db,
+        'd1',
+        latitude: 47.2,
+        longitude: 8.4,
+      );
+
+      final id = await repo.insertImportedRoute(
+        points: _samplePoints(),
+        source: NavTrackSource.suuntoRoute,
+        sourceRef: 'r',
+        diveId: 'd1',
+        anchorLatitude: 1,
+      );
+
+      expect((await repo.getById(id))!.anchor, const GeoPoint(47.2, 8.4));
     });
 
     test('leaves the anchor null when no site is chosen', () async {
@@ -272,6 +398,92 @@ void main() {
           .customSelect("SELECT hlc FROM nav_tracks WHERE id = '$id'")
           .getSingle();
       expect(row.read<String?>('hlc'), isNotNull);
+    });
+  });
+
+  group('diver ownership', () {
+    setUp(() async {
+      await _insertDiver(db, 'me');
+      await _insertDiver(db, 'buddy');
+    });
+
+    Future<String> importRoute({String? diverId, String? diveId}) =>
+        repo.insertImportedRoute(
+          points: _samplePoints(),
+          source: NavTrackSource.seacraftEnc,
+          sourceRef: 'r.csv',
+          diverId: diverId,
+          diveId: diveId,
+        );
+
+    test('an unlinked import belongs to the diver who imported it', () async {
+      final id = await importRoute(diverId: 'me');
+      expect(await _ownerOf(db, id), 'me');
+    });
+
+    test('an import with no active diver stays ownerless', () async {
+      final id = await importRoute();
+      expect(await _ownerOf(db, id), isNull);
+    });
+
+    test('a route pre-linked at import belongs to its dive\'s diver', () async {
+      await _insertDiveOwnedBy(db, 'buddy-dive', 'buddy');
+      final id = await importRoute(diverId: 'me', diveId: 'buddy-dive');
+      expect(await _ownerOf(db, id), 'buddy');
+    });
+
+    test('linking hands the route to the dive\'s diver', () async {
+      await _insertDiveOwnedBy(db, 'buddy-dive', 'buddy');
+      final id = await importRoute(diverId: 'me');
+
+      await repo.link(id, 'buddy-dive', linkMode: NavTrackLinkMode.manual);
+
+      expect(await _ownerOf(db, id), 'buddy');
+    });
+
+    test('linking an ownerless route gives it an owner', () async {
+      await _insertDiveOwnedBy(db, 'my-dive', 'me');
+      final id = await importRoute();
+
+      await repo.link(id, 'my-dive', linkMode: NavTrackLinkMode.auto);
+
+      expect(await _ownerOf(db, id), 'me');
+    });
+
+    test('getUnlinked and getAll show a diver their own routes and ownerless '
+        'ones, never another diver\'s', () async {
+      await _insertDiveOwnedBy(db, 'my-dive', 'me');
+      final mineUnlinked = await importRoute(diverId: 'me');
+      final mineLinked = await importRoute(diverId: 'me', diveId: 'my-dive');
+      final ownerless = await importRoute();
+      final buddys = await importRoute(diverId: 'buddy');
+
+      final unlinked = await repo.getUnlinked(diverId: 'me');
+      expect(
+        unlinked.map((r) => r.id),
+        unorderedEquals([mineUnlinked, ownerless]),
+      );
+
+      final all = await repo.getAll(diverId: 'me');
+      expect(
+        all.map((r) => r.id),
+        unorderedEquals([mineUnlinked, mineLinked, ownerless]),
+      );
+      expect(all.map((r) => r.id), isNot(contains(buddys)));
+    });
+
+    test('a null diver reads every route, as before', () async {
+      final mine = await importRoute(diverId: 'me');
+      final buddys = await importRoute(diverId: 'buddy');
+
+      expect(
+        (await repo.getAll()).map((r) => r.id),
+        unorderedEquals([mine, buddys]),
+      );
+      expect(
+        (await repo.getUnlinked()).map((r) => r.id),
+        unorderedEquals([mine, buddys]),
+      );
     });
   });
 
@@ -891,7 +1103,12 @@ void main() {
     test('never select the points column', () async {
       // Swap in a database that logs the SQL it runs.
       await tearDownTestDatabase();
-      db = AppDatabase(NativeDatabase.memory(logStatements: true));
+      db = AppDatabase(
+        NativeDatabase.memory(
+          setup: registerAppSqlFunctions,
+          logStatements: true,
+        ),
+      );
       DatabaseService.instance.setTestDatabase(db);
       await db.customStatement('PRAGMA foreign_keys = ON');
       await _insertMinimalDive(db, 'd1');
@@ -949,6 +1166,40 @@ void main() {
         sourceRef: 'a.csv',
       );
       await expectLater(future, completes);
+    });
+  });
+
+  group('unlink onlyFromDiveId', () {
+    Future<String> routeOn(String diveId) => repo.insertImportedRoute(
+      points: _samplePoints(),
+      source: NavTrackSource.seacraftEnc,
+      sourceRef: 'guard.csv',
+      diveId: diveId,
+    );
+
+    test(
+      'leaves a route that is now linked to a different dive alone',
+      () async {
+        await _insertMinimalDive(db, 'dive-a');
+        await _insertMinimalDive(db, 'dive-b');
+        final id = await routeOn('dive-b');
+
+        await repo.unlink(id, onlyFromDiveId: 'dive-a');
+
+        final route = await repo.getById(id, includePoints: false);
+        expect(route!.diveId, 'dive-b');
+        expect(route.isPrimary, isTrue);
+      },
+    );
+
+    test('unlinks a route still on the expected dive', () async {
+      await _insertMinimalDive(db, 'dive-a');
+      final id = await routeOn('dive-a');
+
+      await repo.unlink(id, onlyFromDiveId: 'dive-a');
+
+      final route = await repo.getById(id, includePoints: false);
+      expect(route!.diveId, isNull);
     });
   });
 }

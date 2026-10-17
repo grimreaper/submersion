@@ -1,5 +1,6 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/constants/enums.dart';
+import 'package:submersion/core/domain/visibility/visibility_range.dart';
 import 'package:submersion/core/presentation/widgets/dive_sparkline.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_custom_field.dart';
@@ -204,9 +205,35 @@ void main() {
       final b = dive(
         'b',
         entry: DateTime.utc(2026, 7, 1, 10),
-      ).copyWith(diverRoleId: 'rearGuard');
+      ).copyWith(diverRoleIds: ['rearGuard']);
       final merged = builder.build([a, b]).mergedDive;
-      expect(merged.diverRoleId, 'rearGuard');
+      expect(merged.diverRoleIds.firstOrNull, 'rearGuard');
+    });
+
+    test('the merged dive holds the union of the diver roles (#1221)', () {
+      final a = dive(
+        'a',
+        entry: DateTime.utc(2026, 7, 1, 9),
+      ).copyWith(diverRoleIds: ['diveMaster']);
+      final b = dive(
+        'b',
+        entry: DateTime.utc(2026, 7, 1, 10),
+      ).copyWith(diverRoleIds: ['diveGuide', 'diveMaster']);
+      final merged = builder.build([a, b]).mergedDive;
+      expect(merged.diverRoleIds, ['diveGuide', 'diveMaster']);
+    });
+
+    test('Solo yields to another role in the union (#1221)', () {
+      final a = dive(
+        'a',
+        entry: DateTime.utc(2026, 7, 1, 9),
+      ).copyWith(diverRoleIds: ['solo']);
+      final b = dive(
+        'b',
+        entry: DateTime.utc(2026, 7, 1, 10),
+      ).copyWith(diverRoleIds: ['instructor']);
+      final merged = builder.build([a, b]).mergedDive;
+      expect(merged.diverRoleIds, ['instructor']);
     });
 
     test('avgDepth is weighted by sampled time and excludes the gap', () {
@@ -258,6 +285,24 @@ void main() {
   });
 
   group('build - metadata', () {
+    test('boat fields and surface conditions: first non-null wins (#3229)', () {
+      final a = dive(
+        'a',
+        entry: DateTime.utc(2026, 7, 1, 9),
+      ).copyWith(boatName: 'Bonaire Breeze', surfaceConditions: 'Calm');
+      final b = dive('b', entry: DateTime.utc(2026, 7, 1, 10)).copyWith(
+        boatName: 'Other boat',
+        boatCaptain: 'Rik',
+        diveOperator: 'Buddy Dive',
+        surfaceConditions: 'Choppy',
+      );
+      final merged = builder.build([b, a]).mergedDive; // unsorted input
+      expect(merged.boatName, 'Bonaire Breeze');
+      expect(merged.surfaceConditions, 'Calm');
+      expect(merged.boatCaptain, 'Rik'); // a has none -> filled from b
+      expect(merged.diveOperator, 'Buddy Dive');
+    });
+
     test('first non-empty wins in chronological order', () {
       final a = dive('a', entry: DateTime.utc(2026, 7, 1, 9)).copyWith(
         rating: 4,
@@ -269,7 +314,7 @@ void main() {
         waterTemp: 19.5,
         diveComputerModel: 'Perdix 2',
         diveNumber: 102,
-        courseId: 'course-1',
+        courseIds: ['course-1'],
       );
       final merged = builder.build([b, a]).mergedDive; // unsorted input
       expect(merged.rating, 4); // a is chronologically first
@@ -377,6 +422,23 @@ void main() {
       final mergedHose = merged.gear.firstWhere((g) => g.item.id == 'hose');
       expect(mergedHose.viaEquipmentId, 'reg');
       expect(mergedHose.viaSetId, 'winter');
+    });
+
+    test('merged weights keep their names', () {
+      final a = dive('a', entry: DateTime.utc(2026, 7, 1, 9)).copyWith(
+        weights: [
+          const DiveWeight(
+            id: 'w1',
+            diveId: 'a',
+            weightType: WeightType.trimWeights,
+            amountKg: 2,
+            label: 'Top pocket',
+          ),
+        ],
+      );
+      final b = dive('b', entry: DateTime.utc(2026, 7, 1, 10));
+      final result = builder.build([a, b]);
+      expect(result.mergedDive.weights.single.label, 'Top pocket');
     });
 
     test('weights come from the first dive that has any', () {
@@ -550,6 +612,43 @@ void main() {
       final a = dive('a', entry: DateTime.utc(2026, 7, 1, 9), runtimeMin: 30);
       final b = dive('b', entry: DateTime.utc(2026, 7, 1, 10), runtimeMin: 30);
       expect(builder.build([a, b]).previewProfile, isEmpty);
+    });
+  });
+
+  group('build - visibility (issue #3226)', () {
+    Dive at(String id, int hour) =>
+        dive(id, entry: DateTime.utc(2026, 7, 1, hour), runtimeMin: 20);
+
+    test('a measured distance from any source wins over an earlier range', () {
+      final a = at(
+        'a',
+        9,
+      ).copyWith(visibilityMinMeters: 6, visibilityMaxMeters: 12);
+      final b = at('b', 10).copyWith(visibilityMeters: 8);
+      final merged = builder.build([a, b]).mergedDive;
+      expect(merged.visibilityMeters, 8);
+      expect(merged.visibilityRange, isNull);
+    });
+
+    test('a range wins over a legacy bucket', () {
+      final a = at('a', 9).copyWith(visibility: Visibility.good);
+      final b = at(
+        'b',
+        10,
+      ).copyWith(visibilityMinMeters: 6, visibilityMaxMeters: 12);
+      final merged = builder.build([a, b]).mergedDive;
+      expect(merged.visibilityRange, const VisibilityRange(minM: 6, maxM: 12));
+      expect(merged.visibility, isNull);
+    });
+
+    test('the range comes whole from one source', () {
+      final a = at('a', 9).copyWith(visibilityMaxMeters: 2);
+      final b = at(
+        'b',
+        10,
+      ).copyWith(visibilityMinMeters: 6, visibilityMaxMeters: 12);
+      final merged = builder.build([a, b]).mergedDive;
+      expect(merged.visibilityRange, const VisibilityRange(maxM: 2));
     });
   });
 }

@@ -16,9 +16,8 @@ import 'package:submersion/core/query/units/unit_prefs.dart';
 export 'package:submersion/core/query/domain/query_errors.dart'
     show ParseFailure, ParseOk, ParseResult;
 
-/// Resolves a typed name to a row of [kind]. The NameIndex from Explore
-/// implements this in PR 5 of #2365; PR 2's editor builds one from the
-/// repositories.
+/// Resolves a typed name to a row of [kind]. `NameIndex` in
+/// lib/core/query/names/ implements this (#2365).
 abstract class NameResolver {
   RefValue? resolve(QuerySubject kind, String text);
   List<String> candidates(QuerySubject kind, String text);
@@ -585,14 +584,23 @@ class QueryParser {
         if (tok.kind != TokenKind.number) {
           throw _Abort(_err(QueryErrorCode.expectedNumber, tok));
         }
-        final m = RegExp(r'^(\d+(?:\.\d+)?)([A-Za-z]*)$').firstMatch(tok.text)!;
+        final m = RegExp(
+          r'^(\d+(?:\.\d+)?)(%|[A-Za-z]*)$',
+        ).firstMatch(tok.text)!;
         // Canonical at four decimals in the typed unit, the precision the
         // printer keeps, so parse(print(x)) == parse(x) for any typed text.
         final raw =
             (double.parse(m[1]!) * 10000).round() / 10000 * (negative ? -1 : 1);
         final suffix = m[2]!;
         QueryUnit? unit;
-        if (suffix.isNotEmpty) {
+        if (suffix == '%') {
+          // `32%` on a percent field is the number it already means.
+          if (field.dimension != FieldDimension.percent) {
+            throw _Abort(
+              _err(QueryErrorCode.unknownUnit, tok, args: {'unit': suffix}),
+            );
+          }
+        } else if (suffix.isNotEmpty) {
           unit = QueryUnit.fromSuffix(suffix);
           if (unit == null) {
             throw _Abort(
@@ -656,9 +664,18 @@ class QueryParser {
             .where((v) => v.toLowerCase() == tok.text.toLowerCase())
             .firstOrNull;
         if (match == null) {
+          // A custom agency or level is typed by its name (issue #690).
+          final custom = field.customValueSubject;
+          if (custom != null) {
+            final ref = context.names.resolve(custom, tok.text);
+            if (ref != null) return EnumValue(ref.id, label: ref.label);
+          }
           // A short closed list: when nothing is close, every value is a
           // better hint than none.
-          final near = suggestNames(tok.text, values);
+          final near = [
+            ...suggestNames(tok.text, values),
+            if (custom != null) ...context.names.candidates(custom, tok.text),
+          ];
           throw _Abort(
             _err(
               QueryErrorCode.notEnumValue,

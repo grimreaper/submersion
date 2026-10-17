@@ -90,6 +90,20 @@ void main() {
       );
       expect(result, '1h 0m');
     });
+
+    test('surface interval past a day reads in days, past a year in years', () {
+      expect(
+        DiveField.surfaceInterval.formatValue(
+          const Duration(hours: 157, minutes: 42),
+          units,
+        ),
+        '6d 13h',
+      );
+      expect(
+        DiveField.surfaceInterval.formatValue(const Duration(days: 400), units),
+        '1y 35d',
+      );
+    });
   });
 
   group('DiveFieldFormatter - dateTime', () {
@@ -414,6 +428,10 @@ void main() {
         DiveField.precipitation: 'None',
         DiveField.humidity: 50.0,
         DiveField.weatherDescription: 'Sunny',
+        DiveField.surfaceConditions: 'Calm',
+        DiveField.diveOperator: 'Buddy Dive',
+        DiveField.boatName: 'Bonaire Breeze',
+        DiveField.boatCaptain: 'Rik',
         DiveField.primaryGas: 'Air',
         DiveField.diluentGas: 'Air',
         DiveField.tankCount: 1,

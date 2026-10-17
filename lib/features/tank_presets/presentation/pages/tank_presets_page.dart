@@ -8,8 +8,10 @@ import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/tank_presets/domain/entities/tank_preset_entity.dart';
 import 'package:submersion/features/tank_presets/presentation/providers/tank_preset_providers.dart';
+import 'package:submersion/features/tank_presets/presentation/widgets/default_start_pressure_tile.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/tank_enum_display.dart';
+import 'package:submersion/shared/widgets/built_in_show_column.dart';
 import 'package:submersion/shared/widgets/fab_clearance.dart';
 
 class TankPresetsPage extends ConsumerWidget {
@@ -76,6 +78,7 @@ class TankPresetsPage extends ConsumerWidget {
                       .setApplyDefaultTankToImports(value);
                 },
               ),
+              const DefaultStartPressureTile(),
               const Divider(),
               if (customPresets.isNotEmpty) ...[
                 _buildSectionHeader(
@@ -94,9 +97,11 @@ class TankPresetsPage extends ConsumerWidget {
                 ),
                 const Divider(),
               ],
-              _buildSectionHeader(
-                context,
-                context.l10n.tankPresets_builtInPresets,
+              BuiltInShowColumnHeader(
+                title: context.l10n.tankPresets_builtInPresets,
+                titleStyle: Theme.of(context).textTheme.titleMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.primary,
+                ),
               ),
               Padding(
                 padding: const EdgeInsets.fromLTRB(16, 0, 16, 8),
@@ -210,15 +215,13 @@ class TankPresetsPage extends ConsumerWidget {
               maintainSize: true,
               maintainAnimation: true,
               maintainState: true,
-              child: Tooltip(
-                message: context.l10n.tankPresets_showInPickers,
-                child: Switch(
-                  key: ValueKey('tank-preset-visible-${preset.name}'),
-                  value: !isHidden,
-                  onChanged: (visible) => ref
-                      .read(settingsProvider.notifier)
-                      .setTankPresetHidden(preset.name, !visible),
-                ),
+              child: BuiltInShowSwitch(
+                switchKey: ValueKey('tank-preset-visible-${preset.name}'),
+                tooltip: context.l10n.tankPresets_showInPickers,
+                shown: !isHidden,
+                onChanged: (visible) => ref
+                    .read(settingsProvider.notifier)
+                    .setTankPresetHidden(preset.name, !visible),
               ),
             ),
           if (canEdit) ...[

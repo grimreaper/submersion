@@ -4,22 +4,29 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'package:submersion/core/router/track_locations.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
-import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_providers.dart';
-import 'package:submersion/features/dive_log/presentation/widgets/pickers/site_picker_sheet.dart';
+import 'package:submersion/features/dive_sites/presentation/widgets/site_picker/site_picker_sheet.dart';
 import 'package:submersion/features/dive_sites/domain/entities/dive_site.dart';
 import 'package:submersion/features/dive_sites/presentation/providers/site_providers.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_providers.dart';
+import 'package:submersion/features/maps/presentation/widgets/map_attribution.dart';
+import 'package:submersion/features/maps/presentation/widgets/map_corner_controls.dart';
+import 'package:submersion/features/maps/presentation/widgets/map_interaction_options.dart';
 import 'package:submersion/features/maps/presentation/widgets/submersion_tile_layer.dart';
 import 'package:submersion/features/nav_track/domain/entities/nav_track.dart';
 import 'package:submersion/features/nav_track/domain/nav_track_corrector.dart';
+import 'package:submersion/features/nav_track/domain/nav_track_matcher.dart';
 import 'package:submersion/features/nav_track/domain/nav_track_stats.dart';
+import 'package:submersion/features/nav_track/presentation/nav_track_dive_label.dart';
 import 'package:submersion/features/nav_track/presentation/providers/nav_track_providers.dart';
+import 'package:submersion/features/nav_track/presentation/widgets/nav_track_dive_choice_sheet.dart';
 import 'package:submersion/features/nav_track/presentation/widgets/nav_track_polyline_layer.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
+import 'package:submersion/shared/widgets/tile_subtitle_action.dart';
 
 /// Whether changing a route's site should also move its anchor to the new
 /// site's pin (item 5).
@@ -71,7 +78,7 @@ class NavTrackDetailPage extends ConsumerWidget {
     final newName = await showDialog<String>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l10n.navTrack_detail_renameTitle),
+        title: Text(l10n.navTrack_detail_renameTrackTitle),
         content: TextField(controller: controller, autofocus: true),
         actions: [
           TextButton(
@@ -104,7 +111,7 @@ class NavTrackDetailPage extends ConsumerWidget {
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(l10n.navTrack_detail_deleteTitle),
+        title: Text(l10n.navTrack_detail_deleteTrackTitle),
         content: Text(l10n.navTrack_detail_deleteMessage),
         actions: [
           TextButton(
@@ -129,40 +136,24 @@ class NavTrackDetailPage extends ConsumerWidget {
     NavTrack route,
   ) async {
     final dives = await ref.read(divesProvider.future);
-    final sorted = [...dives]
-      ..sort(
-        (a, b) =>
-            (a.effectiveEntryTime.millisecondsSinceEpoch - route.startTime)
-                .abs()
-                .compareTo(
-                  (b.effectiveEntryTime.millisecondsSinceEpoch -
-                          route.startTime)
-                      .abs(),
-                ),
-      );
+    final nearest = NavTrackMatcher.nearestByStart(
+      routeStartSeconds: route.startTime ~/ 1000,
+      dives: dives,
+    );
+    // Pre-selects the sole time-overlapping dive (#2394: one used to be
+    // linked silently instead of offered as a choice), so confirming it is a
+    // single tap rather than hunting it down in the proximity-sorted list
+    // below. Computed from the [dives] already fetched above.
+    final suggestedDiveId = NavTrackMatcher.soleCandidateFor(
+      routeStartSeconds: route.startTime ~/ 1000,
+      routeEndSeconds: route.endTime ~/ 1000,
+      dives: dives,
+    )?.id;
     if (!context.mounted) return;
-    final l10n = context.l10n;
-    final chosen = await showModalBottomSheet<Dive>(
-      context: context,
-      builder: (context) => ListView(
-        shrinkWrap: true,
-        children: [
-          for (final dive in sorted.take(20))
-            ListTile(
-              title: Text(
-                l10n.navTrack_common_diveNumber(
-                  (dive.diveNumber ?? dive.id).toString(),
-                ),
-              ),
-              subtitle: Text(
-                UnitFormatter(
-                  ref.read(settingsProvider),
-                ).formatDateTime(dive.effectiveEntryTime),
-              ),
-              onTap: () => Navigator.of(context).pop(dive),
-            ),
-        ],
-      ),
+    final chosen = await showNavTrackDiveChoiceSheet(
+      context,
+      dives: nearest,
+      selectedDiveId: suggestedDiveId,
     );
     if (chosen == null) return;
     await ref
@@ -171,7 +162,8 @@ class NavTrackDetailPage extends ConsumerWidget {
   }
 
   /// Opens the same site picker the import review page uses and, on a
-  /// choice, persists the new site.
+  /// choice, persists the new site. "New Dive Site" opens the site form
+  /// seeded with the route's anchor and assigns the site once it is saved.
   ///
   /// The anchor follows the new site's pin only when the diver never moved
   /// the start point away from the old site's pin: the current anchor is
@@ -191,34 +183,24 @@ class NavTrackDetailPage extends ConsumerWidget {
               .then((s) => s?.location);
     if (!context.mounted) return;
 
-    final chosen = await showModalBottomSheet<DiveSite>(
-      context: context,
-      isScrollControlled: true,
-      builder: (sheetContext) => DraggableScrollableSheet(
-        initialChildSize: 0.7,
-        minChildSize: 0.5,
-        maxChildSize: 0.95,
-        expand: false,
-        builder: (sheetContext, scrollController) => SitePickerSheet(
-          scrollController: scrollController,
-          selectedSiteId: oldSiteId,
-          onSiteSelected: (site) => Navigator.of(sheetContext).pop(site),
-          onCreateNewSite: () => Navigator.of(sheetContext).pop(),
-        ),
-      ),
+    final site = await pickOrCreateSite(
+      context,
+      ref,
+      selectedSiteId: oldSiteId,
+      newSiteSeedLocation: route.anchor,
     );
-    if (chosen == null) return;
+    if (site == null || !context.mounted) return;
 
     final anchorChange = navTrackAnchorChangeForSite(
       route.anchor,
       oldSiteLocation,
-      chosen.location,
+      site.location,
     );
     await ref
         .read(navTrackRepositoryProvider)
         .setSite(
           route.id,
-          chosen.id,
+          site.id,
           anchor: anchorChange.anchor,
           clearAnchor: anchorChange.write && anchorChange.anchor == null,
         );
@@ -243,12 +225,13 @@ class NavTrackDetailPage extends ConsumerWidget {
     return routeAsync.when(
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, _) =>
-          Scaffold(body: Center(child: Text(l10n.navTrack_common_loadError))),
+      error: (e, _) => Scaffold(
+        body: Center(child: Text(l10n.navTrack_common_trackLoadError)),
+      ),
       data: (route) {
         if (route == null) {
           return Scaffold(
-            body: Center(child: Text(l10n.navTrack_common_notFound)),
+            body: Center(child: Text(l10n.navTrack_common_trackNotFound)),
           );
         }
         final stats = NavTrackStats.of(route.points);
@@ -257,20 +240,22 @@ class NavTrackDetailPage extends ConsumerWidget {
             title: Text(
               route.name ??
                   route.sourceRef ??
-                  l10n.navTrack_detail_defaultTitle,
+                  l10n.navTrack_detail_defaultTrackTitle,
             ),
             actions: [
               IconButton(
                 key: const ValueKey('nav-track-align'),
                 icon: const Icon(Icons.tune),
                 tooltip: l10n.navTrack_align_title,
-                onPressed: () => context.push('/nav-routes/${route.id}/align'),
+                onPressed: () =>
+                    context.push(underwaterTrackAlignLocation(route.id)),
               ),
               IconButton(
                 key: const ValueKey('nav-track-open-3d'),
                 icon: const Icon(Icons.view_in_ar),
                 tooltip: l10n.navTrack_common_open3dTooltip,
-                onPressed: () => context.push('/nav-routes/${route.id}/3d'),
+                onPressed: () =>
+                    context.push(underwaterTrackSeascapeLocation(route.id)),
               ),
               PopupMenuButton<String>(
                 onSelected: (value) async {
@@ -339,25 +324,58 @@ class NavTrackDetailPage extends ConsumerWidget {
                       )
                     : ClipRRect(
                         borderRadius: BorderRadius.circular(12),
-                        child: FlutterMap(
-                          options: MapOptions(
-                            initialCenter: LatLng(
-                              route.anchor!.latitude,
-                              route.anchor!.longitude,
-                            ),
-                            initialZoom: 15,
-                          ),
-                          children: [
-                            submersionTileLayer(ref),
-                            NavTrackPolylineLayer(route: route),
-                          ],
-                        ),
+                        child: _RouteMap(route: route),
                       ),
               ),
             ],
           ),
         );
       },
+    );
+  }
+}
+
+/// The inline preview of an anchored route. Stateful only to own the map's
+/// controller, which the reset-to-north compass needs: the map rotates, and
+/// without the compass a twisted map had no way back to north.
+class _RouteMap extends ConsumerStatefulWidget {
+  const _RouteMap({required this.route});
+
+  final NavTrack route;
+
+  @override
+  ConsumerState<_RouteMap> createState() => _RouteMapState();
+}
+
+class _RouteMapState extends ConsumerState<_RouteMap> {
+  final _controller = MapController();
+
+  @override
+  void dispose() {
+    _controller.dispose();
+    super.dispose();
+  }
+
+  @override
+  Widget build(BuildContext context) {
+    final anchor = widget.route.anchor!;
+    return FlutterMap(
+      mapController: _controller,
+      options: MapOptions(
+        initialCenter: LatLng(anchor.latitude, anchor.longitude),
+        initialZoom: 15,
+        interactionOptions: rotatableMapInteraction,
+      ),
+      children: [
+        submersionTileLayer(ref),
+        NavTrackPolylineLayer(route: widget.route),
+        const MapAttribution(),
+        Positioned(
+          top: 8,
+          right: 8,
+          child: MapCornerControls(controller: _controller),
+        ),
+      ],
     );
   }
 }
@@ -450,31 +468,20 @@ class _LinkCard extends ConsumerWidget {
     final l10n = context.l10n;
     final diveId = route.diveId;
     if (diveId == null) {
-      return Card(
-        child: ListTile(
-          key: const ValueKey('nav-track-no-dive'),
-          leading: const Icon(Icons.link_off),
-          title: Text(l10n.navTrack_detail_noDiveLinked),
-          trailing: TextButton(
-            onPressed: onChooseDive,
-            child: Text(l10n.navTrack_detail_chooseDive),
-          ),
-        ),
+      return _ActionCard(
+        key: const ValueKey('nav-track-no-dive'),
+        icon: Icons.link_off,
+        label: l10n.navTrack_detail_noDiveLinked,
+        actionLabel: l10n.navTrack_detail_chooseDive,
+        onAction: onChooseDive,
       );
     }
-    final diveAsync = ref.watch(diveProvider(diveId));
+    final dive = ref.watch(diveProvider(diveId)).value;
     return Card(
       child: ListTile(
         key: const ValueKey('nav-track-linked-dive'),
         leading: const Icon(Icons.link),
-        title: Text(
-          diveAsync.value != null
-              ? l10n.navTrack_common_diveNumber(
-                  (diveAsync.value!.diveNumber ?? diveAsync.value!.id)
-                      .toString(),
-                )
-              : l10n.navTrack_common_diveById(diveId),
-        ),
+        title: Text(navTrackDiveLabel(l10n, diveId, dive)),
         trailing: const Icon(Icons.chevron_right),
         onTap: () => context.push('/dives/$diveId'),
       ),
@@ -482,11 +489,11 @@ class _LinkCard extends ConsumerWidget {
   }
 }
 
-/// The route's dive site row, styled identically to [_LinkCard]'s
-/// "no dive linked" row (icon, label, right-aligned tappable action text):
-/// a site name or a "no site" placeholder on the left, and "Change site" /
-/// "Choose site" on the right, opening the same site-picker flow the
-/// overflow menu's "Change site" item used to trigger (item 4).
+/// The route's dive site row, built from the same [_ActionCard] as
+/// [_LinkCard]'s "no dive linked" row: a site name or a "no site"
+/// placeholder, with "Change site" / "Choose site" below it, opening the
+/// same site-picker flow the overflow menu's "Change site" item used to
+/// trigger (item 4).
 class _SiteCard extends ConsumerWidget {
   const _SiteCard({required this.route, required this.onChangeSite});
 
@@ -500,19 +507,51 @@ class _SiteCard extends ConsumerWidget {
     final siteName = siteId == null
         ? null
         : ref.watch(siteProvider(siteId)).value?.name;
+    return _ActionCard(
+      key: const ValueKey('nav-track-site-row'),
+      icon: Icons.place_outlined,
+      label: siteName ?? l10n.navTrack_detail_noSite,
+      actionKey: const ValueKey('nav-track-change-site'),
+      actionLabel: siteId == null
+          ? l10n.navTrack_detail_chooseSite
+          : l10n.navTrack_detail_menuChangeSite,
+      onAction: onChangeSite,
+    );
+  }
+}
+
+/// A card row with an icon, a label, and a text action on its own line
+/// below the label. The action sits in the subtitle rather than in
+/// trailing: a ListTile measures its trailing widget against the full tile
+/// width and gives the title column whatever is left, so a translated
+/// action there ("Tauchgang wählen") starves the label down to one fragment
+/// per line on a phone (issue #2692, same hazard as #935).
+class _ActionCard extends StatelessWidget {
+  const _ActionCard({
+    super.key,
+    required this.icon,
+    required this.label,
+    required this.actionLabel,
+    required this.onAction,
+    this.actionKey,
+  });
+
+  final IconData icon;
+  final String label;
+  final String actionLabel;
+  final VoidCallback onAction;
+  final Key? actionKey;
+
+  @override
+  Widget build(BuildContext context) {
     return Card(
       child: ListTile(
-        key: const ValueKey('nav-track-site-row'),
-        leading: const Icon(Icons.place_outlined),
-        title: Text(siteName ?? l10n.navTrack_detail_noSite),
-        trailing: TextButton(
-          key: const ValueKey('nav-track-change-site'),
-          onPressed: onChangeSite,
-          child: Text(
-            siteId == null
-                ? l10n.navTrack_detail_chooseSite
-                : l10n.navTrack_detail_menuChangeSite,
-          ),
+        leading: Icon(icon),
+        title: Text(label),
+        subtitle: TileSubtitleAction(
+          actionKey: actionKey,
+          onPressed: onAction,
+          label: actionLabel,
         ),
       ),
     );

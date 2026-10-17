@@ -32,6 +32,10 @@ class FakeCloudStorageProvider extends CloudStorageProvider
   /// When true, [uploadFile] throws, modelling an offline/denied provider.
   bool failUploads = false;
 
+  /// Thrown by [uploadFile] when [failUploads] is set, in place of the
+  /// generic message: tests model a permission refusal with it.
+  CloudStorageException? uploadException;
+
   /// When true, [uploadFile] WRITES the file and then throws
   /// [TimeoutException], modelling a PUT that landed server-side while the
   /// response was lost.
@@ -108,6 +112,13 @@ class FakeCloudStorageProvider extends CloudStorageProvider
   @override
   Future<String?> getUserEmail() async => 'tester@example.com';
 
+  /// When set, every upload of a file with this name fails.
+  String? failUploadsNamed;
+
+  /// When set, the next upload of the named file is at once replaced by
+  /// these bytes, as if another device wrote it just after.
+  (String, Uint8List)? afterNextUpload;
+
   @override
   Future<UploadResult> uploadFile(
     Uint8List data,
@@ -117,10 +128,17 @@ class FakeCloudStorageProvider extends CloudStorageProvider
     operationLog.add('upload:$filename');
     uploadAttempts++;
     if (hangOperations) return _hang<UploadResult>();
-    if (failUploads) {
-      throw const CloudStorageException('upload failed (test)');
+    if (failUploads || filename == failUploadsNamed) {
+      throw uploadException ??
+          const CloudStorageException('upload failed (test)');
     }
     _files[filename] = _FakeFile(data, DateTime.now());
+    // Another device's write landing right after this one.
+    final after = afterNextUpload;
+    if (after != null && after.$1 == filename) {
+      afterNextUpload = null;
+      _files[filename] = _FakeFile(after.$2, DateTime.now());
+    }
     if (timeoutUploadsAfterWrite) {
       throw TimeoutException('upload timed out (test)');
     }

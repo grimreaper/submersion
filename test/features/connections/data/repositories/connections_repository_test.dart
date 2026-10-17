@@ -324,6 +324,15 @@ void main() {
       expect(jan.map((n) => n.ref), [_b('jane')]);
     });
 
+    test('an accented capital matches in any case (#3032)', () async {
+      await _site(d, 'Épave');
+      await _dive(d, id: 'dx', at: DateTime.utc(2024, 9, 1), siteId: 'Épave');
+      for (final q in ['Épave', 'épave', 'ÉPAVE']) {
+        final hits = await repo.searchEntities(q, diverId: 'me');
+        expect(hits.map((n) => n.ref), [_s('Épave')], reason: q);
+      }
+    });
+
     test('blank text finds nothing and LIKE characters are literal', () async {
       expect(await repo.searchEntities('   ', diverId: 'me'), isEmpty);
       expect(await repo.searchEntities('%', diverId: 'me'), isEmpty);
@@ -332,8 +341,11 @@ void main() {
   });
 
   group('unchanged helpers', () {
-    test('diveYearSpan and diveIdsFor', () async {
-      expect(await repo.diveYearSpan(diverId: 'me'), (first: 2024, last: 2024));
+    test('diveDateSpan and diveIdsFor', () async {
+      expect(await repo.diveDateSpan(diverId: 'me'), (
+        start: DateTime(2024, 1, 10),
+        end: DateTime(2024, 8, 1),
+      ));
       final pair = await repo.diveIdsFor(
         EdgeSelection(_b('jane'), _b('ken')),
         diverId: 'me',
@@ -341,6 +353,19 @@ void main() {
       );
       expect(pair.toSet(), {'d1', 'd2'});
     });
+
+    test(
+      'diveDateSpan reads the wall-clock day, late dives included',
+      () async {
+        // 23:30 wall clock stays on the 2nd whatever the device's zone.
+        await _dive(d, id: 'd10', at: DateTime.utc(2024, 8, 2, 23, 30));
+        expect(await repo.diveDateSpan(diverId: 'me'), (
+          start: DateTime(2024, 1, 10),
+          end: DateTime(2024, 8, 2),
+        ));
+        expect(await repo.diveDateSpan(diverId: 'nobody'), isNull);
+      },
+    );
 
     test('watchConnectionsChanges fires on a junction write', () async {
       final events = <void>[];

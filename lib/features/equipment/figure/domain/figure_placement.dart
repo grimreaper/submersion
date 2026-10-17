@@ -66,7 +66,14 @@ abstract final class FigurePlacement {
   static const Set<EquipmentType> trayTypes = {
     EquipmentType.hose,
     EquipmentType.tankBand,
+    // Camera parts (#1997) the camera and housing artwork already shows.
+    EquipmentType.lens,
+    EquipmentType.port,
+    EquipmentType.trayHandle,
+    EquipmentType.armClamp,
+    EquipmentType.floatArm,
     EquipmentType.tool,
+    EquipmentType.bag,
     EquipmentType.o2Cell,
     EquipmentType.battery,
     EquipmentType.other,
@@ -269,6 +276,33 @@ abstract final class FigurePlacement {
           },
           defaultColor: FigureColors.darkBlue,
         );
+      // A vest (#3108) is drawn over whatever suit is on, on the underlayer
+      // anchor so it never takes the suit zone from a wetsuit in the same
+      // set. A hooded vest draws the hood artwork too, in the vest's colour.
+      case EquipmentType.vest:
+        final pieces = [
+          'vest_front',
+          'vest_back',
+          if (attributes[EquipmentAttrKeys.hooded] == 'true') ...[
+            'hood_front',
+            'hood_back',
+          ],
+        ];
+        return FigurePlacementSpec(
+          // The front torso is the last resort, for a drysuit diver whose
+          // undersuit and base layer already fill the underlayer anchor.
+          zones: const [
+            FigureZone.underlayer,
+            FigureZone.suit,
+            FigureZone.torsoFront,
+          ],
+          piecesByZone: {
+            FigureZone.underlayer: pieces,
+            FigureZone.suit: pieces,
+            FigureZone.torsoFront: pieces,
+          },
+          defaultColor: FigureColors.black,
+        );
       case EquipmentType.hood:
         return const FigurePlacementSpec(
           zones: [FigureZone.head],
@@ -292,6 +326,17 @@ abstract final class FigurePlacement {
             FigureZone.feet: ['boots_front', 'boots_back'],
           },
           defaultColor: FigureColors.black,
+        );
+      // Socks (#2900) show on a bare foot in open-heel fins. Boots rank
+      // ahead of them in the canonical order, so with boots in the set they
+      // claim the feet and the socks inside them go to the tray.
+      case EquipmentType.socks:
+        return const FigurePlacementSpec(
+          zones: [FigureZone.feet],
+          piecesByZone: {
+            FigureZone.feet: ['socks_front', 'socks_back'],
+          },
+          defaultColor: FigureColors.darkGrey,
         );
       case EquipmentType.fins:
         return const FigurePlacementSpec(
@@ -495,7 +540,10 @@ abstract final class FigurePlacement {
           },
           defaultColor: FigureColors.black,
         );
+      // A video light rides the camera's arm like a strobe (#1997), and is
+      // drawn with the same piece.
       case EquipmentType.strobe:
+      case EquipmentType.videoLight:
         return const FigurePlacementSpec(
           zones: [FigureZone.cameraArm],
           piecesByZone: {
@@ -540,6 +588,13 @@ abstract final class FigurePlacement {
         );
       case EquipmentType.hose:
       case EquipmentType.tankBand:
+      case EquipmentType.lens:
+      case EquipmentType.port:
+      case EquipmentType.trayHandle:
+      case EquipmentType.armClamp:
+      case EquipmentType.floatArm:
+      // Carried to the dive, never worn on it (#2952).
+      case EquipmentType.bag:
         return const FigurePlacementSpec(
           zones: [],
           defaultColor: FigureColors.black,

@@ -6,12 +6,17 @@ enum ImportFormat {
   submersionDivesCsv,
   submersionSitesCsv,
   submersionEquipmentCsv,
+  submersionFillsCsv,
   uddf,
   macdiveXml,
   macdiveSqlite,
   subsurfaceXml,
   divingLogXml,
   divingLogSqlite,
+
+  /// DiveMate's `.ddb` logbook: Diving Log's SQLite schema, written by
+  /// DiveMate (#3110).
+  diveMateDdb,
   suuntoSml,
   suuntoDm5,
   fit,
@@ -28,6 +33,12 @@ enum ImportFormat {
   /// it to `NavTrackImportReviewPage` instead of the universal import
   /// pipeline.
   navTrack,
+
+  /// A Suunto app "export as JSON" (or a saved cloud sml export). Like
+  /// [navTrack] it is a hand-off: the Suunto importer reads it into a dive
+  /// the way the Suunto Cloud import does (so its DiveRoute arrives too,
+  /// issue #1445), not the universal parser registry.
+  suuntoJson,
   unknown;
 
   String get displayName => switch (this) {
@@ -35,12 +46,14 @@ enum ImportFormat {
     submersionDivesCsv => 'Submersion Dives CSV',
     submersionSitesCsv => 'Submersion Sites CSV',
     submersionEquipmentCsv => 'Submersion Equipment CSV',
+    submersionFillsCsv => 'Submersion Fills CSV',
     uddf => 'UDDF',
     macdiveXml => 'MacDive XML',
     macdiveSqlite => 'MacDive SQLite',
     subsurfaceXml => 'Subsurface XML',
     divingLogXml => 'Diving Log XML',
     divingLogSqlite => 'Diving Log',
+    diveMateDdb => 'DiveMate',
     suuntoSml => 'Suunto SML',
     suuntoDm5 => 'Suunto DM5',
     fit => 'Garmin FIT',
@@ -50,6 +63,7 @@ enum ImportFormat {
     ratioXml => 'Ratio XML',
     sqlite => 'SQLite Database',
     navTrack => 'Seacraft ENC log',
+    suuntoJson => 'Suunto JSON',
     unknown => 'Unknown',
   };
 
@@ -58,12 +72,20 @@ enum ImportFormat {
   /// so a message about the file's columns cannot point at one (#2152).
   bool get mapsColumns => this == csv;
 
+  /// Recognised, but imported by a dedicated flow rather than the universal
+  /// pipeline: the wizard keeps the file on the file-selection step and
+  /// shows that flow's hand-off card, a batch lists it as needing
+  /// individual import, and a shared or dropped file opens the flow
+  /// directly.
+  bool get isHandoff => this == navTrack || this == suuntoJson;
+
   /// Whether this format has a parser implemented in v1.5.
   bool get isSupported => switch (this) {
     csv ||
     submersionDivesCsv ||
     submersionSitesCsv ||
     submersionEquipmentCsv ||
+    submersionFillsCsv ||
     uddf ||
     subsurfaceXml ||
     fit ||
@@ -71,6 +93,7 @@ enum ImportFormat {
     macdiveXml ||
     macdiveSqlite ||
     divingLogSqlite ||
+    diveMateDdb ||
     danDl7 ||
     ratioXml => true,
     _ => false,
@@ -182,6 +205,11 @@ class SourceOverrideOption {
       displayName: 'Submersion (Equipment CSV)',
     ),
     SourceOverrideOption(
+      sourceApp: SourceApp.submersion,
+      format: ImportFormat.submersionFillsCsv,
+      displayName: 'Submersion (Fills CSV)',
+    ),
+    SourceOverrideOption(
       sourceApp: SourceApp.subsurface,
       format: ImportFormat.csv,
       displayName: 'Subsurface (CSV)',
@@ -220,6 +248,11 @@ class SourceOverrideOption {
       sourceApp: SourceApp.diveMate,
       format: ImportFormat.csv,
       displayName: 'DiveMate (CSV)',
+    ),
+    SourceOverrideOption(
+      sourceApp: SourceApp.diveMate,
+      format: ImportFormat.diveMateDdb,
+      displayName: 'DiveMate (database)',
     ),
     SourceOverrideOption(
       sourceApp: SourceApp.shearwater,
@@ -324,7 +357,11 @@ enum ImportEntityType {
   tags,
   diveTypes,
   serviceRecords,
-  media;
+  media,
+
+  /// Cylinder fills from the fills CSV (cylinder passports phase 5). Keyed
+  /// by passport id, never by an imported item.
+  fills;
 
   String get displayName => switch (this) {
     dives => 'Dives',
@@ -340,6 +377,7 @@ enum ImportEntityType {
     diveTypes => 'Dive Types',
     serviceRecords => 'Service Records',
     media => 'Photos',
+    fills => 'Fills',
   };
 
   String get shortName => switch (this) {
@@ -356,5 +394,6 @@ enum ImportEntityType {
     diveTypes => 'Types',
     serviceRecords => 'Service',
     media => 'Photos',
+    fills => 'Fills',
   };
 }

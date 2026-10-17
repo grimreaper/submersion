@@ -6,7 +6,9 @@ import 'package:submersion/core/constants/units.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/features/dive_sites/presentation/providers/site_providers.dart';
 import 'package:submersion/features/dive_sites/presentation/widgets/site_filter_sheet.dart';
+import 'package:submersion/core/services/shared_library/shared_library_models.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
+import 'package:submersion/features/shared_library/presentation/providers/shared_library_providers.dart';
 import 'package:submersion/features/site_types/domain/entities/site_type_entity.dart';
 import 'package:submersion/features/site_types/presentation/providers/site_type_providers.dart';
 import 'package:submersion/features/tags/domain/entities/tag.dart';
@@ -238,6 +240,22 @@ void main() {
       );
     }
 
+    testWidgets(
+      'without a shared site library the tags keep the usual 24px gap to depth',
+      (tester) async {
+        _useTallSurface(tester);
+        final container = await classificationContainer();
+        addTearDown(container.dispose);
+        await _openSheet(tester, container);
+
+        final chipBottom = tester
+            .getBottomLeft(find.widgetWithText(FilterChip, 'To try'))
+            .dy;
+        final depthTop = tester.getTopLeft(find.text('Max Depth Range')).dy;
+        expect(depthTop - chipBottom, 24);
+      },
+    );
+
     testWidgets('lists types and only site-scoped tags', (tester) async {
       _useTallSurface(tester);
       final container = await classificationContainer();
@@ -282,5 +300,58 @@ void main() {
         isTrue,
       );
     });
+  });
+
+  testWidgets('library chips list only the active profile\'s libraries', (
+    tester,
+  ) async {
+    _useTallSurface(tester);
+    SharedPreferences.setMockInitialValues({});
+    final prefs = await SharedPreferences.getInstance();
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        settingsProvider.overrideWith(
+          (ref) => MockSettingsNotifier(const AppSettings()),
+        ),
+        sharedLibrariesProvider.overrideWith(
+          (ref) => Stream.value(const [
+            SharedLibrary(
+              id: 'mine',
+              name: 'My library',
+              connectedAccountId: 'a',
+              prefix: 'p',
+            ),
+            SharedLibrary(
+              id: 'theirs',
+              name: 'Another profile\'s library',
+              connectedAccountId: 'b',
+              prefix: 'q',
+            ),
+          ]),
+        ),
+        currentMembershipsProvider.overrideWith(
+          (ref) async => const [
+            SharedLibraryMembership(
+              id: 'ms',
+              diverId: 'd',
+              libraryId: 'mine',
+              memberId: 'm',
+              displayName: 'Ann',
+              libraryName: 'My library',
+              backendKind: 's3',
+            ),
+          ],
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await _openSheet(tester, container);
+
+    expect(find.widgetWithText(FilterChip, 'My library'), findsOneWidget);
+    expect(
+      find.widgetWithText(FilterChip, 'Another profile\'s library'),
+      findsNothing,
+    );
   });
 }

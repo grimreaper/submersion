@@ -217,4 +217,80 @@ void main() {
       }
     });
   });
+
+  group('classifySuitGear (#633)', () {
+    test('a wetsuit or drysuit comes from classifySuit, with thickness', () {
+      expect(classifySuitGear('Bare 7mm'), (
+        type: EquipmentType.wetsuit,
+        thickness: '7mm',
+      ));
+      expect(classifySuitGear('Drysuit'), (
+        type: EquipmentType.drysuit,
+        thickness: null,
+      ));
+    });
+
+    test('a layer that names itself takes the layer type', () {
+      expect(classifySuitGear('Dry undersuit'), (
+        type: EquipmentType.undersuit,
+        thickness: null,
+      ));
+      expect(classifySuitGear('Merino base layer'), (
+        type: EquipmentType.baselayer,
+        thickness: null,
+      ));
+      expect(classifySuitGear('Rash guard'), (
+        type: EquipmentType.rashGuard,
+        thickness: null,
+      ));
+    });
+
+    test('a vest in the suit field is the vest (#3108)', () {
+      // Its one thickness is the vest's, as a wetsuit's is the suit's.
+      expect(classifySuitGear('7mm ice vest'), (
+        type: EquipmentType.vest,
+        thickness: '7mm',
+      ));
+      expect(classifySuitGear('Hooded vest 5/3'), (
+        type: EquipmentType.vest,
+        thickness: '5/3',
+      ));
+      expect(classifySuitGear('Ice vest'), (
+        type: EquipmentType.vest,
+        thickness: null,
+      ));
+      // Every vest alias, not just the English word, stops a thickness token
+      // from reading as a wetsuit.
+      for (final name in [
+        '7mm core warmer',
+        '7mm Eisweste',
+        '7mm Haubenweste',
+      ]) {
+        expect(classifySuit(name), isNull, reason: name);
+        expect(classifySuitGear(name), (
+          type: EquipmentType.vest,
+          thickness: '7mm',
+        ), reason: name);
+      }
+      // Beside another accessory the thickness may be that item's.
+      expect(classifySuitGear('Ice vest, 5mm gloves'), (
+        type: EquipmentType.vest,
+        thickness: null,
+      ));
+      // Named with its suit, the suit is what the field records.
+      expect(
+        classifySuitGear('7mm wetsuit + ice vest')?.type,
+        EquipmentType.wetsuit,
+      );
+    });
+
+    test('a name that says neither is unclear', () {
+      expect(classifySuitGear('Full suit'), isNull);
+      expect(classifySuitGear('Fourth Element Argonaut'), isNull);
+      // The mapper reads fins in "Definition"; only layers are trusted.
+      expect(classifySuitGear('Definition'), isNull);
+      expect(classifySuitGear('   '), isNull);
+      expect(classifySuitGear(null), isNull);
+    });
+  });
 }

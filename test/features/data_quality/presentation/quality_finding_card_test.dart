@@ -36,6 +36,7 @@ const _formatters = QualityUnitFormatters(
   sac: _fmt,
   date: _fmtDate,
   dateTime: _fmtDate,
+  time: _fmtDate,
 );
 
 String _fmt(double v) => '$v';
@@ -52,6 +53,7 @@ void main() {
     DiveIdentityLabel? relatedDive,
     String? computerName,
     Widget? evidence,
+    String? foreignDiveId,
   }) async {
     await tester.pumpWidget(
       localizedMaterialApp(
@@ -65,6 +67,7 @@ void main() {
             relatedDive: relatedDive,
             computerName: computerName,
             evidence: evidence,
+            foreignDiveId: foreignDiveId,
           ),
         ),
       ),
@@ -73,7 +76,8 @@ void main() {
   }
 
   // Tap the leading severity icon to toggle expansion. Tapping the ListTile
-  // centre is unreliable because a wide trailing repair button can cover it.
+  // centre is unreliable because the repair button below the detail can cover
+  // it.
   Future<void> toggleExpand(WidgetTester tester) async {
     await tester.tap(find.byType(Icon).first);
     await tester.pumpAndSettle();
@@ -185,7 +189,7 @@ void main() {
   });
 
   group('primary repair button', () {
-    testWidgets('renders in trailing when a non-goto repair exists', (
+    testWidgets('renders under the detail when a non-goto repair exists', (
       tester,
     ) async {
       final repaired = <QualityRepairAction>[];
@@ -344,7 +348,7 @@ void main() {
         ),
         onRepair: repaired.add,
       );
-      // Primary rendered as FilledButton.tonal in trailing.
+      // Primary rendered as FilledButton.tonal under the detail.
       expect(find.byType(FilledButton), findsOneWidget);
       await toggleExpand(tester);
       // Secondary repairs (Split, Compare) + go-to-dive + dismiss = 4 TextButtons
@@ -361,7 +365,7 @@ void main() {
 
   group('repair label coverage', () {
     // Each entry exercises a distinct repair-label switch arm by making that
-    // repair the primary (trailing) action.
+    // repair the primary action.
     final cases =
         <
           String,
@@ -463,12 +467,95 @@ void main() {
             relatedDiveId: c.related,
           ),
         );
-        // Primary label built for trailing button.
+        // Primary label built for the primary button.
         expect(find.byType(FilledButton), findsOneWidget);
         // Expand to build every secondary label too.
         await toggleExpand(tester);
         expect(find.byType(OverflowBar), findsOneWidget);
       });
+    });
+  });
+
+  // Each removable side of a shared gear finding names its profile, and a
+  // side whose name was not recorded still reads as a sentence (#2853).
+  testWidgets('shared gear repairs name whose dive loses the item', (
+    tester,
+  ) async {
+    await pumpCard(
+      tester,
+      finding: _finding(
+        detectorId: 'shared_gear_overlap',
+        relatedDiveId: 'd2',
+        params: const {
+          'equipmentId': 'light',
+          'itemName': 'Light',
+          'partIds': <String>[],
+          'dives': {
+            'd1': {'diverName': 'Anna', 'entryMs': 0, 'removable': true},
+            'd2': {'diverName': '', 'entryMs': 0, 'removable': true},
+          },
+        },
+      ),
+    );
+    await toggleExpand(tester);
+    expect(find.text("Remove from Anna's dive"), findsOneWidget);
+    expect(find.text("Remove from another profile's dive"), findsOneWidget);
+  });
+
+  // A shared gear pair spans two profiles; each sees it but may act only on
+  // its own dive (issue #3049).
+  group('a pair with another profile\'s dive', () {
+    QualityFinding crossDiver() => _finding(
+      detectorId: 'shared_gear_overlap',
+      relatedDiveId: 'd2',
+      params: const {
+        'equipmentId': 'light',
+        'itemName': 'Light',
+        'partIds': <String>[],
+        'dives': {
+          'd1': {'diverName': 'Anna', 'entryMs': 0, 'removable': true},
+          'd2': {'diverName': 'Ben', 'entryMs': 0, 'removable': true},
+        },
+      },
+    );
+
+    testWidgets('offers no repair on the other profile\'s dive', (
+      tester,
+    ) async {
+      await pumpCard(tester, finding: crossDiver(), foreignDiveId: 'd1');
+      await toggleExpand(tester);
+      expect(find.text("Remove from Anna's dive"), findsNothing);
+      expect(find.text("Remove from Ben's dive"), findsOneWidget);
+    });
+
+    testWidgets('names the other profile\'s dive without opening it', (
+      tester,
+    ) async {
+      final tapped = <String>[];
+      await pumpCard(
+        tester,
+        finding: crossDiver(),
+        foreignDiveId: 'd1',
+        relatedDive: const DiveIdentityLabel(headline: 'Anna #7'),
+        onGoToDive: tapped.add,
+      );
+      await tester.tap(find.text('Paired with Anna #7'));
+      await tester.pumpAndSettle();
+      expect(tapped, isEmpty);
+    });
+
+    testWidgets('goes to the active diver\'s own dive', (tester) async {
+      final tapped = <String>[];
+      await pumpCard(
+        tester,
+        finding: crossDiver(),
+        foreignDiveId: 'd1',
+        onGoToDive: tapped.add,
+      );
+      await toggleExpand(tester);
+      await tester.tap(find.text('Go to dive'));
+      await tester.pumpAndSettle();
+      expect(tapped, ['d2']);
     });
   });
 

@@ -5,13 +5,17 @@ import 'package:flutter/material.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
+import 'package:submersion/features/dive_log/domain/services/range_gas_consumption.dart';
+import 'package:submersion/features/dive_log/presentation/providers/chart_tank_pressures_provider.dart';
 import 'package:submersion/features/dive_log/presentation/providers/profile_range_provider.dart';
+import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 
 /// Panel showing statistics for a selected range of the dive profile.
 ///
-/// Displays depth, rate, temperature, gas consumption, and heart rate
-/// metrics within the selected time range using a Wrap-based grid.
+/// Displays depth, rate, temperature, gas consumption (SAC and RMV, from the
+/// transmitter pressure series), and heart rate metrics within the selected
+/// time range using a Wrap-based grid.
 class RangeStatsPanel extends ConsumerWidget {
   /// The dive ID for scoping the range selection provider
   final String diveId;
@@ -25,8 +29,24 @@ class RangeStatsPanel extends ConsumerWidget {
   /// The dive's tanks (for SAC calculation)
   final List<DiveTank> tanks;
 
+  /// Whether the dive was on a rebreather, whose SAC reads the reference
+  /// cylinder alone (see `referencePressureDrop`).
+  final bool isRebreather;
+
   /// Callback when range is cleared/closed
   final VoidCallback? onClose;
+
+  /// Most stats placed side by side in one row.
+  ///
+  /// The grid always has at least [_minColumns] columns, and adds more up to
+  /// this cap while each stat still gets [_minChipWidth]. The default keeps
+  /// the detail page's fixed four-column grid; the fullscreen strip raises
+  /// it so a wide screen shows the stats in one or two rows (#1577).
+  final int maxColumns;
+
+  static const int _minColumns = 4;
+  static const double _minChipWidth = 120;
+  static const double _chipSpacing = 8;
 
   const RangeStatsPanel({
     super.key,
@@ -34,7 +54,9 @@ class RangeStatsPanel extends ConsumerWidget {
     required this.profile,
     required this.units,
     required this.tanks,
+    this.isRebreather = false,
     this.onClose,
+    this.maxColumns = _minColumns,
   });
 
   @override
@@ -47,6 +69,7 @@ class RangeStatsPanel extends ConsumerWidget {
 
     final colorScheme = Theme.of(context).colorScheme;
     final stats = _calculateRangeStats(rangeState, tanks);
+    final gas = _gasConsumption(ref, rangeState, stats);
 
     return Card(
       margin: EdgeInsets.zero,
@@ -107,23 +130,72 @@ class RangeStatsPanel extends ConsumerWidget {
             ),
             const SizedBox(height: 12),
             // Stats grid
-            _buildStatsGrid(context, stats),
+            _buildStatsGrid(context, ref, stats, gas),
           ],
         ),
       ),
     );
   }
 
-  Widget _buildStatsGrid(BuildContext context, _RangeStats stats) {
+  /// Columns for a grid [width] wide: as many [_minChipWidth] stats as fit,
+  /// clamped to [_minColumns]..[maxColumns].
+  int _columnCountFor(double width) {
+    final fitting = ((width + _chipSpacing) / (_minChipWidth + _chipSpacing))
+        .floor();
+    return fitting.clamp(_minColumns, math.max(_minColumns, maxColumns));
+  }
+
+  /// SAC and RMV over the selection, from the pressure series of the
+  /// source the chart draws, the same one [profile] (and so the range's
+  /// average depth) comes from.
+  ///
+  /// The duration is the selection's own span, so a range holding a single
+  /// sample of a sparse profile still has one; it needs only a sample for
+  /// the depth.
+  RangeGasConsumption _gasConsumption(
+    WidgetRef ref,
+    RangeSelectionState rangeState,
+    _RangeStats stats,
+  ) {
+    final pressures = ref
+        .watch(activeSourceTankPressuresProvider(diveId))
+        .value;
+    if (pressures == null || pressures.isEmpty || stats.sampleCount == 0) {
+      return (sac: null, rmv: null);
+    }
+    return rangeGasConsumption(
+      tanks: tanks,
+      tankPressures: pressures,
+      startTimestamp: rangeState.startTimestamp!,
+      endTimestamp: rangeState.endTimestamp!,
+      avgDepth: stats.avgDepth,
+      model: ref.watch(gasModelProvider),
+      isRebreather: isRebreather,
+    );
+  }
+
+  Widget _buildStatsGrid(
+    BuildContext context,
+    WidgetRef ref,
+    _RangeStats stats,
+    RangeGasConsumption gas,
+  ) {
     final colorScheme = Theme.of(context).colorScheme;
+    // The lanes the diver's preference asks for, as the dive summary shows
+    // them: RMV-only falls back to SAC when no cylinder has a volume.
+    final display = ref.watch(gasConsumptionDisplayProvider);
+    final sac = gas.sac;
+    final rmv = display.showsRmv ? gas.rmv : null;
+    final showSac = sac != null && (display.showsSac || rmv == null);
 
     return LayoutBuilder(
       builder: (context, constraints) {
+        final columns = _columnCountFor(constraints.maxWidth);
         final chipWidth =
-            (constraints.maxWidth - 24) / 4; // 3 gaps x 8px spacing
+            (constraints.maxWidth - _chipSpacing * (columns - 1)) / columns;
         return Wrap(
-          spacing: 8,
-          runSpacing: 8,
+          spacing: _chipSpacing,
+          runSpacing: _chipSpacing,
           children: [
             // Row 1: Elapsed | Depth Delta | Min Depth | Max Depth
             _buildStatChip(
@@ -191,7 +263,7 @@ class RangeStatsPanel extends ConsumerWidget {
               Colors.orange,
               chipWidth,
             ),
-            // Conditional: Temp | Temp | Gas (flows into same row)
+            // Conditional: Temp | Temp (flows into same row)
             if (stats.hasTemperature) ...[
               _buildStatChip(
                 context,
@@ -210,6 +282,25 @@ class RangeStatsPanel extends ConsumerWidget {
                 chipWidth,
               ),
             ],
+            // Conditional: SAC | RMV
+            if (showSac)
+              _buildStatChip(
+                context,
+                context.l10n.diveLog_detail_label_sac,
+                units.formatSac(sac),
+                Icons.air,
+                Colors.orange,
+                chipWidth,
+              ),
+            if (rmv != null)
+              _buildStatChip(
+                context,
+                context.l10n.diveLog_detail_label_rmv,
+                units.formatRmv(rmv),
+                Icons.air,
+                Colors.orange,
+                chipWidth,
+              ),
             // Conditional: Heart rate
             if (stats.hasHeartRate) ...[
               _buildStatChip(
@@ -314,6 +405,7 @@ class RangeStatsPanel extends ConsumerWidget {
 
     if (rangePoints.isEmpty) {
       return const _RangeStats(
+        sampleCount: 0,
         elapsedSeconds: 0,
         depthDelta: 0,
         minDepth: 0,
@@ -341,6 +433,7 @@ class RangeStatsPanel extends ConsumerWidget {
     // Guard: zero-duration range has no meaningful rates
     if (elapsedSeconds <= 0) {
       return _RangeStats(
+        sampleCount: rangePoints.length,
         elapsedSeconds: 0,
         depthDelta: depthDelta,
         minDepth: minDepth,
@@ -395,6 +488,7 @@ class RangeStatsPanel extends ConsumerWidget {
     }
 
     return _RangeStats(
+      sampleCount: rangePoints.length,
       elapsedSeconds: elapsedSeconds,
       depthDelta: depthDelta,
       minDepth: minDepth,
@@ -413,6 +507,8 @@ class RangeStatsPanel extends ConsumerWidget {
 
 /// Internal class to hold range statistics
 class _RangeStats {
+  /// Profile samples inside the range.
+  final int sampleCount;
   final int elapsedSeconds;
   final double depthDelta;
   final double minDepth;
@@ -427,6 +523,7 @@ class _RangeStats {
   final int? maxHR;
 
   const _RangeStats({
+    required this.sampleCount,
     required this.elapsedSeconds,
     required this.depthDelta,
     required this.minDepth,

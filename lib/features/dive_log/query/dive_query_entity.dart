@@ -3,6 +3,11 @@ import 'package:submersion/core/query/domain/query_subject.dart';
 import 'package:submersion/core/query/registry/query_entity.dart';
 import 'package:submersion/core/query/registry/query_field.dart';
 import 'package:submersion/core/query/registry/query_relation.dart';
+import 'package:submersion/features/dive_log/data/repositories/dive_times_sql.dart';
+import 'package:submersion/features/dive_log/data/sql/multi_cylinder_sac_sql.dart';
+import 'package:submersion/features/dive_log/domain/entities/derived_metrics.dart';
+import 'package:submersion/features/dive_log/query/dive_child_query_entities.dart';
+import 'package:submersion/features/dive_types/query/dive_type_text_search.dart';
 import 'package:submersion/features/insights/data/dive_filter_sql.dart';
 
 /// Every field and relation a dive query can name (#2365). This file is
@@ -37,6 +42,15 @@ const kDiveGearJoinSql =
     'UNION SELECT dt.equipment_id FROM dive_tanks dt '
     'WHERE dt.dive_id = {from}.id AND dt.equipment_id IS NOT NULL)';
 
+/// A dive's effective water type: its own, else its site's (issue #3196).
+/// The SQL twin of `Dive.effectiveWaterType`, matching the insights water
+/// type chart, so a dive at a salt-water site is found by `waterType:salt`
+/// whether or not the value was ever copied onto the dive.
+const _effectiveWaterType =
+    "COALESCE(NULLIF({r}.water_type, ''), "
+    "(SELECT NULLIF(s.water_type, '') FROM dive_sites s "
+    'WHERE s.id = {r}.site_id))';
+
 List<String> _names<T extends Enum>(List<T> values) => [
   for (final v in values) v.name,
 ];
@@ -48,6 +62,7 @@ QueryField _num(
   FieldDimension dimension = FieldDimension.none,
   ({double min, double max})? sanity,
   String? emptySql,
+  ({String low, String high})? rangeSql,
   List<String> tables = const [],
 }) => QueryField(
   key: key,
@@ -58,6 +73,7 @@ QueryField _num(
   emptySql: emptySql ?? '$sql IS NULL',
   labelKey: _label(key),
   sanity: sanity,
+  rangeSql: rangeSql,
   tables: tables,
 );
 
@@ -134,28 +150,57 @@ QueryRelation _junction(
   tables: [junction],
 );
 
+/// The Explore derived metrics (#2195): a device-local table the derived
+/// metrics scheduler keeps current. A dive not yet swept has no row, so its
+/// derived fields are empty (`:none`) until the sweep reaches it.
+const kDiveDerivedMetricsTable = 'dive_derived_metrics';
+
+String _derived(String column) =>
+    '(SELECT m.$column FROM $kDiveDerivedMetricsTable m '
+    'WHERE m.dive_id = {r}.id)';
+
+/// SAC in bar per minute at the surface, by the formula the Insights SAC
+/// chart plots (`InsightsRepository.getSacPressurePerDive`): every breathed
+/// cylinder's drop in bar of the back gas (issue #3109) over the runtime,
+/// normalised by the average depth, so a search and the chart agree. Empty
+/// with no back-gas drop, no runtime or no average depth.
+final String kDiveSacSql =
+    '(CASE WHEN COALESCE({r}.runtime, {r}.bottom_time) > 0 '
+    'AND {r}.avg_depth > 0 THEN ${diveSacPressureSql('{r}')} END)';
+
 final QueryEntity diveQueryEntity = QueryEntity(
   subject: QuerySubject.dives,
   table: 'dives',
   diverScopeColumn: 'diver_id',
+  scopesHopsToDiver: true,
   textSearchSql: const [
-    "{r}.notes LIKE ? ESCAPE '\\'",
-    "{r}.name LIKE ? ESCAPE '\\'",
-    "{r}.buddy LIKE ? ESCAPE '\\'",
-    "{r}.dive_master LIKE ? ESCAPE '\\'",
+    "unicode_lower({r}.notes) LIKE ? ESCAPE '\\'",
+    "unicode_lower({r}.name) LIKE ? ESCAPE '\\'",
+    "unicode_lower({r}.buddy) LIKE ? ESCAPE '\\'",
+    "unicode_lower({r}.dive_master) LIKE ? ESCAPE '\\'",
+    // Shown on the dive since #3229, so a search finds them too.
+    "unicode_lower({r}.dive_operator) LIKE ? ESCAPE '\\'",
+    "unicode_lower({r}.boat_name) LIKE ? ESCAPE '\\'",
+    "unicode_lower({r}.boat_captain) LIKE ? ESCAPE '\\'",
+    "unicode_lower({r}.surface_conditions) LIKE ? ESCAPE '\\'",
     'EXISTS (SELECT 1 FROM dive_sites ts WHERE ts.id = {r}.site_id '
-        "AND (ts.name LIKE ? ESCAPE '\\' OR ts.country LIKE ? ESCAPE '\\' "
-        "OR ts.region LIKE ? ESCAPE '\\'))",
+        "AND (unicode_lower(ts.name) LIKE ? ESCAPE '\\' OR unicode_lower(ts.country) LIKE ? ESCAPE '\\' "
+        "OR unicode_lower(ts.region) LIKE ? ESCAPE '\\'))",
     'EXISTS (SELECT 1 FROM dive_centers tc WHERE tc.id = {r}.dive_center_id '
-        "AND tc.name LIKE ? ESCAPE '\\')",
+        "AND unicode_lower(tc.name) LIKE ? ESCAPE '\\')",
     'EXISTS (SELECT 1 FROM dive_buddies tdb JOIN buddies tb '
         'ON tb.id = tdb.buddy_id WHERE tdb.dive_id = {r}.id '
-        "AND tb.name LIKE ? ESCAPE '\\')",
+        "AND unicode_lower(tb.name) LIKE ? ESCAPE '\\')",
     'EXISTS (SELECT 1 FROM dive_tags tdt JOIN tags tt ON tt.id = tdt.tag_id '
-        "WHERE tdt.dive_id = {r}.id AND tt.name LIKE ? ESCAPE '\\')",
+        "WHERE tdt.dive_id = {r}.id AND unicode_lower(tt.name) LIKE ? ESCAPE '\\')",
     'EXISTS (SELECT 1 FROM dive_custom_fields tcf WHERE tcf.dive_id = {r}.id '
-        "AND (tcf.field_key LIKE ? ESCAPE '\\' "
-        "OR tcf.field_value LIKE ? ESCAPE '\\'))",
+        "AND (unicode_lower(tcf.field_key) LIKE ? ESCAPE '\\' "
+        "OR unicode_lower(tcf.field_value) LIKE ? ESCAPE '\\'))",
+    // The stored name: a custom type's own, a built-in's English one. The
+    // translations are kDiveTypeTranslatedTextSearch (issue #2884).
+    'EXISTS (SELECT 1 FROM dive_dive_types tddt JOIN dive_types tdty '
+        'ON tdty.id = tddt.dive_type_id WHERE tddt.dive_id = {r}.id '
+        "AND unicode_lower(tdty.name) LIKE ? ESCAPE '\\')",
   ],
   textSearchTables: const [
     'dive_sites',
@@ -165,7 +210,10 @@ final QueryEntity diveQueryEntity = QueryEntity(
     'dive_tags',
     'tags',
     'dive_custom_fields',
+    'dive_dive_types',
+    'dive_types',
   ],
+  textSearchExpansions: const [kDiveTypeTranslatedTextSearch],
   fields: [
     QueryField(
       key: 'id',
@@ -267,9 +315,16 @@ final QueryEntity diveQueryEntity = QueryEntity(
       'visibility',
       '{r}.visibility_meters',
       dimension: FieldDimension.depth,
+      // A band pick stores a range instead (issue #3226).
+      rangeSql: (
+        low: '{r}.visibility_min_meters',
+        high: '{r}.visibility_max_meters',
+      ),
       emptySql:
-          '({r}.visibility_meters IS NULL AND ({r}.visibility IS NULL '
-          "OR TRIM({r}.visibility) = ''))",
+          '({r}.visibility_meters IS NULL '
+          'AND {r}.visibility_min_meters IS NULL '
+          'AND {r}.visibility_max_meters IS NULL '
+          "AND ({r}.visibility IS NULL OR TRIM({r}.visibility) = ''))",
     ),
     _num(
       'rating',
@@ -277,11 +332,14 @@ final QueryEntity diveQueryEntity = QueryEntity(
       dimension: FieldDimension.count,
       sanity: (min: 0, max: 5),
     ),
+    // The table's value (#2984): stored, else the gap from the previous
+    // dive, so what a diver sees in the column is what this field filters.
     _num(
       'surfaceInterval',
-      '({r}.surface_interval_seconds / 60)',
+      '(${diveSurfaceIntervalSecondsSql('{r}')} / 60)',
       dimension: FieldDimension.minutes,
-      emptySql: '{r}.surface_interval_seconds IS NULL',
+      emptySql: '(${diveSurfaceIntervalSecondsSql('{r}')}) IS NULL',
+      tables: const ['dive_profile_series'],
     ),
     _num(
       'cnsEnd',
@@ -310,12 +368,61 @@ final QueryEntity diveQueryEntity = QueryEntity(
           'NOT EXISTS (SELECT 1 FROM dive_tanks t WHERE t.dive_id = {r}.id)',
       tables: ['dive_tanks'],
     ),
+    _num(
+      'sac',
+      kDiveSacSql,
+      dimension: FieldDimension.pressureRate,
+      sanity: (min: 0, max: 20),
+      tables: ['dive_tanks'],
+    ),
+    QueryField(
+      key: 'sacTrend',
+      type: FieldType.enumName,
+      sql: _derived('sac_trend'),
+      emptySql: '${_derived('sac_trend')} IS NULL',
+      labelKey: _label('sacTrend'),
+      enumValues: _names(SacTrend.values),
+      tables: const [kDiveDerivedMetricsTable],
+    ),
+    _num(
+      'sacChange',
+      _derived('sac_change_pct'),
+      dimension: FieldDimension.percent,
+      sanity: (min: -100, max: 1000),
+      tables: [kDiveDerivedMetricsTable],
+    ),
+    QueryField(
+      key: 'finalStop',
+      type: FieldType.enumName,
+      sql: _derived('final_stop_state'),
+      emptySql: '${_derived('final_stop_state')} IS NULL',
+      labelKey: _label('finalStop'),
+      enumValues: _names(FinalStopState.values),
+      tables: const [kDiveDerivedMetricsTable],
+    ),
+    // How far the diver strayed from the stop's depth for a tenth of the
+    // stop or more (the 90th percentile), not the single worst sample.
+    _num(
+      'finalStopExcursion',
+      _derived('final_stop_max_excursion_m'),
+      dimension: FieldDimension.depth,
+      sanity: (min: 0, max: 10),
+      tables: [kDiveDerivedMetricsTable],
+    ),
+    // Whole minutes, truncated, like bottomTime.
+    _num(
+      'finalStopDuration',
+      _derived('final_stop_duration_s / 60'),
+      dimension: FieldDimension.minutes,
+      tables: [kDiveDerivedMetricsTable],
+    ),
     _text('notes', 'notes'),
     // The legacy free-text buddy column (#757): the dive editor writes only
     // dive_buddies, but old data still carries names here.
     _text('legacyBuddy', 'buddy'),
     _text('diveMaster', 'dive_master'),
     _text('boatName', 'boat_name'),
+    _text('boatCaptain', 'boat_captain'),
     _text('diveOperator', 'dive_operator'),
     _text('surfaceConditions', 'surface_conditions'),
     _enum(
@@ -323,7 +430,15 @@ final QueryEntity diveQueryEntity = QueryEntity(
       'current_strength',
       _names(CurrentStrength.values),
     ),
-    _enum('waterType', 'water_type', _names(WaterType.values)),
+    QueryField(
+      key: 'waterType',
+      type: FieldType.enumName,
+      sql: _effectiveWaterType,
+      emptySql: '$_effectiveWaterType IS NULL',
+      labelKey: _label('waterType'),
+      enumValues: _names(WaterType.values),
+      tables: const ['dive_sites'],
+    ),
     _enum('entryMethod', 'entry_method', _names(EntryMethod.values)),
     _enum('exitMethod', 'exit_method', _names(EntryMethod.values)),
     _enum('diveMode', 'dive_mode', _names(DiveMode.values)),
@@ -369,7 +484,15 @@ final QueryEntity diveQueryEntity = QueryEntity(
       aliases: ['diveCenter'],
     ),
     _fk('computer', QuerySubject.computers, 'computer_id'),
-    _fk('course', QuerySubject.courses, 'course_id'),
+    // A dive's courses live in dive_courses (#2515); the key stays 'course'
+    // so saved queries keep working.
+    _junction(
+      'course',
+      QuerySubject.courses,
+      'dive_courses',
+      'course_id',
+      aliases: ['courses'],
+    ),
     _junction(
       'buddies',
       QuerySubject.buddies,
@@ -417,5 +540,19 @@ final QueryEntity diveQueryEntity = QueryEntity(
     _child('customFields', QuerySubject.customFields),
     _child('sightings', QuerySubject.sightings),
     _child('media', QuerySubject.media),
+    // Live findings only: a dismissed finding is one the diver waved off,
+    // and one from an older engine is replaced when the dive is next
+    // reviewed. The filter rides on the hop, so no condition inside it (an
+    // empty rule, a negated rule) can reach a hidden finding.
+    QueryRelation(
+      key: 'findings',
+      aliases: const ['finding'],
+      target: QuerySubject.findings,
+      shape: RelationShape.child,
+      joinSql: '{to}.dive_id = {from}.id',
+      targetFilterSql: kLiveFindingSql,
+      isMany: true,
+      labelKey: _label('findings'),
+    ),
   ],
 );

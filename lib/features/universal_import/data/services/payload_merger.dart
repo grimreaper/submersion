@@ -49,6 +49,12 @@ class _Survivor {
 class PayloadMerger {
   const PayloadMerger();
 
+  /// Dive map key: whether the dive's own file had trips (#2618). A file
+  /// with trips leaves a dive out of them on purpose, a file with none says
+  /// nothing, and the batch's trip list mixes the two, so the importer reads
+  /// this per dive to decide whether to place a tripless dive by date.
+  static const sourceHasTripsKey = '_sourceHasTrips';
+
   /// Dive map fields holding a single entity reference.
   static final _scalarRefFields = diveScalarRefTypes.keys.toList();
 
@@ -134,6 +140,14 @@ class PayloadMerger {
     // across files by design, like dive type slugs, so the same id in two
     // files is the same type and is not namespaced.
     final customSiteTypes = <String, Map<String, dynamic>>{};
+    final serviceKinds = <String, Map<String, dynamic>>{};
+    // Certification currency (issue #2267). Rules key on their own id, like
+    // dive roles. Prefs and events name a certification by its uddfId, which
+    // is namespaced per file below, so their certificationRef is namespaced
+    // the same way or no restored certification would ever match it.
+    final currencyRules = <String, Map<String, dynamic>>{};
+    final currencyPrefs = <Map<String, dynamic>>[];
+    final currencyEvents = <Map<String, dynamic>>[];
 
     for (final input in inputs) {
       warnings.addAll(input.payload.warnings);
@@ -161,6 +175,33 @@ class PayloadMerger {
       for (final type in siteTypes is List ? siteTypes : const []) {
         if (type is Map<String, dynamic> && type['id'] is String) {
           customSiteTypes.putIfAbsent(type['id'] as String, () => type);
+        }
+      }
+      final kinds = input.payload.metadata[ImportPayload.serviceKindsKey];
+      for (final kind in kinds is List ? kinds : const []) {
+        if (kind is Map<String, dynamic> && kind['id'] is String) {
+          serviceKinds.putIfAbsent(kind['id'] as String, () => kind);
+        }
+      }
+      final rules = input.payload.metadata[ImportPayload.currencyRulesKey];
+      for (final rule in rules is List ? rules : const []) {
+        if (rule is Map<String, dynamic> && rule['id'] is String) {
+          currencyRules.putIfAbsent(rule['id'] as String, () => rule);
+        }
+      }
+      for (final (key, out) in [
+        (ImportPayload.currencyPrefsKey, currencyPrefs),
+        (ImportPayload.currencyEventsKey, currencyEvents),
+      ]) {
+        final rows = input.payload.metadata[key];
+        for (final row in rows is List ? rows : const []) {
+          if (row is! Map<String, dynamic>) continue;
+          final ref = row['certificationRef'];
+          out.add({
+            ...row,
+            if (ref is String && ref.isNotEmpty)
+              'certificationRef': '${input.fileId}:$ref',
+          });
         }
       }
 
@@ -191,6 +232,9 @@ class PayloadMerger {
           }
 
           if (type == ImportEntityType.dives) {
+            item[sourceHasTripsKey] = input.payload
+                .entitiesOf(ImportEntityType.trips)
+                .isNotEmpty;
             (entities[type] ??= []).add(item);
             continue;
           }
@@ -224,6 +268,14 @@ class PayloadMerger {
           ImportPayload.customDiveRolesKey: customDiveRoles.values.toList(),
         if (customSiteTypes.isNotEmpty)
           ImportPayload.customSiteTypesKey: customSiteTypes.values.toList(),
+        if (serviceKinds.isNotEmpty)
+          ImportPayload.serviceKindsKey: serviceKinds.values.toList(),
+        if (currencyRules.isNotEmpty)
+          ImportPayload.currencyRulesKey: currencyRules.values.toList(),
+        if (currencyPrefs.isNotEmpty)
+          ImportPayload.currencyPrefsKey: currencyPrefs,
+        if (currencyEvents.isNotEmpty)
+          ImportPayload.currencyEventsKey: currencyEvents,
       },
     );
   }
@@ -242,6 +294,12 @@ class PayloadMerger {
       if (uddfId is String && uddfId.isNotEmpty) {
         item['uddfId'] = '$fileId:$uddfId';
       }
+    }
+
+    // A course names its certifications by uddfId, namespaced per file like
+    // the certifications themselves (#2515).
+    if (type == ImportEntityType.courses) {
+      _rewriteCourseCertRefs(item, (ref) => '$fileId:$ref');
     }
 
     if (type == ImportEntityType.dives) {
@@ -540,6 +598,9 @@ class PayloadMerger {
       case ImportEntityType.serviceRecords:
       // Media is handled before this point and has no name to fold on.
       case ImportEntityType.media:
+      // A fill carries its own id and the importer skips one already here,
+      // so two files holding the same fill import it once without folding.
+      case ImportEntityType.fills:
         return null;
       case ImportEntityType.sites:
       case ImportEntityType.trips:
@@ -553,6 +614,25 @@ class PayloadMerger {
     }
   }
 
+  /// Rewrites a course's `certificationRef` and `certificationRefs` through
+  /// [rewrite] (#2515).
+  static void _rewriteCourseCertRefs(
+    Map<String, dynamic> course,
+    String Function(String ref) rewrite,
+  ) {
+    final ref = course['certificationRef'];
+    if (ref is String && ref.isNotEmpty) {
+      course['certificationRef'] = rewrite(ref);
+    }
+    final refs = course['certificationRefs'];
+    if (refs is List) {
+      course['certificationRefs'] = [
+        for (final r in refs)
+          if (r is String && r.isNotEmpty) rewrite(r) else r,
+      ];
+    }
+  }
+
   void _rewriteAliases(
     Map<ImportEntityType, List<Map<String, dynamic>>> entities,
     Map<String, String> aliases,
@@ -560,6 +640,10 @@ class PayloadMerger {
     if (aliases.isEmpty) return;
 
     String resolve(String id) => aliases[id] ?? id;
+
+    for (final course in entities[ImportEntityType.courses] ?? const []) {
+      _rewriteCourseCertRefs(course, resolve);
+    }
 
     for (final dive in entities[ImportEntityType.dives] ?? const []) {
       final site = dive['site'];

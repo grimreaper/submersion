@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 
 import 'package:submersion/features/insights/domain/trend_aggregation.dart';
+import 'package:submersion/features/insights/domain/trend_gap_threshold.dart';
+import 'package:submersion/features/insights/domain/trend_range.dart';
+import 'package:submersion/features/insights/presentation/formatters/trend_gap_label.dart';
+import 'package:submersion/features/insights/presentation/formatters/trend_range_label.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 
 /// The control row beneath a `DiveTrendChart`: how dives are grouped, and
@@ -27,7 +31,18 @@ class TrendControlStrip extends StatelessWidget {
     required this.rollingColor,
     required this.rateColor,
     this.rateLabel,
+    this.range = TrendRange.all,
+    this.onRangePresetSelected,
+    this.gapThreshold = TrendGapThreshold.off,
+    this.onGapThresholdSelected,
   });
+
+  /// The diver's gap threshold, checked in the Range menu's "Collapse gaps"
+  /// section (issue #3251).
+  final TrendGapThreshold gapThreshold;
+
+  /// Called with a picked gap threshold. Null leaves the section out.
+  final ValueChanged<TrendGapThreshold>? onGapThresholdSelected;
 
   /// Stable id from `TrendChartIds`, used to build unique widget keys.
   final String chartId;
@@ -49,6 +64,13 @@ class TrendControlStrip extends StatelessWidget {
   /// The fitted rate with its unit symbol, for example "+4.4 m". Null when
   /// there are too few dives to fit. Only shown while [showLinearFit] is true.
   final String? rateLabel;
+
+  /// The chart's visible window, named on the Range menu.
+  final TrendRange range;
+
+  /// Called with the picked entry. [TrendRangePreset.custom] asks the caller
+  /// to open a date picker. Null hides the menu.
+  final ValueChanged<TrendRangePreset>? onRangePresetSelected;
 
   String _modeLabel(BuildContext context, TrendAggregation mode) {
     switch (mode) {
@@ -73,6 +95,61 @@ class TrendControlStrip extends StatelessWidget {
         runSpacing: 4,
         crossAxisAlignment: WrapCrossAlignment.center,
         children: [
+          if (onRangePresetSelected != null)
+            // Object, not TrendRangePreset: the same menu carries the gap
+            // threshold choices below the range presets.
+            PopupMenuButton<Object>(
+              key: ValueKey('trend-range-$chartId'),
+              tooltip: context.l10n.insights_trend_range_tooltip,
+              initialValue: range.preset,
+              onSelected: (value) {
+                if (value is TrendRangePreset) {
+                  onRangePresetSelected!(value);
+                } else if (value is TrendGapThreshold) {
+                  onGapThresholdSelected?.call(value);
+                }
+              },
+              itemBuilder: (context) => [
+                for (final preset in TrendRangePreset.values)
+                  PopupMenuItem<Object>(
+                    key: ValueKey('trend-range-$chartId-${preset.name}'),
+                    value: preset,
+                    child: Text(
+                      trendRangeLabel(preset, context.l10n, menuItem: true),
+                    ),
+                  ),
+                if (onGapThresholdSelected != null) ...[
+                  const PopupMenuDivider(),
+                  PopupMenuItem<Object>(
+                    enabled: false,
+                    height: 32,
+                    child: Text(
+                      context.l10n.insights_trend_gaps_menuHeader,
+                      style: theme.textTheme.labelSmall,
+                    ),
+                  ),
+                  for (final t in TrendGapThreshold.values)
+                    CheckedPopupMenuItem<Object>(
+                      key: ValueKey('trend-gaps-$chartId-${t.name}'),
+                      value: t,
+                      checked: t == gapThreshold,
+                      child: Text(trendGapThresholdLabel(t, context.l10n)),
+                    ),
+                ],
+              ],
+              child: Row(
+                mainAxisSize: MainAxisSize.min,
+                children: [
+                  const Icon(Icons.date_range, size: 16),
+                  const SizedBox(width: 4),
+                  Text(
+                    trendRangeLabel(range.preset, context.l10n),
+                    style: theme.textTheme.bodySmall,
+                  ),
+                  const Icon(Icons.arrow_drop_down, size: 18),
+                ],
+              ),
+            ),
           PopupMenuButton<TrendAggregation>(
             key: ValueKey('trend-aggregation-$chartId'),
             tooltip: context.l10n.insights_trend_aggregation_tooltip,

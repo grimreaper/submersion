@@ -7,8 +7,11 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:submersion/features/universal_import/data/models/import_enums.dart';
 import 'package:submersion/features/universal_import/presentation/providers/universal_import_providers.dart';
+import 'package:submersion/core/models/log_entry.dart';
+import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 import 'package:submersion/shared/services/incoming_file_handler.dart';
+import 'package:submersion/shared/services/shared_file_unreadable_exception.dart';
 
 /// UDDF XML content recognised by the format detector.
 final _uddfBytes = Uint8List.fromList(
@@ -19,6 +22,11 @@ final _uddfBytes = Uint8List.fromList(
 final _encBytes = File(
   'test/fixtures/nav_tracks/seacraft_enc3_short.csv',
 ).readAsBytesSync();
+
+/// A Suunto app JSON export, handed to the Suunto importer (#1445).
+final _suuntoJsonBytes = Uint8List.fromList(
+  '{"DeviceLog":{"Header":{"ActivityType":51}}}'.codeUnits,
+);
 
 /// PNG magic bytes -- not a supported dive-log format.
 final _pngBytes = Uint8List.fromList([
@@ -75,6 +83,28 @@ void main() {
 
       expect(result, IncomingFileOutcome.none);
     });
+
+    test(
+      'treats the Suunto file wizard as a busy import too (#1445)',
+      () async {
+        final result = await handleIncomingFile(
+          bytes: _suuntoJsonBytes,
+          fileName: 'nautic.json',
+          currentPath: '/transfer/import-file/suunto',
+          notifier: notifier,
+          messenger: null,
+        );
+
+        expect(result, IncomingFileOutcome.none);
+        expect(notifier.state.fileBytes, isNull);
+        expect(isImportWizardRoute('/transfer/import-wizard'), isTrue);
+        expect(isImportWizardRoute('/transfer/import-file/suunto'), isTrue);
+        expect(isImportWizardRoute('/transfer'), isFalse);
+        // The wizard opened as a nav shortcut (#2936) owns the screen too.
+        expect(isImportWizardRoute('/shortcut/import-wizard'), isTrue);
+        expect(isImportWizardRoute('/shortcut/gas-blender'), isFalse);
+      },
+    );
 
     testWidgets(
       'returns false and shows snackbar for unsupported file format',
@@ -170,6 +200,24 @@ void main() {
         expect(result, IncomingFileOutcome.navigateToNavTrackReview);
         // The notifier stays reset -- the file never enters the dive
         // import wizard's own state.
+        expect(notifier.state.currentStep, ImportWizardStep.fileSelection);
+        expect(notifier.state.fileBytes, isNull);
+      },
+    );
+
+    testWidgets(
+      'returns navigateToSuuntoFileImport for a Suunto JSON export without '
+      'touching the wizard state (#1445)',
+      (tester) async {
+        final result = await handleIncomingFile(
+          bytes: _suuntoJsonBytes,
+          fileName: 'nautic.json',
+          currentPath: '/home',
+          notifier: notifier,
+          messenger: null,
+        );
+
+        expect(result, IncomingFileOutcome.navigateToSuuntoFileImport);
         expect(notifier.state.currentStep, ImportWizardStep.fileSelection);
         expect(notifier.state.fileBytes, isNull);
       },
@@ -300,6 +348,149 @@ void main() {
 
       expect(result, isFalse);
       expect(container.read(universalImportNotifierProvider).files, isEmpty);
+    });
+  });
+
+  group('reportIncomingFileError', () {
+    Future<ScaffoldMessengerState> pumpMessenger(WidgetTester tester) async {
+      late ScaffoldMessengerState messenger;
+      await tester.pumpWidget(
+        MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
+          home: Builder(
+            builder: (context) {
+              messenger = ScaffoldMessenger.of(context);
+              return const Scaffold(body: SizedBox.shrink());
+            },
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+      return messenger;
+    }
+
+    final missing = p.join('data', 'user', '0', 'other.app', 'route.csv');
+
+    testWidgets('says the file could not be read when nothing was readable', (
+      tester,
+    ) async {
+      final messenger = await pumpMessenger(tester);
+
+      reportIncomingFileError(
+        SharedFileUnreadableException(
+          unreadablePaths: [missing],
+          sharedCount: 1,
+        ),
+        messenger: messenger,
+        readFailedMessage: 'Could not read file',
+        someUnreadableMessage: (count) => '$count skipped',
+      );
+      await tester.pump();
+
+      expect(find.text('Could not read file'), findsOneWidget);
+      expect(find.text('1 skipped'), findsNothing);
+    });
+
+    testWidgets('counts the skipped files when the rest were imported', (
+      tester,
+    ) async {
+      final messenger = await pumpMessenger(tester);
+
+      reportIncomingFileError(
+        SharedFileUnreadableException(
+          unreadablePaths: [missing, p.join('x', 'b.csv')],
+          sharedCount: 5,
+        ),
+        messenger: messenger,
+        readFailedMessage: 'Could not read file',
+        someUnreadableMessage: (count) => '$count skipped',
+      );
+      await tester.pump();
+
+      expect(find.text('2 skipped'), findsOneWidget);
+      expect(find.text('Could not read file'), findsNothing);
+    });
+
+    testWidgets('counts the skipped files without a localized message', (
+      tester,
+    ) async {
+      final messenger = await pumpMessenger(tester);
+
+      reportIncomingFileError(
+        SharedFileUnreadableException(
+          unreadablePaths: [missing],
+          sharedCount: 2,
+        ),
+        messenger: messenger,
+      );
+      await tester.pump();
+
+      expect(
+        find.text('1 file(s) could not be read and were skipped'),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('falls back to the read failure for any other error', (
+      tester,
+    ) async {
+      final messenger = await pumpMessenger(tester);
+
+      reportIncomingFileError(
+        Exception('platform channel failed'),
+        messenger: messenger,
+        readFailedMessage: 'Could not read file',
+      );
+      await tester.pump();
+
+      expect(find.text('Could not read file'), findsOneWidget);
+    });
+
+    testWidgets('renders the localized partial-skip message', (tester) async {
+      final messenger = await pumpMessenger(tester);
+      final l10n = await AppLocalizations.delegate.load(const Locale('en'));
+
+      reportIncomingFileError(
+        SharedFileUnreadableException(
+          unreadablePaths: [missing],
+          sharedCount: 3,
+        ),
+        messenger: messenger,
+        readFailedMessage: l10n.dropTarget_error_readFailed,
+        someUnreadableMessage: l10n.dropTarget_error_someUnreadable,
+      );
+      await tester.pump();
+
+      expect(
+        find.text('1 file could not be read and was skipped'),
+        findsOneWidget,
+      );
+    });
+
+    test('writes the error and the unreadable path to the log', () async {
+      final captured = <LogEntry>[];
+      final sub = LoggerService.logStream.listen(captured.add);
+      addTearDown(sub.cancel);
+
+      reportIncomingFileError(
+        SharedFileUnreadableException(
+          unreadablePaths: [missing],
+          sharedCount: 1,
+        ),
+        messenger: null,
+      );
+      await pumpEventQueue();
+
+      // Nothing reached the debug log either, so a diver had nothing to
+      // attach to a bug report (#2689).
+      expect(
+        captured.where(
+          (e) => e.level == LogLevel.warning && e.message.contains(missing),
+        ),
+        isNotEmpty,
+      );
     });
   });
 }

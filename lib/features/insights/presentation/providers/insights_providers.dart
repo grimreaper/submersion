@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:submersion/core/utils/local_day_changes.dart';
 import 'package:submersion/core/providers/provider.dart';
 
 import 'package:submersion/core/constants/gas_consumption_display.dart';
@@ -14,6 +15,7 @@ import 'package:submersion/features/insights/presentation/providers/insights_gas
 import 'package:submersion/features/insights/data/services/deco_classification_service.dart';
 import 'package:submersion/features/insights/domain/entities/species_insights.dart';
 import 'package:submersion/features/insights/domain/suit_thickness_stats.dart';
+import 'package:submersion/features/insights/domain/tank_configuration/tank_configuration.dart';
 import 'package:submersion/features/insights/domain/water_temp_band_metrics.dart';
 import 'package:submersion/features/insights/domain/water_temp_bands.dart';
 import 'package:submersion/features/insights/presentation/providers/insights_filter_provider.dart';
@@ -40,25 +42,31 @@ final excludedDiveCountProvider = FutureProvider<int>((ref) async {
 });
 
 /// Overview totals scoped by the Insights filter. Kept separate from
-/// diveStatisticsProvider so the home dashboard and dive-log summary (which
-/// read diveStatisticsProvider) stay unfiltered.
+/// diveStatisticsProvider so the home dashboard (which reads
+/// diveStatisticsProvider) stays unfiltered, and from the dive-log summary
+/// (diveListScopedStatisticsProvider), which follows the dive list's own
+/// filter rather than this tab's.
 final filteredDiveStatisticsProvider = FutureProvider<DiveStatistics>((
   ref,
 ) async {
   final repository = ref.watch(diveRepositoryProvider);
   final currentDiverId = ref.watch(currentDiverIdProvider);
   final filter = ref.watch(insightsFilterProvider);
-  // ONE debounced tick over `dives` plus every table the filter joins
-  // (#2365), so an attribute-only or junction-only write refreshes the
+  // ONE debounced tick over every table the query reads (`dives` and the
+  // `dive_sites` name join) plus every table the filter joins (#2365), so a
+  // site rename, an attribute-only or a junction-only write refreshes the
   // totals once, never twice.
   final touched = diveFilterTablesTouched(filter);
   await awaitServiceStatusIfRead(ref, touched);
-  final extra = touched.difference({'dives'});
   ref.invalidateSelfWhen(
-    extra.isEmpty
-        ? repository.watchDivesChanges()
-        : repository.watchTables({'dives', ...extra}),
+    repository.watchTables({
+      ...DiveRepository.statisticsTickTables,
+      ...touched,
+    }),
   );
+  // "Dives This Year" reads the clock once per build (#2600), so a date
+  // change has to rebuild it too.
+  ref.invalidateSelfWhen(localDayChanges());
   return repository.getStatistics(diverId: currentDiverId, filter: filter);
 });
 
@@ -66,7 +74,7 @@ final filteredDiveStatisticsProvider = FutureProvider<DiveStatistics>((
 ///
 /// Split from diveRecordsProvider for the same reason
 /// [filteredDiveStatisticsProvider] is split from diveStatisticsProvider: the
-/// dive-log summary widget reads the unfiltered one and has no filter UI, so
+/// dive-log summary follows the dive list's filter, never this tab's, so
 /// the Insights tab's scope must not reach it. Issue #1028: before this
 /// split, the Insights tab's records were the only panel on the page that
 /// ignored the filter.
@@ -78,16 +86,17 @@ final filteredDiveRecordsProvider = FutureProvider<DiveRecords>((ref) async {
   final repository = ref.watch(diveRepositoryProvider);
   final currentDiverId = ref.watch(currentDiverIdProvider);
   final filter = ref.watch(insightsFilterProvider);
-  // ONE debounced tick over `dives` plus every table the filter joins
-  // (#2365), so an attribute-only or junction-only write refreshes the
+  // ONE debounced tick over every table the query reads (`dives` and the
+  // `dive_sites` name join) plus every table the filter joins (#2365), so a
+  // site rename, an attribute-only or a junction-only write refreshes the
   // records once, never twice.
   final touched = diveFilterTablesTouched(filter);
   await awaitServiceStatusIfRead(ref, touched);
-  final extra = touched.difference({'dives'});
   ref.invalidateSelfWhen(
-    extra.isEmpty
-        ? repository.watchDivesChanges()
-        : repository.watchTables({'dives', ...extra}),
+    repository.watchTables({
+      ...DiveRepository.statisticsTickTables,
+      ...touched,
+    }),
   );
   return repository.getRecords(diverId: currentDiverId, filter: filter);
 });
@@ -145,6 +154,20 @@ final gasMixDistributionProvider = FutureProvider<List<DistributionSegment>>((
   final currentDiverId = ref.watch(currentDiverIdProvider);
   final filter = ref.watch(insightsFilterProvider);
   return repository.getGasMixDistribution(
+    diverId: currentDiverId,
+    filter: filter,
+  );
+});
+
+/// Dives by tank configuration and extras for the Gas page (issue #3421).
+final tankConfigurationStatsProvider = FutureProvider<TankConfigurationStats>((
+  ref,
+) async {
+  _keepAliveWithExpiry(ref);
+  final repository = ref.watch(insightsRepositoryProvider);
+  final currentDiverId = ref.watch(currentDiverIdProvider);
+  final filter = ref.watch(insightsFilterProvider);
+  return repository.getTankConfigurationStats(
     diverId: currentDiverId,
     filter: filter,
   );
@@ -222,6 +245,15 @@ final depthProgressionTrendProvider = FutureProvider<List<TrendDataPoint>>((
   final currentDiverId = ref.watch(currentDiverIdProvider);
   final filter = ref.watch(insightsFilterProvider);
   return repository.getDepthPerDive(diverId: currentDiverId, filter: filter);
+});
+
+/// Runtime per dive (issue #3059), for the Progression chart and Dive focus.
+final runtimeTrendProvider = FutureProvider<List<TrendDataPoint>>((ref) async {
+  _keepAliveWithExpiry(ref);
+  final repository = ref.watch(insightsRepositoryProvider);
+  final currentDiverId = ref.watch(currentDiverIdProvider);
+  final filter = ref.watch(insightsFilterProvider);
+  return repository.getRuntimePerDive(diverId: currentDiverId, filter: filter);
 });
 
 final bottomTimeTrendProvider = FutureProvider<List<TrendDataPoint>>((

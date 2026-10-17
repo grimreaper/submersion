@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/local_cache_database.dart';
 import 'package:submersion/core/services/media_store/store_keys.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
@@ -14,7 +15,6 @@ import 'package:submersion/features/media/domain/entities/media_item.dart';
 import 'package:submersion/features/media/domain/entities/media_source_type.dart';
 import 'package:submersion/features/media/domain/services/media_source_resolver.dart';
 import 'package:submersion/features/media/domain/value_objects/media_source_data.dart';
-import 'package:submersion/features/media/domain/value_objects/media_source_metadata.dart';
 import 'package:submersion/features/media/domain/value_objects/verify_result.dart';
 import 'package:submersion/features/media/presentation/providers/media_resolver_providers.dart';
 import 'package:submersion/features/media/presentation/widgets/media_item_view.dart';
@@ -50,9 +50,6 @@ class _UnavailableGalleryResolver implements MediaSourceResolver {
   }) async => const UnavailableData(kind: UnavailableKind.fromOtherDevice);
 
   @override
-  Future<MediaSourceMetadata?> extractMetadata(MediaItem item) async => null;
-
-  @override
   Future<VerifyResult> verify(MediaItem item) async =>
       VerifyResult.fromOtherDevice;
 }
@@ -64,7 +61,9 @@ void main() {
   late MediaCacheStore cache;
 
   setUp(() async {
-    db = LocalCacheDatabase(NativeDatabase.memory());
+    db = LocalCacheDatabase(
+      NativeDatabase.memory(setup: registerAppSqlFunctions),
+    );
     root = await Directory.systemTemp.createTemp('miv_fallback_test');
     store = InMemoryMediaObjectStore();
     cache = MediaCacheStore(database: db, root: root);

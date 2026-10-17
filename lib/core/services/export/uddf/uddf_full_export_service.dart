@@ -5,6 +5,7 @@ import 'package:file_picker/file_picker.dart';
 import 'package:intl/intl.dart';
 import 'package:xml/xml.dart';
 
+import 'package:submersion/core/services/export/models/currency_backup_data.dart';
 import 'package:submersion/core/services/export/models/export_service_record.dart';
 import 'package:submersion/core/services/export/models/uddf_export_options.dart';
 import 'package:submersion/core/services/export/shared/file_export_utils.dart';
@@ -30,11 +31,16 @@ import 'package:submersion/features/dive_roles/domain/entities/dive_role.dart';
 import 'package:submersion/features/divers/domain/entities/diver.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_item.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_component.dart';
+import 'package:submersion/features/cylinder_passports/domain/entities/cylinder_fill.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_observation.dart';
+import 'package:submersion/features/equipment/domain/entities/service_kind.dart';
+import 'package:submersion/features/equipment/domain/entities/service_schedule.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_set.dart';
 import 'package:submersion/features/marine_life/domain/entities/species.dart';
 import 'package:submersion/features/tags/domain/entities/tag.dart';
 import 'package:submersion/features/trips/domain/entities/trip.dart';
+import 'package:submersion/features/dive_log/domain/entities/dive_tank_pressure_export.dart';
+import 'package:submersion/features/certification_agencies/domain/certification_catalog.dart';
 
 /// Handles comprehensive UDDF export of all application data.
 class UddfFullExportService {
@@ -53,10 +59,15 @@ class UddfFullExportService {
     List<EquipmentItem>? equipment,
     List<Buddy>? buddies,
     List<Certification>? certifications,
+    CurrencyBackupData currency = const CurrencyBackupData(),
+    CertificationCatalog? certificationCatalog,
     List<DiveCenter>? diveCenters,
     List<Species>? species,
     List<ServiceRecord>? serviceRecords,
     List<EquipmentObservation>? observations,
+    List<CylinderFill>? fills,
+    List<ServiceKind>? serviceKinds,
+    Map<String, List<ServiceSchedule>> serviceSchedulesByItem = const {},
     Map<String, String>? settings,
     Map<String, List<BuddyWithRole>>? diveBuddies,
     Diver? owner,
@@ -81,7 +92,7 @@ class UddfFullExportService {
     List<EquipmentComponent>? components,
     List<Course>? courses,
     Map<String, List<GasSwitchWithTank>>? diveGasSwitches,
-    Map<String, Map<String, List<TankPressurePoint>>>? diveTankPressures,
+    Map<String, DiveTankPressureExport>? diveTankPressures,
     List<DiveSourceExport>? dataSources,
     UddfExportOptions options = const UddfExportOptions(),
   }) async {
@@ -175,7 +186,11 @@ class UddfFullExportService {
 
               // Export buddies
               if (buddies != null) {
-                UddfParticipantWriters.writeBuddyDeclarations(builder, buddies);
+                UddfParticipantWriters.writeBuddyDeclarations(
+                  builder,
+                  buddies,
+                  certificationCatalog: certificationCatalog,
+                );
               }
             },
           );
@@ -357,7 +372,8 @@ class UddfFullExportService {
                         weightList,
                         trips,
                         gasSwitchList,
-                        tankPressures: diveTankPressures?[dive.id],
+                        tankPressures:
+                            diveTankPressures?[dive.id]?.displayedByTank,
                       );
                     }
                   },
@@ -370,13 +386,19 @@ class UddfFullExportService {
         // Application data section for all non-standard data
         UddfExportBuilders.buildApplicationData(
           builder,
+          backup: true,
           equipment: equipment,
           equipmentTagIdsByItem: equipmentTagIdsByItem,
           certifications: certifications,
+          currency: currency,
+          certificationCatalog: certificationCatalog,
           diveCenters: diveCenters,
           species: species,
           serviceRecords: serviceRecords,
           observations: observations,
+          fills: fills,
+          serviceKinds: serviceKinds,
+          serviceSchedulesByItem: serviceSchedulesByItem,
           settings: settings,
           owner: owner,
           tags: tags,
@@ -389,9 +411,13 @@ class UddfFullExportService {
           courses: courses,
           dataSources: sources,
           dataSourceDumps: encodedById,
+          attributedDives: dives,
+          diveTankPressures: diveTankPressures ?? const {},
           components: components,
           gearLinkDives: dives,
           diveBuddies: diveBuddies,
+          computerTissueDives: dives,
+          visibilityRangeDives: dives,
         );
 
         // The UDDF specification places <divecomputercontrol> last, so this
@@ -434,15 +460,27 @@ class UddfFullExportService {
     List<EquipmentComponent>? components,
     List<DiveSourceExport>? dataSources,
     List<EquipmentObservation>? observations,
+    List<CylinderFill>? fills,
+    List<ServiceKind>? serviceKinds,
+    Map<String, List<ServiceSchedule>> serviceSchedulesByItem = const {},
     List<ServiceRecord>? serviceRecords,
     Map<String, List<Tag>>? diveTags,
     Map<String, List<DiveWeight>>? diveWeights,
     Map<String, List<GasSwitchWithTank>>? diveGasSwitches,
     Map<String, List<ProfileEvent>>? diveProfileEvents,
-    Map<String, Map<String, List<TankPressurePoint>>>? diveTankPressures,
+    Map<String, DiveTankPressureExport>? diveTankPressures,
+    // A backup's certifications and the catalog naming their custom
+    // agencies and levels (issue #690).
+    List<Certification>? certifications,
+    CertificationCatalog? certificationCatalog,
+    // A backup's courses and their links (issue #2515).
+    List<Course>? courses,
     UddfExportOptions options = const UddfExportOptions(),
   }) => _generateAllDataXml(
     dives: dives,
+    certifications: certifications,
+    courses: courses,
+    certificationCatalog: certificationCatalog,
     sites: sites,
     tags: tags,
     customSiteTypes: customSiteTypes,
@@ -459,6 +497,9 @@ class UddfFullExportService {
     components: components,
     dataSources: dataSources,
     observations: observations,
+    fills: fills,
+    serviceKinds: serviceKinds,
+    serviceSchedulesByItem: serviceSchedulesByItem,
     serviceRecords: serviceRecords,
     diveTags: diveTags,
     diveWeights: diveWeights,
@@ -476,10 +517,15 @@ class UddfFullExportService {
     List<EquipmentItem>? equipment,
     List<Buddy>? buddies,
     List<Certification>? certifications,
+    CurrencyBackupData currency = const CurrencyBackupData(),
+    CertificationCatalog? certificationCatalog,
     List<DiveCenter>? diveCenters,
     List<Species>? species,
     List<ServiceRecord>? serviceRecords,
     List<EquipmentObservation>? observations,
+    List<CylinderFill>? fills,
+    List<ServiceKind>? serviceKinds,
+    Map<String, List<ServiceSchedule>> serviceSchedulesByItem = const {},
     Map<String, String>? settings,
     Map<String, List<BuddyWithRole>>? diveBuddies,
     Diver? owner,
@@ -504,7 +550,7 @@ class UddfFullExportService {
     List<EquipmentComponent>? components,
     List<Course>? courses,
     Map<String, List<GasSwitchWithTank>>? diveGasSwitches,
-    Map<String, Map<String, List<TankPressurePoint>>>? diveTankPressures,
+    Map<String, DiveTankPressureExport>? diveTankPressures,
     List<DiveSourceExport>? dataSources,
     UddfExportOptions options = const UddfExportOptions(),
   }) async {
@@ -514,10 +560,15 @@ class UddfFullExportService {
       equipment: equipment,
       buddies: buddies,
       certifications: certifications,
+      currency: currency,
+      certificationCatalog: certificationCatalog,
       diveCenters: diveCenters,
       species: species,
       serviceRecords: serviceRecords,
       observations: observations,
+      fills: fills,
+      serviceKinds: serviceKinds,
+      serviceSchedulesByItem: serviceSchedulesByItem,
       settings: settings,
       diveBuddies: diveBuddies,
       owner: owner,
@@ -555,10 +606,15 @@ class UddfFullExportService {
     List<EquipmentItem>? equipment,
     List<Buddy>? buddies,
     List<Certification>? certifications,
+    CurrencyBackupData currency = const CurrencyBackupData(),
+    CertificationCatalog? certificationCatalog,
     List<DiveCenter>? diveCenters,
     List<Species>? species,
     List<ServiceRecord>? serviceRecords,
     List<EquipmentObservation>? observations,
+    List<CylinderFill>? fills,
+    List<ServiceKind>? serviceKinds,
+    Map<String, List<ServiceSchedule>> serviceSchedulesByItem = const {},
     Map<String, String>? settings,
     Map<String, List<BuddyWithRole>>? diveBuddies,
     Diver? owner,
@@ -583,7 +639,7 @@ class UddfFullExportService {
     List<EquipmentComponent>? components,
     List<Course>? courses,
     Map<String, List<GasSwitchWithTank>>? diveGasSwitches,
-    Map<String, Map<String, List<TankPressurePoint>>>? diveTankPressures,
+    Map<String, DiveTankPressureExport>? diveTankPressures,
     List<DiveSourceExport>? dataSources,
     UddfExportOptions options = const UddfExportOptions(),
   }) async {
@@ -593,10 +649,15 @@ class UddfFullExportService {
       equipment: equipment,
       buddies: buddies,
       certifications: certifications,
+      currency: currency,
+      certificationCatalog: certificationCatalog,
       diveCenters: diveCenters,
       species: species,
       serviceRecords: serviceRecords,
       observations: observations,
+      fills: fills,
+      serviceKinds: serviceKinds,
+      serviceSchedulesByItem: serviceSchedulesByItem,
       settings: settings,
       diveBuddies: diveBuddies,
       owner: owner,

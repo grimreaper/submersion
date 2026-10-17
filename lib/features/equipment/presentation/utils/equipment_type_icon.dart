@@ -72,6 +72,10 @@ IconData equipmentTypeIcon(EquipmentType type) {
     // rather than the wardrobe family, so it does not read as a third layer.
     case EquipmentType.rashGuard:
       return MdiIcons.tshirtCrew;
+    // Sleeveless and hooded (#3108), so it reads apart from the suits, the
+    // base layer and the hood at 20px.
+    case EquipmentType.vest:
+      return SubmersionIcons.vest;
     case EquipmentType.mask:
       return MdiIcons.divingScubaMask;
     case EquipmentType.fins:
@@ -80,6 +84,10 @@ IconData equipmentTypeIcon(EquipmentType type) {
       return MdiIcons.divingSnorkel;
     case EquipmentType.boots:
       return SubmersionIcons.boots;
+    // Drawn (#2900): no icon font has a sock. It has a cuff and no sole, so
+    // it reads apart from the bootie in the same exposure family.
+    case EquipmentType.socks:
+      return SubmersionIcons.socks;
     case EquipmentType.gloves:
       return SubmersionIcons.gloves;
     case EquipmentType.hood:
@@ -104,11 +112,24 @@ IconData equipmentTypeIcon(EquipmentType type) {
       return Icons.flashlight_on;
     case EquipmentType.camera:
       return Icons.camera_alt;
-    // Photo rig parts (issue #1487).
+    // Photo rig parts (issue #1487, #1997). The six #1997 parts have no
+    // shape in any icon font, so they are drawn.
+    case EquipmentType.lens:
+      return SubmersionIcons.lens;
+    case EquipmentType.port:
+      return SubmersionIcons.port;
     case EquipmentType.housing:
       return Icons.photo_camera_back;
+    case EquipmentType.trayHandle:
+      return SubmersionIcons.trayHandle;
+    case EquipmentType.armClamp:
+      return SubmersionIcons.armClamp;
     case EquipmentType.strobe:
       return Icons.flash_on;
+    case EquipmentType.videoLight:
+      return SubmersionIcons.videoLight;
+    case EquipmentType.floatArm:
+      return SubmersionIcons.floatArm;
     case EquipmentType.knife:
       return MdiIcons.knifeMilitary;
     // Crossed screwdriver and wrench: a save-a-dive kit, not one wrench, which
@@ -123,6 +144,10 @@ IconData equipmentTypeIcon(EquipmentType type) {
       return SubmersionIcons.reel;
     case EquipmentType.dpv:
       return SubmersionIcons.dpv;
+    // An upright suitcase (#2952). It reads as luggage at list size, and a
+    // bag is carried to the dive rather than worn on it.
+    case EquipmentType.bag:
+      return Icons.luggage;
     case EquipmentType.o2Cell:
       return Icons.sensors;
     case EquipmentType.battery:

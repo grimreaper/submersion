@@ -10,11 +10,13 @@ import 'package:submersion/core/services/sync/sync_event_bus.dart';
 import 'package:submersion/core/text/text_sort.dart';
 import 'package:submersion/features/dive_import/data/services/imported_file_reclaimer.dart';
 import 'package:submersion/features/dive_log/data/repositories/profile_series_repository.dart';
+import 'package:submersion/features/dive_log/data/repositories/tank_computer_links.dart';
 import 'package:submersion/features/dive_log/data/repositories/tank_pressure_series_repository.dart';
 import 'package:submersion/features/settings/data/repositories/diver_settings_repository.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart'
     show AppSettings;
 import 'package:submersion/features/divers/data/repositories/diver_delete_steps.dart';
+import 'package:submersion/features/divers/data/repositories/diver_location_retirement.dart';
 import 'package:submersion/features/divers/data/repositories/diver_owned_rows.dart';
 import 'package:submersion/features/divers/domain/entities/diver.dart'
     as domain;
@@ -27,6 +29,12 @@ import 'package:submersion/features/media_store/data/media_deletion_coordinator.
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
 import 'package:submersion/features/planner/data/repositories/dive_plan_dive_links.dart';
 import 'package:submersion/features/site_types/data/repositories/site_type_repository.dart';
+import 'package:submersion/features/equipment/data/services/equipment_transfer_service.dart';
+import 'package:submersion/core/data/visibility/shared_item_policy.dart';
+import 'package:submersion/features/divers/data/repositories/profile_hides_repository.dart';
+import 'package:submersion/features/documents/data/repositories/document_repository.dart';
+import 'package:submersion/features/documents/domain/document_ids.dart';
+import 'package:submersion/features/documents/domain/entities/document.dart';
 
 /// Result returned by [DiverRepository.deleteDiverWithReassignment].
 ///
@@ -38,28 +46,46 @@ class DeleteDiverResult {
   final String? reassignedToDiverId;
   final String? reassignedToDiverName;
 
+  /// Items of the deleted profile's gear other profiles needed, handed to
+  /// them instead of deleted (issue #2852).
+  final int keptEquipmentCount;
+
+  /// The profiles that received kept gear, in handover order, no repeats.
+  final List<String> keptEquipmentHeirNames;
+
   const DeleteDiverResult({
     required this.reassignedTripsCount,
     required this.reassignedSitesCount,
     this.reassignedToDiverId,
     this.reassignedToDiverName,
+    this.keptEquipmentCount = 0,
+    this.keptEquipmentHeirNames = const [],
   });
 
   bool get hasReassignments =>
       reassignedTripsCount > 0 || reassignedSitesCount > 0;
+
+  bool get hasKeptEquipment => keptEquipmentCount > 0;
 }
 
 class DiverRepository {
   DiverRepository({
     ImportedFileReclaimer? importedFileReclaimer,
     MediaDeletionCoordinator? mediaDeletionCoordinator,
-  }) : _importedFileReclaimer =
+    EquipmentTransferService? equipmentTransferService,
+    DocumentRepository? documentRepository,
+  }) : _documentRepository = documentRepository ?? DocumentRepository(),
+       _importedFileReclaimer =
            importedFileReclaimer ?? ImportedFileReclaimer(),
-       _injectedMediaDeletionCoordinator = mediaDeletionCoordinator;
+       _injectedMediaDeletionCoordinator = mediaDeletionCoordinator,
+       _equipmentTransfer =
+           equipmentTransferService ?? EquipmentTransferService();
 
   AppDatabase get _db => DatabaseService.instance.database;
   final ImportedFileReclaimer _importedFileReclaimer;
+  final DocumentRepository _documentRepository;
   final MediaDeletionCoordinator? _injectedMediaDeletionCoordinator;
+  final EquipmentTransferService _equipmentTransfer;
 
   /// Built on first use: most callers construct a DiverRepository only to
   /// read the active diver, and never delete one. No worker kick from the
@@ -90,7 +116,9 @@ class DiverRepository {
       final query = _db.select(_db.divers)
         ..orderBy([(t) => OrderingTerm.asc(t.name.collate(Collate.noCase))]);
       final rows = await query.get();
-      return sortedByText(rows, (r) => r.name).map(_mapRowToDiver).toList();
+      return await _withDocuments(
+        sortedByText(rows, (r) => r.name).map(_mapRowToDiver).toList(),
+      );
     } catch (e, stackTrace) {
       _log.error('Failed to get all divers', error: e, stackTrace: stackTrace);
       rethrow;
@@ -117,8 +145,15 @@ class DiverRepository {
 
   /// Emits whenever the `divers` table changes so list providers can
   /// refresh after a sync or any other write.
-  Stream<void> watchDiversChanges() =>
-      _db.tableUpdates(TableUpdateQuery.onTable(_db.divers));
+  ///
+  /// Insurance and medical clearance are read from documents (issue #2613),
+  /// so a document change ticks too.
+  Stream<void> watchDiversChanges() => _db.tableUpdates(
+    TableUpdateQuery.allOf([
+      TableUpdateQuery.onTable(_db.divers),
+      TableUpdateQuery.onTable(_db.documents),
+    ]),
+  );
 
   /// Get the default diver (or first if none marked default)
   Future<domain.Diver?> getDefaultDiver() async {
@@ -129,7 +164,7 @@ class DiverRepository {
         ..limit(1);
       var row = await query.getSingleOrNull();
 
-      if (row != null) return _mapRowToDiver(row);
+      if (row != null) return await _withDocument(_mapRowToDiver(row));
 
       // Fallback to first diver
       query = _db.select(_db.divers)
@@ -137,7 +172,7 @@ class DiverRepository {
         ..limit(1);
       row = await query.getSingleOrNull();
 
-      return row != null ? _mapRowToDiver(row) : null;
+      return row != null ? await _withDocument(_mapRowToDiver(row)) : null;
     } catch (e, stackTrace) {
       _log.error(
         'Failed to get default diver',
@@ -153,7 +188,7 @@ class DiverRepository {
     try {
       final query = _db.select(_db.divers)..where((t) => t.id.equals(id));
       final row = await query.getSingleOrNull();
-      return row != null ? _mapRowToDiver(row) : null;
+      return row != null ? await _withDocument(_mapRowToDiver(row)) : null;
     } catch (e, stackTrace) {
       _log.error(
         'Failed to get diver by id: $id',
@@ -207,16 +242,6 @@ class DiverRepository {
                 bloodType: Value(diver.bloodType),
                 allergies: Value(diver.allergies),
                 medications: Value(diver.medications),
-                medicalClearanceExpiryDate: Value(
-                  diver.medicalClearanceExpiryDate?.millisecondsSinceEpoch,
-                ),
-                insuranceProvider: Value(diver.insurance.provider),
-                insurancePolicyNumber: Value(diver.insurance.policyNumber),
-                insuranceExpiryDate: Value(
-                  diver.insurance.expiryDate?.millisecondsSinceEpoch,
-                ),
-                insuranceEmergencyPhone: Value(diver.insurance.emergencyPhone),
-                insurancePhone: Value(diver.insurance.phone),
                 notes: Value(diver.notes),
                 isDefault: Value(diver.isDefault),
                 createdAt: Value(now.millisecondsSinceEpoch),
@@ -231,6 +256,48 @@ class DiverRepository {
           id,
           settings: settings,
         );
+
+        // An import (the universal adapter's DAN number) can hand a new
+        // diver an insurance or a clearance date; they are filed as
+        // documents (issue #2613), never on the diver row.
+        if (diver.insurance.hasAnyDetail) {
+          await DocumentRepository().save(
+            Document(
+              id: documentInsuranceId(id),
+              diverId: id,
+              owner: const DocumentOwner.personal(),
+              type: DocumentType.insurance,
+              issuer: diver.insurance.providerLabel,
+              referenceNumber: diver.insurance.policyLabel,
+              expiryDate: diver.insurance.expiryDate,
+              emergencyPhone: diver.insurance.assistanceLine,
+              phone: diver.insurance.officeLine,
+              isPrimary: true,
+              createdAt: now,
+              updatedAt: now,
+            ),
+            const [],
+            // Notified once after the diver transaction commits.
+            notify: false,
+          );
+        }
+        final clearance = diver.medicalClearanceExpiryDate;
+        if (clearance != null) {
+          await DocumentRepository().save(
+            Document(
+              id: documentMedicalClearanceId(id),
+              diverId: id,
+              owner: const DocumentOwner.personal(),
+              type: DocumentType.medicalClearance,
+              expiryDate: clearance,
+              createdAt: now,
+              updatedAt: now,
+            ),
+            const [],
+            // Notified once after the diver transaction commits.
+            notify: false,
+          );
+        }
       });
 
       await _syncRepository.markRecordPending(
@@ -275,16 +342,6 @@ class DiverRepository {
           bloodType: Value(diver.bloodType),
           allergies: Value(diver.allergies),
           medications: Value(diver.medications),
-          medicalClearanceExpiryDate: Value(
-            diver.medicalClearanceExpiryDate?.millisecondsSinceEpoch,
-          ),
-          insuranceProvider: Value(diver.insurance.provider),
-          insurancePolicyNumber: Value(diver.insurance.policyNumber),
-          insuranceExpiryDate: Value(
-            diver.insurance.expiryDate?.millisecondsSinceEpoch,
-          ),
-          insuranceEmergencyPhone: Value(diver.insurance.emergencyPhone),
-          insurancePhone: Value(diver.insurance.phone),
           notes: Value(diver.notes),
           isDefault: Value(diver.isDefault),
           updatedAt: Value(now),
@@ -481,6 +538,9 @@ class DiverRepository {
       String? targetName;
       int reassignedTrips = 0;
       int reassignedSites = 0;
+      var keptEquipment = 0;
+      final movedTransmitters = <String>[];
+      final keptHeirIds = <String>[];
 
       if (allDiversRows.isNotEmpty) {
         targetId = allDiversRows.first.id;
@@ -489,8 +549,40 @@ class DiverRepository {
 
       // Set inside the transaction, applied after it commits.
       late final MediaCascadePlan mediaPlan;
+      // The delete steps remove documents with raw SQL, so their expiry
+      // reminders are cancelled here once the delete commits (#2613).
+      final documentIds = [
+        for (final r
+            in await _db
+                .customSelect(
+                  'SELECT id FROM documents WHERE diver_id = ?',
+                  variables: [Variable.withString(id)],
+                )
+                .get())
+          r.read<String>('id'),
+      ];
 
       await _db.transaction(() async {
+        // Step 0a: Hand over the gear other profiles need (issue #2852),
+        // before anything below selects this diver's rows: every later step
+        // matches `diver_id = id`, so a moved item, dive computer or
+        // transmitter is out of their reach, and the media plan keeps the
+        // moved gear's media.
+        final handoverAt = DateTime.now().millisecondsSinceEpoch;
+        for (final kept in await _equipmentTransfer.keptUnitsForDiver(id)) {
+          final moved = await _equipmentTransfer.transferUnitInTransaction(
+            unit: kept.unit,
+            fromDiverId: id,
+            toDiverId: kept.heirId,
+            keepAccess: false,
+            moveRegistry: true,
+            now: handoverAt,
+          );
+          keptEquipment += moved.itemsMoved;
+          movedTransmitters.addAll(moved.movedTransmitterIds);
+          if (!keptHeirIds.contains(kept.heirId)) keptHeirIds.add(kept.heirId);
+        }
+
         // Step 0: Reassign shared records to the surviving diver (if any).
         if (targetId != null) {
           final now = DateTime.now().millisecondsSinceEpoch;
@@ -550,6 +642,20 @@ class DiverRepository {
               localUpdatedAt: now,
             );
           }
+
+          // The heir now owns these; its own hides of them would leave it
+          // owning items it cannot see (issue #2594).
+          final hides = ProfileHidesRepository();
+          await hides.deleteHides(
+            SharedItemKind.trip,
+            sharedTripIds,
+            diverId: targetId,
+          );
+          await hides.deleteHides(
+            SharedItemKind.site,
+            sharedSiteIds,
+            diverId: targetId,
+          );
         }
 
         // Step 0b: Plan the media cascade (issue #1954). Here, after the
@@ -566,7 +672,7 @@ class DiverRepository {
         // a change a peer has to see: without a fresh updated_at and a
         // pending mark the peer keeps the old computerId and its next
         // last-writer-wins update carries that dangling reference back. The
-        // series calls below already stamp and mark for themselves.
+        // series and tank calls below stamp and mark for themselves.
         final clearedAt = DateTime.now().millisecondsSinceEpoch;
         final foreignDiveIds = await _idsOf(
           'SELECT id FROM dives '
@@ -587,9 +693,29 @@ class DiverRepository {
         );
         await TankPressureSeriesRepository()
             .clearComputersOfDiverForForeignDives(id);
-        // dive_data_sources carries no updated_at and no hlc: it is a
-        // clockless child that syncs with its parent dive, so the parent is
-        // what gets marked (the rule TankPressureRepository follows too).
+        // Tanks of those dives attributed to this diver's computers: the
+        // computers' delete would clear them by ON DELETE SET NULL, with no
+        // clock and so unseen by peers and by the caches' source stamp.
+        await clearTankComputerLinks(
+          _db,
+          _syncRepository,
+          (t) =>
+              t.computerId.isInQuery(
+                _db.selectOnly(_db.diveComputers)
+                  ..addColumns([_db.diveComputers.id])
+                  ..where(_db.diveComputers.diverId.equals(id)),
+              ) &
+              t.diveId.isNotInQuery(
+                _db.selectOnly(_db.dives)
+                  ..addColumns([_db.dives.id])
+                  ..where(_db.dives.diverId.equals(id)),
+              ),
+          now: clearedAt,
+        );
+        // dive_data_sources carries no updated_at: it is a child that syncs
+        // with its parent dive, so the parent is what gets marked (the rule
+        // TankPressureRepository follows too). Its own clock is restamped
+        // with the clear, so the null is newer than any peer's copy (#2644).
         final sourceParentIds = await _idsOf(
           'SELECT DISTINCT dive_id FROM dive_data_sources '
           'WHERE computer_id IN '
@@ -599,12 +725,12 @@ class DiverRepository {
           column: 'dive_id',
         );
         await _db.customStatement(
-          'UPDATE dive_data_sources SET computer_id = NULL '
+          'UPDATE dive_data_sources SET computer_id = NULL, hlc = ? '
           'WHERE computer_id IN '
           '(SELECT id FROM dive_computers WHERE diver_id = ?) '
           // stats-scope-exempt: reassignment cascade, not a statistic.
           'AND dive_id NOT IN (SELECT id FROM dives WHERE diver_id = ?)',
-          [id, id],
+          [await _syncRepository.issueRowClock(), id, id],
         );
         for (final diveId in {...foreignDiveIds, ...sourceParentIds}) {
           await _syncRepository.markRecordPending(
@@ -716,6 +842,13 @@ class DiverRepository {
           survivorId: targetId,
           now: DateTime.now().millisecondsSinceEpoch,
         );
+        // After the gear, so only surviving gear's moves keep a place.
+        await retireDiverEquipmentLocations(
+          _db,
+          _syncRepository,
+          id,
+          now: DateTime.now().millisecondsSinceEpoch,
+        );
         await deleteDiverRows(_db, _syncRepository, id, diverLibrarySteps);
         // Custom site types go with their links, tombstoned: a link on
         // another diver's surviving site has no foreign key to cascade it.
@@ -747,6 +880,7 @@ class DiverRepository {
         await _syncRepository.logDeletion(entityType: 'divers', recordId: id);
       });
       await _applyMediaCascade(id, mediaPlan);
+      await _documentRepository.cancelRemindersFor(documentIds);
       // The cascade above took dive_data_sources rows that can have been the
       // last references to a stored import file (issue #478). Swept after the
       // transaction commits, so a failure leaks a row rather than stranding a
@@ -754,6 +888,7 @@ class DiverRepository {
       await _importedFileReclaimer.reclaimOrphans();
 
       SyncEventBus.notifyLocalChange();
+      await _equipmentTransfer.rescanMovedTransmitters(movedTransmitters);
       _log.info('Deleted diver: $id');
 
       return DeleteDiverResult(
@@ -765,6 +900,12 @@ class DiverRepository {
         reassignedToDiverName: reassignedTrips > 0 || reassignedSites > 0
             ? targetName
             : null,
+        keptEquipmentCount: keptEquipment,
+        keptEquipmentHeirNames: [
+          for (final heirId in keptHeirIds)
+            for (final r in allDiversRows)
+              if (r.id == heirId) r.name,
+        ],
       );
     } catch (e, stackTrace) {
       _log.error(
@@ -775,6 +916,11 @@ class DiverRepository {
       rethrow;
     }
   }
+
+  /// How many items of [diverId]'s gear a delete would keep for other
+  /// profiles, for the delete confirmation (issue #2852).
+  Future<int> keptEquipmentCount(String diverId) =>
+      _equipmentTransfer.keptEquipmentCount(diverId);
 
   /// Set a diver as the default (clears default from others)
   Future<void> setDefaultDiver(String id) async {
@@ -900,6 +1046,33 @@ class DiverRepository {
     }
   }
 
+  /// Overlays each diver's insurance (their primary insurance document) and
+  /// medical clearance (their latest clearance document's expiry).
+  Future<List<domain.Diver>> _withDocuments(
+    List<domain.Diver> divers, {
+    String? diverId,
+  }) async {
+    if (divers.isEmpty) return divers;
+    final documents = DocumentRepository();
+    final insurance = await documents.primaryInsuranceByDiver(diverId: diverId);
+    final clearance = await documents.latestClearanceExpiryByDiver(
+      diverId: diverId,
+    );
+    return [
+      for (final d in divers)
+        d.copyWith(
+          insurance: switch (insurance[d.id]) {
+            final doc? => domain.DiverInsurance.fromDocument(doc),
+            null => const domain.DiverInsurance(),
+          },
+          medicalClearanceExpiryDate: clearance[d.id],
+        ),
+    ];
+  }
+
+  Future<domain.Diver> _withDocument(domain.Diver diver) async =>
+      (await _withDocuments([diver], diverId: diver.id)).single;
+
   domain.Diver _mapRowToDiver(Diver row) {
     return domain.Diver(
       id: row.id,
@@ -922,18 +1095,8 @@ class DiverRepository {
       bloodType: row.bloodType,
       allergies: row.allergies,
       medications: row.medications,
-      medicalClearanceExpiryDate: row.medicalClearanceExpiryDate != null
-          ? DateTime.fromMillisecondsSinceEpoch(row.medicalClearanceExpiryDate!)
-          : null,
-      insurance: domain.DiverInsurance(
-        provider: row.insuranceProvider,
-        policyNumber: row.insurancePolicyNumber,
-        expiryDate: row.insuranceExpiryDate != null
-            ? DateTime.fromMillisecondsSinceEpoch(row.insuranceExpiryDate!)
-            : null,
-        emergencyPhone: row.insuranceEmergencyPhone,
-        phone: row.insurancePhone,
-      ),
+      // Insurance and clearance are filled from documents by
+      // _withDocuments (issue #2613); the row's own columns are legacy.
       notes: row.notes,
       isDefault: row.isDefault,
       createdAt: DateTime.fromMillisecondsSinceEpoch(row.createdAt),

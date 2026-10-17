@@ -6,6 +6,7 @@ import 'package:submersion/l10n/l10n_extension.dart';
 import 'package:submersion/features/certifications/domain/entities/certification.dart';
 import 'package:submersion/features/certifications/presentation/certification_title_l10n.dart';
 import 'package:submersion/features/certifications/presentation/widgets/certification_ecard.dart';
+import 'package:submersion/features/certification_agencies/presentation/providers/certification_catalog_context.dart';
 
 /// Horizontal gap between cards and around the grid's edge.
 const double _kSpacing = 16.0;
@@ -127,8 +128,11 @@ class _CertificationEcardGridState extends State<CertificationEcardGrid> {
     // Expanded (not a computed height) absorbs any mismatch between the
     // action row's actual rendered height and the aspect ratio computed
     // above, so a text-scale/font-metrics difference clips nothing instead
-    // of overflowing the fixed-extent grid tile.
+    // of overflowing the fixed-extent grid tile. Keyed so a tile is never
+    // reused for another certification: the card photo keeps its last frame
+    // while new bytes decode.
     return Column(
+      key: ValueKey(certification.id),
       children: [
         Expanded(
           child: CertificationEcard(
@@ -156,7 +160,11 @@ class _CertificationEcardGridState extends State<CertificationEcardGrid> {
       children: [
         Expanded(
           child: Text(
-            certificationTitleL10n(certification, l10n),
+            certificationTitleL10n(
+              certification,
+              l10n,
+              catalog: context.certificationCatalog,
+            ),
             key: const ValueKey('actionRowTitle'),
             style: theme.textTheme.bodyMedium,
             maxLines: 1,

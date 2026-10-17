@@ -11,7 +11,6 @@ import 'package:submersion/features/dive_computer/data/services/transmitter_regi
 import 'package:submersion/features/dive_log/domain/services/transmitter_serial.dart';
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/features/gps_log/data/services/gps_track_match_service.dart';
-import 'package:submersion/features/nav_track/data/services/nav_track_match_service.dart';
 import 'package:submersion/features/tank_presets/domain/entities/tank_preset_entity.dart';
 
 /// Mode for importing dives.
@@ -260,7 +259,6 @@ class DiveImportService {
   final DiveRepository? _diveRepository;
   final DiveParser _parser;
   final GpsTrackMatchService? _gpsTrackMatchService;
-  final NavTrackMatchService? _navTrackMatchService;
   final DefaultTankPresetLoader? _defaultTankPresetForImports;
   final TransmitterMatcherLoader? _transmitterMatcherForImports;
   final Set<String> _unmatchedSerials = {};
@@ -271,14 +269,12 @@ class DiveImportService {
     DiveRepository? diveRepository,
     DiveParser? parser,
     GpsTrackMatchService? gpsTrackMatchService,
-    NavTrackMatchService? navTrackMatchService,
     DefaultTankPresetLoader? defaultTankPresetForImports,
     TransmitterMatcherLoader? transmitterMatcherForImports,
   }) : _repository = repository,
        _diveRepository = diveRepository,
        _parser = parser ?? const DiveParser(),
        _gpsTrackMatchService = gpsTrackMatchService,
-       _navTrackMatchService = navTrackMatchService,
        _defaultTankPresetForImports = defaultTankPresetForImports,
        _transmitterMatcherForImports = transmitterMatcherForImports;
 
@@ -500,20 +496,6 @@ class DiveImportService {
         await _gpsTrackMatchService.sweep(limitToIds: importedDiveIds);
       } catch (_) {
         // GPS stamping is an enhancement; the dives imported fine.
-      }
-    }
-
-    // A downloaded dive may already have an unlinked underwater route
-    // waiting for it (an ENC log imported before the dive, or a Suunto
-    // route from an earlier session) -- link the two by time window, scoped
-    // to the dives this download just brought in. Best-effort, same as the
-    // GPS sweep above: matching is an enhancement, the dives imported fine
-    // either way.
-    if (_navTrackMatchService != null && importedDiveIds.isNotEmpty) {
-      try {
-        await _navTrackMatchService.sweep(limitToDiveIds: importedDiveIds);
-      } catch (_) {
-        // Route matching is an enhancement; the dives imported fine.
       }
     }
 
@@ -778,6 +760,7 @@ class DiveImportService {
       gfLow: dive.gfLow,
       gfHigh: dive.gfHigh,
       decoConservatism: dive.decoConservatism,
+      computerTissue: dive.computerTissue,
       diveMode: dive.diveMode,
       diluentO2: dive.diluentO2,
       diluentHe: dive.diluentHe,
@@ -845,7 +828,9 @@ class DiveImportService {
   /// Replace an existing dive's source data with a fresh download.
   ///
   /// Clears the old profile and data source rows for this computer, then
-  /// re-imports so the new raw bytes and parsed data are stored.
+  /// re-imports so the new raw bytes and parsed data are stored. Other
+  /// computers' readings of the dive are left alone, and this computer keeps
+  /// the primary or secondary role it had (#2582).
   Future<void> _updateExistingDive(
     DownloadedDive dive,
     String existingDiveId,
@@ -857,7 +842,7 @@ class DiveImportService {
   }) async {
     // Remove the existing profile + source row so importProfile won't
     // short-circuit on the "already exists" check.
-    await _repository.clearSourceAndProfiles(
+    final wasPrimary = await _repository.clearSourceAndProfiles(
       diveId: existingDiveId,
       computerId: computerId,
     );
@@ -865,9 +850,11 @@ class DiveImportService {
     final profilePoints = _parser.parseProfile(dive);
     final events = _convertEvents(dive.events);
     final gasSwitches = _parser.parseGasSwitches(dive);
-    // Tanks are passed (though importProfile does not re-create them for an
-    // existing dive) so gas switches can be matched to the existing cylinders
-    // by gas mix rather than by a possibly-stale cylinder index.
+    // Tanks are passed so gas switches can be matched to the existing
+    // cylinders by gas mix rather than by a possibly-stale cylinder index.
+    // importProfile keeps the stored cylinders, which may be the diver's
+    // edits, and adds only those this parse reports at an index none of them
+    // holds, such as a sidemount pair's second transmitter (#2517).
     final tanks = _parser.parseTanks(dive);
 
     // Re-import using the existing dive's start time so that importProfile
@@ -879,12 +866,14 @@ class DiveImportService {
       durationSeconds: dive.durationSeconds,
       maxDepth: dive.maxDepth,
       avgDepth: dive.avgDepth,
-      isPrimary: true,
+      // A dive left with no reading makes this one primary regardless.
+      isPrimary: wasPrimary,
       tanks: tanks,
       decoAlgorithm: dive.decoAlgorithm,
       gfLow: dive.gfLow,
       gfHigh: dive.gfHigh,
       decoConservatism: dive.decoConservatism,
+      computerTissue: dive.computerTissue,
       diveMode: dive.diveMode,
       diluentO2: dive.diluentO2,
       diluentHe: dive.diluentHe,
@@ -911,6 +900,7 @@ class DiveImportService {
       waterType: dive.waterType,
       cnsEnd: dive.cnsEnd,
       otu: dive.otu,
+      addMissingTanks: true,
     );
   }
 

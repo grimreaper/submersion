@@ -4,6 +4,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
 import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/features/dive_log/data/services/gas_usage_segments_service.dart';
 import 'package:submersion/features/dive_log/data/services/profile_analysis_service.dart';
 import 'package:submersion/features/dive_log/data/services/profile_markers_service.dart';
@@ -17,9 +18,11 @@ import 'package:submersion/features/dive_log/presentation/providers/gas_switch_p
 import 'package:submersion/features/dive_log/presentation/providers/profile_analysis_provider.dart';
 import 'package:submersion/features/dive_log/presentation/providers/profile_legend_provider.dart';
 import 'package:submersion/features/dive_log/presentation/providers/profile_playback_provider.dart';
+import 'package:submersion/features/dive_log/presentation/providers/profile_range_provider.dart';
 import 'package:submersion/features/dive_log/presentation/providers/profile_review_provider.dart';
 import 'package:submersion/features/dive_log/domain/entities/safety_finding.dart';
 import 'package:submersion/features/dive_log/presentation/providers/safety_review_providers.dart';
+import 'package:submersion/features/dive_log/presentation/utils/profile_extent_sync.dart';
 import 'package:submersion/features/dive_log/presentation/utils/sac_normalization.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/cell_divergence_highlight.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/dive_profile_chart.dart';
@@ -27,11 +30,13 @@ import 'package:submersion/features/dive_log/presentation/widgets/profile_cursor
     show TooltipCard, computeTooltipCardSize;
 import 'package:submersion/features/dive_log/presentation/widgets/photo_marker_layout.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/profile_transport_bar.dart';
+import 'package:submersion/features/dive_log/presentation/widgets/range_stats_panel.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/safety_finding_highlight.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/source_bar.dart';
 import 'package:submersion/features/equipment/presentation/providers/dive_sensor_summary_providers.dart';
 import 'package:submersion/features/media/presentation/providers/media_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
+import 'package:submersion/features/settings/presentation/providers/viewer_fullscreen_mode_provider.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 
 /// Fullscreen dive review: full-height profile chart with a dive-computer
@@ -47,6 +52,10 @@ class FullscreenProfilePage extends ConsumerStatefulWidget {
 }
 
 class _FullscreenProfilePageState extends ConsumerState<FullscreenProfilePage> {
+  /// Width the chart header leaves for the legend and its zoom controls
+  /// (plus the page's side padding) before the title starts to ellipsize.
+  static const double _legendReservedWidth = 150;
+
   late final AppLifecycleListener _lifecycleListener;
 
   // Captured in initState rather than looked up via `ref` in dispose:
@@ -58,6 +67,7 @@ class _FullscreenProfilePageState extends ConsumerState<FullscreenProfilePage> {
   late final PlaybackNotifier _playbackNotifier;
   late final StateController<int?> _reviewController;
   late final void Function() _removePlaybackListener;
+  late final ViewerWindowFullscreen _windowFullscreen;
 
   /// Whether playback mode was already active for this dive before the
   /// fullscreen page opened. If the page itself activates playback (see
@@ -87,11 +97,14 @@ class _FullscreenProfilePageState extends ConsumerState<FullscreenProfilePage> {
     ]);
     // Fullscreen means fullscreen: hide the status and navigation bars so
     // the chart owns the display (#811). Mirrors photo_viewer_page. The
-    // call is a no-op on desktop platforms.
+    // call is a no-op on desktop platforms, where the window itself goes
+    // fullscreen instead when the setting asks for it (#3178).
     SystemChrome.setEnabledSystemUIMode(
       SystemUiMode.immersiveSticky,
       overlays: [],
     );
+    _windowFullscreen = ref.read(viewerWindowFullscreenProvider);
+    _windowFullscreen.enter(this);
     _lifecycleListener = AppLifecycleListener(
       onInactive: () => _playbackNotifier.pause(),
     );
@@ -106,6 +119,7 @@ class _FullscreenProfilePageState extends ConsumerState<FullscreenProfilePage> {
       SystemUiMode.edgeToEdge,
       overlays: SystemUiOverlay.values,
     );
+    _windowFullscreen.exit(this);
     // Riverpod forbids mutating provider state synchronously from a widget
     // lifecycle callback (dispose included), so the cleanup itself is
     // deferred to a microtask, which runs just after the current unmount
@@ -168,6 +182,9 @@ class _FullscreenProfilePageState extends ConsumerState<FullscreenProfilePage> {
     final playbackIsPlaying = ref.watch(
       playbackProvider(widget.diveId).select((s) => s.isPlaying),
     );
+    // Shared with the detail page (keyed by dive id), so a range picked on
+    // either screen is the one the other shows (#1577).
+    final rangeState = ref.watch(rangeSelectionProvider(widget.diveId));
     final selectedFinding = ref.watch(
       selectedSafetyFindingProvider(widget.diveId),
     );
@@ -312,6 +329,15 @@ class _FullscreenProfilePageState extends ConsumerState<FullscreenProfilePage> {
     // detail page and the dive-list panel (#543).
     final chartProfile = resolvedActive?.points ?? dive.profile;
 
+    // Keep the range and playback extents on this page's own drawn series
+    // rather than rely on the screen that opened it having set them.
+    keepProfileExtentsOnDrawnSeries(
+      context,
+      ref,
+      diveId: widget.diveId,
+      chartProfile: chartProfile,
+    );
+
     final photoMarkers = chartProfile.isEmpty
         ? const <PhotoChartMarker>[]
         : photoMarkersFromMedia(
@@ -400,27 +426,54 @@ class _FullscreenProfilePageState extends ConsumerState<FullscreenProfilePage> {
                               : (rows) =>
                                     setState(() => _fixedTooltipRows = rows),
                           playbackIsPlaying: playbackIsPlaying,
-                          legendLeading: Row(
-                            mainAxisSize: MainAxisSize.min,
-                            children: [
-                              IconButton(
-                                icon: const Icon(Icons.close),
-                                tooltip: context
-                                    .l10n
-                                    .diveLog_fullscreenProfile_close,
-                                visualDensity: VisualDensity.compact,
-                                onPressed: () => Navigator.of(context).pop(),
+                          // Capped so the legend and its zoom controls keep
+                          // room beside it on the narrowest phones: there the
+                          // title ellipsizes rather than the header
+                          // overflowing (#1577 added the range toggle here).
+                          legendLeading: ConstrainedBox(
+                            constraints: BoxConstraints(
+                              maxWidth: math.max(
+                                0,
+                                MediaQuery.sizeOf(context).width -
+                                    _legendReservedWidth,
                               ),
-                              Padding(
-                                padding: const EdgeInsets.only(right: 12),
-                                child: Text(
-                                  context.l10n.diveLog_fullscreenProfile_title(
-                                    dive.diveNumber ?? 0,
-                                  ),
-                                  style: Theme.of(context).textTheme.titleSmall,
+                            ),
+                            child: Row(
+                              mainAxisSize: MainAxisSize.min,
+                              children: [
+                                IconButton(
+                                  icon: const Icon(Icons.close),
+                                  tooltip: context
+                                      .l10n
+                                      .diveLog_fullscreenProfile_close,
+                                  visualDensity: VisualDensity.compact,
+                                  onPressed: () => Navigator.of(context).pop(),
                                 ),
-                              ),
-                            ],
+                                Flexible(
+                                  child: Padding(
+                                    padding: const EdgeInsets.only(right: 4),
+                                    child: Text(
+                                      context.l10n
+                                          .diveLog_fullscreenProfile_title(
+                                            dive.diveNumber ?? 0,
+                                          ),
+                                      style: Theme.of(
+                                        context,
+                                      ).textTheme.titleSmall,
+                                      maxLines: 1,
+                                      overflow: TextOverflow.ellipsis,
+                                    ),
+                                  ),
+                                ),
+                                Padding(
+                                  padding: const EdgeInsets.only(right: 8),
+                                  child: _RangeModeToggle(
+                                    diveId: widget.diveId,
+                                    isEnabled: rangeState.isEnabled,
+                                  ),
+                                ),
+                              ],
+                            ),
                           ),
                           // Analysis curves: identical wiring to the old
                           // fullscreen call site (dive_detail_page.dart:4946-4990)
@@ -443,13 +496,12 @@ class _FullscreenProfilePageState extends ConsumerState<FullscreenProfilePage> {
                           surfaceGfCurve: analysis?.surfaceGfCurve,
                           meanDepthCurve: analysis?.meanDepthCurve,
                           ttsCurve: analysis?.ttsCurve,
+                          gasSwitchEfficiency: analysis?.gasSwitchEfficiency,
                           gtrCurve: analysis?.gtrCurve,
                           cnsCurve: analysis?.cnsCurve,
                           otuCurve: analysis?.otuCurve,
-                          tankVolume: dive.tanks
-                              .where((t) => t.volume != null && t.volume! > 0)
-                              .map((t) => t.volume!)
-                              .firstOrNull,
+                          // In bar of the reference cylinder (#3109).
+                          tankVolume: dive.sacReferenceVolume,
                           sacNormalizationFactor:
                               calculateSacNormalizationFactor(dive, analysis),
                           markers: _calculateMarkers(
@@ -489,6 +541,22 @@ class _FullscreenProfilePageState extends ConsumerState<FullscreenProfilePage> {
                               ? null
                               : chartProfile.last.timestamp,
                           highlightedTimestamp: reviewTimestamp,
+                          // Range handles, drawn by the chart itself so they
+                          // land on the plot rect at any zoom (#1579).
+                          rangeSelection: rangeState.isEnabled
+                              ? (
+                                  startSeconds: rangeState.startTimestamp ?? 0,
+                                  endSeconds:
+                                      rangeState.endTimestamp ??
+                                      rangeState.maxTimestamp,
+                                  maxSeconds: rangeState.maxTimestamp,
+                                )
+                              : null,
+                          onRangeChanged: (start, end) => ref
+                              .read(
+                                rangeSelectionProvider(widget.diveId).notifier,
+                              )
+                              .setRange(start, end),
                           highlightRange: profileHighlightRangeFor(
                             visibleSelectedFinding,
                             Theme.of(context).colorScheme,
@@ -605,6 +673,18 @@ class _FullscreenProfilePageState extends ConsumerState<FullscreenProfilePage> {
                       },
                     ),
                   ),
+                // Range statistics for the selected segment, below the chart
+                // so they never cover the trace being measured (#1577).
+                if (rangeState.isEnabled && rangeState.hasSelection)
+                  Padding(
+                    padding: const EdgeInsets.fromLTRB(12, 8, 12, 8),
+                    child: _RangeStatsStrip(
+                      diveId: widget.diveId,
+                      profile: chartProfile,
+                      tanks: dive.tanks,
+                      isRebreather: dive.isRebreather,
+                    ),
+                  ),
                 if (!isPhone)
                   ProfileTransportBar(
                     diveId: widget.diveId,
@@ -658,6 +738,64 @@ class _FullscreenProfilePageState extends ConsumerState<FullscreenProfilePage> {
     }
 
     return markers;
+  }
+}
+
+/// The range-statistics on/off switch in the chart header, styled like the
+/// detail page's so the two read as the same control.
+class _RangeModeToggle extends ConsumerWidget {
+  final String diveId;
+  final bool isEnabled;
+
+  const _RangeModeToggle({required this.diveId, required this.isEnabled});
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    final colorScheme = Theme.of(context).colorScheme;
+    return IconButton(
+      icon: const Icon(Icons.straighten),
+      tooltip: context.l10n.diveLog_detail_button_rangeAnalysis,
+      visualDensity: VisualDensity.compact,
+      isSelected: isEnabled,
+      style: IconButton.styleFrom(
+        backgroundColor: isEnabled ? colorScheme.secondaryContainer : null,
+        foregroundColor: isEnabled ? colorScheme.onSecondaryContainer : null,
+      ),
+      onPressed: () {
+        final notifier = ref.read(rangeSelectionProvider(diveId).notifier);
+        isEnabled ? notifier.disableRangeMode() : notifier.enableRangeMode();
+      },
+    );
+  }
+}
+
+/// [RangeStatsPanel] laid out as a full-width strip.
+///
+/// Its own widget so the settings watch the unit formatter needs rebuilds
+/// only the strip: the page itself narrows every settings read to a select.
+class _RangeStatsStrip extends ConsumerWidget {
+  final String diveId;
+  final List<DiveProfilePoint> profile;
+  final List<DiveTank> tanks;
+  final bool isRebreather;
+
+  const _RangeStatsStrip({
+    required this.diveId,
+    required this.profile,
+    required this.tanks,
+    required this.isRebreather,
+  });
+
+  @override
+  Widget build(BuildContext context, WidgetRef ref) {
+    return RangeStatsPanel(
+      diveId: diveId,
+      profile: profile,
+      units: UnitFormatter(ref.watch(settingsProvider)),
+      tanks: tanks,
+      isRebreather: isRebreather,
+      maxColumns: 8,
+    );
   }
 }
 

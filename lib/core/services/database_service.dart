@@ -9,6 +9,8 @@ import 'package:sqlite3/sqlite3.dart' as sqlite3;
 
 import 'package:submersion/core/constants/app_directories.dart';
 import 'package:submersion/core/database/background_database_connection.dart';
+import 'package:submersion/core/database/compaction/compact_database_file.dart';
+import 'package:submersion/core/database/compaction/database_compaction_prefs.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/database/database_connection_setup.dart';
 import 'package:submersion/core/database/database_snapshot.dart';
@@ -156,6 +158,7 @@ class DatabaseService {
     debugOnRestoreWindowOpen = null;
     debugFailDeleteFor = null;
     debugClock = null;
+    compactFileOverride = null;
   }
 
   /// Registers [locationService] without opening anything.
@@ -179,10 +182,17 @@ class DatabaseService {
   /// `PRAGMA user_version`, but nothing writes to it. Headless callers pass
   /// false -- see [SchemaUpgradePendingException] for why the background
   /// isolate must never run the ladder.
+  ///
+  /// [compaction] lets this open honour a compaction the running app asked
+  /// for (issue #3333); null, the default, never compacts, so only the
+  /// foreground launch, which passes it, can spend time rewriting the file.
+  /// [onCompacting] is told just before that rewrite starts.
   Future<void> initialize({
     DatabaseLocationService? locationService,
     void Function(int currentStep, int totalSteps)? onMigrationProgress,
     bool allowSchemaUpgrade = true,
+    DatabaseCompactionPrefs? compaction,
+    void Function()? onCompacting,
   }) async {
     if (_database != null) return;
     _openAttempted = false;
@@ -206,6 +216,8 @@ class DatabaseService {
       dbPath,
       onMigrationProgress: onMigrationProgress,
       allowSchemaUpgrade: allowSchemaUpgrade,
+      compaction: compaction,
+      onCompacting: onCompacting,
     );
 
     await _assertCipherAvailable(_database!);
@@ -269,6 +281,8 @@ class DatabaseService {
     String dbPath, {
     void Function(int currentStep, int totalSteps)? onMigrationProgress,
     bool allowSchemaUpgrade = true,
+    DatabaseCompactionPrefs? compaction,
+    void Function()? onCompacting,
   }) async {
     final file = File(dbPath);
     final keyHex = databaseKeyHex;
@@ -307,6 +321,9 @@ class DatabaseService {
       );
     }
 
+    // True once the ladder below has actually rewritten the file. Not the
+    // ticket: a VACUUM that throws has taken the ticket without compacting.
+    var ladderVacuumed = false;
     if (migrationPending) {
       // Each retry re-runs the ladder from the top on a brand new connection.
       // That is safe -- every step is idempotent by contract -- but it does
@@ -325,6 +342,7 @@ class DatabaseService {
           onMigrationProgress,
           vacuumPending: () => vacuumTicket,
           takeVacuumTicket: () => vacuumTicket = false,
+          onVacuumed: () => ladderVacuumed = true,
         ),
       );
       lastOpenMode = DatabaseOpenMode.migrationThenBackground;
@@ -332,9 +350,70 @@ class DatabaseService {
       lastOpenMode = DatabaseOpenMode.background;
     }
 
+    if (compaction != null) {
+      await _compactAsRequested(dbPath, keyHex, compaction, onCompacting, (
+        alreadyVacuumed: ladderVacuumed,
+      ));
+    }
+
     return retryWhileDatabaseBusy(
       () => _openOnBackgroundExecutor(file, keyHex, onMigrationProgress),
     );
+  }
+
+  /// Test seam for the rewrite [_compactAsRequested] runs.
+  @visibleForTesting
+  Future<void> Function(String path, {String? keyHex})? compactFileOverride;
+
+  /// Runs a compaction the app asked for while it ran, before the
+  /// background connection opens the file.
+  ///
+  /// The request is cleared before the attempt: a rewrite the OS kills
+  /// part way leaves a correct database, and the next launch must not walk
+  /// straight back into it. A failure (a busy lock, too little room for the
+  /// rewrite's copy) is logged and holds automatic requests off for a while;
+  /// the database is correct, only larger than it needs to be. Nothing here
+  /// may stop the open: compaction is an optimization, so a preferences
+  /// failure skips it.
+  Future<void> _compactAsRequested(
+    String dbPath,
+    String? keyHex,
+    DatabaseCompactionPrefs compaction,
+    void Function()? onCompacting,
+    ({bool alreadyVacuumed}) ladder,
+  ) async {
+    try {
+      if (!compaction.isRequested) return;
+      await compaction.cancel();
+    } catch (e, stackTrace) {
+      _log.warning(
+        'Could not read the compaction request; not compacting',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return;
+    }
+    // The upgrade ladder's own VACUUM at this open already did the work.
+    if (ladder.alreadyVacuumed) return;
+    onCompacting?.call();
+    try {
+      await (compactFileOverride ?? compactDatabaseFile)(
+        dbPath,
+        keyHex: keyHex,
+      );
+    } catch (e, stackTrace) {
+      try {
+        await compaction.recordFailure();
+      } catch (_) {
+        // Logged below; a missed backoff only means another attempt.
+      }
+      _log.warning(
+        'Requested compaction skipped; the database is correct but keeps '
+        'its free pages',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   /// Runs the pending upgrade ladder to completion on a synchronous
@@ -351,6 +430,7 @@ class DatabaseService {
     void Function(int currentStep, int totalSteps)? onMigrationProgress, {
     bool Function() vacuumPending = _alwaysPending,
     void Function() takeVacuumTicket = _noop,
+    void Function() onVacuumed = _noop,
   }) async {
     // Whether this attempt will VACUUM, decided before the ladder starts so
     // every progress report of this open counts the same total.
@@ -424,6 +504,7 @@ class DatabaseService {
         if (!unplannedReclaim) report(ladderSteps, ladderSteps);
         try {
           await migrator.customStatement('VACUUM');
+          onVacuumed();
         } catch (e, stackTrace) {
           _log.warning(
             'Post-migration VACUUM skipped; the database is correct but has '

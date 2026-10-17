@@ -41,6 +41,25 @@ class DivingLogReferenceMapper {
     return 'divinglog_site_${name.toLowerCase()}';
   }
 
+  /// Saved Diving Log places no dive refers to, each as a visit that
+  /// carries nothing but its place id.
+  ///
+  /// A saved place is keyed through [siteKeyFor] exactly as a dive there
+  /// would be, so the first dive the diver logs at it later folds onto the
+  /// same site. Keying the place on its own would repeat the id and text
+  /// fallbacks those helpers apply, and any drift between the two copies
+  /// would give that dive a second site. DiveMate files keep only the sites
+  /// their dives use.
+  static List<DivingLogRawDive> _unvisitedPlaces(DivingLogLogbook book) {
+    if (book.isDiveMate) return const [];
+    final visited = {for (final dive in book.dives) dive.placeId};
+    return [
+      for (final place in book.placesById.values)
+        if (!visited.contains(place.id))
+          DivingLogRawDive(id: 0, placeId: place.id),
+    ];
+  }
+
   /// Each component resolves through its id, falling back to the free text
   /// the dive row still carries.
   ///
@@ -52,16 +71,27 @@ class DivingLogReferenceMapper {
       (dive.placeId == null ? null : book.placesById[dive.placeId]?.place) ??
       dive.place;
 
+  /// Falls back last to DiveMate's `Place.Region`, the only area name its
+  /// files carry.
   static String? cityNameFor(DivingLogLogbook book, DivingLogRawDive dive) =>
       (dive.cityId == null ? null : book.cityNamesById[dive.cityId]) ??
-      dive.city;
+      dive.city ??
+      _placeOf(book, dive)?.region;
+
+  static DivingLogRawPlace? _placeOf(
+    DivingLogLogbook book,
+    DivingLogRawDive dive,
+  ) => dive.placeId == null ? null : book.placesById[dive.placeId];
 
   /// The dive's own country id first, then the one its `Place` carries,
-  /// then the free text.
+  /// then the country text on the `Place` row, then the dive's free text.
   ///
   /// A `Place` row names its country, so a dive whose `CountryID` is absent
   /// or dangling still has a relational answer available and should not
-  /// drop straight to the text column.
+  /// drop straight to the text column. DiveMate writes that country as text
+  /// on the `Place` row and has no `CountryID`; leaving it unread let the
+  /// importer reverse-geocode the coordinates instead, which put an Austrian
+  /// lake in Italy (#3110).
   static String? countryNameFor(DivingLogLogbook book, DivingLogRawDive dive) {
     final direct = dive.countryId == null
         ? null
@@ -73,14 +103,14 @@ class DivingLogReferenceMapper {
     final viaPlace = placeCountryId == null
         ? null
         : book.countryNamesById[placeCountryId];
-    return viaPlace ?? dive.country;
+    return viaPlace ?? _placeOf(book, dive)?.country ?? dive.country;
   }
 
-  /// Sites, built from the dives so a `Place` nobody dived is left out and
-  /// the key matches what the dive will reference.
+  /// Sites keep the keys the dives reference, plus the saved places no dive
+  /// has visited yet (see [_unvisitedPlaces]).
   static Map<String, Map<String, dynamic>> sites(DivingLogLogbook book) {
     final out = <String, Map<String, dynamic>>{};
-    for (final dive in book.dives) {
+    for (final dive in [...book.dives, ..._unvisitedPlaces(book)]) {
       final key = siteKeyFor(book, dive);
       if (key == null) continue;
       final place = dive.placeId == null ? null : book.placesById[dive.placeId];
@@ -109,6 +139,7 @@ class DivingLogReferenceMapper {
       final altitude = DivingLogPlaceValues.altitudeMeters(place?.altitude);
       if (altitude != null) map['altitude'] = altitude;
       final notes = [
+        if (place?.water == 4) 'Water type: Chlorinated',
         // A label with no matching level stays readable rather than lost.
         if (difficulty == null && place?.difficulty != null)
           'Difficulty: ${place!.difficulty}',
@@ -142,6 +173,7 @@ class DivingLogReferenceMapper {
       final phone = buddy.phone ?? buddy.mobile;
       if (phone != null) map['phone'] = phone;
       if (buddy.comments != null) map['notes'] = buddy.comments;
+      if (buddy.photo != null) map['photo'] = buddy.photo;
       out[name] = map;
     }
     return out;
@@ -174,8 +206,17 @@ class DivingLogReferenceMapper {
       if (name == null) continue;
       final key = 'divinglog_trip_${trip.id}';
       final map = <String, dynamic>{'name': name, 'uddfId': key};
-      if (trip.startDate != null) map['startDate'] = trip.startDate;
-      if (trip.endDate != null) map['endDate'] = trip.endDate;
+      final dates = [
+        for (final dive in book.dives)
+          if (dive.tripId == trip.id) ?parseDivingLogDate(dive.diveDate),
+      ]..sort();
+      final start = trip.startDate ?? dates.firstOrNull ?? trip.endDate;
+      final end = trip.endDate ?? dates.lastOrNull ?? trip.startDate;
+      // Trips require dates. Do not turn an undated, unvisited trip into a
+      // trip happening today; the caller reports the omitted record.
+      if (start == null || end == null) continue;
+      map['startDate'] = start;
+      map['endDate'] = end;
       if (trip.comments != null) map['notes'] = trip.comments;
       out[key] = map;
     }
@@ -291,6 +332,11 @@ class DivingLogReferenceMapper {
       if (cert.certDate != null) map['issueDate'] = cert.certDate;
       if (cert.number != null) map['cardNumber'] = cert.number;
       if (cert.instructor != null) map['instructorName'] = cert.instructor;
+      if (cert.instructorNumber != null) {
+        map['instructorNumber'] = cert.instructorNumber;
+      }
+      if (cert.photoFront != null) map['photoFront'] = cert.photoFront;
+      if (cert.photoBack != null) map['photoBack'] = cert.photoBack;
       out[key] = map;
     }
     return out;

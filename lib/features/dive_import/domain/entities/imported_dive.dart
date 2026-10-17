@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'package:submersion/features/dive_log/domain/entities/computer_tissue_snapshot.dart';
+
 /// Source of imported dive data
 enum ImportSource { appleWatch, garmin, suunto, uddf }
 
@@ -96,6 +98,12 @@ class ImportedDive extends Equatable {
   final String? sourceUuid;
   final ImportSource source;
   final DateTime startTime;
+
+  /// The real instant the source recorded the start at, flagged UTC, when it
+  /// reports one; [startTime] is the wall clock the diver saw. Only HealthKit
+  /// sets it: a re-import compares it with a saved dive's start to recognize
+  /// a dive the import saved as the instant before #2811 (issue #2812).
+  final DateTime? startInstant;
   final DateTime endTime;
   final double maxDepth;
   final double? avgDepth;
@@ -116,6 +124,10 @@ class ImportedDive extends Equatable {
   final String? decoModel;
   final int? gfLow;
   final int? gfHigh;
+
+  /// The computer's manufacturer when the file names it (FIT `file_id`,
+  /// issue #3106); null when it does not.
+  final String? computerManufacturer;
   final String? computerModel;
   final String? computerSerial;
   final String? computerFirmware;
@@ -125,11 +137,16 @@ class ImportedDive extends Equatable {
   final String? sourceFileName;
   final String? sourceFileFormat;
 
+  /// Tissue state the dive computer itself reported, when the source
+  /// carried one. Never computed here.
+  final ComputerTissueSnapshot? computerTissue;
+
   const ImportedDive({
     required this.sourceId,
     this.sourceUuid,
     required this.source,
     required this.startTime,
+    this.startInstant,
     required this.endTime,
     required this.maxDepth,
     this.avgDepth,
@@ -150,6 +167,7 @@ class ImportedDive extends Equatable {
     this.decoModel,
     this.gfLow,
     this.gfHigh,
+    this.computerManufacturer,
     this.computerModel,
     this.computerSerial,
     this.computerFirmware,
@@ -158,6 +176,7 @@ class ImportedDive extends Equatable {
     required this.profile,
     this.sourceFileName,
     this.sourceFileFormat,
+    this.computerTissue,
   });
 
   Duration get duration => endTime.difference(startTime);
@@ -169,6 +188,7 @@ class ImportedDive extends Equatable {
     sourceUuid,
     source,
     startTime,
+    startInstant,
     endTime,
     maxDepth,
     avgDepth,
@@ -189,6 +209,7 @@ class ImportedDive extends Equatable {
     decoModel,
     gfLow,
     gfHigh,
+    computerManufacturer,
     computerModel,
     computerSerial,
     computerFirmware,
@@ -197,6 +218,7 @@ class ImportedDive extends Equatable {
     profile,
     sourceFileName,
     sourceFileFormat,
+    computerTissue,
   ];
 }
 
@@ -212,6 +234,12 @@ class ImportedProfileSample extends Equatable {
   final double? ceiling;
   final List<ImportedTankPressureSample>? tankPressures;
 
+  /// Computer-reported GF99 at this sample, whole percent.
+  final int? gf99;
+
+  /// Computer-reported aggregate N2 tissue loading, whole percent.
+  final int? n2Load;
+
   const ImportedProfileSample({
     required this.timeSeconds,
     required this.depth,
@@ -222,6 +250,8 @@ class ImportedProfileSample extends Equatable {
     this.ttsSeconds,
     this.ceiling,
     this.tankPressures,
+    this.gf99,
+    this.n2Load,
   });
 
   ImportedProfileSample copyWith({
@@ -234,6 +264,8 @@ class ImportedProfileSample extends Equatable {
     int? ttsSeconds,
     double? ceiling,
     List<ImportedTankPressureSample>? tankPressures,
+    int? gf99,
+    int? n2Load,
   }) {
     return ImportedProfileSample(
       timeSeconds: timeSeconds ?? this.timeSeconds,
@@ -245,6 +277,8 @@ class ImportedProfileSample extends Equatable {
       ttsSeconds: ttsSeconds ?? this.ttsSeconds,
       ceiling: ceiling ?? this.ceiling,
       tankPressures: tankPressures ?? this.tankPressures,
+      gf99: gf99 ?? this.gf99,
+      n2Load: n2Load ?? this.n2Load,
     );
   }
 
@@ -259,5 +293,7 @@ class ImportedProfileSample extends Equatable {
     ttsSeconds,
     ceiling,
     tankPressures,
+    gf99,
+    n2Load,
   ];
 }

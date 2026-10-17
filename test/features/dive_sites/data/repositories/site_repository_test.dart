@@ -903,6 +903,39 @@ void main() {
         expect(results.length, equals(1));
         expect(results[0].name, equals('Blue Hole'));
       });
+
+      // Issue #3377: LIKE folds ASCII only, so "österreich" missed a site in
+      // "Österreich" and an umlaut could only be found in its typed case.
+      test('folds non-ASCII capitals in every searched column', () async {
+        await repository.createSite(
+          const DiveSite(
+            id: 'at-1',
+            name: 'Österreich - Fernsteinsee',
+            country: 'Österreich',
+            region: 'Tirol',
+          ),
+        );
+        await repository.createSite(
+          const DiveSite(
+            id: 'eg-1',
+            name: 'Abu Dabbab 3',
+            country: 'Ägypten',
+            city: 'Marsa Alam',
+            island: 'Übersee',
+            bodyOfWater: 'Rotes Meer',
+          ),
+        );
+
+        Future<List<String>> ids(String q) async =>
+            (await repository.searchSites(q)).map((s) => s.id).toList();
+
+        expect(await ids('österreich'), ['at-1']);
+        expect(await ids('ÖSTERREICH'), ['at-1']);
+        expect(await ids('ägypten'), ['eg-1']);
+        expect(await ids('übersee'), ['eg-1']);
+        expect(await ids('MARSA'), ['eg-1']);
+        expect(await ids('rotes MEER'), ['eg-1']);
+      });
     });
 
     group('getDiveCountsBySite', () {
@@ -931,6 +964,56 @@ void main() {
           expect(results[1].diveCount, equals(0));
         },
       );
+
+      test("a shared site's figures are the diver's own dives", () async {
+        // As a shared trip's stats are: the partner's dives at a site they
+        // share are theirs, not the diver's.
+        const ts = 1700000000000;
+        for (final id in ['A', 'B']) {
+          await database
+              .into(database.divers)
+              .insert(
+                db.DiversCompanion.insert(
+                  id: id,
+                  name: id,
+                  createdAt: ts,
+                  updatedAt: ts,
+                ),
+              );
+        }
+        final site = await repository.createSite(
+          const DiveSite(id: '', name: 'Shared', diverId: 'B', isShared: true),
+        );
+        for (final (id, diver, depth) in [
+          ('a1', 'A', 8.0),
+          ('b1', 'B', 30.0),
+          ('b2', 'B', 25.0),
+        ]) {
+          await database
+              .into(database.dives)
+              .insert(
+                db.DivesCompanion(
+                  id: Value(id),
+                  diverId: Value(diver),
+                  siteId: Value(site.id),
+                  maxDepth: Value(depth),
+                  diveDateTime: const Value(ts),
+                  createdAt: const Value(ts),
+                  updatedAt: const Value(ts),
+                ),
+              );
+        }
+
+        final mine = (await repository.getSitesWithDiveCounts(
+          diverId: 'A',
+        )).singleWhere((s) => s.site.id == site.id);
+        expect(mine.diveCount, 1);
+        expect(mine.maxDepthReached, 8.0);
+
+        final everyone = (await repository.getSitesWithDiveCounts())
+            .singleWhere((s) => s.site.id == site.id);
+        expect(everyone.diveCount, 3);
+      });
     });
 
     group('isShared persistence', () {

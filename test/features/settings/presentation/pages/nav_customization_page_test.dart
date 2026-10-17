@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -117,11 +119,15 @@ void main() {
   });
 
   group('NavCustomizationPage widget', () {
-    /// Sizes the surface so the page opens on the requested scope and the
-    /// whole list renders without scrolling; the page uses a
-    /// ReorderableListView.builder, which only builds visible rows.
-    void useSurface(WidgetTester tester, {required bool wide}) {
-      tester.view.physicalSize = Size(wide ? 1200 : 500, 3000);
+    /// Sizes the surface so the page opens on the requested scope and, at the
+    /// default [height], the whole list renders without scrolling; the page
+    /// uses a ReorderableListView.builder, which only builds visible rows.
+    void useSurface(
+      WidgetTester tester, {
+      required bool wide,
+      double height = 3000,
+    }) {
+      tester.view.physicalSize = Size(wide ? 1200 : 500, height);
       tester.view.devicePixelRatio = 1.0;
       addTearDown(tester.view.resetPhysicalSize);
       addTearDown(tester.view.resetDevicePixelRatio);
@@ -142,9 +148,10 @@ void main() {
     Future<FakeAppSettingsRepository> pumpPage(
       WidgetTester tester, {
       bool wide = false,
+      double height = 3000,
       FakeAppSettingsRepository? repo,
     }) async {
-      useSurface(tester, wide: wide);
+      useSurface(tester, wide: wide, height: height);
       final resolved = repo ?? FakeAppSettingsRepository();
       await tester.pumpWidget(buildHarness(resolved));
       await tester.pumpAndSettle();
@@ -238,7 +245,7 @@ void main() {
     testWidgets('switching scope swaps which order is shown', (tester) async {
       final repo = FakeAppSettingsRepository()
         ..navPrimaryIds = ['equipment', 'buddies', 'insights']
-        ..navRailIds = ['gps-log', 'planning'];
+        ..navRailIds = ['tracks', 'planning'];
       await pumpPage(tester, repo: repo);
 
       // Phone scope first: the divider is present and the top row is Equipment.
@@ -249,7 +256,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(find.byKey(const ValueKey('nav-divider')), findsNothing);
-      expect(_firstRowId(tester), 'gps-log');
+      expect(_firstRowId(tester), 'tracks');
 
       await tester.tap(find.text('Phone'));
       await tester.pumpAndSettle();
@@ -295,15 +302,15 @@ void main() {
     testWidgets('move-up on first overflow row promotes it to primary', (
       tester,
     ) async {
-      // Default primary: [dives, sites, trips]; first overflow = media.
+      // Default primary: [dives, sites, trips]; first overflow = equipment.
       final repo = await pumpPage(tester);
 
-      await tester.tap(find.byTooltip('Move Media up'));
+      await tester.tap(find.byTooltip('Move Equipment up'));
       await tester.pumpAndSettle();
 
-      // Media should now be primary; trips (the last default primary)
+      // Equipment should now be primary; trips (the last default primary)
       // should drop to overflow.
-      expect(repo.navPrimaryIds!.take(3), contains('media'));
+      expect(repo.navPrimaryIds!.take(3), contains('equipment'));
       expect(repo.navPrimaryIds!.take(3), isNot(contains('trips')));
     });
 
@@ -316,7 +323,7 @@ void main() {
       await tester.tap(find.byTooltip('Move Trips down'));
       await tester.pumpAndSettle();
 
-      expect(repo.navPrimaryIds!.take(3), contains('media'));
+      expect(repo.navPrimaryIds!.take(3), contains('equipment'));
       expect(repo.navPrimaryIds!.take(3), isNot(contains('trips')));
     });
 
@@ -345,7 +352,7 @@ void main() {
       // dropped on the floor: the write must carry every id.
       final repo = await pumpPage(tester);
 
-      await tester.tap(find.byTooltip('Move GPS Log up'));
+      await tester.tap(find.byTooltip('Move Tracks up'));
       await tester.pumpAndSettle();
 
       expect(repo.navPrimaryIds, isNotNull);
@@ -353,10 +360,10 @@ void main() {
         repo.navPrimaryIds!.length,
         withLegacyNavIds(movableNavIds).length,
       );
-      // 'gps-log' sits second-to-last canonically; moving it up must move it
+      // 'tracks' sits second-to-last canonically; moving it up must move it
       // ahead of 'transfer' while both stay in the overflow tail.
       final order = repo.navPrimaryIds!;
-      expect(order.indexOf('gps-log'), lessThan(order.indexOf('transfer')));
+      expect(order.indexOf('tracks'), lessThan(order.indexOf('transfer')));
       expect(order.take(3).toList(), kDefaultPrimaryIds);
     });
 
@@ -371,6 +378,32 @@ void main() {
       expect(repo.navRailIds!.length, withLegacyNavIds(movableNavIds).length);
       // The phone order must not have been touched.
       expect(repo.navPrimaryIds, isNull);
+    });
+
+    testWidgets('a late failure does not undo a newer saved edit', (
+      tester,
+    ) async {
+      final repo = _FirstWriteFailsLateRepo();
+      await pumpPage(tester, repo: repo);
+
+      // Edit A: Dives down. Its save hangs, then fails.
+      await tester.tap(find.byIcon(Icons.arrow_downward).at(0));
+      await tester.pump();
+      // Edit B: Trips down, from A's order. Its save succeeds.
+      await tester.tap(find.byIcon(Icons.arrow_downward).at(2));
+      await tester.pumpAndSettle();
+      final saved = List<String>.from(repo.navPrimaryIds!);
+
+      repo.gate.complete();
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text('Could not save navigation layout. Please try again.'),
+        findsOneWidget,
+      );
+      // The screen shows what is saved (B), not the order before A.
+      expect(_firstRowId(tester), saved.first);
+      expect(saved.first, 'sites');
     });
 
     testWidgets('a failed save rolls the row back and reports it', (
@@ -463,6 +496,239 @@ void main() {
         expect(find.byKey(const ValueKey('navScopeSegments')), findsOneWidget);
       });
     });
+
+    group('nav shortcuts (#2936)', () {
+      Future<void> addBlender(WidgetTester tester) async {
+        await tester.tap(find.text('Add shortcut'));
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'blender');
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Trimix blender'));
+        await tester.pumpAndSettle();
+      }
+
+      testWidgets('Add shortcut inserts it right after Home', (tester) async {
+        final repo = await pumpPage(tester);
+        await addBlender(tester);
+
+        expect(repo.navPrimaryIds!.first, 'shortcut:gas-blender');
+        expect(
+          find.byKey(const ValueKey('nav-item-shortcut:gas-blender')),
+          findsOneWidget,
+        );
+        // Its parent is its subtitle, as in the More sheet.
+        expect(find.text('Gas Calculators'), findsOneWidget);
+      });
+
+      testWidgets('adding on Phone leaves the Desktop order alone', (
+        tester,
+      ) async {
+        final repo = await pumpPage(tester);
+        await addBlender(tester);
+
+        expect(repo.navRailIds, isNull);
+      });
+
+      testWidgets('adding on Desktop writes the rail order', (tester) async {
+        final repo = await pumpPage(tester, wide: true);
+        await addBlender(tester);
+
+        expect(repo.navRailIds!.first, 'shortcut:gas-blender');
+        expect(repo.navPrimaryIds, isNull);
+      });
+
+      testWidgets('a shortcut row can be removed', (tester) async {
+        final repo = FakeAppSettingsRepository()
+          ..navPrimaryIds = ['shortcut:gas-blender'];
+        await pumpPage(tester, repo: repo);
+        // The row previews the nav, so it names the short nav label.
+        await tester.tap(find.byTooltip('Remove Blender'));
+        await tester.pumpAndSettle();
+
+        expect(repo.navPrimaryIds, isNot(contains('shortcut:gas-blender')));
+        expect(
+          find.byKey(const ValueKey('nav-item-shortcut:gas-blender')),
+          findsNothing,
+        );
+      });
+
+      testWidgets('built-in rows have no remove button', (tester) async {
+        await pumpPage(tester);
+        expect(find.byTooltip('Remove Dives'), findsNothing);
+      });
+
+      testWidgets('a failed add rolls back and reports it', (tester) async {
+        await pumpPage(tester, repo: _WriteFailsRepo());
+        await addBlender(tester);
+
+        expect(
+          find.text('Could not save navigation layout. Please try again.'),
+          findsOneWidget,
+        );
+        expect(
+          find.byKey(const ValueKey('nav-item-shortcut:gas-blender')),
+          findsNothing,
+        );
+      });
+
+      testWidgets('Reset clears shortcuts', (tester) async {
+        final repo = FakeAppSettingsRepository()
+          ..navPrimaryIds = ['shortcut:gas-blender'];
+        await pumpPage(tester, repo: repo);
+        await tester.tap(find.text('Reset to defaults'));
+        await tester.pumpAndSettle();
+
+        expect(repo.navPrimaryIds, isNot(contains('shortcut:gas-blender')));
+      });
+    });
+
+    group('short screens (#3370)', () {
+      // A phone-sized window: too short to show every row at once.
+      const shortHeight = 640.0;
+
+      testWidgets('dragging the list scrolls the settings above it too', (
+        tester,
+      ) async {
+        await pumpPage(tester, height: shortHeight);
+
+        final switchTile = find.byKey(
+          const ValueKey('navAlwaysHideLabelsSwitch'),
+        );
+        final switchTopBefore = tester.getTopLeft(switchTile).dy;
+
+        // Start on the row's leading icon, well clear of its drag handle, so
+        // this is a scroll and not a reorder.
+        final row = find.byKey(ValueKey('nav-item-${_firstRowId(tester)}'));
+        await tester.dragFrom(
+          tester.getTopLeft(row) + const Offset(24, 24),
+          const Offset(0, -200),
+        );
+        await tester.pumpAndSettle();
+
+        // Page and list share one scroll axis, so the rows can use the whole
+        // screen height instead of the gap between fixed blocks.
+        expect(
+          tester.getTopLeft(switchTile).dy,
+          lessThan(switchTopBefore - 150),
+        );
+      });
+
+      testWidgets('a shortcut added from the bottom scrolls into view', (
+        tester,
+      ) async {
+        await pumpPage(tester, height: shortHeight);
+
+        // The button is past the last row, so reaching it scrolls Home and
+        // the top of the list off screen.
+        final add = find.widgetWithText(TextButton, 'Add shortcut');
+        await tester.scrollUntilVisible(
+          add.hitTestable(),
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.tap(add);
+        await tester.pumpAndSettle();
+        await tester.enterText(find.byType(TextField), 'blender');
+        await tester.pumpAndSettle();
+        await tester.tap(find.text('Trimix blender'));
+        await tester.pumpAndSettle();
+
+        // The new row lands right after Home; without scrolling back up the
+        // diver would see nothing change.
+        expect(
+          find
+              .byKey(const ValueKey('nav-item-shortcut:gas-blender'))
+              .hitTestable(),
+          findsOneWidget,
+        );
+      });
+
+      testWidgets('holding a drag at the bottom edge auto-scrolls the page', (
+        tester,
+      ) async {
+        final repo = await pumpPage(tester, height: shortHeight);
+
+        final firstId = _firstRowId(tester);
+        final handle = find.descendant(
+          of: find.byKey(ValueKey('nav-item-$firstId')),
+          matching: find.byIcon(Icons.drag_handle),
+        );
+        final start = tester.getCenter(handle);
+
+        // Carry the row to the bottom edge of the screen in small steps, then
+        // hold it there so the edge auto-scroller runs.
+        final gesture = await tester.startGesture(start);
+        await tester.pump();
+        const steps = 30;
+        final stepY = (shortHeight - 8 - start.dy) / steps;
+        for (var i = 0; i < steps; i++) {
+          await gesture.moveBy(Offset(0, stepY));
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        for (var i = 0; i < 200; i++) {
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await gesture.up();
+        await tester.pumpAndSettle();
+
+        // The row travels past everything that was on screen at the start:
+        // only an auto-scrolling drag can drop it at the end of the list.
+        expect(repo.navPrimaryIds!.last, firstId);
+      });
+
+      testWidgets('a drag on the handle still reorders below the header', (
+        tester,
+      ) async {
+        final repo = await pumpPage(tester, height: shortHeight);
+
+        // The header now sits in the same scroll view as the rows, so check
+        // the drag handle still maps to the right item.
+        final firstId = _firstRowId(tester);
+        final firstRow = find.byKey(ValueKey('nav-item-$firstId'));
+        final handle = find.descendant(
+          of: firstRow,
+          matching: find.byIcon(Icons.drag_handle),
+        );
+        final rowHeight = tester.getSize(firstRow).height;
+
+        final gesture = await tester.startGesture(tester.getCenter(handle));
+        await tester.pump();
+        // Small steps, so the drag passes touch slop before it travels.
+        for (var i = 0; i < 15; i++) {
+          await gesture.moveBy(Offset(0, rowHeight / 10));
+          await tester.pump(const Duration(milliseconds: 16));
+        }
+        await gesture.up();
+        await tester.pumpAndSettle();
+
+        // The dragged row, not a neighbour, is the one that moved down.
+        expect(_firstRowId(tester), isNot(firstId));
+        expect(repo.navPrimaryIds!.indexOf(firstId), greaterThan(0));
+      });
+
+      testWidgets(
+        'the actions scroll with the rows instead of staying pinned',
+        (tester) async {
+          await pumpPage(tester, height: shortHeight);
+
+          final reset = find.widgetWithText(TextButton, 'Reset to defaults');
+          // Not pinned to the bottom of the screen at the start ...
+          expect(reset.hitTestable(), findsNothing);
+
+          // ... but reached by scrolling past the last row and the More row.
+          await tester.scrollUntilVisible(
+            reset.hitTestable(),
+            200,
+            scrollable: find.byType(Scrollable).first,
+          );
+          expect(reset.hitTestable(), findsOneWidget);
+          expect(
+            tester.getTopLeft(reset).dy,
+            greaterThan(tester.getTopLeft(find.text('More')).dy),
+          );
+        },
+      );
+    });
   });
 }
 
@@ -493,4 +759,21 @@ class _AlwaysHideLabelsWriteFailsRepo extends FakeAppSettingsRepository {
   @override
   Future<void> setNavAlwaysHideLabels(bool value) async =>
       throw StateError('write failed');
+}
+
+/// Holds the first nav write open until [gate] completes, then fails it;
+/// every later write succeeds.
+class _FirstWriteFailsLateRepo extends FakeAppSettingsRepository {
+  final gate = Completer<void>();
+  int _writes = 0;
+
+  @override
+  Future<void> setNavPrimaryIds(List<String> ids) async {
+    _writes++;
+    if (_writes == 1) {
+      await gate.future;
+      throw StateError('write failed');
+    }
+    navPrimaryIds = List<String>.from(ids);
+  }
 }

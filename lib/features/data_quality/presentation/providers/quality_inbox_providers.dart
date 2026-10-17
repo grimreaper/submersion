@@ -1,5 +1,4 @@
 import 'package:flutter_riverpod/flutter_riverpod.dart';
-import 'package:flutter_riverpod/legacy.dart';
 
 import 'package:submersion/core/providers/ref_invalidate_on_change.dart';
 import 'package:submersion/features/data_quality/domain/entities/quality_finding.dart';
@@ -7,6 +6,7 @@ import 'package:submersion/features/data_quality/presentation/providers/data_qua
 import 'package:submersion/features/dive_log/domain/entities/dive_summary.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_computer_providers.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_repository_provider.dart';
+import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 
 enum QualityChip { all, time, profile, gas, tanks, duplicates, sources }
 
@@ -20,14 +20,14 @@ Set<QualityCategory> categoriesFor(QualityChip chip) => switch (chip) {
   QualityChip.sources => {QualityCategory.source},
 };
 
+/// The inbox's findings, scoped to the active diver: another profile's
+/// dives must not be listed, opened or edited from here (issue #3049).
 final qualityFindingsStreamProvider =
-    StreamProvider.autoDispose<List<QualityFinding>>(
-      (ref) => ref.watch(qualityFindingsRepositoryProvider).watchFindings(),
-    );
-
-final qualityInboxChipProvider = StateProvider<QualityChip>(
-  (_) => QualityChip.all,
-);
+    StreamProvider.autoDispose<List<QualityFinding>>((ref) async* {
+      final repository = ref.watch(qualityFindingsRepositoryProvider);
+      final diverId = await ref.watch(validatedCurrentDiverIdProvider.future);
+      yield* repository.watchFindings(diverId: diverId);
+    });
 
 /// Identities for every dive the current findings name, keyed by dive id.
 ///

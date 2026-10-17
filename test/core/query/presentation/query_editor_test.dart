@@ -33,6 +33,7 @@ void main() {
     QueryNode? value,
     ValueChanged<QueryNode?> onChanged, {
     VoidCallback? onSave,
+    bool? canSave,
   }) => MaterialApp(
     home: Scaffold(
       body: SingleChildScrollView(
@@ -42,6 +43,7 @@ void main() {
           onChanged: onChanged,
           strings: strings,
           onSave: onSave,
+          canSave: canSave,
         ),
       ),
     ),
@@ -106,8 +108,69 @@ void main() {
     expect(saved, 1);
   });
 
+  // #2989: a caller whose Save stores more than the editor's own tree (a
+  // whole filter with GUI axes) enables it without a typed query.
+  testWidgets('canSave overrides the query-only enablement', (tester) async {
+    var saved = 0;
+    ButtonStyleButton save() => tester.widget<ButtonStyleButton>(
+      find.ancestor(
+        of: find.text('Save query'),
+        matching: find.bySubtype<ButtonStyleButton>(),
+      ),
+    );
+    await tester.pumpWidget(
+      host(null, (_) {}, onSave: () => saved++, canSave: true),
+    );
+    expect(save().enabled, isTrue);
+    await tester.tap(find.text('Save query'));
+    expect(saved, 1);
+    final tree = ConditionNode(
+      FieldPath(['depth']),
+      QueryOp.gt,
+      const NumberValue(30, null),
+    );
+    await tester.pumpWidget(
+      host(tree, (_) {}, onSave: () => saved++, canSave: false),
+    );
+    expect(save().enabled, isFalse);
+  });
+
   testWidgets('no onSave hides the button', (tester) async {
     await tester.pumpWidget(host(null, (_) {}));
     expect(find.text('Save query'), findsNothing);
+  });
+
+  // #3076: a Row with Save beside the tabs squeezed "Builder" behind the
+  // button on any narrow host (a phone sheet, the Refine panel's fixed
+  // 440dp desktop side panel). Save always sits in its own row below the
+  // tabs now, so neither label is ever hidden, regardless of width.
+  testWidgets('the save button sits below the tab bar, never beside it', (
+    tester,
+  ) async {
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: SizedBox(
+            width: 320,
+            child: SingleChildScrollView(
+              child: QueryEditor(
+                context: context,
+                value: null,
+                onChanged: (_) {},
+                strings: strings,
+                onSave: () {},
+              ),
+            ),
+          ),
+        ),
+      ),
+    );
+
+    expect(find.text('Text'), findsOneWidget);
+    expect(find.text('Builder'), findsOneWidget);
+    expect(find.text('Save query'), findsOneWidget);
+    final tabBarBottom = tester.getBottomLeft(find.byType(TabBar)).dy;
+    final saveTop = tester.getTopLeft(find.text('Save query')).dy;
+    expect(saveTop, greaterThanOrEqualTo(tabBarBottom));
   });
 }

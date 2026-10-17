@@ -21,12 +21,15 @@ class DiveTankConfigAdapter {
   ExistingTank _toExisting(DiveTank tank) => ExistingTank(
     id: tank.id,
     tankRole: tank.role,
+    roleSource: tank.roleSource,
     volumeL: tank.volume,
     workingPressureBar: tank.workingPressure,
     tankMaterial: tank.material,
     startPressureBar: tank.startPressure,
     tankName: tank.name,
     tankOrder: tank.order,
+    o2Percent: tank.gasMix.o2,
+    hePercent: tank.gasMix.he,
   );
 
   DiveTank _fromItem(CylinderConfigItem item, int order, String id) => DiveTank(
@@ -64,10 +67,27 @@ class DiveTankConfigAdapter {
   ///
   /// [newId] mints an id for each inserted tank; the caller supplies it so
   /// this stays pure and testable (no Uuid, no DateTime.now()).
-  ({List<DiveTank> tanks, int added, int kept, bool changed}) apply({
+  ///
+  /// [overwrites] lists claimed tanks whose specs differ from the
+  /// configuration. They are applied only when [overwrite] is true, which a
+  /// caller passes once the diver has confirmed them (issue #2563); [updated]
+  /// counts them, and [kept] then excludes them. An overwrite may change a
+  /// role the dive computer read off a transmitter's name (issue #3307); the
+  /// configuration's specs are filled onto that tank only alongside it, so
+  /// without [overwrite] the tank is left exactly as it was.
+  ({
+    List<DiveTank> tanks,
+    int added,
+    int kept,
+    int updated,
+    bool changed,
+    List<OverwriteTank> overwrites,
+  })
+  apply({
     required List<DiveTank> tanks,
     required List<CylinderConfigItem> items,
     required String Function(int insertIndex) newId,
+    bool overwrite = false,
   }) {
     final plan = applier.plan(
       existing: tanks.map(_toExisting).toList(),
@@ -76,8 +96,22 @@ class DiveTankConfigAdapter {
 
     final byId = {for (final tank in tanks) tank.id: tank};
     var insertIndex = 0;
+    final applied = overwrite ? plan.overwrites : const <OverwriteTank>[];
+    // Fills meant for a tank whose role change the diver has not accepted
+    // would put one cylinder's specs on another.
+    final pendingRoleChanges = {
+      if (!overwrite)
+        for (final o in plan.overwrites)
+          if (o.role != null) o.tankId,
+    };
+    final ops = [
+      for (final op in plan.ops)
+        if (op is! FillTank || !pendingRoleChanges.contains(op.tankId)) op,
+    ];
 
-    for (final op in plan.ops) {
+    // A fill and an overwrite of one tank touch disjoint columns (null versus
+    // different), so applying both in sequence cannot clobber either.
+    for (final op in [...ops, ...applied]) {
       switch (op) {
         case FillTank():
           final current = byId[op.tankId];
@@ -88,11 +122,30 @@ class DiveTankConfigAdapter {
             material: op.tankMaterial,
             startPressure: op.startPressureBar,
             name: op.tankName,
+            clearRoleSource: op.clearRoleSource,
           );
         case InsertTank():
           final id = newId(insertIndex);
           byId[id] = _fromItem(op.item, op.tankOrder, id);
           insertIndex++;
+        case OverwriteTank():
+          final current = byId[op.tankId];
+          if (current == null) continue;
+          byId[op.tankId] = current.copyWith(
+            volume: op.volumeL?.to,
+            workingPressure: op.workingPressureBar?.to,
+            material: op.tankMaterial?.to,
+            name: op.tankName?.to,
+            role: op.role?.to,
+            gasMix: switch (op.gas?.to) {
+              final gas? => GasMix(o2: gas.o2, he: gas.he),
+              null => null,
+            },
+            // The diver accepted the configuration's role in place of the
+            // one read off the transmitter's name.
+            clearRoleSource: op.role != null,
+            clearPresetName: op.changesCylinder,
+          );
       }
     }
 
@@ -102,8 +155,10 @@ class DiveTankConfigAdapter {
     return (
       tanks: merged,
       added: plan.insertedCount,
-      kept: plan.keptCount,
-      changed: plan.ops.isNotEmpty,
+      kept: plan.keptCount - applied.length,
+      updated: applied.length,
+      changed: ops.isNotEmpty || applied.isNotEmpty,
+      overwrites: plan.overwrites,
     );
   }
 }

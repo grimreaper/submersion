@@ -9,10 +9,10 @@ import 'package:submersion/features/media/domain/entities/media_item.dart';
 import 'package:submersion/features/media/domain/entities/media_source_type.dart';
 import 'package:submersion/features/media/domain/services/media_source_resolver.dart';
 import 'package:submersion/features/media/domain/value_objects/media_source_data.dart';
-import 'package:submersion/features/media/domain/value_objects/media_source_metadata.dart';
 import 'package:submersion/features/media/domain/value_objects/verify_result.dart';
 import 'package:submersion/features/media/presentation/pages/media_viewer_page.dart';
 import 'package:submersion/features/media/presentation/providers/media_resolver_providers.dart';
+import 'package:submersion/features/media/presentation/widgets/media_item_view.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 
@@ -32,8 +32,6 @@ class _UnavailableResolver implements MediaSourceResolver {
     MediaItem item, {
     required Size target,
   }) => resolve(item);
-  @override
-  Future<MediaSourceMetadata?> extractMetadata(MediaItem item) async => null;
   @override
   Future<VerifyResult> verify(MediaItem item) async => VerifyResult.available;
 }
@@ -166,6 +164,26 @@ void main() {
       () => tester.tap(find.byTooltip('Previous media')),
     );
     expect(find.text('1 / 2'), findsOneWidget);
+  });
+
+  // Issue #3298: a page built only once it slides into view arrives as an
+  // empty placeholder, so the incoming photo popped in after the swipe ended.
+  // Building the neighbours ahead lets them resolve and decode off screen.
+  testWidgets('both neighbours are built before they are swiped to', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      mediaList: [item('a'), item('b'), item('c')],
+      initialMediaId: 'b',
+    );
+
+    final ids = tester
+        .widgetList<MediaItemView>(
+          find.byType(MediaItemView, skipOffstage: false),
+        )
+        .map((v) => v.item.id);
+    expect(ids, containsAll(['a', 'b', 'c']));
   });
 
   testWidgets('a single item gets no arrows', (tester) async {

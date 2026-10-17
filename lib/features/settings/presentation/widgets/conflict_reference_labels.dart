@@ -1,5 +1,9 @@
 import 'package:submersion/core/services/sync/conflict_reference.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
+import 'package:submersion/features/dive_roles/presentation/dive_role_display.dart';
+import 'package:submersion/features/dive_types/presentation/dive_type_display.dart';
+import 'package:submersion/features/marine_life/presentation/species_name_lookup.dart';
+import 'package:submersion/features/site_types/presentation/site_type_display.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 
 /// Separator between the parts of a composed conflict title.
@@ -25,6 +29,22 @@ String conflictReferenceLabel(
       return l10n.settings_conflict_ref_instructor;
     case 'signerId':
       return l10n.settings_conflict_ref_signer;
+    case 'diverRole':
+      return l10n.settings_conflict_ref_yourRole;
+    case 'regulatorEquipmentId':
+      return l10n.settings_conflict_ref_regulator;
+    case 'viaEquipmentId':
+      return l10n.settings_conflict_ref_attachedThrough;
+    case 'viaSetId':
+      return l10n.settings_conflict_ref_appliedSet;
+    case 'parentEquipmentId':
+      return l10n.settings_conflict_ref_installedIn;
+    case 'componentEquipmentId':
+      return l10n.settings_conflict_ref_component;
+    case 'transmitterEquipmentId':
+      return l10n.settings_conflict_ref_transmitter;
+    case 'linkedDiverId':
+      return l10n.settings_conflict_ref_samePerson;
   }
   switch (reference.targetType) {
     case 'dives':
@@ -35,6 +55,10 @@ String conflictReferenceLabel(
       return l10n.settings_conflict_ref_tag;
     case 'diveTypes':
       return l10n.settings_conflict_ref_diveType;
+    case 'diveRoles':
+      return l10n.settings_conflict_ref_diveRole;
+    case 'weightPresets':
+      return l10n.settings_conflict_ref_weightPreset;
     case 'siteTypes':
       return l10n.settings_conflict_ref_siteType;
     case 'divers':
@@ -69,10 +93,14 @@ String conflictReferenceLabel(
       return l10n.settings_conflict_ref_course;
     case 'certifications':
       return l10n.settings_conflict_ref_certification;
+    case 'documents':
+      return l10n.settings_conflict_ref_document;
     case 'courseRequirements':
       return l10n.settings_conflict_ref_courseRequirement;
     case 'serviceKinds':
       return l10n.settings_conflict_ref_serviceKind;
+    case 'equipmentLocations':
+      return l10n.settings_conflict_ref_equipmentLocation;
     case 'species':
       return l10n.settings_conflict_ref_species;
     case 'sightings':
@@ -107,11 +135,31 @@ String conflictReferenceValue(
   final date = reference.timestamp == null
       ? null
       : units.formatDate(reference.timestamp);
-  final name = reference.name;
+  final name = conflictReferenceName(l10n, reference);
   if (name != null && date != null) {
     return l10n.settings_conflict_ref_named(name, date);
   }
   return name ?? date ?? shortRecordId(reference.recordId);
+}
+
+/// The referenced record's name as the rest of the app shows it: a built-in
+/// row's stored English name is swapped for its translation (#3026), and
+/// anything else, a diver's own row or an id no helper knows, keeps the
+/// stored name.
+String? conflictReferenceName(
+  AppLocalizations l10n,
+  ConflictReference reference,
+) {
+  final source = reference.builtInSource;
+  if (source == null) return reference.name;
+  final translated = switch (source.targetType) {
+    'diveTypes' => builtInDiveTypeName(l10n, source.id),
+    'diveRoles' => builtInDiveRoleName(l10n, source.id),
+    'siteTypes' => builtInSiteTypeName(l10n, source.id),
+    'species' => builtInSpeciesName(l10n, source.id),
+    _ => null,
+  };
+  return translated ?? reference.name;
 }
 
 /// The leading segment of a record id, the way a user would quote one.
@@ -121,10 +169,12 @@ String shortRecordId(String recordId) =>
 /// Names the conflicting record from the records it points at, for junction
 /// and relation entities that have no name of their own. Null when nothing
 /// resolved, so the caller can fall back to the entity type and id.
-String? conflictReferenceSummary(List<ConflictReference> references) {
+String? conflictReferenceSummary(
+  AppLocalizations l10n,
+  List<ConflictReference> references,
+) {
   final names = [
-    for (final reference in references)
-      if (reference.name != null) reference.name!,
+    for (final reference in references) ?conflictReferenceName(l10n, reference),
   ];
   if (names.isEmpty) return null;
   return names.take(3).join(kConflictSummarySeparator);

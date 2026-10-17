@@ -1,5 +1,6 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/database.dart';
 
 /// v242 adds equipment_service_status: the local service-due cache the
@@ -14,17 +15,23 @@ Future<Set<String>> _tables(AppDatabase db) async => {
 
 void main() {
   test('v242 is at or below the current schema version and in the ladder', () {
-    // Relaxed once v244 (DPV mission planner) landed on top; the newest
+    // Relaxed once v244 (DPV mission planner) and v245 landed on top; the newest
     // rung owns the exact assertion.
     expect(AppDatabase.currentSchemaVersion, greaterThanOrEqualTo(242));
     expect(AppDatabase.migrationVersions, contains(242));
     expect(AppDatabase.migrationStepCount(240), greaterThanOrEqualTo(1));
     // A local cache: the sync compatibility floor must not move.
-    expect(AppDatabase.minimumCompatibleSchemaVersion, 240);
+    // v275 raised the floor later (#3091); this rung did not move it.
+    expect(
+      AppDatabase.minimumCompatibleSchemaVersion,
+      greaterThanOrEqualTo(240),
+    );
   });
 
   test('a fresh database has the cache table and no hlc column', () async {
-    final db = AppDatabase(NativeDatabase.memory());
+    final db = AppDatabase(
+      NativeDatabase.memory(setup: registerAppSqlFunctions),
+    );
     addTearDown(db.close);
     expect(await _tables(db), contains('equipment_service_status'));
     final cols = await db

@@ -10,8 +10,15 @@ import 'package:submersion/features/divers/presentation/providers/diver_provider
 import 'package:submersion/features/divers/presentation/providers/diver_weight_entry_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/divers/presentation/widgets/delete_diver_dialog.dart';
+import 'package:submersion/features/divers/presentation/widgets/delete_diver_snackbar_text.dart';
+import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/features/divers/presentation/widgets/diver_switcher_sheet.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
+import 'package:submersion/features/documents/domain/entities/document.dart';
+import 'package:submersion/features/documents/presentation/providers/document_providers.dart';
+import 'package:submersion/features/safety/presentation/providers/incident_providers.dart';
+
+final _log = LoggerService.forClass(DiverProfileHubPage);
 
 class DiverProfileHubPage extends ConsumerWidget {
   const DiverProfileHubPage({super.key});
@@ -250,12 +257,53 @@ class DiverProfileHubPage extends ConsumerWidget {
               route: '/settings/diver-profile/medical',
             ),
             const Divider(height: 1),
+            // The near-miss log is the active diver's own safety record, so
+            // it sits with the emergency and medical tiles (issue #3061).
+            Consumer(
+              builder: (context, ref, _) {
+                // .value keeps the last count through a reload, as the
+                // Documents tile does.
+                final incidents = ref.watch(incidentsProvider).value;
+                return _buildSectionTile(
+                  context,
+                  icon: Icons.flag_outlined,
+                  title: context.l10n.safetyHub_incidentsLink,
+                  subtitle: context.l10n.safetyHub_incidentsLink_count(
+                    incidents?.length ?? 0,
+                  ),
+                  route: '/incidents',
+                );
+              },
+            ),
+            const Divider(height: 1),
             _buildSectionTile(
               context,
               icon: Icons.health_and_safety,
               title: context.l10n.settings_profileHub_insurance,
               subtitle: _insuranceSubtitle(context, ref, diver),
-              route: '/settings/diver-profile/insurance',
+              // Insurance is a document now (issue #2613).
+              route: '/documents?type=insurance',
+            ),
+            const Divider(height: 1),
+            Consumer(
+              builder: (context, ref, _) {
+                final personal = ref
+                    .watch(
+                      documentsForOwnerProvider(const DocumentOwner.personal()),
+                    )
+                    // .value keeps the last count through a reload; a
+                    // document change would otherwise flash "None yet".
+                    .value;
+                return _buildSectionTile(
+                  context,
+                  icon: Icons.folder_copy_outlined,
+                  title: context.l10n.documents_profileHub_documents,
+                  subtitle: context.l10n.documents_profileHub_documents_count(
+                    personal?.length ?? 0,
+                  ),
+                  route: '/documents?owner=personal',
+                );
+              },
             ),
             const Divider(height: 1),
             _buildSectionTile(
@@ -415,32 +463,36 @@ class DiverProfileHubPage extends ConsumerWidget {
     WidgetRef ref,
     Diver diver,
   ) async {
+    // The count only informs the confirmation; the delete keeps the gear
+    // whether or not it could be read (issue #2852).
+    var keptCount = 0;
+    try {
+      keptCount = await ref
+          .read(diverRepositoryProvider)
+          .keptEquipmentCount(diver.id);
+    } catch (e, stackTrace) {
+      _log.warning(
+        'Could not count the gear a delete would keep',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+    if (!context.mounted) return;
     final confirmed = await DeleteDiverDialog.show(
       context,
       diverName: diver.name,
+      keptEquipmentCount: keptCount,
     );
     if (confirmed && context.mounted) {
       final result = await ref
           .read(diverListNotifierProvider.notifier)
           .deleteDiver(diver.id);
       if (context.mounted) {
-        if (result.hasReassignments) {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                context.l10n.divers_delete_reassigned_snackbar(
-                  result.reassignedTripsCount,
-                  result.reassignedSitesCount,
-                  result.reassignedToDiverName ?? '',
-                ),
-              ),
-            ),
-          );
-        } else {
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(content: Text(context.l10n.settings_profileHub_deleted)),
-          );
-        }
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(deleteDiverSnackbarText(context.l10n, result)),
+          ),
+        );
       }
     }
   }

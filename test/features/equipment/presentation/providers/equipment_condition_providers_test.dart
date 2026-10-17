@@ -1,10 +1,12 @@
 import 'dart:async';
+import 'dart:typed_data';
 
 import 'package:drift/drift.dart' show Value;
 import 'package:drift/native.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/data/repositories/sync_repository.dart';
+import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/services/database_service.dart';
@@ -85,7 +87,12 @@ void main() {
     if (DatabaseService.instance.databaseOrNull != null) {
       await tearDownTestDatabase();
     }
-    db = AppDatabase(NativeDatabase.memory(logStatements: logStatements));
+    db = AppDatabase(
+      NativeDatabase.memory(
+        setup: registerAppSqlFunctions,
+        logStatements: logStatements,
+      ),
+    );
     DatabaseService.instance.setTestDatabase(db);
     final sync = SyncRepository(database: db);
     observations = EquipmentObservationRepository(db: db, syncRepository: sync);
@@ -502,6 +509,39 @@ void main() {
     await ccrWithDive(summaryStamp: 5);
     await container.read(equipmentConditionProvider('ccr').future);
     expect(engine.last!.summariesByDive.keys, ['loop']);
+  });
+
+  test('a summary built from the synced series is current', () async {
+    // Series never re-stamp their dive (#1769). A summary rebuilt after a
+    // synced profile carries a stamp that includes the series (here the
+    // dive's 5 plus the series' 9); reading it as stale would request it
+    // again on every review and never save a marker.
+    await ccrWithDive(summaryStamp: 5 + 9);
+    await db
+        .into(db.diveProfileSeries)
+        .insert(
+          DiveProfileSeriesCompanion.insert(
+            id: 'ps',
+            diveId: 'loop',
+            startTimestamp: 0,
+            endTimestamp: 60,
+            sampleCount: 1,
+            maxDepth: 10,
+            firstDepth: 0,
+            lastDepth: 0,
+            codecVersion: 1,
+            samples: Uint8List.fromList([1]),
+            createdAt: 9,
+            updatedAt: 9,
+          ),
+        );
+    await container.read(equipmentConditionProvider('ccr').future);
+    expect(engine.last!.summariesByDive.keys, ['loop']);
+    expect(summariesRequested, isEmpty);
+    expect(
+      await EquipmentFindingsRepository(db: db).getReview('ccr'),
+      isNotNull,
+    );
   });
 
   test('a rebuilt summary recomputes the item', () async {

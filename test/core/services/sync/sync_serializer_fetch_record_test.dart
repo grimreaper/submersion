@@ -97,6 +97,8 @@ void main() {
       'buddies',
       'diveBuddies',
       'certifications',
+      'documents',
+      'documentPages',
       'courses',
       'courseRequirements',
       'courseRequirementDives',
@@ -117,8 +119,13 @@ void main() {
       'equipmentTags',
       'equipmentShares',
       'equipmentOwnershipEvents',
+      'equipmentLocations',
+      'equipmentLocationMoves',
       'tankPresets',
       'diveComputers',
+      'diveComputerConnections',
+      'sharedLibraryMemberships',
+      'librarySiteNotes',
       'tankPressureProfiles',
       'tideRecords',
       'settings',
@@ -135,6 +142,9 @@ void main() {
       'csvPresets',
       'viewConfigs',
       'fieldPresets',
+      'tripEquipment',
+      'tripHides',
+      'siteHides',
     ];
 
     for (final type in simpleTypes) {
@@ -183,6 +193,29 @@ void main() {
       expect(record, isNot(contains('bluetoothAddress')));
     });
 
+    test('fetchRecords batches the same row fetchRecord returns', () async {
+      // These types read one query per id until #2553 made fetchRecords the
+      // serializer's lookup for an older peer's partial rows.
+      await db.customStatement('PRAGMA foreign_keys = OFF');
+      final targets = <String, String>{
+        'emergencyChambers': db.emergencyChambers.actualTableName,
+        'incidents': db.incidents.actualTableName,
+        'equipmentObservations': db.equipmentObservations.actualTableName,
+        'equipmentFindings': db.equipmentFindings.actualTableName,
+        'siteFeatures': db.siteFeatures.actualTableName,
+        'gpsTracks': db.gpsTracks.actualTableName,
+        'navTracks': db.navTracks.actualTableName,
+      };
+      for (final MapEntry(key: type, value: table) in targets.entries) {
+        await seedMinimalRow(table, '$type-1');
+        final single = await serializer.fetchRecord(type, '$type-1');
+        expect(single, isNotNull, reason: type);
+        expect(await serializer.fetchRecords(type, ['$type-1', 'absent']), {
+          '$type-1': single,
+        }, reason: type);
+      }
+    });
+
     test('fetches a seeded row for each single-PK entity type', () async {
       // Drift enables foreign_keys by default; turn it off so a minimal
       // placeholder row needn't satisfy parent references (these throwaway
@@ -203,6 +236,8 @@ void main() {
         (type: 'buddies', table: db.buddies.actualTableName),
         (type: 'diveBuddies', table: db.diveBuddies.actualTableName),
         (type: 'certifications', table: db.certifications.actualTableName),
+        (type: 'documents', table: db.documents.actualTableName),
+        (type: 'documentPages', table: db.documentPages.actualTableName),
         (type: 'courses', table: db.courses.actualTableName),
         (
           type: 'courseRequirements',
@@ -237,6 +272,15 @@ void main() {
         (type: 'diveTypes', table: db.diveTypes.actualTableName),
         (type: 'tankPresets', table: db.tankPresets.actualTableName),
         (type: 'diveComputers', table: db.diveComputers.actualTableName),
+        (
+          type: 'diveComputerConnections',
+          table: db.diveComputerConnections.actualTableName,
+        ),
+        (
+          type: 'sharedLibraryMemberships',
+          table: db.sharedLibraryMemberships.actualTableName,
+        ),
+        (type: 'librarySiteNotes', table: db.librarySiteNotes.actualTableName),
         (type: 'tideRecords', table: db.tideRecords.actualTableName),
         (type: 'settings', table: db.settings.actualTableName),
         (type: 'species', table: db.species.actualTableName),

@@ -55,7 +55,6 @@ void main() {
     List<MediaItem> documents = const [],
     Future<List<MediaItem>>? pending,
     Object? error,
-    VoidCallback? onAttach,
     void Function(MediaItem)? onOpen,
     List<Override> extraOverrides = const [],
   }) {
@@ -72,7 +71,6 @@ void main() {
         body: SingleChildScrollView(
           child: EquipmentDocumentsSection(
             equipmentId: 'e1',
-            onAttachPressed: onAttach,
             onOpenDocument: onOpen,
           ),
         ),
@@ -80,24 +78,23 @@ void main() {
     );
   }
 
-  testWidgets('empty state names what belongs here', (tester) async {
-    await tester.pumpWidget(await host(onAttach: () {}));
+  testWidgets('nothing linked shows no card at all', (tester) async {
+    await tester.pumpWidget(await host());
     await tester.pumpAndSettle();
 
-    expect(find.text('Documents'), findsOneWidget);
-    expect(
-      find.text('Invoices, receipts and warranty paperwork'),
-      findsOneWidget,
-    );
-    expect(find.text('No documents attached yet'), findsOneWidget);
+    expect(find.byType(Card), findsNothing);
+    expect(find.text('Linked files'), findsNothing);
   });
 
-  testWidgets('renders a tile per attached document', (tester) async {
-    await tester.pumpWidget(
-      await host(documents: [invoice, warranty], onAttach: () {}),
-    );
+  testWidgets('files left behind are listed as Linked files', (tester) async {
+    await tester.pumpWidget(await host(documents: [invoice, warranty]));
     await tester.pumpAndSettle();
 
+    expect(find.text('Linked files'), findsOneWidget);
+    expect(
+      find.text('Too large, or a format Documents cannot hold'),
+      findsOneWidget,
+    );
     expect(find.text('invoice.pdf'), findsOneWidget);
     expect(find.text('warranty.docx'), findsOneWidget);
     expect(
@@ -107,24 +104,12 @@ void main() {
     // A PDF gets the PDF glyph; anything else is a generic document.
     expect(find.byIcon(Icons.picture_as_pdf), findsOneWidget);
     expect(find.byIcon(Icons.description), findsOneWidget);
-    expect(find.text('No documents attached yet'), findsNothing);
   });
 
-  testWidgets('the attach action routes to its callback', (tester) async {
-    var attaches = 0;
-    await tester.pumpWidget(await host(onAttach: () => attaches++));
-    await tester.pumpAndSettle();
-
-    await tester.tap(find.byKey(const ValueKey('equipment-documents-attach')));
-    await tester.pumpAndSettle();
-
-    expect(attaches, 1);
-  });
-
-  testWidgets('the attach action is hidden when no callback is given', (
+  testWidgets('there is no attach action: paperwork goes to Documents', (
     tester,
   ) async {
-    await tester.pumpWidget(await host());
+    await tester.pumpWidget(await host(documents: [invoice]));
     await tester.pumpAndSettle();
 
     expect(
@@ -138,7 +123,7 @@ void main() {
   ) async {
     final opened = <MediaItem>[];
     await tester.pumpWidget(
-      await host(documents: [invoice], onAttach: () {}, onOpen: opened.add),
+      await host(documents: [invoice], onOpen: opened.add),
     );
     await tester.pumpAndSettle();
 
@@ -168,16 +153,19 @@ void main() {
     expect(tile.onTap, isNotNull);
   });
 
-  testWidgets('a still-loading provider shows a spinner', (tester) async {
+  testWidgets('nothing shows while loading: most gear has no linked files', (
+    tester,
+  ) async {
     final completer = Completer<List<MediaItem>>();
     await tester.pumpWidget(await host(pending: completer.future));
     await tester.pump();
 
-    expect(find.byType(CircularProgressIndicator), findsOneWidget);
-
-    completer.complete(const []);
-    await tester.pumpAndSettle();
+    expect(find.byType(Card), findsNothing);
     expect(find.byType(CircularProgressIndicator), findsNothing);
+
+    completer.complete([invoice]);
+    await tester.pumpAndSettle();
+    expect(find.text('Linked files'), findsOneWidget);
   });
 
   testWidgets('a failing provider reports rather than rendering empty', (
@@ -198,7 +186,6 @@ void main() {
       await tester.pumpWidget(
         await host(
           documents: [invoice],
-          onAttach: () {},
           extraOverrides: [
             mediaUnlinkServiceProvider.overrideWithValue(
               _RecordingUnlinkService(calls: calls),
@@ -227,7 +214,6 @@ void main() {
       await tester.pumpWidget(
         await host(
           documents: [invoice],
-          onAttach: () {},
           extraOverrides: [
             mediaUnlinkServiceProvider.overrideWithValue(
               _RecordingUnlinkService(calls: calls),
@@ -257,7 +243,6 @@ void main() {
       await tester.pumpWidget(
         await host(
           documents: [invoice],
-          onAttach: () {},
           extraOverrides: [
             mediaForEquipmentProvider('other-equipment').overrideWith((
               ref,
@@ -308,7 +293,6 @@ void main() {
       await tester.pumpWidget(
         await host(
           documents: [invoice],
-          onAttach: () {},
           extraOverrides: [
             mediaUnlinkServiceProvider.overrideWithValue(
               _RecordingUnlinkService(

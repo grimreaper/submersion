@@ -1,15 +1,18 @@
 import 'package:submersion/core/constants/sort_options.dart';
+import 'package:submersion/core/data/visibility/shared_item_policy.dart';
 import 'package:submersion/core/models/sort_state.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/query/domain/query_node.dart';
 import 'package:submersion/core/text/text_sort.dart';
 
+import 'package:submersion/features/buddies/presentation/providers/buddy_providers.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart'
     as domain;
 import 'package:submersion/features/dive_log/presentation/providers/view_config_providers.dart';
 import 'package:submersion/features/dive_sites/domain/entities/dive_site.dart'
     as domain;
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
+import 'package:submersion/features/divers/presentation/providers/profile_hides_providers.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_repository_provider.dart';
 import 'package:submersion/features/query/presentation/providers/narrow_by_ids.dart';
 import 'package:submersion/features/query/presentation/providers/query_id_set_providers.dart';
@@ -63,6 +66,15 @@ final tripFilterProvider = StateProvider<TripFilterState>(
   (ref) => const TripFilterState(),
 );
 
+/// Replaces the trip list's query (#2365), keeping its equipment axis.
+void setTripQuery(WidgetRef ref, QueryNode? query) {
+  final notifier = ref.read(tripFilterProvider.notifier);
+  notifier.state = notifier.state.copyWith(
+    query: query,
+    clearQuery: query == null,
+  );
+}
+
 /// Repository provider
 final tripRepositoryProvider = Provider<TripRepository>((ref) {
   return TripRepository();
@@ -102,11 +114,13 @@ final allTripsWithStatsProvider = FutureProvider<List<TripWithStats>>((
 
 /// The ids the trip filter selects, from the compiled query (#2365). Keyed
 /// on the filter's value; a write to any table the query read refreshes it
-/// in place.
+/// in place. A shared trip's dives are the active diver's alone, as its
+/// stats count them.
 final queryFilteredTripIdsProvider = FutureProvider.autoDispose
-    .family<Set<String>, TripFilterState>(
-      (ref, filter) => watchQueryIds(ref, compileTripFilter(filter)),
-    );
+    .family<Set<String>, TripFilterState>((ref, filter) async {
+      final diverId = await ref.watch(validatedCurrentDiverIdProvider.future);
+      return watchQueryIds(ref, compileTripFilter(filter, diverId: diverId));
+    });
 
 /// Filtered trips provider - applies current filter to trip list.
 /// Uses synchronous Provider returning AsyncValue instead of FutureProvider
@@ -262,14 +276,21 @@ final divesForTripProvider = FutureProvider.family<List<domain.Dive>, String>((
   final diveRepository = ref.watch(diveRepositoryProvider);
   final diverId = await ref.watch(validatedCurrentDiverIdProvider.future);
 
-  ref.invalidateSelfWhen(diveRepository.watchDivesChanges());
+  // Includes the buddy link tables: the trip story and day map cards show
+  // buddy names, and a rename or a synced buddy link never restamps the dive
+  // row (#1769, #3039).
+  ref.invalidateSelfWhen(diveRepository.watchDivesChangesWithBuddyLinks());
 
   final diveIds = await tripRepository.getDiveIdsForTrip(
     tripId,
     diverId: diverId,
   );
   if (diveIds.isEmpty) return [];
-  return diveRepository.getDivesByIds(diveIds);
+  // getDivesByIds does not load the dive_buddies junction; attach it so the
+  // cards' Buddy field matches the Dives tab (#3039).
+  return ref
+      .read(buddyRepositoryProvider)
+      .withBuddies(await diveRepository.getDivesByIds(diveIds));
 });
 
 /// Trip search provider
@@ -412,15 +433,65 @@ class TripListNotifier extends StateNotifier<AsyncValue<List<TripWithStats>>> {
   }
 
   Future<void> updateTrip(Trip trip) async {
-    await _repository.updateTrip(trip);
+    final actingDiverId = await _ref.read(
+      validatedCurrentDiverIdProvider.future,
+    );
+    await _repository.updateTrip(trip, actingDiverId: actingDiverId);
     await refresh();
     _ref.invalidate(tripByIdProvider(trip.id));
     _ref.invalidate(tripWithStatsProvider(trip.id));
   }
 
-  Future<void> deleteTrip(String id) async {
-    await _repository.deleteTrip(id);
+  /// Deletes [id] when the active profile may (issue #2594). False, with
+  /// nothing changed, for a shared trip another profile owns.
+  Future<bool> deleteTrip(String id) async {
+    final actingDiverId = await _ref.read(
+      validatedCurrentDiverIdProvider.future,
+    );
+    final deleted = await _repository.deleteTrip(
+      id,
+      actingDiverId: actingDiverId,
+    );
     await refresh();
+    return deleted;
+  }
+
+  /// Hides another profile's shared trip [id] from the active profile only
+  /// (issue #2594). False when the policy refuses.
+  Future<bool> hideTrip(String id) async {
+    final diverId = await _ref.read(validatedCurrentDiverIdProvider.future);
+    if (diverId == null) return false;
+    final hidden = await _ref
+        .read(profileHidesRepositoryProvider)
+        .hide(SharedItemKind.trip, id, diverId);
+    await refresh();
+    _ref.invalidate(hiddenItemsProvider);
+    return hidden;
+  }
+
+  /// Hides other profiles' shared trips [ids] from the active profile only
+  /// (issue #2594), refreshing the list once. Returns how many are hidden
+  /// afterwards.
+  Future<int> hideTrips(List<String> ids) async {
+    final diverId = await _ref.read(validatedCurrentDiverIdProvider.future);
+    if (diverId == null) return 0;
+    final hidden = await _ref
+        .read(profileHidesRepositoryProvider)
+        .hideAll(SharedItemKind.trip, ids, diverId);
+    await refresh();
+    _ref.invalidate(hiddenItemsProvider);
+    return hidden;
+  }
+
+  /// Shows a hidden trip [id] to the active profile again.
+  Future<void> unhideTrip(String id) async {
+    final diverId = await _ref.read(validatedCurrentDiverIdProvider.future);
+    if (diverId == null) return;
+    await _ref
+        .read(profileHidesRepositoryProvider)
+        .unhide(SharedItemKind.trip, id, diverId);
+    await refresh();
+    _ref.invalidate(hiddenItemsProvider);
   }
 
   Future<void> assignDiveToTrip(String diveId, String tripId) async {

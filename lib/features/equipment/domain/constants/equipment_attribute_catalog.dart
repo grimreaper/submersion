@@ -13,7 +13,21 @@ import 'package:submersion/core/constants/enums.dart';
 ///              is the only thing allowed to turn it into a launchable Uri
 /// - color:     valueText holds `#RRGGBB`, uppercase; `normalizeEquipmentColor`
 ///              decides whether a stored value is a colour
-enum AttributeKind { text, number, thickness, choice, flag, date, url, color }
+/// - focalLength: valueText holds a prime's figure or a zoom's range as
+///              written ("60", "15-45"), valueNum the wide end in mm; rows
+///              saved before issue #3050 carry valueNum alone
+///              (`focal_length.dart`)
+enum AttributeKind {
+  text,
+  number,
+  thickness,
+  choice,
+  flag,
+  date,
+  url,
+  color,
+  focalLength,
+}
 
 /// Which block of the edit and detail forms an attribute belongs in.
 ///
@@ -77,9 +91,13 @@ abstract final class EquipmentAttrKeys {
   static const bcdStyle = 'bcd_style';
   static const liftCapacityKg = 'lift_capacity_kg';
   static const gloveType = 'glove_type';
+  static const sockType = 'sock_type';
   static const weightStyle = 'weight_style';
   static const insulationLevel = 'insulation_level';
   static const fillMaterial = 'fill_material';
+  // Whether a vest has its hood attached (issue #3108), read by the buoyancy
+  // prior and the diver figure.
+  static const hooded = 'hooded';
 
   // The item's colour (issue #2326), read by the diver figure.
   static const color = 'color';
@@ -159,6 +177,13 @@ abstract final class EquipmentAttributeCatalog {
     EquipmentAttributeDef(
       key: EquipmentAttrKeys.identifier,
       kind: AttributeKind.text,
+    ),
+    // The item's tag identity (issues #2334, #2652). System: never rendered
+    // by a form, exported or imported.
+    EquipmentAttributeDef(
+      key: EquipmentAttrKeys.passportId,
+      kind: AttributeKind.text,
+      group: AttributeGroup.system,
     ),
   ];
 
@@ -268,6 +293,17 @@ abstract final class EquipmentAttributeCatalog {
     kind: AttributeKind.number,
     dimension: AttributeDimension.depthM,
   );
+  // A video light (#1997) is specced like a dive light, so it shares the
+  // light's definitions: one key, one label, one filter.
+  static const _lumens = EquipmentAttributeDef(
+    key: 'lumens',
+    kind: AttributeKind.number,
+  );
+  static const _beamType = EquipmentAttributeDef(
+    key: 'beam_type',
+    kind: AttributeKind.choice,
+    choiceKeys: ['spot', 'flood', 'adjustable'],
+  );
 
   static const Map<EquipmentType, List<EquipmentAttributeDef>> _byType = {
     EquipmentType.wetsuit: [
@@ -313,6 +349,28 @@ abstract final class EquipmentAttributeCatalog {
       // Dimensionless: a UPF number is a ratio, not a measurement.
       EquipmentAttributeDef(key: 'upf_rating', kind: AttributeKind.number),
     ],
+    // The ice vest and core warmer (#3108). Thickness is the suit's own
+    // field, so a 7 mm vest reads like a 7 mm suit; the hood is a switch
+    // because it is what tells an ice vest from a core warmer, and it adds
+    // lift.
+    EquipmentType.vest: [
+      _size,
+      _thickness,
+      EquipmentAttributeDef(
+        key: EquipmentAttrKeys.hooded,
+        kind: AttributeKind.flag,
+      ),
+      EquipmentAttributeDef(
+        key: 'vest_layer',
+        kind: AttributeKind.choice,
+        choiceKeys: ['over_suit', 'under_suit'],
+      ),
+      EquipmentAttributeDef(
+        key: 'vest_closure',
+        kind: AttributeKind.choice,
+        choiceKeys: ['front_zip', 'side_zip', 'pullover'],
+      ),
+    ],
     EquipmentType.tank: [
       EquipmentAttributeDef(
         key: EquipmentAttrKeys.volumeL,
@@ -339,11 +397,6 @@ abstract final class EquipmentAttributeCatalog {
         kind: AttributeKind.date,
       ),
       EquipmentAttributeDef(key: 'last_hydro_test', kind: AttributeKind.date),
-      EquipmentAttributeDef(
-        key: EquipmentAttrKeys.passportId,
-        kind: AttributeKind.text,
-        group: AttributeGroup.system,
-      ),
     ],
     EquipmentType.rebreather: [
       EquipmentAttributeDef(
@@ -465,6 +518,29 @@ abstract final class EquipmentAttributeCatalog {
         choiceKeys: ['harness', 'waist_belt', 'thigh'],
       ),
     ],
+    EquipmentType.bag: [
+      // Lift bags are left out on purpose: they are lift devices, filed
+      // with the SMB, not luggage.
+      EquipmentAttributeDef(
+        key: 'bag_style',
+        kind: AttributeKind.choice,
+        choiceKeys: [
+          'duffel',
+          'roller',
+          'backpack',
+          'mesh',
+          'dry_bag',
+          'regulator_bag',
+          'catch_bag',
+        ],
+      ),
+      // How bags are sold: litres, or cubic feet for an imperial diver.
+      EquipmentAttributeDef(
+        key: 'capacity_l',
+        kind: AttributeKind.number,
+        dimension: AttributeDimension.volumeL,
+      ),
+    ],
     EquipmentType.fins: [
       _size,
       EquipmentAttributeDef(
@@ -560,17 +636,62 @@ abstract final class EquipmentAttributeCatalog {
         choiceKeys: ['belt', 'integrated', 'trim', 'ankle'],
       ),
     ],
-    EquipmentType.light: [
-      EquipmentAttributeDef(key: 'lumens', kind: AttributeKind.number),
+    EquipmentType.light: [_lumens, _beamType],
+    EquipmentType.camera: [_depthRating],
+    // The camera's parts (#1997).
+    EquipmentType.lens: [
       EquipmentAttributeDef(
-        key: 'beam_type',
+        key: 'lens_type',
         kind: AttributeKind.choice,
-        choiceKeys: ['spot', 'flood', 'adjustable'],
+        choiceKeys: ['camera_lens', 'wet_lens', 'diopter'],
+      ),
+      // Quoted in millimetres in every unit system, so not a converted
+      // length. A zoom is written as a range (issue #3050); the key keeps
+      // the name it had as a plain number so synced rows still match.
+      EquipmentAttributeDef(
+        key: 'focal_length_mm',
+        kind: AttributeKind.focalLength,
       ),
     ],
-    EquipmentType.camera: [_depthRating],
+    EquipmentType.port: [
+      EquipmentAttributeDef(
+        key: 'port_type',
+        kind: AttributeKind.choice,
+        choiceKeys: ['dome', 'flat', 'macro'],
+      ),
+      _depthRating,
+    ],
     EquipmentType.housing: [_depthRating],
-    EquipmentType.strobe: [_depthRating],
+    EquipmentType.trayHandle: [
+      EquipmentAttributeDef(
+        key: 'tray_style',
+        kind: AttributeKind.choice,
+        choiceKeys: ['single_handle', 'double_handle', 'pistol_grip'],
+      ),
+    ],
+    // Stored in metres, shown in cm or inches: arms are sold as 8" or 20 cm.
+    EquipmentType.armClamp: [
+      EquipmentAttributeDef(
+        key: 'arm_length_m',
+        kind: AttributeKind.number,
+        dimension: AttributeDimension.shortLengthM,
+      ),
+    ],
+    EquipmentType.strobe: [
+      _depthRating,
+      // The power figure every strobe is compared by: a distance at ISO 100,
+      // quoted in metres (GN 20) or feet (GN 66) for the same strobe, so it
+      // is stored in metres and shown in the diver's length unit.
+      EquipmentAttributeDef(
+        key: 'guide_number_m',
+        kind: AttributeKind.number,
+        dimension: AttributeDimension.lengthM,
+      ),
+    ],
+    EquipmentType.videoLight: [_lumens, _beamType, _depthRating],
+    // What the float lifts. It trims the rig, not the diver, so the buoyancy
+    // model reads it only for a BCD and never for a float.
+    EquipmentType.floatArm: [_liftCapacity],
     EquipmentType.dpv: [
       EquipmentAttributeDef(
         key: 'dpv_style',
@@ -713,6 +834,19 @@ abstract final class EquipmentAttributeCatalog {
         kind: AttributeKind.choice,
         choiceKeys: ['hard', 'soft'],
       ),
+    ],
+    // Socks (#2900): neoprene socks are sold by thickness like boots, and
+    // drysuit socks by fibre like the undergarments, so both are recorded
+    // and sock_type says which kind the pair is.
+    EquipmentType.socks: [
+      _size,
+      _thickness,
+      EquipmentAttributeDef(
+        key: EquipmentAttrKeys.sockType,
+        kind: AttributeKind.choice,
+        choiceKeys: ['neoprene', 'drysuit'],
+      ),
+      _fillMaterial,
     ],
     EquipmentType.o2Cell: [
       EquipmentAttributeDef(

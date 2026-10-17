@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:submersion/core/constants/enums.dart';
+import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/database.dart'
     show AppDatabase, DivesCompanion, TransmittersCompanion;
 import 'package:submersion/core/providers/provider.dart';
@@ -38,7 +39,12 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     prefs = await SharedPreferences.getInstance();
-    db = AppDatabase(NativeDatabase.memory(logStatements: true));
+    db = AppDatabase(
+      NativeDatabase.memory(
+        setup: registerAppSqlFunctions,
+        logStatements: true,
+      ),
+    );
     DatabaseService.instance.setTestDatabase(db);
     equipment = EquipmentRepository();
     final diver = await DiverRepository().createDiver(
@@ -196,8 +202,15 @@ void main() {
     );
     // The diver and settings reads are SettingsNotifier's own unawaited
     // load, which lands inside or outside this window depending on timing.
-    // Count the statements the evaluation itself issues.
-    const bootstrap = ['"settings"', '"divers"', '"diver_settings"'];
+    // A diver read also reads the diver's insurance and clearance documents
+    // (issue #2613). Count the statements the evaluation itself issues.
+    const bootstrap = [
+      '"settings"',
+      '"divers"',
+      '"diver_settings"',
+      '"documents"',
+      'FROM documents',
+    ];
     return logged
         .where((l) => l.startsWith('Drift: Sent'))
         .where((l) => !bootstrap.any(l.contains))

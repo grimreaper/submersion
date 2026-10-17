@@ -9,10 +9,14 @@ import 'package:submersion/features/planner/domain/entities/plan_outcome.dart';
 import 'package:submersion/features/planner/domain/services/segment_chain.dart';
 import 'package:submersion/features/planner/domain/services/bailout_solver.dart';
 import 'package:submersion/features/planner/domain/services/contingency_service.dart';
+import 'package:submersion/features/planner/domain/services/diluent_switch_time.dart';
 import 'package:submersion/features/planner/domain/services/dive_plan_state_mapper.dart';
+import 'package:submersion/features/planner/domain/services/plan_best_mix.dart';
 import 'package:submersion/features/planner/domain/services/plan_engine.dart';
 import 'package:submersion/features/planner/domain/services/plan_state_outcome.dart';
 import 'package:submersion/features/planner/domain/services/range_table_service.dart';
+import 'package:submersion/features/planner/domain/services/segment_rate_split.dart';
+import 'package:submersion/features/planner/domain/services/tank_role_resolver.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/insights/presentation/providers/insights_providers.dart';
 
@@ -21,14 +25,54 @@ final planEngineConfigProvider = Provider<PlanEngineConfig>((ref) {
   return PlanEngineConfig(
     ppO2Working: ref.watch(ppO2MaxWorkingProvider),
     ppO2Deco: ref.watch(ppO2MaxDecoProvider),
+    ccrDiluentModPpO2: ref.watch(ccrDiluentModPpO2Provider),
+    ccrSetpointLow: ref.watch(ccrSetpointLowProvider),
+    ccrSetpointHigh: ref.watch(ccrSetpointHighProvider),
     cnsWarningThreshold: ref.watch(cnsWarningThresholdProvider),
-    o2Narcotic: ref.watch(settingsProvider).o2Narcotic,
-    endLimitMeters: ref.watch(settingsProvider).endLimit,
+    o2Narcotic: ref.watch(settingsProvider.select((s) => s.o2Narcotic)),
+    endLimitMeters: ref.watch(settingsProvider.select((s) => s.endLimit)),
     pscrRatio: ref.watch(pscrRatioProvider),
     cnsMethod: ref.watch(cnsCalculationMethodProvider),
     gasModel: ref.watch(gasModelProvider),
   );
 });
+
+/// The best bottom mix for the plan's deepest point, judged against the
+/// plan's Gas options (best-mix END, O2 narcotic, bottom ppO2) over the
+/// diver's Settings. The tank dialog offers it as a one-tap fill, which is
+/// the only place the best-mix END takes effect (issue #3093).
+///
+/// A CCR plan also carries the best diluent, gated on the diver's diluent
+/// MOD ppO2 instead of the bottom ceiling: the same split the PlanEngine
+/// makes when it checks a CCR diluent against that limit. Other modes leave
+/// [diluent] null.
+///
+/// Null while the plan has no depth to suggest a mix for. Auto-dispose: it
+/// is only read when the dialog opens, so nothing should keep it recomputing
+/// on every later plan edit.
+final planBestMixProvider =
+    Provider.autoDispose<
+      ({double depthMeters, GasMix bottom, GasMix? diluent})?
+    >((ref) {
+      final state = ref.watch(divePlanNotifierProvider);
+      final depth = state.maxDepth;
+      if (depth <= 0) return null;
+      final plan = divePlanFromState(state);
+      final config = ref.watch(planEngineConfigProvider);
+      GasMix mixFor({bool forDiluent = false}) => suggestBestMixForPlan(
+        plan,
+        config,
+        depthMeters: depth,
+        forDiluent: forDiluent,
+      ).recommended.mix;
+      return (
+        depthMeters: depth,
+        bottom: mixFor(),
+        diluent: state.mode == domain.PlanMode.ccr
+            ? mixFor(forDiluent: true)
+            : null,
+      );
+    });
 
 /// The canvas's single source of computed truth: the current editing state
 /// run through the PlanEngine on every change (live recalc, no button).
@@ -38,6 +82,19 @@ final planOutcomeProvider = Provider<PlanOutcome>((ref) {
     state,
     config: ref.watch(planEngineConfigProvider),
   );
+});
+
+/// Whether the plan can be converted to a dive: it has segments and the
+/// engine reports no critical issue. This reads the same [planOutcomeProvider]
+/// issues the results pane and status chips show, so the gate never disagrees
+/// with what the diver sees (issue #3094). It judges the live plan, never a
+/// previewed contingency ([activePlanOutcomeProvider]): conversion logs the
+/// live plan, so a contingency's issues must not block or allow it.
+final planIsValidProvider = Provider<bool>((ref) {
+  final hasSegments = ref.watch(
+    divePlanNotifierProvider.select((s) => s.segments.isNotEmpty),
+  );
+  return hasSegments && ref.watch(planOutcomeProvider).isDiveable;
 });
 
 /// The diver's logged average back-gas SAC in L/min ("from your log");
@@ -116,22 +173,164 @@ class PlanCanvasSeries {
   }
 }
 
+enum ChartDisplayMode { ccr, bailout }
+
+/// Which picture the chart draws: the live CCR plan, or -- toggled by the
+/// chart's Bailout/CCR button -- the worst-case bailout picture (CCR up to
+/// the worst-case instant, then the OC ascent it was sized from).
+///
+/// The selection belongs to the plan it was made on: watching the plan's id
+/// and mode rebuilds this provider, back to [ChartDisplayMode.ccr], whenever
+/// either changes. That holds with no chart mounted too, so a diver who
+/// leaves the canvas, opens another CCR plan with bailout and comes back
+/// never lands on a Bailout view they did not choose for it. Ordinary edits
+/// to the same plan keep the selection.
+final chartDisplayModeProvider = StateProvider<ChartDisplayMode>((ref) {
+  ref.watch(divePlanNotifierProvider.select((s) => (s.id, s.mode)));
+  return ChartDisplayMode.ccr;
+});
+
 /// Chart series for the current plan: user segments plus the computed
-/// ascent tail (travel legs + stops), ceiling approximation, and markers.
+/// ascent tail (travel legs + stops), ceiling approximation, and markers --
+/// or, in [ChartDisplayMode.bailout], the worst-case bailout picture.
 final planCanvasSeriesProvider = Provider<PlanCanvasSeries>((ref) {
   final state = ref.watch(divePlanNotifierProvider);
   final outcome = ref.watch(planOutcomeProvider);
-  return buildCanvasSeries(segments: state.segments, outcome: outcome);
+  if (ref.watch(chartDisplayModeProvider) == ChartDisplayMode.bailout) {
+    final bailout = ref.watch(planBailoutProvider);
+    if (bailout != null) return buildBailoutCanvasSeries(bailout);
+  }
+  return buildCanvasSeries(plan: divePlanFromState(state), outcome: outcome);
 });
 
-/// Builds the chart series for any (segments, outcome) pair — the live plan
-/// or a contingency variant (ghost overlay).
+/// The worst-case bailout picture as chart series: CCR up to the worst-case
+/// instant ([BailoutOutcome.ccrRows]), then the OC ascent it was sized from
+/// ([BailoutOutcome.worstCase].schedule.stops) -- built from the same two
+/// unfolded sources [BailoutOutcome.ceilingTrace] continues from, not from
+/// [BailoutOutcome.worstCaseRows]: a stop after the first folds its own
+/// travel time into one table line (#3138's printing convention for the
+/// text table), which has no separate arrival point to draw and would
+/// render as a smooth diagonal between stops instead of the flat-hold-
+/// then-climb steps the CCR profile itself shows for every stop.
+PlanCanvasSeries buildBailoutCanvasSeries(BailoutOutcome bailout) {
+  final profile = <CanvasPoint>[const CanvasPoint(0, 0)];
+  final gasSwitches = <CanvasMarker>[];
+  final stopLabels = <CanvasMarker>[];
+  var maxDepth = 0.0;
+  double? previousFO2;
+  double? previousFHe;
+
+  final ccrRows = bailout.ccrRows;
+  var legStartDepth = 0.0;
+  for (var i = 0; i < ccrRows.length; i++) {
+    final row = ccrRows[i];
+    profile.add(CanvasPoint(row.runtimeSeconds.toDouble(), row.depthMeters));
+    if (row.depthMeters > maxDepth) maxDepth = row.depthMeters;
+    // The first row's own gas is the starting gas, not a switch into it.
+    // Marked at the row's own START (time and depth): depthMeters is its
+    // END depth, which for a depth-changing leg (a descent/ascent, not a
+    // flat hold) is not where the leg -- and so the switch into its gas --
+    // actually begins, landing the marker off the drawn line entirely.
+    if (row.gasSwitch && i > 0) {
+      gasSwitches.add(
+        CanvasMarker(
+          row.startRuntimeSeconds.toDouble(),
+          legStartDepth,
+          GasMix(o2: row.gasFO2 * 100.0, he: row.gasFHe * 100.0).name,
+        ),
+      );
+    }
+    previousFO2 = row.gasFO2;
+    previousFHe = row.gasFHe;
+    legStartDepth = row.depthMeters;
+  }
+
+  for (final stop in bailout.ocStops) {
+    profile.add(
+      CanvasPoint(stop.arrivalRuntimeSeconds.toDouble(), stop.depthMeters),
+    );
+    profile.add(
+      CanvasPoint(
+        (stop.arrivalRuntimeSeconds + stop.durationSeconds).toDouble(),
+        stop.depthMeters,
+      ),
+    );
+    if (stop.depthMeters > maxDepth) maxDepth = stop.depthMeters;
+    stopLabels.add(
+      CanvasMarker(
+        stop.arrivalRuntimeSeconds.toDouble(),
+        stop.depthMeters,
+        '',
+        durationSeconds: stop.durationSeconds,
+      ),
+    );
+    final switched =
+        previousFO2 == null ||
+        previousFHe == null ||
+        (stop.gasFO2 - previousFO2).abs() > 0.005 ||
+        (stop.gasFHe - previousFHe).abs() > 0.005;
+    if (switched && previousFO2 != null) {
+      gasSwitches.add(
+        CanvasMarker(
+          stop.arrivalRuntimeSeconds.toDouble(),
+          stop.depthMeters,
+          GasMix(o2: stop.gasFO2 * 100.0, he: stop.gasFHe * 100.0).name,
+        ),
+      );
+    }
+    previousFO2 = stop.gasFO2;
+    previousFHe = stop.gasFHe;
+  }
+  if (profile.isNotEmpty && profile.last.depth > 0) {
+    // ttsSeconds is relative to the worst-case instant, not an absolute
+    // runtime -- it is [BailoutPoint.ttsSeconds]'s own definition, the
+    // time to surface FROM that point, so it has to be added onto where
+    // that point already sits on the timeline.
+    profile.add(
+      CanvasPoint(
+        (bailout.worstCase.runtimeSeconds +
+                bailout.worstCase.schedule.ttsSeconds)
+            .toDouble(),
+        0,
+      ),
+    );
+  }
+
+  return PlanCanvasSeries(
+    profile: profile,
+    ceiling: [
+      for (final point in bailout.ceilingTrace)
+        CanvasPoint(point.$1.toDouble(), point.$2),
+    ],
+    gasSwitches: gasSwitches,
+    stopLabels: stopLabels,
+    maxTimeSeconds: profile.isEmpty ? 0.0 : profile.last.timeSeconds,
+    maxDepth: maxDepth,
+  );
+}
+
+/// Builds the chart series for any (plan, outcome) pair — the live plan or a
+/// contingency variant (ghost overlay). [outcome] is [plan]'s own computed
+/// schedule -- the same instance a caller like [PlanEngine.compute] already
+/// has at hand -- recomputing it here would be redundant.
 PlanCanvasSeries buildCanvasSeries({
-  required List<PlanSegment> segments,
+  required domain.DivePlan plan,
   required PlanOutcome outcome,
 }) {
-  final sorted = List<PlanSegment>.from(segments)
-    ..sort((a, b) => a.order.compareTo(b.order));
+  final isCcr = plan.mode == domain.PlanMode.ccr;
+  // Cylinder roles feed [withDiluentSwitchTime]'s diluent-switch detection,
+  // same as PlanEngine.compute and BailoutSolver.solve; a caller passing a
+  // plan with raw, unresolved roles must not read a different authored
+  // profile here than the engine computed [outcome] from.
+  final resolvedPlan = const TankRoleResolver().apply(plan);
+  final sorted = withDiluentSwitchTime(
+    expandRateSplitSegments(
+      List<PlanSegment>.from(resolvedPlan.segments)
+        ..sort((a, b) => a.order.compareTo(b.order)),
+      resolvedPlan,
+    ),
+    resolvedPlan,
+  );
 
   final profile = <CanvasPoint>[];
   var t = 0.0;
@@ -172,10 +371,17 @@ PlanCanvasSeries buildCanvasSeries({
         durationSeconds: stop.durationSeconds,
       ),
     );
+    // The computed ascent only ever carries one fixed diluent, so its
+    // ppO2-at-constant-setpoint fraction necessarily drifts with ambient
+    // pressure at almost every stop even though the diver never leaves the
+    // loop. Comparing it against previousFO2/FHe would fabricate a
+    // different gas name at nearly every marker (#3131); CCR never shows a
+    // switch marker on the computed ascent.
     final switched =
-        previousFO2 == null ||
-        (stop.gasFO2 - previousFO2).abs() > 0.005 ||
-        (stop.gasFHe - (previousFHe ?? 0)).abs() > 0.005;
+        !isCcr &&
+        (previousFO2 == null ||
+            (stop.gasFO2 - previousFO2).abs() > 0.005 ||
+            (stop.gasFHe - (previousFHe ?? 0)).abs() > 0.005);
     if (switched && previousFO2 != null) {
       gasSwitches.add(
         CanvasMarker(
@@ -215,7 +421,10 @@ PlanCanvasSeries buildCanvasSeries({
 final planBailoutProvider = Provider<BailoutOutcome?>((ref) {
   final state = ref.watch(divePlanNotifierProvider);
   final solver = BailoutSolver(config: ref.watch(planEngineConfigProvider));
-  return solver.solve(divePlanFromState(state));
+  return solver.solve(
+    divePlanFromState(state),
+    startState: startStateForPlan(state),
+  );
 });
 
 /// Deviation (deeper/longer/both) outcomes for the current plan.
@@ -230,7 +439,10 @@ final planDeviationsProvider = Provider<List<DeviationOutcome>>((ref) {
   final service = ContingencyService(
     config: ref.watch(planEngineConfigProvider),
   );
-  return service.deviations(divePlanFromState(state));
+  return service.deviations(
+    divePlanFromState(state),
+    startState: startStateForPlan(state),
+  );
 });
 
 /// Lost-gas outcomes for the current OC plan.
@@ -240,7 +452,10 @@ final planLostGasProvider = Provider<List<LostGasOutcome>>((ref) {
   final service = ContingencyService(
     config: ref.watch(planEngineConfigProvider),
   );
-  return service.lostGas(divePlanFromState(state));
+  return service.lostGas(
+    divePlanFromState(state),
+    startState: startStateForPlan(state),
+  );
 });
 
 /// Which per-contingency mini tables (keyed by deviation key or tank id) are
@@ -257,7 +472,10 @@ final planRangeTableProvider = Provider<RangeTable?>((ref) {
   final service = RangeTableService(
     config: ref.watch(planEngineConfigProvider),
   );
-  final table = service.compute(divePlanFromState(state));
+  final table = service.compute(
+    divePlanFromState(state),
+    startState: startStateForPlan(state),
+  );
   return table.isEmpty ? null : table;
 });
 
@@ -298,9 +516,14 @@ final selectedContingencyProvider =
         config: ref.watch(planEngineConfigProvider),
       );
       final plan = divePlanFromState(state);
+      final startState = startStateForPlan(state);
 
       if (deviationKey != null) {
-        final deviation = service.deviationFor(plan, deviationKey);
+        final deviation = service.deviationFor(
+          plan,
+          deviationKey,
+          startState: startState,
+        );
         if (deviation == null) return null;
         return (
           plan: deviation.plan,
@@ -308,7 +531,11 @@ final selectedContingencyProvider =
           lostTank: null,
         );
       }
-      final lost = service.lostGasFor(plan, lostGasTankId!);
+      final lost = service.lostGasFor(
+        plan,
+        lostGasTankId!,
+        startState: startState,
+      );
       if (lost == null) return null;
       return (plan: lost.plan, outcome: lost.outcome, lostTank: lost.tank);
     });
@@ -317,10 +544,7 @@ final selectedContingencyProvider =
 final contingencyGhostSeriesProvider = Provider<PlanCanvasSeries?>((ref) {
   final preview = ref.watch(selectedContingencyProvider);
   if (preview == null) return null;
-  return buildCanvasSeries(
-    segments: preview.plan.segments,
-    outcome: preview.outcome,
-  );
+  return buildCanvasSeries(plan: preview.plan, outcome: preview.outcome);
 });
 
 /// The outcome to display everywhere the headline stats (runtime, TTS/NDL,

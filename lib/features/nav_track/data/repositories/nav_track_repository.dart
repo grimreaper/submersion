@@ -15,6 +15,7 @@ import 'package:submersion/features/nav_track/domain/entities/nav_track.dart'
 import 'package:submersion/features/nav_track/domain/entities/nav_track_point.dart';
 import 'package:submersion/features/nav_track/domain/nav_track_corrector.dart';
 import 'package:submersion/features/nav_track/domain/nav_track_point_codec.dart';
+import 'package:submersion/features/nav_track/domain/nav_track_source_metadata_codec.dart';
 import 'package:submersion/features/nav_track/domain/nav_track_stats.dart';
 
 /// Persistence for measured underwater routes (spec
@@ -90,6 +91,10 @@ class NavTrackRepository {
   /// dive (the review page's link proposal) and anchored to a site (the
   /// review page's site picker, or inherited from that dive).
   ///
+  /// [diverId] is the importing (active) diver and owns an unlinked route.
+  /// A pre-linked route belongs to its dive's diver instead, the same owner
+  /// [link] gives a route linked afterward.
+  ///
   /// When [siteId] resolves to a site with a location, that location is
   /// written straight into `anchorLatitude`/`anchorLongitude` (design spec
   /// 2026-09-10-underwater-nav-track-design.md, "Georeferencing": "The
@@ -99,6 +104,13 @@ class NavTrackRepository {
   /// here" or a drag on the alignment page explicitly overrides it. No site
   /// chosen, or a site with no coordinates yet, leaves the anchor null, same
   /// as before.
+  ///
+  /// An explicit [anchorLatitude]/[anchorLongitude] pair, given when the
+  /// source file carries its own origin fix (a Suunto `DiveRouteOrigin`,
+  /// issue #1445), is stored as-is and skips both fallbacks: the route's
+  /// east/north are relative to that fix, not to the site or entry.
+  ///
+  /// [sourceMetadata] is stored as-is (issue #3047).
   Future<String> insertImportedRoute({
     required List<NavTrackPoint> points,
     required domain.NavTrackSource source,
@@ -108,22 +120,31 @@ class NavTrackRepository {
     String? diveId,
     String? siteId,
     String? equipmentId,
+    String? diverId,
+    double? anchorLatitude,
+    double? anchorLongitude,
+    Map<String, Object?>? sourceMetadata,
   }) async {
     try {
       if (points.length < 2) {
         throw ArgumentError.value(
           points.length,
           'points',
-          'a route needs at least two samples',
+          'a track needs at least two samples',
         );
       }
       final id = _uuid.v4();
       final now = DateTime.now().millisecondsSinceEpoch;
       final stats = NavTrackStats.of(points);
       final isPrimary = diveId == null || await _shouldBePrimary(diveId);
-      var anchor = siteId == null
-          ? null
-          : (await _siteRepository.getSiteById(siteId))?.location;
+      final explicitAnchor = anchorLatitude != null && anchorLongitude != null
+          ? GeoPoint(anchorLatitude, anchorLongitude)
+          : null;
+      var anchor =
+          explicitAnchor ??
+          (siteId == null
+              ? null
+              : (await _siteRepository.getSiteById(siteId))?.location);
       // No site chosen on the review page but the route is being pre-linked
       // to a dive: fall back to the dive's own entry fix, the same
       // inheritance `link()`'s `_siteAndAnchorToInherit` already gives a
@@ -132,12 +153,17 @@ class NavTrackRepository {
       // paths (pre-link at import vs. link after the fact) the diver used.
       // A site the diver did choose wins even without coordinates: the
       // route stays unanchored rather than sitting at a different point.
-      if (anchor == null && siteId == null && diveId != null) {
-        final diveRow = await (_db.select(
-          _db.dives,
-        )..where((t) => t.id.equals(diveId))).getSingleOrNull();
-        final entryLat = diveRow?.entryLatitude;
-        final entryLon = diveRow?.entryLongitude;
+      final diveRow = diveId == null
+          ? null
+          : await (_db.select(
+              _db.dives,
+            )..where((t) => t.id.equals(diveId))).getSingleOrNull();
+      if (explicitAnchor == null &&
+          anchor == null &&
+          siteId == null &&
+          diveRow != null) {
+        final entryLat = diveRow.entryLatitude;
+        final entryLon = diveRow.entryLongitude;
         if (entryLat != null && entryLon != null) {
           anchor = GeoPoint(entryLat, entryLon);
         }
@@ -148,6 +174,7 @@ class NavTrackRepository {
             NavTracksCompanion.insert(
               id: id,
               diveId: Value(diveId),
+              diverId: Value(diveId == null ? diverId : diveRow?.diverId),
               linkMode: Value(
                 diveId == null
                     ? null
@@ -170,6 +197,9 @@ class NavTrackRepository {
               durationSeconds: Value(stats.durationSeconds),
               anchorLatitude: Value(anchor?.latitude),
               anchorLongitude: Value(anchor?.longitude),
+              sourceMetadata: Value(
+                encodeNavTrackSourceMetadata(sourceMetadata),
+              ),
               points: encodeNavTrackPoints(points),
               createdAt: now,
               updatedAt: now,
@@ -242,29 +272,55 @@ class NavTrackRepository {
   /// Every route with no dive link, most recently recorded first -- the
   /// routes area's own candidates for the match sweep and the manual link
   /// picker.
+  ///
+  /// [diverId] limits it to that diver's routes and the ownerless ones
+  /// (shared with every diver); null reads every route.
   Future<List<domain.NavTrack>> getUnlinked({
     bool includePoints = false,
+    String? diverId,
   }) async {
     final rows = includePoints
         ? await (_db.select(_db.navTracks)
-                ..where((t) => t.diveId.isNull())
+                ..where(
+                  (t) =>
+                      t.diveId.isNull() &
+                      (diverId == null
+                          ? const Constant(true)
+                          : _visibleTo(t, diverId)),
+                )
                 ..orderBy([(t) => OrderingTerm.desc(t.startTime)]))
               .get()
         : await _selectWithoutPoints(
-            where: 'dive_id IS NULL',
+            where: diverId == null
+                ? 'dive_id IS NULL'
+                : 'dive_id IS NULL AND $_visibleToSql',
+            variables: [if (diverId != null) Variable.withString(diverId)],
             orderBy: 'start_time DESC',
           );
     return [for (final r in rows) _toDomain(r, includePoints: includePoints)];
   }
 
   /// Every route for the routes area's own list, unlinked first and then
-  /// most recently recorded within each group.
-  Future<List<domain.NavTrack>> getAll({bool includePoints = false}) async {
+  /// most recently recorded within each group. [diverId] scopes it as in
+  /// [getUnlinked].
+  Future<List<domain.NavTrack>> getAll({
+    bool includePoints = false,
+    String? diverId,
+  }) async {
     final rows = includePoints
-        ? await (_db.select(
-            _db.navTracks,
-          )..orderBy([(t) => OrderingTerm.desc(t.startTime)])).get()
-        : await _selectWithoutPoints(orderBy: 'start_time DESC');
+        ? await (_db.select(_db.navTracks)
+                ..where(
+                  (t) => diverId == null
+                      ? const Constant(true)
+                      : _visibleTo(t, diverId),
+                )
+                ..orderBy([(t) => OrderingTerm.desc(t.startTime)]))
+              .get()
+        : await _selectWithoutPoints(
+            where: diverId == null ? null : _visibleToSql,
+            variables: [if (diverId != null) Variable.withString(diverId)],
+            orderBy: 'start_time DESC',
+          );
     final tracks = [
       for (final r in rows) _toDomain(r, includePoints: includePoints),
     ];
@@ -277,6 +333,13 @@ class NavTrackRepository {
     });
     return tracks;
   }
+
+  /// A route [diverId] may see: their own, or an ownerless one.
+  static Expression<bool> _visibleTo($NavTracksTable t, String diverId) =>
+      t.diverId.equals(diverId) | t.diverId.isNull();
+
+  /// [_visibleTo] for a raw read; binds one variable, the diver id.
+  static const _visibleToSql = '(diver_id = ? OR diver_id IS NULL)';
 
   /// Links [routeId] to [diveId]. The route becomes primary for that dive
   /// unless another route is already linked to it and primary -- "the
@@ -316,12 +379,21 @@ class NavTrackRepository {
       final inherited = route == null
           ? null
           : await _siteAndAnchorToInherit(route, diveId);
+      // The route belongs to whoever logged the dive, so a buddy's route
+      // linked to my dive becomes mine and an ownerless one gains an owner.
+      final diveOwner =
+          await (_db.selectOnly(_db.dives)
+                ..addColumns([_db.dives.diverId])
+                ..where(_db.dives.id.equals(diveId)))
+              .map((row) => row.read(_db.dives.diverId))
+              .getSingleOrNull();
       final rowsAffected =
           await (_db.update(
             _db.navTracks,
           )..where((t) => t.id.equals(routeId) & t.diveId.isNull())).write(
             NavTracksCompanion(
               diveId: Value(diveId),
+              diverId: Value(diveOwner),
               linkMode: Value(linkMode.wireValue),
               isPrimary: Value(isPrimary),
               siteId: inherited == null
@@ -375,21 +447,32 @@ class NavTrackRepository {
 
   /// Unlinks [routeId] from whatever dive it was linked to. The recording
   /// itself, its correction, and its samples are untouched.
-  Future<void> unlink(String routeId) async {
+  ///
+  /// With [onlyFromDiveId], the route is unlinked only while it is still on
+  /// that dive. The check is part of the update itself, so a sync that moves
+  /// the route to another dive just before this write cannot get it detached
+  /// from that other dive; the call is then a no-op.
+  Future<void> unlink(String routeId, {String? onlyFromDiveId}) async {
     try {
       final route = await getById(routeId, includePoints: false);
       final diveId = route?.diveId;
       final now = DateTime.now().millisecondsSinceEpoch;
-      await (_db.update(
-        _db.navTracks,
-      )..where((t) => t.id.equals(routeId))).write(
-        NavTracksCompanion(
-          diveId: const Value(null),
-          linkMode: const Value(null),
-          isPrimary: const Value(true),
-          updatedAt: Value(now),
-        ),
-      );
+      final rowsAffected =
+          await (_db.update(_db.navTracks)..where((t) {
+                final byId = t.id.equals(routeId);
+                return onlyFromDiveId == null
+                    ? byId
+                    : byId & t.diveId.equals(onlyFromDiveId);
+              }))
+              .write(
+                NavTracksCompanion(
+                  diveId: const Value(null),
+                  linkMode: const Value(null),
+                  isPrimary: const Value(true),
+                  updatedAt: Value(now),
+                ),
+              );
+      if (onlyFromDiveId != null && rowsAffected == 0) return;
       await _markPending(routeId, now);
       if (diveId != null) await _promoteSiblingIfNoPrimary(diveId, now);
     } catch (e, stackTrace) {
@@ -810,6 +893,7 @@ class NavTrackRepository {
       endLongitude: row.endLongitude,
       trustFraction: row.trustFraction,
       headingOffsetDeg: row.headingOffsetDeg,
+      sourceMetadata: decodeNavTrackSourceMetadata(row.sourceMetadata),
       points: includePoints
           ? _decodePointsOrNull(row.id, row.points) ?? const []
           : const [],

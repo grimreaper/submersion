@@ -15,6 +15,7 @@ import 'package:submersion/features/nav_track/domain/entities/nav_track.dart';
 import 'package:submersion/features/nav_track/domain/entities/nav_track_point.dart';
 
 import '../../../helpers/mock_providers.dart';
+import '../../../helpers/fake_hosts.dart';
 
 NavTrack _route({
   required List<NavTrackPoint> points,
@@ -84,6 +85,12 @@ Future<ProviderContainer> makeContainer({
 }
 
 void main() {
+  // The code under test calls the OSM tile server; it answers as offline, as it
+  // would on a device without a network.
+  setUp(() {
+    serveFakeHost('tile.openstreetmap.org');
+  });
+
   group('spatialBuildRunsInBackground', () {
     SpatialBuildInput inputWith({required int points, BathymetryGrid? grid}) =>
         (
@@ -425,6 +432,31 @@ void main() {
 
         expect(result!.grid, isNotNull);
         expect(requestedCells, [BathymetryRepository.quantize(routeAnchor)]);
+      });
+
+      // A measured route spans metres inside a terrain tile kilometres
+      // wide; its scene is built at route scale (#1445).
+      test('frames a measured route at its own scale', () async {
+        final container = await containerFor(
+          _route(
+            points: points,
+            anchorLatitude: 10.0005,
+            anchorLongitude: 20.0005,
+          ),
+        );
+
+        final result = await container.read(
+          spatialGeometryProvider('d1').future,
+        );
+
+        // The route is 10 m north-south and 0 m east-west; padded, the frame
+        // is 15 m by 4 m rather than the tile's ~220 m.
+        final frame = result!.axisInputs!;
+        expect(frame.maxNorth - frame.minNorth, closeTo(15, 0.5));
+        expect(frame.maxEast - frame.minEast, closeTo(4, 0.5));
+        // The hover grid matches the resampled terrain mesh.
+        expect(result.grid!.rows, 24);
+        expect(result.imagery, isNull);
       });
 
       test(

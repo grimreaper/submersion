@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:xml/xml.dart';
 
 import 'package:submersion/core/constants/enums.dart';
+import 'package:submersion/core/utils/two_digit_year.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/universal_import/data/models/import_enums.dart';
 import 'package:submersion/features/universal_import/data/models/import_options.dart';
@@ -234,25 +235,7 @@ class SubsurfaceXmlParser implements ImportParser {
 
     if (dateStr == null) return null;
 
-    DateTime? dateTime;
-    final dateParts = dateStr.split('-');
-    if (dateParts.length == 3) {
-      final year = int.tryParse(dateParts[0]);
-      final month = int.tryParse(dateParts[1]);
-      final day = int.tryParse(dateParts[2]);
-      if (year != null && month != null && day != null) {
-        if (timeStr != null) {
-          final timeParts = timeStr.split(':');
-          if (timeParts.length == 3) {
-            final hour = int.tryParse(timeParts[0]) ?? 0;
-            final minute = int.tryParse(timeParts[1]) ?? 0;
-            final second = int.tryParse(timeParts[2]) ?? 0;
-            dateTime = DateTime.utc(year, month, day, hour, minute, second);
-          }
-        }
-        dateTime ??= DateTime.utc(year, month, day);
-      }
-    }
+    final dateTime = _parseDateTime(dateStr, timeStr);
 
     final duration = _parseDuration(durationStr);
     final diveNumber = _parseInt(numberStr);
@@ -269,25 +252,14 @@ class SubsurfaceXmlParser implements ImportParser {
     final otu = _parseDouble(dive.getAttribute('otu'));
     if (otu != null) result['otu'] = otu;
 
-    // Extract depth and temperature from <divecomputer> child
-    final divecomputer = dive.findElements('divecomputer').firstOrNull;
+    // The dive's own fields come from the first <divecomputer>, the one
+    // Subsurface displays. Any further computer is kept beside it below.
+    final computers = dive.findElements('divecomputer').toList();
+    final divecomputer = computers.firstOrNull;
     if (divecomputer != null) {
-      final diveMode = _mapDiveMode(divecomputer.getAttribute('dctype'));
+      final diveMode = _diveModeOf(computers);
       if (diveMode != null) result['diveMode'] = diveMode;
-
-      final depthEl = divecomputer.findElements('depth').firstOrNull;
-      if (depthEl != null) {
-        final maxDepth = _parseDouble(depthEl.getAttribute('max'));
-        final avgDepth = _parseDouble(depthEl.getAttribute('mean'));
-        if (maxDepth != null) result['maxDepth'] = maxDepth;
-        if (avgDepth != null) result['avgDepth'] = avgDepth;
-      }
-
-      final tempEl = divecomputer.findElements('temperature').firstOrNull;
-      if (tempEl != null) {
-        final waterTemp = _parseDouble(tempEl.getAttribute('water'));
-        if (waterTemp != null) result['waterTemp'] = waterTemp;
-      }
+      result.addAll(_parseComputerSummary(divecomputer));
     }
 
     // Air temperature from <divetemperature air='...'> (direct child of dive)
@@ -375,11 +347,103 @@ class SubsurfaceXmlParser implements ImportParser {
       result.addAll(_parseDiveComputerMetadata(divecomputer));
     }
 
+    final additionalComputers = [
+      for (final computer in computers.skip(1))
+        _parseAdditionalComputer(
+          computer,
+          diveStart: dateTime,
+          diveDuration: duration,
+        ),
+    ];
+    if (additionalComputers.isNotEmpty) {
+      result['additionalComputers'] = additionalComputers;
+    }
+
     // Weights
     final weights = _parseWeights(dive);
     if (weights.isNotEmpty) result['weights'] = weights;
 
     return result;
+  }
+
+  /// A Subsurface `date` ('2025-03-10') and `time` ('09:00:00') as a UTC
+  /// wall-clock instant, or midnight when the time is absent or unreadable.
+  /// Null when the date itself cannot be read.
+  ///
+  /// A hand-edited `91-03-10` is 1991, never the year 91 (#2617).
+  static DateTime? _parseDateTime(String dateStr, String? timeStr) {
+    final dateParts = dateStr.split('-');
+    if (dateParts.length != 3) return null;
+    final parsedYear = int.tryParse(dateParts[0]);
+    final year = parsedYear != null && dateParts[0].trim().length == 2
+        ? expandTwoDigitYear(parsedYear, now: DateTime.now())
+        : parsedYear;
+    final month = int.tryParse(dateParts[1]);
+    final day = int.tryParse(dateParts[2]);
+    if (year == null || month == null || day == null) return null;
+    if (timeStr != null) {
+      final timeParts = timeStr.split(':');
+      if (timeParts.length == 3) {
+        final hour = int.tryParse(timeParts[0]) ?? 0;
+        final minute = int.tryParse(timeParts[1]) ?? 0;
+        final second = int.tryParse(timeParts[2]) ?? 0;
+        return DateTime.utc(year, month, day, hour, minute, second);
+      }
+    }
+    return DateTime.utc(year, month, day);
+  }
+
+  /// Max and mean depth and water temperature a `<divecomputer>` recorded.
+  static Map<String, dynamic> _parseComputerSummary(XmlElement divecomputer) {
+    final summary = <String, dynamic>{};
+    final depthEl = divecomputer.findElements('depth').firstOrNull;
+    if (depthEl != null) {
+      final maxDepth = _parseDouble(depthEl.getAttribute('max'));
+      final avgDepth = _parseDouble(depthEl.getAttribute('mean'));
+      if (maxDepth != null) summary['maxDepth'] = maxDepth;
+      if (avgDepth != null) summary['avgDepth'] = avgDepth;
+    }
+    final tempEl = divecomputer.findElements('temperature').firstOrNull;
+    if (tempEl != null) {
+      final waterTemp = _parseDouble(tempEl.getAttribute('water'));
+      if (waterTemp != null) summary['waterTemp'] = waterTemp;
+    }
+    return summary;
+  }
+
+  /// A further `<divecomputer>` of a dive, read as that computer's own
+  /// recording of it (issue #2672).
+  ///
+  /// Its samples and events stay on its own clock; `timeOffsetSeconds` says
+  /// how far that clock started after the dive's. Subsurface writes a
+  /// computer's `date`/`time` only when they differ from the dive's, and its
+  /// `duration` only when it differs from the first computer's, so an absent
+  /// attribute means "the same as the dive".
+  Map<String, dynamic> _parseAdditionalComputer(
+    XmlElement divecomputer, {
+    required DateTime? diveStart,
+    required Duration? diveDuration,
+  }) {
+    final dateStr = divecomputer.getAttribute('date');
+    final start = dateStr == null
+        ? null
+        : _parseDateTime(dateStr, divecomputer.getAttribute('time'));
+    final offset = start != null && diveStart != null
+        ? start.difference(diveStart).inSeconds
+        : 0;
+    final duration =
+        _parseDuration(divecomputer.getAttribute('duration')) ?? diveDuration;
+
+    final profile = _parseProfile(divecomputer);
+    final events = _parseProfileEvents(divecomputer);
+    return <String, dynamic>{
+      ..._parseDiveComputerMetadata(divecomputer),
+      ..._parseComputerSummary(divecomputer),
+      'duration': ?duration,
+      'timeOffsetSeconds': offset,
+      if (profile.isNotEmpty) 'profile': profile,
+      if (events.isNotEmpty) 'events': events,
+    };
   }
 
   /// Reads every `<site>` verbatim, including the ones Subsurface left
@@ -478,10 +542,12 @@ class SubsurfaceXmlParser implements ImportParser {
     }
   }
 
-  /// Turns a dive's `<suit>` into gear the dive wore when the text says
-  /// which suit it is (issue #1824), so it can reach the Suit Thickness
-  /// statistic. An unclear suit adds nothing and stays in the notes only,
-  /// as before; the notes line is kept either way (see [_parseDive]).
+  /// Turns a dive's `<suit>` into gear the dive wore, one item per name, so
+  /// the import loses no suit (issue #633). Text that says which suit it is
+  /// is typed from it ([classifySuitGear], issue #1824) and can reach the
+  /// Suit Thickness statistic. Unclear text becomes Other, which claims no
+  /// suit kind, for the diver to retype. The notes line is kept either way
+  /// (see [_parseDive]).
   void _collectSuit(
     XmlElement diveElement,
     Map<String, dynamic> diveData,
@@ -489,8 +555,8 @@ class SubsurfaceXmlParser implements ImportParser {
   ) {
     final name = diveElement.findElements('suit').firstOrNull?.innerText.trim();
     if (name == null || name.isEmpty) return;
-    final suit = classifySuit(name);
-    if (suit == null) return;
+    final suit =
+        classifySuitGear(name) ?? (type: EquipmentType.other, thickness: null);
     allSuits.putIfAbsent(
       name,
       () => {
@@ -508,9 +574,9 @@ class SubsurfaceXmlParser implements ImportParser {
   ///
   /// Subsurface has no dive type field, so a cave dive is a dive tagged
   /// 'cave'. Classifying from the tag is what keeps a cave logbook a cave
-  /// logbook: without it every dive fell back to 'recreational', or
-  /// 'technical' when its profile showed deco. The tags themselves are kept
-  /// either way: this adds a classification, it does not consume the tag.
+  /// logbook: without it every dive fell back to 'recreational'. The tags
+  /// themselves are kept either way: this adds a classification, it does not
+  /// consume the tag.
   ///
   /// A tag that names a kind of place also suggests a type for the dive's
   /// site, collected into [siteTypeSuggestions] and applied by
@@ -649,6 +715,7 @@ class SubsurfaceXmlParser implements ImportParser {
     // sample, so an omitted attribute means "unchanged", not "unknown".
     // Carry the last seen value forward; samples before the first
     // occurrence stay null.
+    double? lastTemp;
     int? lastNdl;
     int? lastTts;
     int? lastRbt;
@@ -664,8 +731,12 @@ class SubsurfaceXmlParser implements ImportParser {
       final depth = _parseDouble(sample.getAttribute('depth'));
       if (timestamp == null || depth == null) continue;
       final point = <String, dynamic>{'timestamp': timestamp, 'depth': depth};
-      final temp = _parseDouble(sample.getAttribute('temp'));
+      // Temperature is delta-encoded too (issue #3055), and Subsurface draws
+      // it as steps. Interpolating between two readings turned a 1 C
+      // computer's "30 for ten minutes, then 29" into a ten-minute ramp.
+      final temp = _parseDouble(sample.getAttribute('temp')) ?? lastTemp;
       if (temp != null) point['temperature'] = temp;
+      lastTemp = temp;
       final heartRate = _parseInt(sample.getAttribute('heartbeat'));
       if (heartRate != null) point['heartRate'] = heartRate;
       final ndl = _parseDurationSeconds(sample.getAttribute('ndl')) ?? lastNdl;
@@ -751,6 +822,8 @@ class SubsurfaceXmlParser implements ImportParser {
     for (final tankIdx in sortedTankIndices) {
       _fillSparseField(points, '_pressure_$tankIdx');
     }
+    // Temperature is already carried forward above, so this only back-fills
+    // the samples before the first reading.
     _fillSparseField(points, 'temperature');
 
     // Convert per-tank pressure fields into allTankPressures arrays
@@ -774,9 +847,10 @@ class SubsurfaceXmlParser implements ImportParser {
   /// between known readings, with forward-fill after the last known value
   /// and back-fill before the first.
   ///
-  /// Subsurface dive computers transmit pressure and temperature on a subset
-  /// of samples. This fills the gaps so the profile chart displays smooth
-  /// curves instead of alternating between values and null.
+  /// Subsurface dive computers transmit pressure on a subset of samples. This
+  /// fills the gaps so the profile chart displays smooth curves instead of
+  /// alternating between values and null. Temperature reaches it already
+  /// carried forward, so for that field only the back-fill applies.
   static void _fillSparseField(
     List<Map<String, dynamic>> points,
     String field,
@@ -1149,17 +1223,37 @@ class SubsurfaceXmlParser implements ImportParser {
   }
 
   /// Parses `<weightsystem>` elements into weight maps with [WeightType] values.
+  ///
+  /// The description is the weight's name in Subsurface (issue #956), except
+  /// its stock placement names, which only set the type: a stock 'belt' row
+  /// would otherwise read "belt · Weight Belt".
   List<Map<String, dynamic>> _parseWeights(XmlElement dive) {
     final weights = <Map<String, dynamic>>[];
     for (final ws in dive.findElements('weightsystem')) {
       final amount = _parseDouble(ws.getAttribute('weight'));
       if (amount == null) continue;
-      final description = ws.getAttribute('description') ?? '';
-      final weightType = _mapWeightType(description);
-      weights.add({'amount': amount, 'type': weightType, 'notes': description});
+      final description = (ws.getAttribute('description') ?? '').trim();
+      final isStock = _stockWeightDescriptions.contains(
+        description.toLowerCase(),
+      );
+      weights.add({
+        'amount': amount,
+        'type': _mapWeightType(description),
+        'label': isStock ? '' : description,
+      });
     }
     return weights;
   }
+
+  /// Subsurface's built-in weight system names, current and older spellings.
+  static const _stockWeightDescriptions = {
+    'integrated',
+    'belt',
+    'ankle',
+    'backplate',
+    'backplate weight',
+    'clip-on',
+  };
 
   static WeightType _mapWeightType(String description) {
     final lower = description.toLowerCase();
@@ -1190,11 +1284,30 @@ class SubsurfaceXmlParser implements ImportParser {
     _ => null,
   };
 
+  /// The dive's mode across all of its computers. A loop logged by any of
+  /// them wins: a CCR diver's backup computer often runs in open-circuit mode
+  /// beside the controller, and Subsurface may list it first. Importing that
+  /// dive as open circuit loads the tissues from a cylinder instead of the
+  /// loop (issue #2593).
+  static DiveMode? _diveModeOf(List<XmlElement> computers) {
+    final modes = [
+      for (final computer in computers)
+        _mapDiveMode(computer.getAttribute('dctype')),
+    ];
+    for (final mode in modes) {
+      if (mode == DiveMode.ccr || mode == DiveMode.scr) return mode;
+    }
+    return modes.firstOrNull;
+  }
+
+  /// Subsurface's `dctype` is OC, CCR, PSCR or Freedive. PSCR, its passive
+  /// semi-closed mode, is a semi-closed loop. Freedive stays unmapped (open
+  /// circuit), as the libdivecomputer download maps it.
   static DiveMode? _mapDiveMode(String? value) {
     final normalized = value?.trim().toLowerCase();
     return switch (normalized) {
       'ccr' => DiveMode.ccr,
-      'scr' => DiveMode.scr,
+      'scr' || 'pscr' => DiveMode.scr,
       'oc' => DiveMode.oc,
       _ => null,
     };

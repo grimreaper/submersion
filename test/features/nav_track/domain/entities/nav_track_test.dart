@@ -49,7 +49,7 @@ void main() {
     test('label is the device or brand name alone, with no words that '
         'would need translating', () {
       // The 3D caption puts it inside a localized sentence
-      // ("Recorded route ({source})"), so English words here would show
+      // ("Recorded track ({source})"), so English words here would show
       // untranslated in every other locale.
       expect(NavTrackSource.seacraftEnc.label, 'Seacraft ENC');
       expect(NavTrackSource.suuntoRoute.label, 'Suunto');
@@ -264,6 +264,29 @@ void main() {
       final a = _track(anchorLatitude: 47.1, anchorLongitude: 8.2);
       final b = _track(anchorLatitude: 47.2, anchorLongitude: 8.2);
       expect(a, isNot(b));
+    });
+  });
+
+  group('sourceMetadata (#3047)', () {
+    const metadata = {'DiveRouteQuality': 1};
+
+    test('copyWith keeps it unless replaced', () {
+      final track = _track().copyWith(sourceMetadata: metadata);
+      expect(track.copyWith(name: 'x').sourceMetadata, metadata);
+      expect(
+        track
+            .copyWith(sourceMetadata: const {'DiveRouteQuality': 0})
+            .sourceMetadata,
+        {'DiveRouteQuality': 0},
+      );
+    });
+
+    test('takes part in equality', () {
+      expect(_track().copyWith(sourceMetadata: metadata), isNot(_track()));
+      expect(
+        _track().copyWith(sourceMetadata: metadata),
+        _track().copyWith(sourceMetadata: const {'DiveRouteQuality': 1}),
+      );
     });
   });
 }

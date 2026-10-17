@@ -48,6 +48,16 @@ class Dives extends Table {
   /// good/poor adjective be calibrated per diver: six meters is six meters in
   /// Cozumel and in Puget Sound, only the adjective differs.
   RealColumn get visibilityMeters => real().nullable()();
+
+  /// v278: low end of a visibility range in meters, inclusive (issue #3226).
+  /// Set when the diver picked a band instead of measuring. Null with
+  /// [visibilityMaxMeters] set means "under that". Never set together with
+  /// [visibilityMeters]: the repository writes one shape or the other.
+  RealColumn get visibilityMinMeters => real().nullable()();
+
+  /// v278: high end of a visibility range in meters, exclusive. Null with
+  /// [visibilityMinMeters] set means "that or more".
+  RealColumn get visibilityMaxMeters => real().nullable()();
   TextColumn get diveType =>
       text().withDefault(const Constant('recreational'))();
   TextColumn get buddy => text().nullable()();
@@ -89,6 +99,9 @@ class Dives extends Table {
       text().nullable()(); // "buhlmann", "vpm", "rgbm", "dciem"
   IntColumn get decoConservatism =>
       integer().nullable()(); // Personal adjustment (0=neutral)
+  // Tissue state the dive computer itself reported (v256): the JSON of
+  // ComputerTissueSnapshot.toJson, or null when the source carried none.
+  TextColumn get computerTissueJson => text().nullable()();
   // Dive computer that logged this dive (for display/export, separate from computerId relation)
   TextColumn get diveComputerModel => text().nullable()();
   TextColumn get diveComputerSerial => text().nullable()();
@@ -245,6 +258,18 @@ class DiveTanks extends Table {
   TextColumn get tankRole => text().withDefault(
     const Constant('backGas'),
   )(); // backGas, stage, deco, bailout, etc.
+
+  /// v254: where [tankRole] came from when no person chose it, a
+  /// `TankRoleSource` name (issue #2595). 'transmitterName' marks a role
+  /// the computer read off the transmitter's name, which the transmitter
+  /// registry may replace on existing dives. Null once the diver or the
+  /// registry sets the role, and on every row from before v254.
+  TextColumn get roleSource => text().nullable()();
+
+  /// v259: how long this cylinder was breathed, in seconds, as the source
+  /// log recorded it (issue #1496). Null when the source recorded none,
+  /// and on every row from before v259.
+  IntColumn get usageDuration => integer().nullable()();
   TextColumn get tankMaterial =>
       text().nullable()(); // aluminum, steel, carbonFiber
   TextColumn get tankName =>
@@ -262,6 +287,11 @@ class DiveTanks extends Table {
   // v200 means "same as tankOrder"; -1 (kNoSourceTankIndex) means the row
   // takes no parsed tank, which is what a reassignment leaves behind.
   IntColumn get sourceTankIndex => integer().nullable()();
+
+  /// v260: the other computers on a consolidated dive that logged this same
+  /// cylinder, as a JSON array of computer ids (tank_shared_computers.dart).
+  /// Computer-owned like [computerId]: the fold writes it, edits never do.
+  TextColumn get sharedComputerIds => text().nullable()();
 
   /// v202: the regulator breathed from this cylinder, so high-O2 exposure
   /// reaches the regulator's service clocks. User-authored; downloads and
@@ -290,6 +320,24 @@ class DiveTanks extends Table {
     onDelete: KeyAction.setNull,
   )();
 
+  /// v251: the data source this tank row came from (issue #2716). Two
+  /// consolidated sources that name no computer both leave a null
+  /// [computerId], so without this their copies of one cylinder cannot be
+  /// told apart. Written by the import, download and source-moving paths,
+  /// never by an edit; null (a hand-added tank, or one whose source could
+  /// not be determined) is the dive's primary source.
+  TextColumn get sourceId => text().nullable().references(
+    DiveDataSources,
+    #id,
+    onDelete: KeyAction.setNull,
+  )();
+
+  /// v287: the passport id of the tagged cylinder this tank was filled
+  /// from (issue #2650), set when the diver scanned a tag or picked a
+  /// cylinder that has one. An identity, not a link: a rental's id has no
+  /// equipment row. User-authored; downloads and re-parses never write it.
+  TextColumn get passportId => text().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
 
@@ -309,6 +357,10 @@ class DiveWeights extends Table {
       text()(); // Integrated, Belt, Trim, Ankle, Backplate, Other
   RealColumn get amountKg => real()(); // kg
   TextColumn get notes => text().withDefault(const Constant(''))();
+
+  /// The diver's own name for this weight, e.g. "Top pocket" (issue #956).
+  /// Empty when unnamed; the placement stays in [weightType].
+  TextColumn get label => text().withDefault(const Constant(''))();
   IntColumn get createdAt => integer()();
 
   @override
@@ -330,6 +382,16 @@ class GasSwitches extends Table {
   TextColumn get tankId =>
       text().references(DiveTanks, #id, onDelete: KeyAction.cascade)();
   RealColumn get depth => real().nullable()(); // depth at switch (meters)
+  // v258: which computer's reading the switch came from (issue #2582), so
+  // replacing one computer's reading leaves the others' switches alone.
+  // Null when unattributed: a switch the diver entered, or one the v258
+  // backfill could not place (a merged cylinder's on a dive more than one
+  // computer recorded). Null applies to every computer. Deletes set null.
+  TextColumn get computerId => text().nullable().references(
+    DiveComputers,
+    #id,
+    onDelete: KeyAction.setNull,
+  )();
   IntColumn get createdAt => integer()();
 
   @override

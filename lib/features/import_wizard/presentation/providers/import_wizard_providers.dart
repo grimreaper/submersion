@@ -373,6 +373,18 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         }
       }
 
+      // A duplicate whose only possible action is Skip (a fill already here,
+      // cylinder passports phase 5) has nothing to decide: it is skipped by
+      // default and never holds the Import button.
+      final choices = _adapter.duplicateActionsFor(type);
+      if (setEquals(choices, const {DuplicateAction.skip})) {
+        for (final index in pendingForType) {
+          duplicateActions.putIfAbsent(type, () => {})[index] =
+              DuplicateAction.skip;
+        }
+        pendingForType = const {};
+      }
+
       if (pendingForType.isNotEmpty) {
         pendingReview[type] = pendingForType;
       }
@@ -766,6 +778,13 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       '${_adapter.runtimeType} for entity type $type',
     );
     if (!_adapter.duplicateActionsFor(type).contains(action)) return;
+    // A copy of another row in this import has no stored dive to fold into:
+    // consolidating it would target an empty dive id.
+    if (action == DuplicateAction.consolidate &&
+        state.bundle?.groups[type]?.matchResults?[index]?.inBatchIndex !=
+            null) {
+      return;
+    }
 
     final actionsForType =
         state.duplicateActions[type] ?? const <int, DuplicateAction>{};
@@ -779,6 +798,29 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
       currentSelection.remove(index);
     } else {
       currentSelection.add(index);
+    }
+
+    // A copy of another dive in this same import (#3110): the two are one
+    // dive, so keeping this copy drops the other and skipping it brings the
+    // other back. Ticking the other row again still keeps both.
+    // A partner that is itself a flagged row has its own decision, which this
+    // one must not overrule.
+    final group = state.bundle?.groups[type];
+    final partner = group?.matchResults?[index]?.inBatchIndex;
+    if (partner != null && !group!.duplicateIndices.contains(partner)) {
+      // Another copy of the same dive still kept means the partner stays
+      // out: bringing it back would import that dive twice.
+      final anotherCopyKept = updatedActions.entries.any(
+        (e) =>
+            e.key != index &&
+            e.value == DuplicateAction.importAsNew &&
+            group.matchResults?[e.key]?.inBatchIndex == partner,
+      );
+      if (action == DuplicateAction.importAsNew) {
+        currentSelection.remove(partner);
+      } else if (action == DuplicateAction.skip && !anotherCopyKept) {
+        currentSelection.add(partner);
+      }
     }
 
     final updatedPending = _drainPending(type, {index});
@@ -972,7 +1014,10 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
         currentStep: state.currentStep + 1,
         error: tagWarning,
       );
-    } catch (e) {
+    } catch (e, stackTrace) {
+      // The summary shows only the message; the trace is what finds the
+      // failing lookup when a diver reports it (issue #3343).
+      _log.error('Import failed', error: e, stackTrace: stackTrace);
       state = state.copyWith(
         isImporting: false,
         error: 'Import failed: $e',

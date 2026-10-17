@@ -2,7 +2,9 @@ import 'package:flutter/material.dart';
 import 'package:flutter_map/flutter_map.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
+import 'package:submersion/features/dive_log/presentation/pages/dive_locations_map_page.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_detail_ui_providers.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/surface_gps_section.dart';
 import 'package:submersion/features/dive_sites/domain/entities/dive_site.dart';
@@ -75,10 +77,24 @@ Future<void> _pump(
           return track;
         }),
       ],
-      child: MaterialApp(
+      child: MaterialApp.router(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        home: Scaffold(body: SurfaceGpsSection(dive: _dive())),
+        routerConfig: GoRouter(
+          routes: [
+            GoRoute(
+              path: '/',
+              builder: (context, state) =>
+                  Scaffold(body: SurfaceGpsSection(dive: _dive())),
+            ),
+            GoRoute(
+              path: '/tracks/gps/:id',
+              builder: (context, state) => Scaffold(
+                body: Text('GPS-TRACK ${state.pathParameters['id']}'),
+              ),
+            ),
+          ],
+        ),
       ),
     ),
   );
@@ -90,6 +106,13 @@ void main() {
     await _pump(tester, track: _track());
     expect(find.byKey(const ValueKey('gps-track-link')), findsOneWidget);
     expect(find.textContaining('Surface track'), findsOneWidget);
+  });
+
+  testWidgets('tapping the track row opens it in Tracks', (tester) async {
+    await _pump(tester, track: _track());
+    await tester.tap(find.byKey(const ValueKey('gps-track-link')));
+    await tester.pumpAndSettle();
+    expect(find.text('GPS-TRACK track-1'), findsOneWidget);
   });
 
   testWidgets('shows no track row when no track covers the dive', (
@@ -128,6 +151,23 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(_drawnPointCount(tester), 17);
+  });
+
+  testWidgets('the fullscreen map draws the same track as the card (#3156)', (
+    tester,
+  ) async {
+    // The inline map is locked, so the fullscreen page is where the track is
+    // zoomed and panned; it must carry the runs the card draws.
+    await _pump(tester, track: _track());
+    await tester.tap(find.byKey(const ValueKey('gps-expand')));
+    await tester.pumpAndSettle();
+
+    final page = tester.widget<DiveLocationsMapPage>(
+      find.byType(DiveLocationsMapPage),
+    );
+    final runs = page.trackRuns;
+    expect(runs, isNotNull);
+    expect(runs!.fold<int>(0, (sum, r) => sum + r.points.length), 6);
   });
 
   testWidgets('a collapsed section never resolves the track', (tester) async {

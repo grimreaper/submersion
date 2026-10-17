@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:image/image.dart' as img;
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:submersion/core/constants/enums.dart';
@@ -51,6 +52,9 @@ import 'package:submersion/features/tags/data/repositories/tag_repository.dart';
 import 'package:submersion/features/tags/domain/entities/tag.dart';
 import 'package:submersion/features/trips/data/repositories/trip_repository.dart';
 import 'package:submersion/features/trips/domain/entities/trip.dart';
+import 'package:submersion/features/certification_agencies/data/repositories/custom_certification_repository.dart';
+import 'package:submersion/features/certification_agencies/domain/entities/custom_certification_agency.dart';
+import 'package:submersion/features/certification_agencies/domain/entities/custom_certification_level.dart';
 
 @GenerateMocks([
   DiveRoleRepository,
@@ -69,6 +73,7 @@ import 'package:submersion/features/trips/domain/entities/trip.dart';
   ServiceRecordRepository,
 ])
 import 'uddf_entity_importer_test.mocks.dart';
+import '../../../../helpers/fake_hosts.dart';
 
 /// Records [store] calls instead of writing rows, so tests can assert
 /// whether-and-what the importer tried to persist without a database.
@@ -110,7 +115,15 @@ class _FailingImportedFiles extends ImportedFileRepository {
 }
 
 void main() {
-  final importer = UddfEntityImporter();
+  // The code under test calls Nominatim; it answers as offline, as it
+  // would on a device without a network.
+  setUp(() {
+    serveFakeHost('nominatim.openstreetmap.org');
+  });
+
+  final importer = UddfEntityImporter(
+    customCertifications: _NoCustomCertifications(),
+  );
   const diverId = 'diver-123';
   final now = DateTime(2024, 1, 15);
 
@@ -162,10 +175,23 @@ void main() {
       mockDiveRepo.getNextDiveNumber(diverId: anyNamed('diverId')),
     ).thenAnswer((_) async => 1);
 
+    // No trip exists yet, so a dive the file puts in no trip stays out of
+    // one. The importer consults this to place such a dive in the trip whose
+    // dates cover it (#2618).
+    when(
+      mockTripRepo.getAllTrips(diverId: anyNamed('diverId')),
+    ).thenAnswer((_) async => []);
+
     // Stub getAllSites for deselected-site resolution.
     when(
       mockSiteRepo.getAllSites(diverId: anyNamed('diverId')),
     ).thenAnswer((_) async => []);
+
+    // Every imported dive attributes its pressure series to its source once
+    // the source row exists (#2440).
+    when(
+      mockTankPressureRepo.stampSourceWhereNull(any, any),
+    ).thenAnswer((_) async => 0);
 
     repos = ImportRepositories(
       tripRepository: mockTripRepo,
@@ -760,6 +786,36 @@ void main() {
   });
 
   group('Import equipment', () {
+    test('uses selected currency only when the source omits it', () async {
+      when(mockEquipmentRepo.createEquipment(any)).thenAnswer(
+        (invocation) async =>
+            invocation.positionalArguments[0] as EquipmentItem,
+      );
+      await UddfEntityImporter(
+        defaultPurchaseCurrency: 'EUR',
+        customCertifications: _NoCustomCertifications(),
+      ).import(
+        data: const UddfImportResult(
+          equipment: [
+            {'name': 'Example regulator', 'purchasePrice': 200.0},
+            {
+              'name': 'Example fins',
+              'purchasePrice': 100.0,
+              'purchaseCurrency': 'GBP',
+            },
+          ],
+        ),
+        selections: const UddfImportSelections(equipment: {0, 1}),
+        repositories: repos,
+        diverId: diverId,
+      );
+      final saved = verify(
+        mockEquipmentRepo.createEquipment(captureAny),
+      ).captured.cast<EquipmentItem>();
+      expect(saved.map((item) => item.purchaseCurrency), ['EUR', 'GBP']);
+      expect(saved.map((item) => item.purchasePrice), [200.0, 100.0]);
+    });
+
     test('imports equipment with type parsing', () async {
       when(mockEquipmentRepo.createEquipment(any)).thenAnswer(
         (invocation) async =>
@@ -883,6 +939,37 @@ void main() {
   });
 
   group('Import buddies', () {
+    test('stores an embedded photo as a bounded avatar', () async {
+      when(mockBuddyRepo.createBuddy(any)).thenAnswer(
+        (invocation) async => invocation.positionalArguments[0] as Buddy,
+      );
+      await importer.import(
+        data: UddfImportResult(
+          buddies: [
+            {'name': 'Example buddy', 'photo': _png(1200, 800)},
+            {
+              'name': 'Unreadable buddy',
+              'photo': Uint8List.fromList([1, 2]),
+            },
+          ],
+        ),
+        selections: const UddfImportSelections(buddies: {0, 1}),
+        repositories: repos,
+        diverId: diverId,
+      );
+      final saved = verify(
+        mockBuddyRepo.createBuddy(captureAny),
+      ).captured.cast<Buddy>();
+      // Re-encoded the way a picked avatar is: a square JPEG of at most
+      // 512 px, never the source bytes.
+      final avatar = img.decodeJpg(saved.first.photo!)!;
+      expect((avatar.width, avatar.height), (512, 512));
+      // Bytes nothing can decode leave the buddy without a photo rather
+      // than storing one that never renders.
+      expect(saved.last.photo, isNull);
+      expect(saved.last.name, 'Unreadable buddy');
+    });
+
     test('imports selected buddies', () async {
       when(mockBuddyRepo.createBuddy(any)).thenAnswer(
         (invocation) async => invocation.positionalArguments[0] as Buddy,
@@ -939,6 +1026,40 @@ void main() {
   });
 
   group('Import certifications', () {
+    test('persists bounded card scans and instructor number', () async {
+      when(mockCertificationRepo.createCertification(any)).thenAnswer(
+        (invocation) async =>
+            invocation.positionalArguments[0] as Certification,
+      );
+      final front = _png(3000, 1875);
+      final back = Uint8List.fromList([4, 5, 6]);
+      await importer.import(
+        data: UddfImportResult(
+          certifications: [
+            {
+              'name': 'Example certification',
+              'instructorNumber': 'TEST-123',
+              'photoFront': front,
+              'photoBack': back,
+            },
+          ],
+        ),
+        selections: const UddfImportSelections(certifications: {0}),
+        repositories: repos,
+        diverId: diverId,
+      );
+      final saved =
+          verify(
+                mockCertificationRepo.createCertification(captureAny),
+              ).captured.single
+              as Certification;
+      // Card faces keep their aspect ratio within a 2000 px edge.
+      final card = img.decodeJpg(saved.photoFront!)!;
+      expect((card.width, card.height), (2000, 1250));
+      expect(saved.photoBack, isNull);
+      expect(saved.instructorNumber, 'TEST-123');
+    });
+
     test('imports certifications with agency parsing', () async {
       when(mockCertificationRepo.createCertification(any)).thenAnswer(
         (invocation) async =>
@@ -964,8 +1085,14 @@ void main() {
       final captured = verify(
         mockCertificationRepo.createCertification(captureAny),
       ).captured;
-      expect((captured[0] as Certification).agency, CertificationAgency.padi);
-      expect((captured[1] as Certification).agency, CertificationAgency.ssi);
+      expect(
+        (captured[0] as Certification).agency,
+        CertificationAgency.padi.name,
+      );
+      expect(
+        (captured[1] as Certification).agency,
+        CertificationAgency.ssi.name,
+      );
     });
   });
 
@@ -2086,7 +2213,7 @@ void main() {
         (invocation) async => invocation.positionalArguments[0] as Buddy,
       );
       when(
-        mockBuddyRepo.addBuddyToDive(any, any, any),
+        mockBuddyRepo.addBuddyToDiveWithRoles(any, any, any),
       ).thenAnswer((_) async {});
       when(mockDiveRepo.createDive(any)).thenAnswer(
         (invocation) async => invocation.positionalArguments[0] as Dive,
@@ -2113,14 +2240,142 @@ void main() {
       );
 
       verify(
-        mockBuddyRepo.addBuddyToDive(any, any, DiveRole.buddyId),
+        mockBuddyRepo.addBuddyToDiveWithRoles(any, any, const [
+          DiveRole.buddyId,
+        ]),
       ).called(1);
     });
+
+    test('roles inferred from separate fields add up; Buddy drops out '
+        '(#1221)', () async {
+      when(mockBuddyRepo.createBuddy(any)).thenAnswer(
+        (invocation) async => invocation.positionalArguments[0] as Buddy,
+      );
+      when(
+        mockBuddyRepo.addBuddyToDiveWithRoles(any, any, any),
+      ).thenAnswer((_) async {});
+      when(mockDiveRepo.createDive(any)).thenAnswer(
+        (invocation) async => invocation.positionalArguments[0] as Dive,
+      );
+
+      await importer.import(
+        data: UddfImportResult(
+          buddies: [
+            {'name': 'Alice', 'uddfId': 'buddy-1'},
+          ],
+          dives: [
+            {
+              'dateTime': now,
+              'maxDepth': 25.0,
+              'buddyRefs': ['buddy-1'],
+              'diveGuideRefs': ['buddy-1'],
+            },
+          ],
+        ),
+        selections: const UddfImportSelections(buddies: {0}, dives: {0}),
+        repositories: repos,
+        diverId: diverId,
+      );
+
+      verify(
+        mockBuddyRepo.addBuddyToDiveWithRoles(any, any, const [
+          DiveRole.diveGuideId,
+        ]),
+      ).called(1);
+    });
+
+    test('exact roles replace the inferred ones (#1221)', () async {
+      when(mockBuddyRepo.createBuddy(any)).thenAnswer(
+        (invocation) async => invocation.positionalArguments[0] as Buddy,
+      );
+      when(
+        mockBuddyRepo.addBuddyToDiveWithRoles(any, any, any),
+      ).thenAnswer((_) async {});
+      when(mockDiveRepo.createDive(any)).thenAnswer(
+        (invocation) async => invocation.positionalArguments[0] as Dive,
+      );
+
+      await importer.import(
+        data: UddfImportResult(
+          buddies: [
+            {'name': 'Alice', 'uddfId': 'buddy-1'},
+          ],
+          dives: [
+            {
+              'dateTime': now,
+              'maxDepth': 25.0,
+              'buddyRefs': ['buddy-1'],
+              'diveGuideRefs': ['buddy-1'],
+              'buddyRoleRefs': [
+                {'buddyRef': 'buddy-1', 'roleId': DiveRole.buddyId},
+                {'buddyRef': 'buddy-1', 'roleId': DiveRole.instructorId},
+              ],
+            },
+          ],
+        ),
+        selections: const UddfImportSelections(buddies: {0}, dives: {0}),
+        repositories: repos,
+        diverId: diverId,
+      );
+
+      verify(
+        mockBuddyRepo.addBuddyToDiveWithRoles(any, any, const [
+          DiveRole.instructorId,
+          DiveRole.buddyId,
+        ]),
+      ).called(1);
+    });
+
+    test(
+      'an unknown exact role is dropped when another resolves (#1221)',
+      () async {
+        // The custom role's definition never arrived: no row here.
+        when(
+          mockDiveRoleRepo.getDiveRoleById('role-never-arrived'),
+        ).thenAnswer((_) async => null);
+        when(mockBuddyRepo.createBuddy(any)).thenAnswer(
+          (invocation) async => invocation.positionalArguments[0] as Buddy,
+        );
+        when(
+          mockBuddyRepo.addBuddyToDiveWithRoles(any, any, any),
+        ).thenAnswer((_) async {});
+        when(mockDiveRepo.createDive(any)).thenAnswer(
+          (invocation) async => invocation.positionalArguments[0] as Dive,
+        );
+
+        await importer.import(
+          data: UddfImportResult(
+            buddies: [
+              {'name': 'Alice', 'uddfId': 'buddy-1'},
+            ],
+            dives: [
+              {
+                'dateTime': now,
+                'maxDepth': 25.0,
+                'buddyRoleRefs': [
+                  {'buddyRef': 'buddy-1', 'roleId': DiveRole.diveMasterId},
+                  {'buddyRef': 'buddy-1', 'roleId': 'role-never-arrived'},
+                ],
+              },
+            ],
+          ),
+          selections: const UddfImportSelections(buddies: {0}, dives: {0}),
+          repositories: repos,
+          diverId: diverId,
+        );
+
+        verify(
+          mockBuddyRepo.addBuddyToDiveWithRoles(any, any, const [
+            DiveRole.diveMasterId,
+          ]),
+        ).called(1);
+      },
+    );
 
     test('preResolvedBuddyIds links a skipped duplicate buddy to the existing '
         'record without creating a twin (#756)', () async {
       when(
-        mockBuddyRepo.addBuddyToDive(any, any, any),
+        mockBuddyRepo.addBuddyToDiveWithRoles(any, any, any),
       ).thenAnswer((_) async {});
       when(mockDiveRepo.createDive(any)).thenAnswer(
         (invocation) async => invocation.positionalArguments[0] as Dive,
@@ -2151,7 +2406,9 @@ void main() {
 
       verifyNever(mockBuddyRepo.createBuddy(any));
       verify(
-        mockBuddyRepo.addBuddyToDive(any, 'existing-1', DiveRole.buddyId),
+        mockBuddyRepo.addBuddyToDiveWithRoles(any, 'existing-1', const [
+          DiveRole.buddyId,
+        ]),
       ).called(1);
     });
 
@@ -2244,7 +2501,7 @@ void main() {
         ),
       ).thenAnswer((_) async => inlineBuddy);
       when(
-        mockBuddyRepo.addBuddyToDive(any, any, any),
+        mockBuddyRepo.addBuddyToDiveWithRoles(any, any, any),
       ).thenAnswer((_) async {});
       when(mockDiveRepo.createDive(any)).thenAnswer(
         (invocation) async => invocation.positionalArguments[0] as Dive,
@@ -2702,6 +2959,10 @@ void main() {
         expect(pressuresByTank.keys, hasLength(2));
         expect(pressuresByTank.values.first, isNotEmpty);
         expect(pressuresByTank.values.last, isNotEmpty);
+
+        // Written before the source row exists, the series are attributed
+        // to the dive's single source once it does (#2440).
+        verify(mockTankPressureRepo.stampSourceWhereNull(any, any)).called(1);
       },
     );
 
@@ -2748,6 +3009,41 @@ void main() {
       expect(switches, hasLength(2));
       expect(switches[0].tankId, dive.tanks[0].id);
       expect(switches[1].tankId, dive.tanks[1].id);
+    });
+
+    test('carries each tank\'s recorded usage duration (#1496)', () async {
+      when(mockDiveRepo.createDive(any)).thenAnswer(
+        (invocation) async => invocation.positionalArguments[0] as Dive,
+      );
+
+      final data = UddfImportResult(
+        dives: [
+          {
+            'dateTime': now,
+            'maxDepth': 30.0,
+            'tanks': [
+              {'name': 'Left', 'usageDuration': const Duration(minutes: 30)},
+              {'name': 'Right', 'usageDuration': const Duration(minutes: 22)},
+              {'name': 'Spare'},
+            ],
+          },
+        ],
+      );
+
+      await importer.import(
+        data: data,
+        selections: UddfImportSelections.selectAll(data),
+        repositories: repos,
+        diverId: diverId,
+      );
+
+      final dive =
+          verify(mockDiveRepo.createDive(captureAny)).captured.first as Dive;
+      expect(dive.tanks.map((t) => t.usageDuration), [
+        const Duration(minutes: 30),
+        const Duration(minutes: 22),
+        null,
+      ]);
     });
 
     test('maps gas switches by tank index to created tank ids', () async {
@@ -3560,7 +3856,7 @@ void main() {
         mockCertificationRepo.createCertification(captureAny),
       ).captured;
       final cert = captured[0] as Certification;
-      expect(cert.level, CertificationLevel.advancedOpenWater);
+      expect(cert.level, CertificationLevel.advancedOpenWater.name);
       expect(cert.buddyId, isNotNull);
     });
 
@@ -3594,7 +3890,7 @@ void main() {
         mockCertificationRepo.createCertification(captureAny),
       ).captured;
       final cert = captured[0] as Certification;
-      expect(cert.agency, CertificationAgency.ssi);
+      expect(cert.agency, CertificationAgency.ssi.name);
     });
 
     test('returns null for unrecognized certificationLevel', () async {
@@ -4555,3 +4851,35 @@ void main() {
     });
   });
 }
+
+/// These tests run on mocked repositories with no database: no custom
+/// agencies or levels exist, and one an import creates lives in memory
+/// (issue #690).
+class _NoCustomCertifications extends CustomCertificationRepository {
+  @override
+  Future<List<CustomCertificationAgency>> getAllAgencies() async => const [];
+
+  @override
+  Future<List<CustomCertificationLevel>> getAllLevels() async => const [];
+
+  @override
+  Future<CustomCertificationAgency> createAgency({
+    required String diverId,
+    required String name,
+    int? colorArgb,
+    required bool isShared,
+  }) async => CustomCertificationAgency(
+    id: 'custom-${name.toLowerCase()}',
+    diverId: diverId,
+    name: name,
+    colorArgb: colorArgb ?? 0xFF3B82F6,
+    isShared: isShared,
+    createdAt: DateTime(2026),
+    updatedAt: DateTime(2026),
+  );
+}
+
+/// A solid PNG of the given size, standing in for an image embedded in a
+/// source logbook.
+Uint8List _png(int width, int height) =>
+    img.encodePng(img.Image(width: width, height: height));

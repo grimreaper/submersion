@@ -276,11 +276,12 @@ bool BleIoStream::DiscoverCharacteristics() {
         bool credits_required = false;
     };
     Candidate best;
+    // The Seac service's own write/notify pair, if firmware ever adds one.
+    Candidate seac_pair;
     all_characteristics_.clear();
-    // Read-poll tier candidate (issue #1454), used only if no service carries
-    // a write/notify pair. An allowlist: Generic Access's Device Name is
-    // read+write on some peripherals and must never be mistaken for a
-    // serial channel.
+    // Read-poll tier candidate (issue #1454). An allowlist: Generic Access's
+    // Device Name is read+write on some peripherals and must never be
+    // mistaken for a serial channel.
     GattCharacteristic read_poll_candidate{nullptr};
 
     for (auto const& service : services_result.Services()) {
@@ -416,13 +417,25 @@ bool BleIoStream::DiscoverCharacteristics() {
             credits_notify = ublox_credits;
         }
 
-        if (service_score > best.score) {
-            best = {service_score, best_write, best_notify, credits_write,
-                    credits_notify, credits_required};
+        Candidate candidate{service_score, best_write, best_notify,
+                            credits_write, credits_notify, credits_required};
+        if (service.Uuid() == kSeacServiceUuid && seac_pair.score < 0) {
+            seac_pair = candidate;
         }
+        if (service_score > best.score) best = candidate;
     }
 
-    if (best.score < 0 && read_poll_candidate) {
+    // The Seac service is the computer's serial channel whatever else the
+    // device advertises, so it wins over every other service's pair. When the
+    // read tier only ran if no pair existed anywhere, any such pair (a DFU or
+    // vendor service) hid it: a Tablet on Android 1.8.1 (issue #1454) never
+    // reached the read path, and every command was rejected with ATT 0x0D.
+    // Subsurface uses the first non-standard service with a write
+    // characteristic and never compares pairs across services. Mirrors
+    // BleCharacteristicSelector on Android and darwin.
+    if (seac_pair.score >= 0) {
+        best = seac_pair;
+    } else if (read_poll_candidate) {
         // Read-poll tier: the computer cannot push its replies, so there is no
         // CCCD to write, no ValueChanged handler and no credit handshake; the
         // poller reads the characteristic whenever libdivecomputer wants bytes.
@@ -1085,6 +1098,30 @@ int BleIoStream::PerformWrite(const void* data, size_t size,
                 .WriteValueWithResultAsync(writer.DetachBuffer(),
                                            write_option)
                 .get();
+        // A read-poll computer's reply is fetched by a read whatever the
+        // write completion said, so a rejection is reported as sent and the
+        // read decides (issue #1454). ProtocolError is the computer answering
+        // with an ATT error, so the link is up; the Seac Tablet answers its
+        // 7-byte commands with ATT 0x0D, and Subsurface, the only client
+        // known to download it over BLE, never looks at a write's status.
+        // Mirrors ReadPollPolicy.writeOutcome on Android and darwin.
+        if (read_poller_ &&
+            result.Status() == GattCommunicationStatus::ProtocolError) {
+            auto att_error = result.ProtocolError();
+            std::string code =
+                att_error ? ", ATT error " +
+                                std::to_string(static_cast<unsigned>(
+                                    att_error.Value()))
+                          : "";
+            NativeLogger::Warn(
+                kBleCategory,
+                "write: the computer rejected a " + std::to_string(size) +
+                    "-byte command (" + DescribeGattStatus(result.Status()) +
+                    code + "); treating it as sent and reading the reply");
+            *actual = size;
+            return LIBDC_STATUS_SUCCESS;
+        }
+
         if (result.Status() != GattCommunicationStatus::Success) {
             *actual = 0;
             return LIBDC_STATUS_IO;

@@ -4,11 +4,20 @@ import 'package:xml/xml.dart';
 
 import 'package:submersion/core/constants/enums.dart' hide Visibility;
 import 'package:submersion/core/constants/enums.dart' as enums;
+import 'package:submersion/core/services/export/models/currency_backup_data.dart';
 import 'package:submersion/core/services/export/models/export_service_record.dart';
+import 'package:submersion/core/services/export/uddf/uddf_certification_currency.dart';
+import 'package:submersion/core/services/export/uddf/uddf_computer_tissue.dart';
+import 'package:submersion/core/services/export/uddf/uddf_visibility_range.dart';
+import 'package:submersion/core/services/export/uddf/uddf_dive_custom_fields.dart';
+import 'package:submersion/core/services/export/uddf/uddf_dive_logistics.dart';
+import 'package:submersion/core/services/export/uddf/uddf_fill_writers.dart';
 import 'package:submersion/core/services/export/uddf/uddf_gear_writers.dart';
 import 'package:submersion/core/services/export/uddf/uddf_participant_writers.dart';
+import 'package:submersion/core/services/export/uddf/uddf_service_clock_writers.dart';
 import 'package:submersion/core/services/export/uddf/uddf_site_classification_writers.dart';
 import 'package:submersion/core/services/export/uddf/uddf_site_feature_writers.dart';
+import 'package:submersion/core/services/export/uddf/uddf_source_attribution.dart';
 import 'package:submersion/core/services/export/uddf/uddf_tag_writers.dart';
 import 'package:submersion/features/buddies/domain/entities/buddy.dart';
 import 'package:submersion/features/dive_roles/domain/entities/dive_role.dart';
@@ -18,6 +27,7 @@ import 'package:submersion/features/dive_centers/domain/entities/dive_center.dar
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_computer.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_source_export.dart';
+import 'package:submersion/features/dive_log/domain/entities/dive_tank_pressure_export.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_weight.dart';
 import 'package:submersion/features/dive_log/domain/entities/gas_switch.dart';
 import 'package:submersion/features/dive_log/domain/entities/profile_event.dart';
@@ -26,15 +36,20 @@ import 'package:submersion/features/dive_sites/domain/entities/site_feature.dart
 import 'package:submersion/features/dive_types/domain/entities/dive_type_entity.dart';
 import 'package:submersion/features/divers/domain/entities/diver.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_component.dart';
+import 'package:submersion/features/cylinder_passports/domain/entities/cylinder_fill.dart';
+import 'package:submersion/features/equipment/domain/constants/equipment_attribute_catalog.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_item.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_observation.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_set.dart';
+import 'package:submersion/features/equipment/domain/entities/service_kind.dart';
+import 'package:submersion/features/equipment/domain/entities/service_schedule.dart';
 import 'package:submersion/features/equipment/domain/entities/gear_link.dart';
 import 'package:submersion/features/marine_life/domain/entities/species.dart';
 import 'package:submersion/features/site_types/domain/entities/site_type_entity.dart';
 import 'package:submersion/features/tags/domain/entities/tag.dart';
 import 'package:submersion/features/trips/domain/entities/trip.dart';
 import 'package:submersion/features/dive_log/domain/services/transmitter_serial.dart';
+import 'package:submersion/features/certification_agencies/domain/certification_catalog.dart';
 
 /// Static XML builder methods for comprehensive UDDF export.
 ///
@@ -281,12 +296,9 @@ class UddfExportBuilders {
               builder.element('isplanned', nest: 'true');
             }
             buildDiverRole(builder, dive);
-            // Course association
-            if (dive.courseId != null) {
-              builder.element(
-                'link',
-                attributes: {'ref': 'course_${dive.courseId}'},
-              );
+            // Course associations, one link per course (#2515)
+            for (final courseId in dive.courseIds) {
+              builder.element('link', attributes: {'ref': 'course_$courseId'});
             }
             if (dive.effectiveEntryMethod != null) {
               builder.element(
@@ -322,7 +334,7 @@ class UddfExportBuilders {
                     // The starting mix rides on the first recorded sample. A
                     // separate (0 s, 0 m) waypoint for it came back from
                     // every restore as an extra sample.
-                    if (index == 0) {
+                    if (index == 0 && startMix != null) {
                       builder.element(
                         'switchmix',
                         attributes: {'ref': startMix},
@@ -364,6 +376,13 @@ class UddfExportBuilders {
                     }
                     if (point.ppO2 != null) {
                       builder.element('ppo2', nest: point.ppO2.toString());
+                    }
+                    // Computer-reported GF99 (UDDF 3.2 waypoint child).
+                    if (point.gf99 != null) {
+                      builder.element(
+                        'gradientfactor',
+                        nest: point.gf99.toString(),
+                      );
                     }
                   },
                 );
@@ -533,6 +552,7 @@ class UddfExportBuilders {
             if (dive.exitMethod != null) {
               builder.element('exittype', nest: dive.exitMethod!.name);
             }
+            UddfDiveLogistics.write(builder, dive);
             buildDiveGpsElements(builder, 'exit', dive.exitLocation);
             // Weight system
             if (dive.weightAmount != null) {
@@ -622,6 +642,9 @@ class UddfExportBuilders {
                         if (weight.notes.isNotEmpty) {
                           builder.element('notes', nest: weight.notes);
                         }
+                        if (weight.label.isNotEmpty) {
+                          builder.element('label', nest: weight.label);
+                        }
                       },
                     );
                   }
@@ -639,6 +662,8 @@ class UddfExportBuilders {
                 },
               );
             }
+            // User-defined key:value fields (app-specific).
+            UddfDiveCustomFields.write(builder, dive);
             // Export profile events (app-specific)
             if (profileEvents.isNotEmpty) {
               builder.element(
@@ -721,15 +746,15 @@ class UddfExportBuilders {
     );
   }
 
-  /// The logbook owner's own role on [dive] as a custom `<diverrole>`
-  /// element inside `informationbeforedive` (not UDDF standard). Holds the
-  /// dive role id verbatim; a custom role's definition travels in the
-  /// `<diveroles>` block of a full backup. Shared by the full and the
-  /// dives-only dive builders.
+  /// The logbook owner's own roles on [dive], one custom `<diverrole>`
+  /// element each inside `informationbeforedive` (not UDDF standard), in
+  /// DiveRoleSet order (issue #1221); an older reader takes the first, the
+  /// primary role. Each holds the dive role id verbatim; a custom role's
+  /// definition travels in the `<diveroles>` block of a full backup. Shared
+  /// by the full and the dives-only dive builders.
   static void buildDiverRole(XmlBuilder builder, Dive dive) {
-    final roleId = dive.diverRoleId;
-    if (roleId != null && roleId.isNotEmpty) {
-      builder.element('diverrole', nest: roleId);
+    for (final roleId in dive.diverRoleIds) {
+      if (roleId.isNotEmpty) builder.element('diverrole', nest: roleId);
     }
   }
 
@@ -742,10 +767,21 @@ class UddfExportBuilders {
     // Each item's tag ids (issue #1942); an item absent from it writes none.
     Map<String, List<String>> equipmentTagIdsByItem = const {},
     List<Certification>? certifications,
+    // Certification currency rows (issue #2267); built-ins are dropped.
+    CurrencyBackupData currency = const CurrencyBackupData(),
+    // Names custom agencies and levels on export (issue #690).
+    CertificationCatalog? certificationCatalog,
     List<DiveCenter>? diveCenters,
     List<Species>? species,
     List<ServiceRecord>? serviceRecords,
     List<EquipmentObservation>? observations,
+    // Cylinder fills (issue #2651): keyed by passport id, so a section of
+    // their own rather than a child of the item.
+    List<CylinderFill>? fills,
+    // The diver's custom service kinds and each item's service clocks
+    // (issue #2651); an item absent from the map writes none.
+    List<ServiceKind>? serviceKinds,
+    Map<String, List<ServiceSchedule>> serviceSchedulesByItem = const {},
     Map<String, String>? settings,
     Diver? owner,
     List<Tag>? tags,
@@ -758,13 +794,31 @@ class UddfExportBuilders {
     List<Course>? courses,
     List<DiveSourceExport>? dataSources,
     Map<String, String?> dataSourceDumps = const {},
+    // The dives whose tank rows and tank pressure series the per-source
+    // blocks beside <datasources> attribute (issue #2492), and those series.
+    // Only a dive with two or more [dataSources] entries writes any, so
+    // neither needs its own check in hasData below.
+    List<Dive> attributedDives = const [],
+    Map<String, DiveTankPressureExport> diveTankPressures = const {},
     List<EquipmentComponent>? components,
     List<Dive>? gearLinkDives,
     Map<String, List<BuddyWithRole>>? diveBuddies,
+    // The dives whose computer-reported tissue state goes in the
+    // <computertissue> block (issue #2557); a dive without any writes none.
+    List<Dive>? computerTissueDives,
+    // The dives whose visibility range goes in the <visibilityranges> block
+    // (issue #3226); a dive without one writes none.
+    List<Dive>? visibilityRangeDives,
     // A file shared with other people carries no purchase date, price or
     // currency on its items; a backup keeps them.
     bool omitPurchaseDetails = false,
+    // Only a full backup writes each item's tag identity and its clock list
+    // (issue #2651). A shared file must not hand the reader the sender's
+    // cylinder tags, and an empty clock list tells a restore to remove the
+    // default clocks of the gear it creates.
+    bool backup = false,
   }) {
+    final catalog = certificationCatalog ?? CertificationCatalog.builtInOnly;
     // Gear provenance per dive (issue #1487): only rows attached through
     // an assembly or applied from a set are worth a link; the standard
     // <equipmentused> list already names every item.
@@ -778,7 +832,13 @@ class UddfExportBuilders {
     // recorded here to be restored exactly.
     final roleRows = <String, List<BuddyWithRole>>{
       for (final entry in (diveBuddies ?? const {}).entries)
-        if (entry.value.where((b) => b.role.id != DiveRole.buddyId).toList()
+        if (entry.value
+                .where(
+                  (b) =>
+                      b.roleIds.length > 1 ||
+                      b.primaryRole.id != DiveRole.buddyId,
+                )
+                .toList()
             case final rows when rows.isNotEmpty)
           entry.key: rows,
     };
@@ -787,11 +847,16 @@ class UddfExportBuilders {
         (components?.isNotEmpty ?? false) ||
         linkDives.isNotEmpty ||
         roleRows.isNotEmpty ||
+        (computerTissueDives?.any(UddfComputerTissue.hasData) ?? false) ||
+        (visibilityRangeDives?.any(UddfVisibilityRange.hasData) ?? false) ||
         (certifications?.isNotEmpty ?? false) ||
+        !currency.isEmpty ||
         (diveCenters?.isNotEmpty ?? false) ||
         (species?.isNotEmpty ?? false) ||
         (serviceRecords?.isNotEmpty ?? false) ||
         (observations?.isNotEmpty ?? false) ||
+        (fills?.isNotEmpty ?? false) ||
+        (serviceKinds?.isNotEmpty ?? false) ||
         (settings?.isNotEmpty ?? false) ||
         owner != null ||
         (tags?.isNotEmpty ?? false) ||
@@ -919,6 +984,18 @@ class UddfExportBuilders {
                           builder,
                           equipmentTagIdsByItem[item.id] ?? const [],
                         );
+                        // The item's tag identity (issue #2651), so a
+                        // restore links the fills stored under it.
+                        if (backup) {
+                          if (_passportIdOf(item) case final passportId?) {
+                            builder.element('passportid', nest: passportId);
+                          }
+                          // The item's service clocks (issue #2651).
+                          UddfServiceClockWriters.writeSchedules(
+                            builder,
+                            serviceSchedulesByItem[item.id] ?? const [],
+                          );
+                        }
                       },
                     );
                   }
@@ -937,9 +1014,15 @@ class UddfExportBuilders {
                       attributes: {'id': 'cert_${cert.id}'},
                       nest: () {
                         builder.element('name', nest: cert.name);
-                        builder.element('agency', nest: cert.agency.name);
+                        builder.element(
+                          'agency',
+                          nest: catalog.agencyExportText(cert.agency),
+                        );
                         if (cert.level != null) {
-                          builder.element('level', nest: cert.level!.name);
+                          builder.element(
+                            'level',
+                            nest: catalog.levelExportText(cert.level!),
+                          );
                         }
                         if (cert.cardNumber != null) {
                           builder.element('cardnumber', nest: cert.cardNumber);
@@ -977,6 +1060,8 @@ class UddfExportBuilders {
                 },
               );
             }
+
+            UddfCertificationCurrency.write(builder, currency);
 
             // Dive Centers
             if (diveCenters != null && diveCenters.isNotEmpty) {
@@ -1070,6 +1155,12 @@ class UddfExportBuilders {
                           );
                         }
                         builder.element('category', nest: spec.category.name);
+                        if (spec.taxonomyClass != null) {
+                          builder.element(
+                            'taxonomyclass',
+                            nest: spec.taxonomyClass,
+                          );
+                        }
                         if (spec.description != null) {
                           builder.element(
                             'description',
@@ -1082,6 +1173,13 @@ class UddfExportBuilders {
                 },
               );
             }
+
+            // Custom service kinds (issue #2651), before anything refers
+            // to them.
+            UddfServiceClockWriters.writeKinds(
+              builder,
+              serviceKinds ?? const [],
+            );
 
             // Service Records
             if (serviceRecords != null && serviceRecords.isNotEmpty) {
@@ -1101,6 +1199,9 @@ class UddfExportBuilders {
                           'servicecategory',
                           nest: record.serviceCategory.name,
                         );
+                        if (record.serviceKindId case final kind?) {
+                          builder.element('servicekind', nest: kind);
+                        }
                         builder.element(
                           'servicedate',
                           nest: record.serviceDate.toIso8601String(),
@@ -1127,6 +1228,9 @@ class UddfExportBuilders {
                 },
               );
             }
+
+            // Cylinder fills (issue #2651)
+            UddfFillWriters.writeFills(builder, fills ?? const []);
 
             // Settings
             if (settings != null && settings.isNotEmpty) {
@@ -1396,14 +1500,19 @@ class UddfExportBuilders {
                       'dive',
                       attributes: {'ref': 'dive_${entry.key}'},
                       nest: () {
+                        // One entry per role, Buddy included when it is
+                        // one of several, so the set restores exactly
+                        // (issue #1221).
                         for (final row in entry.value) {
-                          builder.element(
-                            'buddy',
-                            attributes: {
-                              'ref': 'buddy_${row.buddy.id}',
-                              'role': row.role.id,
-                            },
-                          );
+                          for (final roleId in row.roleIds) {
+                            builder.element(
+                              'buddy',
+                              attributes: {
+                                'ref': 'buddy_${row.buddy.id}',
+                                'role': roleId,
+                              },
+                            );
+                          }
                         }
                       },
                     );
@@ -1411,6 +1520,20 @@ class UddfExportBuilders {
                 },
               );
             }
+
+            // The tissue state each dive's computer reported, which no
+            // standard element holds.
+            UddfComputerTissue.write(
+              builder,
+              computerTissueDives ?? const <Dive>[],
+            );
+
+            // Each band-picked dive's visibility range, which the standard
+            // <visibility> element cannot hold.
+            UddfVisibilityRange.write(
+              builder,
+              visibilityRangeDives ?? const <Dive>[],
+            );
 
             // Courses (no UDDF equivalent)
             if (courses != null && courses.isNotEmpty) {
@@ -1423,7 +1546,10 @@ class UddfExportBuilders {
                       attributes: {'id': 'course_${course.id}'},
                       nest: () {
                         builder.element('name', nest: course.name);
-                        builder.element('agency', nest: course.agency.name);
+                        builder.element(
+                          'agency',
+                          nest: catalog.agencyExportText(course.agency),
+                        );
                         builder.element(
                           'startdate',
                           nest: course.startDate.toIso8601String(),
@@ -1452,13 +1578,14 @@ class UddfExportBuilders {
                         if (course.notes.isNotEmpty) {
                           builder.element('notes', nest: course.notes);
                         }
-                        // Link to certification earned
-                        if (course.certificationId != null) {
+                        // Links to the certifications earned, read from the
+                        // certification side (#2515)
+                        for (final cert in [
+                          ...?certifications,
+                        ].where((c) => c.courseId == course.id)) {
                           builder.element(
                             'link',
-                            attributes: {
-                              'ref': 'cert_${course.certificationId}',
-                            },
+                            attributes: {'ref': 'cert_${cert.id}'},
                           );
                         }
                         // Link to instructor buddy record
@@ -1643,6 +1770,13 @@ class UddfExportBuilders {
 
             // Per-source provenance for the dumps in <divecomputercontrol>.
             buildDataSources(builder, dataSources ?? const [], dataSourceDumps);
+            // Which of those sources recorded each tank and its pressures.
+            UddfSourceAttribution.write(
+              builder,
+              dives: attributedDives,
+              pressures: diveTankPressures,
+              sources: dataSources ?? const [],
+            );
           },
         );
       },
@@ -1932,12 +2066,16 @@ class UddfExportBuilders {
   }
 
   /// The gas mix id a dive starts on, for the `<switchmix>` on its first
-  /// sample: the first tank's mix, or air for a dive with no tanks. Both
-  /// dive writers use it, so the two exports name the same mix.
-  static String startMixId(Dive dive) {
+  /// sample: the first tank's mix. Both dive writers use it, so the two
+  /// exports name the same mix.
+  ///
+  /// Null for a dive with no tanks, whose starting gas is unknown. Naming air
+  /// there was a guess that a restore turned into a cylinder the diver never
+  /// logged (issue #1878).
+  static String? startMixId(Dive dive) {
     final tank = dive.tanks.firstOrNull;
     return tank == null
-        ? 'mix_21_0'
+        ? null
         : 'mix_${tank.gasMix.o2.toInt()}_${tank.gasMix.he.toInt()}';
   }
 
@@ -2015,7 +2153,18 @@ class UddfExportBuilders {
   }
 }
 
+/// [item]'s passport id: the curated `passport_id` attribute, or null.
+String? _passportIdOf(EquipmentItem item) {
+  for (final a in item.attributes) {
+    if (a.isCustom || a.key != EquipmentAttrKeys.passportId) continue;
+    final value = a.valueText?.trim();
+    if (value != null && value.isNotEmpty) return value;
+  }
+  return null;
+}
+
 /// One `<observation>` under an equipment item (condition phase 3a).
+
 void _buildObservation(XmlBuilder builder, EquipmentObservation o) {
   builder.element(
     'observation',

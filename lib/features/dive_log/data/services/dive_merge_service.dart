@@ -8,6 +8,7 @@ import 'package:submersion/core/services/sync/sync_event_bus.dart';
 import 'package:submersion/features/dive_log/data/repositories/dive_repository_impl.dart';
 import 'package:submersion/features/dive_log/data/repositories/profile_series_repository.dart';
 import 'package:submersion/features/dive_log/data/repositories/tank_pressure_series_repository.dart';
+import 'package:submersion/features/dive_log/data/repositories/tank_source_links.dart';
 import 'package:submersion/features/dive_log/data/services/data_source_strand.dart';
 import 'package:submersion/features/dive_log/data/services/dive_merge_snapshot.dart';
 import 'package:submersion/features/dive_log/domain/codecs/profile_sample.dart';
@@ -17,7 +18,11 @@ import 'package:submersion/features/dive_log/domain/entities/dive.dart'
 import 'package:submersion/features/dive_log/domain/entities/profile_series.dart'
     as series;
 import 'package:submersion/features/dive_log/domain/services/dive_merge_builder.dart';
+import 'package:submersion/features/dive_roles/data/repositories/dive_role_link_repository.dart';
+import 'package:submersion/features/dive_roles/domain/services/dive_role_set.dart';
 import 'package:submersion/features/tags/data/repositories/tag_repository.dart';
+import 'package:submersion/features/documents/data/repositories/document_repository.dart';
+import 'package:submersion/features/documents/domain/entities/document.dart';
 
 /// Result of a successful merge: the new dive plus the pre-merge snapshot
 /// needed to undo it.
@@ -38,6 +43,7 @@ class DiveMergeService {
   final _uuid = const Uuid();
   final _builder = const DiveMergeBuilder();
   final _sync = SyncRepository();
+  final _roleLinks = DiveRoleLinkRepository();
   final _tagRepository = TagRepository();
   final _profileSeries = ProfileSeriesRepository();
   final _tankSeries = TankPressureSeriesRepository();
@@ -311,6 +317,41 @@ class DiveMergeService {
         return mergedSourceIds[owner.id];
       }
 
+      // 1c. Each merged tank's source (v251, issue #2716): the source of the
+      //     earliest original tank folded into it, re-pointed like the
+      //     series below. Read live, before step 13 deletes the originals;
+      //     createDive above never writes the column.
+      final originalTankSources = <String, String>{
+        for (final id in diveIds) ...await resolveTankSources(_db, id),
+      };
+      final mergedTankSources = <String, String?>{};
+      for (final source in result.sortedSources) {
+        final originals =
+            snapshot.tankRows.where((t) => t.diveId == source.id).toList()
+              ..sort((a, b) => a.tankOrder.compareTo(b.tankOrder));
+        for (final t in originals) {
+          final merged = result.tankIdMap[t.id];
+          if (merged == null || mergedTankSources.containsKey(merged)) {
+            continue;
+          }
+          mergedTankSources[merged] = mergedSourceIdFor(
+            t.diveId,
+            originalTankSources[t.id],
+          );
+        }
+      }
+      for (final MapEntry(key: tankId, value: sourceId)
+          in mergedTankSources.entries) {
+        if (sourceId == null) continue;
+        await (_db.update(_db.diveTanks)..where((t) => t.id.equals(tankId)))
+            .write(DiveTanksCompanion(sourceId: Value(sourceId)));
+        await _sync.markRecordPending(
+          entityType: 'diveTanks',
+          recordId: tankId,
+          localUpdatedAt: now,
+        );
+      }
+
       // 2. Profile series re-based onto the merged timeline (preserves
       //    computerId/isPrimary/samples), one draft per original series.
       //    Read live, before anything is deleted (step 13 removes the
@@ -327,6 +368,7 @@ class DiveMergeService {
             computerId: s.computerId,
             sourceId: s.sourceId,
             isPrimary: s.isPrimary,
+            activatedAt: Value(s.activatedAt),
             samples: [
               for (final p in s.samples)
                 p.shiftedBy(result.segmentOffsetsSeconds[s.diveId] ?? 0),
@@ -388,6 +430,7 @@ class DiveMergeService {
               ? null
               : mergedSourceIdFor(d.diveId, d.sourceId),
           isPrimary: d.isPrimary,
+          activatedAt: d.activatedAt,
           samples: d.samples,
           now: now,
         );
@@ -481,10 +524,22 @@ class DiveMergeService {
           final newTankId = result.tankIdMap[s.tankId];
           if (newTankId == null || s.samples.isEmpty) continue;
           final offset = result.segmentOffsetsSeconds[s.diveId] ?? 0;
+          // The owning source follows the series (issue #2440). An
+          // unattributed series of a segment with several sources is left
+          // unattributed rather than handed to one of them: nothing says
+          // which recorded it. A source that is none of the merged ones tells
+          // no more than no source at all, as in consolidation.
+          final knownSource =
+              s.sourceId != null && mergedSourceIds.containsKey(s.sourceId);
+          final ambiguous =
+              !knownSource && (rowsBySegment[s.diveId]?.length ?? 0) > 1;
           await _tankSeries.insertSeries(
             diveId: mergedId,
             tankId: newTankId,
             computerId: s.computerId,
+            sourceId: ambiguous
+                ? null
+                : mergedSourceIdFor(s.diveId, s.sourceId),
             samples: [for (final p in s.samples) p.shiftedBy(offset)],
             now: now,
           );
@@ -516,6 +571,20 @@ class DiveMergeService {
             localUpdatedAt: now,
           );
         }
+      }
+      // Each person's roles are the union of what they held on every source
+      // (issue #1221); the copied rows above carry only the first primary.
+      final sourceRoles = snapshot.resolvedBuddyRoles();
+      for (final buddyId in seenBuddies) {
+        await _roleLinks.writeBuddyRoles(
+          mergedId,
+          buddyId,
+          DiveRoleSet.union([
+            for (final source in result.sortedSources)
+              ?sourceRoles[(source.id, buddyId)],
+          ]),
+          now: now,
+        );
       }
 
       // 9. Merged sightings (already unioned by the builder).
@@ -572,6 +641,13 @@ class DiveMergeService {
         );
       }
 
+      // 12b. Documents follow the media to the merged dive (issue #2613).
+      await DocumentRepository().reassignOwner(
+        DocumentOwnerKind.dive,
+        diveIds,
+        mergedId,
+      );
+
       // 13. Delete sources through the tombstone-logging path.
       await _diveRepo.bulkDeleteDives(diveIds);
     });
@@ -599,6 +675,13 @@ class DiveMergeService {
       // series would never leave the other peers.
       await _profileSeries.deleteForDive(mergedId);
       await _tankSeries.deleteForDive(mergedId);
+      // The merge's role rows (#1221): tombstoned and removed so a peer
+      // drops them too.
+      await _roleLinks.restoreRows(
+        diveIds: [mergedId],
+        diverRows: const [],
+        buddyRows: const [],
+      );
       await _db.batch((batch) {
         batch.deleteWhere(_db.diveTanks, (t) => t.diveId.equals(mergedId));
         batch.deleteWhere(_db.diveWeights, (t) => t.diveId.equals(mergedId));
@@ -608,6 +691,7 @@ class DiveMergeService {
         );
         batch.deleteWhere(_db.diveEquipment, (t) => t.diveId.equals(mergedId));
         batch.deleteWhere(_db.diveDiveTypes, (t) => t.diveId.equals(mergedId));
+        batch.deleteWhere(_db.diveCourses, (t) => t.diveId.equals(mergedId));
         batch.deleteWhere(_db.diveTags, (t) => t.diveId.equals(mergedId));
         batch.deleteWhere(_db.diveBuddies, (t) => t.diveId.equals(mergedId));
         batch.deleteWhere(_db.sightings, (t) => t.diveId.equals(mergedId));
@@ -649,6 +733,19 @@ class DiveMergeService {
         );
       }
 
+      // Data sources BEFORE the tanks: diveTanks.sourceId is an FK into
+      // diveDataSources (v251, issue #2716), enforced immediately like the
+      // tank FKs below. Sources reference no tank, so they can come first.
+      await _db.batch((batch) {
+        for (final r in snapshot.dataSourceRows) {
+          batch.insert(
+            _db.diveDataSources,
+            r.toCompanion(false),
+            mode: InsertMode.insertOrReplace,
+          );
+        }
+      });
+
       // Tanks BEFORE the batch below: tank_pressure_series.tankId (and
       // gasSwitches.tankId further down) are FKs into diveTanks, and FK
       // enforcement is immediate under `PRAGMA foreign_keys = ON`, so the
@@ -667,13 +764,6 @@ class DiveMergeService {
       // Child rows verbatim (original ids never collide with merge output:
       // merged children all had fresh ids).
       await _db.batch((batch) {
-        for (final r in snapshot.dataSourceRows) {
-          batch.insert(
-            _db.diveDataSources,
-            r.toCompanion(false),
-            mode: InsertMode.insertOrReplace,
-          );
-        }
         for (final r in snapshot.tideRows) {
           batch.insert(
             _db.tideRecords,
@@ -689,9 +779,19 @@ class DiveMergeService {
           );
         }
       });
+      // Marked pending like every other restored child, for a fresh clock:
+      // the verbatim rows carry their pre-operation clocks, which a peer
+      // holding a newer copy refuses as stale (#2670).
+      for (final (entityType, recordId) in snapshot.batchRestoredChildKeys) {
+        await _sync.markRecordPending(
+          entityType: entityType,
+          recordId: recordId,
+          localUpdatedAt: now,
+        );
+      }
       // Series restored after the batch above: dataSourceRows and diveTanks
-      // (inserted earlier) are the series' FK parents and must be back
-      // first.
+      // (both inserted before it) are the series' FK parents and must be
+      // back first.
       for (final r in snapshot.profileSeriesRows) {
         await _profileSeries.restoreSeriesRow(r, now: now);
       }
@@ -728,6 +828,16 @@ class DiveMergeService {
           localUpdatedAt: now,
         );
       }
+      for (final r in snapshot.diveCourseRows) {
+        await _db
+            .into(_db.diveCourses)
+            .insert(r.toCompanion(false), mode: InsertMode.insertOrReplace);
+        await _sync.markRecordPending(
+          entityType: 'diveCourses',
+          recordId: r.id,
+          localUpdatedAt: now,
+        );
+      }
       for (final r in snapshot.tagRows) {
         await _db
             .into(_db.diveTags)
@@ -748,6 +858,11 @@ class DiveMergeService {
           localUpdatedAt: now,
         );
       }
+      await _roleLinks.restoreRows(
+        diveIds: [for (final d in snapshot.diveRows) d.id],
+        diverRows: snapshot.diverRoleRows,
+        buddyRows: snapshot.buddyRoleRows,
+      );
       for (final r in snapshot.sightingRows) {
         await _db
             .into(_db.sightings)
@@ -778,6 +893,12 @@ class DiveMergeService {
           localUpdatedAt: now,
         );
       }
+
+      // File the documents under their restored source dives (#2613).
+      await DocumentRepository().restoreOwners(
+        DocumentOwnerKind.dive,
+        snapshot.documentDiveIds,
+      );
 
       // Restore media pointers.
       for (final entry in snapshot.mediaDiveIds.entries) {
@@ -813,6 +934,7 @@ class _SeriesDraft {
     required this.sourceId,
     required this.isPrimary,
     required this.samples,
+    this.activatedAt = const Value.absent(),
     this.synthetic = false,
   });
 
@@ -820,6 +942,10 @@ class _SeriesDraft {
   final String? computerId;
   final String? sourceId;
   final bool isPrimary;
+
+  /// The original series' activation time, carried so the merged copies
+  /// rank as the originals did (issue #3189); absent for a synthetic fill.
+  final Value<int?> activatedAt;
   final bool synthetic;
   final List<ProfileSample> samples;
 }

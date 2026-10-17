@@ -32,6 +32,7 @@ Future<void> pumpHeader(
   MockSettingsNotifier? settingsNotifier,
   TripStoryDayWeather? storedWeather,
   List<Override> extra = const [],
+  ThemeData? theme,
 }) async {
   // The header dates itself with DateFormat.MMMEd(), which resolves against
   // Intl.defaultLocale - a process global that app.dart sets from the app
@@ -47,6 +48,7 @@ Future<void> pumpHeader(
     ProviderScope(
       overrides: [...overrides, ...extra],
       child: MaterialApp(
+        theme: theme,
         locale: const Locale('en'),
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
@@ -189,6 +191,81 @@ void main() {
 
     // Only the badge number and the title line render.
     expect(find.byType(Text), findsNWidgets(2));
+  });
+
+  group('dive day planned at 0 dives (#2658)', () {
+    // The board's day strip writes a bare dive-day row when it plans a day
+    // the itinerary lacks; saving 0 there plans a rest day, not a dive day.
+    ItineraryDay restRow() => ItineraryDay(
+      id: 'itin-1',
+      tripId: 'trip-1',
+      dayNumber: 2,
+      date: DateTime(2026, 3, 8),
+      dayType: DayType.diveDay,
+      plannedDives: 0,
+      createdAt: DateTime(2026, 1, 1),
+      updatedAt: DateTime(2026, 1, 1),
+    );
+
+    for (final kind in [TripStoryDayKind.future, TripStoryDayKind.past]) {
+      testWidgets('reads as a surface day, not "Dive Day" (${kind.name})', (
+        tester,
+      ) async {
+        final day = TripStoryDay(
+          date: DateTime(2026, 3, 8),
+          dayNumber: 2,
+          kind: kind,
+          itineraryDay: restRow(),
+        );
+        await pumpHeader(tester, day);
+
+        expect(find.text('Surface day'), findsOneWidget);
+        expect(find.textContaining('Dive Day'), findsNothing);
+      });
+    }
+
+    testWidgets('a dive logged anyway keeps the Dive Day label', (
+      tester,
+    ) async {
+      final day = TripStoryDay(
+        date: DateTime(2026, 3, 8),
+        dayNumber: 2,
+        kind: TripStoryDayKind.past,
+        itineraryDay: restRow(),
+        dives: [
+          Dive(
+            id: 'd1',
+            dateTime: DateTime(2026, 3, 8, 9),
+            site: const DiveSite(id: 'site-a', name: 'Blue Corner'),
+          ),
+        ],
+      );
+      await pumpHeader(tester, day);
+
+      expect(find.text('Dive Day - Blue Corner'), findsOneWidget);
+      expect(find.textContaining('Surface day'), findsNothing);
+    });
+
+    // #2875: a day typed Rest is a dive day once a dive is logged on it.
+    testWidgets('a Rest-typed day with a dive reads Dive Day', (tester) async {
+      final day = TripStoryDay(
+        date: DateTime(2026, 3, 8),
+        dayNumber: 2,
+        kind: TripStoryDayKind.past,
+        itineraryDay: restRow().copyWith(dayType: DayType.rest),
+        dives: [
+          Dive(
+            id: 'd1',
+            dateTime: DateTime(2026, 3, 8, 9),
+            site: const DiveSite(id: 'site-a', name: 'Blue Corner'),
+          ),
+        ],
+      );
+      await pumpHeader(tester, day);
+
+      expect(find.text('Dive Day - Blue Corner'), findsOneWidget);
+      expect(find.textContaining('Rest'), findsNothing);
+    });
   });
 
   group('surface day', () {
@@ -498,5 +575,78 @@ void main() {
       tester.getSize(find.byType(TripStoryDayHeader)).height,
       greaterThan(TripStoryDayHeader.minHeight),
     );
+  });
+
+  group('today', () {
+    final today = TripStoryDay(
+      date: DateTime(2026, 3, 8),
+      dayNumber: 2,
+      kind: TripStoryDayKind.today,
+    );
+
+    Material band(WidgetTester tester) => tester.widget<Material>(
+      find
+          .descendant(
+            of: find.byType(TripStoryDayHeader),
+            matching: find.byType(Material),
+          )
+          .first,
+    );
+
+    testWidgets('band is primaryContainer with a Today chip', (tester) async {
+      await pumpHeader(tester, today);
+      final context = tester.element(find.byType(TripStoryDayHeader));
+      expect(
+        band(tester).color,
+        Theme.of(context).colorScheme.primaryContainer,
+      );
+      expect(find.byKey(const Key('today-chip')), findsOneWidget);
+    });
+
+    testWidgets('date reads onPrimaryContainer in a dark theme', (
+      tester,
+    ) async {
+      await pumpHeader(
+        tester,
+        today,
+        theme: ThemeData(brightness: Brightness.dark),
+      );
+      final context = tester.element(find.byType(TripStoryDayHeader));
+      final scheme = Theme.of(context).colorScheme;
+      expect(scheme.brightness, Brightness.dark);
+      final date = tester.widget<Text>(find.textContaining('Mar 8'));
+      expect(date.style?.color, scheme.onPrimaryContainer);
+    });
+
+    testWidgets('the day badge flips to primary on the tinted band', (
+      tester,
+    ) async {
+      await pumpHeader(tester, today);
+      final context = tester.element(find.byType(TripStoryDayHeader));
+      final badge = tester.widget<Container>(
+        find.byKey(const Key('day-number-badge')),
+      );
+      expect(
+        (badge.decoration! as BoxDecoration).color,
+        Theme.of(context).colorScheme.primary,
+      );
+    });
+
+    testWidgets('other days keep the grey band and no chip', (tester) async {
+      await pumpHeader(
+        tester,
+        TripStoryDay(
+          date: DateTime(2026, 3, 8),
+          dayNumber: 2,
+          kind: TripStoryDayKind.past,
+        ),
+      );
+      final context = tester.element(find.byType(TripStoryDayHeader));
+      expect(
+        band(tester).color,
+        Theme.of(context).colorScheme.surfaceContainer,
+      );
+      expect(find.byKey(const Key('today-chip')), findsNothing);
+    });
   });
 }

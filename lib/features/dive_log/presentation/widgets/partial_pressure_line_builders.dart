@@ -2,13 +2,8 @@ import 'package:fl_chart/fl_chart.dart';
 import 'package:flutter/material.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/profile_metric_band.dart';
-import 'package:submersion/features/dive_log/presentation/widgets/profile_metric_colors.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/profile_metric_line_builders.dart'
-    show
-        DecimatedCurveIndices,
-        SeriesGetsLeadIn,
-        SurfaceValueOf,
-        WithSurfaceLeadIn;
+    show DecimatedCurveIndices, SurfaceValueOf, WithSurfaceLeadIn;
 
 /// Build ppO2 (partial pressure of oxygen) line
 /// Values typically range from 0.21 (surface air) to 1.6+ (critical)
@@ -29,7 +24,6 @@ LineChartBarData _buildPartialPressureLine({
   required DecimatedCurveIndices decimatedCurveIndices,
   required WithSurfaceLeadIn withSurfaceLeadIn,
   required SurfaceValueOf surfaceValueOf,
-  required SeriesGetsLeadIn seriesGetsLeadIn,
   double? filterAtOrBelow,
 }) {
   const min = 0.0;
@@ -52,13 +46,10 @@ LineChartBarData _buildPartialPressureLine({
         maxScale,
       ),
     ),
-    isCurved: true,
-    curveSmoothness: 0.2,
-    // Only while a lead-in is drawn: that vertex is a sharp direction
-    // change and the spline would otherwise overshoot it and hook below
-    // the curve at the left edge. Dives already starting at t=0 keep
-    // their existing smoothing untouched.
-    preventCurveOverShooting: seriesGetsLeadIn(spots, profile),
+    // Straight between samples: a gas switch is a step in every
+    // partial-pressure curve, and a spline overshoots each step, dipping
+    // below the gas before the switch and past it after (issue #577).
+    isCurved: false,
     color: color,
     barWidth: 1,
     isStrokeCapRound: true,
@@ -68,6 +59,7 @@ LineChartBarData _buildPartialPressureLine({
 }
 
 LineChartBarData buildPpO2Line(
+  Color color,
   MetricBand band,
   List<double> ppO2Curve,
   double ppO2MaxScale,
@@ -75,21 +67,20 @@ LineChartBarData buildPpO2Line(
   DecimatedCurveIndices decimatedCurveIndices,
   WithSurfaceLeadIn withSurfaceLeadIn,
   SurfaceValueOf surfaceValueOf,
-  SeriesGetsLeadIn seriesGetsLeadIn,
 ) => _buildPartialPressureLine(
   band: band,
   curve: ppO2Curve,
   maxScale: ppO2MaxScale,
-  color: ProfileMetricColors.ppO2,
+  color: color,
   profile: profile,
   decimatedCurveIndices: decimatedCurveIndices,
   withSurfaceLeadIn: withSurfaceLeadIn,
   surfaceValueOf: surfaceValueOf,
-  seriesGetsLeadIn: seriesGetsLeadIn,
 );
 
 /// Build ppN2 (partial pressure of nitrogen) line
 LineChartBarData buildPpN2Line(
+  Color color,
   MetricBand band,
   List<double> ppN2Curve,
   double ppN2MaxScale,
@@ -97,23 +88,22 @@ LineChartBarData buildPpN2Line(
   DecimatedCurveIndices decimatedCurveIndices,
   WithSurfaceLeadIn withSurfaceLeadIn,
   SurfaceValueOf surfaceValueOf,
-  SeriesGetsLeadIn seriesGetsLeadIn,
 ) => _buildPartialPressureLine(
   band: band,
   curve: ppN2Curve,
   maxScale: ppN2MaxScale,
-  color: ProfileMetricColors.ppN2,
+  color: color,
   profile: profile,
   decimatedCurveIndices: decimatedCurveIndices,
   withSurfaceLeadIn: withSurfaceLeadIn,
   surfaceValueOf: surfaceValueOf,
-  seriesGetsLeadIn: seriesGetsLeadIn,
 );
 
 /// Build ppHe (partial pressure of helium) line for trimix dives. The
 /// filterAtOrBelow 0.001 means a non-trimix dive (ppHe ~0 throughout) draws
 /// nothing at all, and the lead-in is skipped with it.
 LineChartBarData buildPpHeLine(
+  Color color,
   MetricBand band,
   List<double> ppHeCurve,
   double ppHeMaxScale,
@@ -121,16 +111,14 @@ LineChartBarData buildPpHeLine(
   DecimatedCurveIndices decimatedCurveIndices,
   WithSurfaceLeadIn withSurfaceLeadIn,
   SurfaceValueOf surfaceValueOf,
-  SeriesGetsLeadIn seriesGetsLeadIn,
 ) => _buildPartialPressureLine(
   band: band,
   curve: ppHeCurve,
   maxScale: ppHeMaxScale,
-  color: ProfileMetricColors.ppHe,
+  color: color,
   profile: profile,
   decimatedCurveIndices: decimatedCurveIndices,
   withSurfaceLeadIn: withSurfaceLeadIn,
   surfaceValueOf: surfaceValueOf,
-  seriesGetsLeadIn: seriesGetsLeadIn,
   filterAtOrBelow: 0.001,
 );

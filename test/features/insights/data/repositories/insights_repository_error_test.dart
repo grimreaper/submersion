@@ -29,6 +29,7 @@ void main() {
       'getSacVolumePerDive': (r) => r.getSacVolumePerDive(),
       'getSacPressurePerDive': (r) => r.getSacPressurePerDive(),
       'getGasMixDistribution': (r) => r.getGasMixDistribution(),
+      'getTankConfigurationStats': (r) => r.getTankConfigurationStats(),
       'getSacVolumeRecords': (r) => r.getSacVolumeRecords(),
       'getSacPressureRecords': (r) => r.getSacPressureRecords(),
       'getSacVolumeByTankRole': (r) => r.getSacVolumeByTankRole(),
@@ -36,6 +37,7 @@ void main() {
       'getDiveTypeDistribution': (r) => r.getDiveTypeDistribution(),
       'getDepthPerDive': (r) => r.getDepthPerDive(),
       'getBottomTimePerDive': (r) => r.getBottomTimePerDive(),
+      'getRuntimePerDive': (r) => r.getRuntimePerDive(),
       'getDivesPerYear': (r) => r.getDivesPerYear(),
       'getYearStats': (r) => r.getYearStats(2026),
       'getDivesBySuitThickness': (r) => r.getDivesBySuitThickness(),
@@ -45,6 +47,7 @@ void main() {
       'getWaterTypeDistribution': (r) => r.getWaterTypeDistribution(),
       'getSiteTypeDistribution': (r) => r.getSiteTypeDistribution(),
       'getEntryMethodDistribution': (r) => r.getEntryMethodDistribution(),
+      'getConditionsRows': (r) => r.getConditionsRows(),
       'getEntryExitMethodPairsForSite': (r) =>
           r.getEntryExitMethodPairsForSite(siteId: 'site-1'),
       'getSiteDiveStatistics': (r) => r.getSiteDiveStatistics(siteId: 'site-1'),

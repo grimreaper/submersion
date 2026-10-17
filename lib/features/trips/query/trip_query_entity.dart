@@ -3,6 +3,7 @@ import 'package:submersion/core/query/domain/query_subject.dart';
 import 'package:submersion/core/query/registry/query_entity.dart';
 import 'package:submersion/core/query/registry/query_field.dart';
 import 'package:submersion/core/query/registry/query_relation.dart';
+import 'package:submersion/features/dive_log/query/dive_aggregate_fields.dart';
 
 QueryField _text(String key, String column) => QueryField(
   key: key,
@@ -29,10 +30,10 @@ final tripQueryEntity = QueryEntity(
   table: 'trips',
   diverScopeColumn: 'diver_id',
   textSearchSql: const [
-    "{r}.name LIKE ? ESCAPE '\\'",
-    "{r}.location LIKE ? ESCAPE '\\'",
-    "{r}.resort_name LIKE ? ESCAPE '\\'",
-    "{r}.liveaboard_name LIKE ? ESCAPE '\\'",
+    "unicode_lower({r}.name) LIKE ? ESCAPE '\\'",
+    "unicode_lower({r}.location) LIKE ? ESCAPE '\\'",
+    "unicode_lower({r}.resort_name) LIKE ? ESCAPE '\\'",
+    "unicode_lower({r}.liveaboard_name) LIKE ? ESCAPE '\\'",
   ],
   fields: [
     _text('name', 'name'),
@@ -57,6 +58,7 @@ final tripQueryEntity = QueryEntity(
       emptySql: '0',
       labelKey: 'query_trips_shared',
     ),
+    diveCountField('trips', 'ad.trip_id = {r}.id'),
   ],
   relations: const [
     QueryRelation(

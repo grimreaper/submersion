@@ -1,12 +1,19 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:submersion/core/network/proxy/proxy_controller.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/services/log_file_service.dart';
 import 'package:submersion/features/dive_computer/data/clock_sync_preferences.dart';
 import 'package:submersion/features/dive_computer/presentation/providers/clock_sync_providers.dart';
+import 'package:submersion/features/media_store/presentation/providers/media_store_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/debug_log_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/media_badge_settings_provider.dart';
+import 'package:submersion/features/settings/presentation/providers/media_cache_settings_provider.dart';
+import 'package:submersion/features/settings/presentation/providers/network_proxy_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
+import 'package:submersion/features/settings/presentation/providers/viewer_fullscreen_mode_provider.dart';
+import 'package:submersion/shared/services/incoming_share.dart';
+import 'package:submersion/shared/services/navigation_ready_gate.dart';
 
 /// The provider overrides the app's root [ProviderScope] installs.
 ///
@@ -21,11 +28,25 @@ import 'package:submersion/features/settings/presentation/providers/settings_pro
 /// makes `test/helpers/test_app.dart` take `List<dynamic>`. Call sites pass the
 /// result to `overrides:` with `.cast()`, which infers the real element type
 /// from context.
+///
+/// [incomingShares] is the app's one share gate, made once per process so a
+/// share held when `restartApp` rebuilds the scope is still opened after it.
+/// The safety sweep's throwaway container never opens a share and passes
+/// none, leaving it the default per-container gate.
 List<dynamic> rootProviderOverrides({
   required SharedPreferences prefs,
   required LogFileService logFileService,
+  NavigationReadyGate<IncomingShare>? incomingShares,
+  ProxyController? proxyController,
 }) {
   return [
+    if (incomingShares != null)
+      incomingShareGateProvider.overrideWithValue(incomingShares),
+    // Made once per process in main(), before the first request, so the
+    // HttpOverrides and the Network settings page share one snapshot
+    // (#3217). The safety sweep's throwaway container passes none.
+    if (proxyController != null)
+      proxyControllerProvider.overrideWithValue(proxyController),
     sharedPreferencesProvider.overrideWithValue(prefs),
     logFileServiceProvider.overrideWithValue(logFileService),
     // The default is a fixed "enabled" with nothing behind it, because the
@@ -35,11 +56,27 @@ List<dynamic> rootProviderOverrides({
     mediaProvenanceBadgesProvider.overrideWith(
       (ref) => MediaProvenanceBadgesNotifier(prefs),
     ),
+    // Unstored by default for the same reason; here the media cache sizes
+    // gain persistence, and a smaller disk size trims the thumbnail pool at
+    // once instead of at the next download (issue #3337).
+    mediaCacheSettingsProvider.overrideWith(
+      (ref) => MediaCacheSettingsNotifier(
+        prefs,
+        onDiskCapChanged: () async =>
+            (await openMediaCacheStore(prefs)).evictIfNeeded(),
+        onEmptyDiskCache: () => emptyThumbnailCache(prefs),
+      ),
+    ),
     // Same reasoning as the badges: the default is unstored so pages that
     // watch it never error in a container without prefs; here it gains
     // persistence (issue #1216).
     clockSyncSettingsNotifierProvider.overrideWith(
       (ref) => ClockSyncSettingsNotifier(ClockSyncPreferences(prefs)),
+    ),
+    // Unstored by default so viewers in a container without prefs keep
+    // their full-window behaviour; here it gains persistence (issue #3178).
+    viewerFullscreenModeProvider.overrideWith(
+      (ref) => ViewerFullscreenModeNotifier(prefs),
     ),
   ];
 }

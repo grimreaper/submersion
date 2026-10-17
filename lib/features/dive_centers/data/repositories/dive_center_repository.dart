@@ -11,6 +11,8 @@ import 'package:submersion/core/text/text_sort.dart';
 import 'package:submersion/features/dive_centers/domain/entities/dive_center.dart'
     as domain;
 import 'package:submersion/features/dive_log/data/repositories/dive_parent_links.dart';
+import 'package:submersion/features/documents/data/repositories/document_repository.dart';
+import 'package:submersion/features/documents/domain/entities/document.dart';
 
 class DiveCenterRepository {
   AppDatabase get _db => DatabaseService.instance.database;
@@ -81,9 +83,9 @@ class DiveCenterRepository {
 
     final results = await _db.customSelect('''
       SELECT * FROM dive_centers
-      WHERE (LOWER(name) LIKE ?
-         OR LOWER(city) LIKE ?
-         OR LOWER(country) LIKE ?)
+      WHERE (unicode_lower(name) LIKE ?
+         OR unicode_lower(city) LIKE ?
+         OR unicode_lower(country) LIKE ?)
       $diverFilter
       ORDER BY name COLLATE NOCASE ASC
     ''', variables: variables).get();
@@ -154,6 +156,8 @@ class DiveCenterRepository {
               affiliations: Value(center.affiliations.join(',')),
               rating: Value(center.rating),
               notes: Value(center.notes),
+              fillOpensAt: Value(center.fillOpensAt),
+              fillClosesAt: Value(center.fillClosesAt),
               createdAt: Value(now),
               updatedAt: Value(now),
             ),
@@ -202,6 +206,8 @@ class DiveCenterRepository {
           affiliations: Value(center.affiliations.join(',')),
           rating: Value(center.rating),
           notes: Value(center.notes),
+          fillOpensAt: Value(center.fillOpensAt),
+          fillClosesAt: Value(center.fillClosesAt),
           updatedAt: Value(now),
         ),
       );
@@ -239,6 +245,11 @@ class DiveCenterRepository {
         await clearDiveCenterLinks(_db, _syncRepository, [
           id,
         ], now: DateTime.now().millisecondsSinceEpoch);
+        // Its documents go with it, tombstoned (issue #2613).
+        await DocumentRepository().deleteForOwner(
+          DocumentOwnerKind.diveCenter,
+          id,
+        );
         await (_db.delete(_db.diveCenters)..where((t) => t.id.equals(id))).go();
         await _syncRepository.logDeletion(
           entityType: 'diveCenters',
@@ -355,6 +366,8 @@ class DiveCenterRepository {
       affiliations: _parseAffiliations(row.affiliations),
       rating: row.rating,
       notes: row.notes,
+      fillOpensAt: row.fillOpensAt,
+      fillClosesAt: row.fillClosesAt,
       createdAt: DateTime.fromMillisecondsSinceEpoch(row.createdAt),
       updatedAt: DateTime.fromMillisecondsSinceEpoch(row.updatedAt),
     );
@@ -377,6 +390,8 @@ class DiveCenterRepository {
       affiliations: _parseAffiliations(row.data['affiliations'] as String?),
       rating: (row.data['rating'] as num?)?.toDouble(),
       notes: (row.data['notes'] as String?) ?? '',
+      fillOpensAt: row.data['fill_opens_at'] as int?,
+      fillClosesAt: row.data['fill_closes_at'] as int?,
       createdAt: DateTime.fromMillisecondsSinceEpoch(
         row.data['created_at'] as int,
       ),

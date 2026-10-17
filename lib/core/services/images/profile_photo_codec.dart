@@ -123,11 +123,14 @@ Future<ImageEncodeResult> encodeStoredImage(ImageEncodeRequest request) =>
 ImageEncodeResult runImageEncodeRequest(ImageEncodeRequest request) {
   final name = request.declaredName;
   final img.Image? decoded;
+  // Any throw, not just an Exception: package:image's format probes read
+  // past the end of a short buffer and throw RangeError, an Error, on bytes
+  // no decoder owns.
   try {
     decoded = name != null && name.contains('.')
         ? img.decodeNamedImage(name, request.bytes)
         : img.decodeImage(request.bytes);
-  } on Exception catch (e) {
+  } catch (e) {
     return ImageEncodeResult(
       ImageEncodeOutcome.undecodable,
       error: e.toString(),

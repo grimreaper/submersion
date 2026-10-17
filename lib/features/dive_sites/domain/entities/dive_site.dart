@@ -64,6 +64,10 @@ class DiveSite extends Equatable {
   final EntryMethod? exitMethod;
   final bool isShared;
 
+  /// The shared site library this site belongs to (issue #2567); null for a
+  /// personal site.
+  final String? sharedLibraryId;
+
   const DiveSite({
     required this.id,
     this.diverId,
@@ -90,7 +94,18 @@ class DiveSite extends Equatable {
     this.entryMethod,
     this.exitMethod,
     this.isShared = false,
+    this.sharedLibraryId,
   });
+
+  /// Whether this site belongs to a shared site library (issue #2567).
+  bool get isLibrarySite => sharedLibraryId != null;
+
+  /// The town a site belongs to: its [city], falling back to its [island],
+  /// trimmed; empty when neither is set.
+  String get locality {
+    final cityTrimmed = city?.trim() ?? '';
+    return cityTrimmed.isNotEmpty ? cityTrimmed : (island?.trim() ?? '');
+  }
 
   /// Compact one-line location formatted as `locality · region, country`.
   /// Locality prefers [city], falling back to [island]. [bodyOfWater] is
@@ -105,10 +120,6 @@ class DiveSite extends Equatable {
     if (regionTrimmed.isNotEmpty) base.add(regionTrimmed);
     if (countryTrimmed.isNotEmpty) base.add(countryTrimmed);
     final baseStr = base.join(', ');
-
-    final cityTrimmed = city?.trim() ?? '';
-    final islandTrimmed = island?.trim() ?? '';
-    final locality = cityTrimmed.isNotEmpty ? cityTrimmed : islandTrimmed;
 
     if (locality.isNotEmpty && baseStr.isNotEmpty) {
       return '$locality · $baseStr';
@@ -155,6 +166,9 @@ class DiveSite extends Equatable {
     EntryMethod? entryMethod,
     EntryMethod? exitMethod,
     bool? isShared,
+    String? sharedLibraryId,
+    bool clearSharedLibraryId = false,
+    bool clearRating = false,
   }) {
     return DiveSite(
       id: id ?? this.id,
@@ -172,7 +186,7 @@ class DiveSite extends Equatable {
       island: island ?? this.island,
       bodyOfWater: bodyOfWater ?? this.bodyOfWater,
       photoIds: photoIds ?? this.photoIds,
-      rating: rating ?? this.rating,
+      rating: clearRating ? null : rating ?? this.rating,
       notes: notes ?? this.notes,
       hazards: hazards ?? this.hazards,
       accessNotes: accessNotes ?? this.accessNotes,
@@ -182,6 +196,9 @@ class DiveSite extends Equatable {
       entryMethod: entryMethod ?? this.entryMethod,
       exitMethod: exitMethod ?? this.exitMethod,
       isShared: isShared ?? this.isShared,
+      sharedLibraryId: clearSharedLibraryId
+          ? null
+          : (sharedLibraryId ?? this.sharedLibraryId),
     );
   }
 
@@ -212,6 +229,7 @@ class DiveSite extends Equatable {
     entryMethod,
     exitMethod,
     isShared,
+    sharedLibraryId,
   ];
 }
 

@@ -1,3 +1,5 @@
+import 'dart:typed_data';
+
 import 'package:sqlite3/sqlite3.dart';
 
 /// Reads one value out of a Diving Log row.
@@ -13,6 +15,13 @@ Object? rowCell(Row row, String column) {
   } catch (_) {
     return null;
   }
+}
+
+Uint8List? rowBytes(Row row, String column) {
+  final value = rowCell(row, column);
+  return value is List<int> && value.isNotEmpty
+      ? Uint8List.fromList(value)
+      : null;
 }
 
 String? rowString(Row row, String column) {
@@ -44,8 +53,10 @@ double? rowDouble(Row row, String column) {
 /// The components are round-tripped because `DateTime.utc` normalises
 /// rather than rejects: 30 February would otherwise become 1 March and the
 /// record would carry a date the logbook never held.
-DateTime? rowDate(Row row, String column) {
-  final raw = rowString(row, column);
+DateTime? rowDate(Row row, String column) =>
+    parseDivingLogDate(rowString(row, column));
+
+DateTime? parseDivingLogDate(String? raw) {
   if (raw == null) return null;
   final digits = raw.replaceAll(RegExp(r'[^0-9]'), '');
   if (digits.length < 8) return null;

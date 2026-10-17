@@ -4,9 +4,11 @@ import 'package:submersion/core/data/repositories/sync_repository.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/sync/event_scope_tombstone.dart';
 import 'package:submersion/core/services/sync/hlc.dart';
+import 'package:submersion/core/services/sync/sync_clock.dart';
 import 'package:submersion/core/services/sync/sync_event_bus.dart';
 import 'package:submersion/features/dive_log/data/repositories/dive_computer_merge_repository.dart';
 
+import '../../../../helpers/clock_expectations.dart';
 import '../../../../helpers/test_database.dart';
 
 void main() {
@@ -141,6 +143,26 @@ void main() {
             diveId: Value(diveId),
             timestamp: const Value(0),
             eventType: const Value('ascent'),
+            computerId: Value(computerId),
+            createdAt: const Value(1000),
+          ),
+        );
+  }
+
+  Future<void> insertGasSwitch(
+    String id, {
+    required String diveId,
+    required String tankId,
+    String? computerId,
+  }) async {
+    await db
+        .into(db.gasSwitches)
+        .insert(
+          GasSwitchesCompanion(
+            id: Value(id),
+            diveId: Value(diveId),
+            tankId: Value(tankId),
+            timestamp: const Value(0),
             computerId: Value(computerId),
             createdAt: const Value(1000),
           ),
@@ -381,6 +403,12 @@ void main() {
         await insertDataSource('ds1', diveId: 'd1', computerId: 'b');
         await insertTank('t1', diveId: 'd1', computerId: 'b');
         await insertProfileEvent('e1', diveId: 'd2', computerId: 'c');
+        await insertGasSwitch(
+          'g1',
+          diveId: 'd1',
+          tankId: 't1',
+          computerId: 'b',
+        );
         await insertQualityFinding('q1', diveId: 'd1', computerId: 'b');
         await insertProfileSeries('ps1', diveId: 'd1', computerId: 'b');
         await insertProfileSeries('ps2', diveId: 'd3', computerId: 'a');
@@ -404,6 +432,7 @@ void main() {
         expect(await computerIdsIn('dive_data_sources'), ['a']);
         expect(await computerIdsIn('dive_tanks'), ['a']);
         expect(await computerIdsIn('dive_profile_events'), ['a']);
+        expect(await computerIdsIn('gas_switches'), ['a']);
         expect(await computerIdsIn('quality_findings'), ['a']);
         expect(await computerIdsIn('dive_profile_series'), ['a', 'a']);
         expect(await computerIdsIn('tank_pressure_series'), ['a']);
@@ -730,4 +759,31 @@ void main() {
       expect(result.movedDiveCount, preview);
     });
   });
+
+  test(
+    're-pointed tanks and data sources carry a fresh clock (#2644)',
+    () async {
+      addTearDown(SyncClock.instance.reset);
+      await insertComputer(id: 'a');
+      await insertComputer(id: 'b', name: 'ssss');
+      await insertDive('d1', computerId: 'b');
+      await insertDataSource('ds1', diveId: 'd1', computerId: 'b');
+      await insertTank('t1', diveId: 'd1', computerId: 'b');
+      Future<String?> hlcOf(String table, String id) async =>
+          (await db
+                  .customSelect(
+                    'SELECT hlc FROM $table WHERE id = ?',
+                    variables: [Variable.withString(id)],
+                  )
+                  .getSingle())
+              .read<String?>('hlc');
+      final tankBefore = await hlcOf('dive_tanks', 't1');
+      final sourceBefore = await hlcOf('dive_data_sources', 'ds1');
+
+      await repository.mergeComputers(survivorId: 'a', duplicateIds: ['b']);
+
+      expectFresherClock(tankBefore, await hlcOf('dive_tanks', 't1'));
+      expectFresherClock(sourceBefore, await hlcOf('dive_data_sources', 'ds1'));
+    },
+  );
 }

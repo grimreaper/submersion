@@ -1,3 +1,4 @@
+import 'package:crypto/crypto.dart';
 import 'package:drift/drift.dart';
 import 'package:uuid/uuid.dart';
 
@@ -11,6 +12,7 @@ import 'package:submersion/features/dive_log/domain/codecs/profile_series_codec.
 import 'package:submersion/features/dive_log/domain/codecs/profile_series_codec_exception.dart';
 import 'package:submersion/features/dive_log/domain/codecs/profile_series_summary.dart';
 import 'package:submersion/features/dive_log/domain/entities/profile_series.dart';
+import 'package:submersion/features/dive_log/domain/entities/profile_series_revision.dart';
 import 'package:submersion/features/dive_log/domain/services/profile_sample_dedupe.dart';
 import 'package:submersion/features/dive_log/data/repositories/series_id_chunks.dart';
 
@@ -30,6 +32,7 @@ class ProfileSeriesRepository {
   static const String entityType = 'diveProfileSeries';
 
   static const ProfileSeriesCodec _codec = ProfileSeriesCodec();
+  static const String _historyTable = 'dive_profile_series_history';
 
   final AppDatabase? _database;
   AppDatabase get _db => _database ?? DatabaseService.instance.database;
@@ -42,19 +45,29 @@ class ProfileSeriesRepository {
   /// [samples] must be non-empty; any order, the repository sorts by
   /// timestamp (stable) and drops exact duplicates. Throws [ArgumentError]
   /// on an empty list. Returns the row id.
+  ///
+  /// [activatedAt], when absent, is [now] for a primary series and null for
+  /// a demoted one: a series inserted live is its source's newest chosen
+  /// generation. A caller copying an existing series passes the original's
+  /// value, null included, so the copies rank as the originals did even
+  /// where the copy's primary flag differs (issue #3189).
   Future<String> insertSeries({
     required String diveId,
     String? computerId,
     String? sourceId,
     bool isPrimary = true,
     required List<ProfileSample> samples,
+    String? parentSeriesId,
+    String revisionKind = 'create',
     String? id,
+    Value<int?> activatedAt = const Value.absent(),
     int? now,
   }) async {
     final encoded = _codec.encode(
       dedupeExactSamples(_sortedByTimestamp(samples)),
     );
     final summary = encoded.summary;
+    final contentHash = _seriesContentHash(encoded.bytes);
     final rowId = id ?? _uuid.v4();
     final nowMs = now ?? DateTime.now().millisecondsSinceEpoch;
     // One transaction, like every other mutator here: a row that commits
@@ -83,13 +96,228 @@ class ProfileSeriesRepository {
               samples: encoded.bytes,
               createdAt: nowMs,
               updatedAt: nowMs,
+              activatedAt: activatedAt.present
+                  ? activatedAt
+                  : Value(isPrimary ? nowMs : null),
             ),
           );
+      await _upsertHistoryNode(
+        seriesId: rowId,
+        diveId: diveId,
+        parentSeriesId: parentSeriesId,
+        contentHash: contentHash,
+        revisionKind: revisionKind,
+        createdAt: nowMs,
+      );
       await _markPending(rowId, nowMs);
     });
     SyncEventBus.notifyLocalChange();
     return rowId;
   }
+
+  /// The currently active primary series id for [diveId], or null when the
+  /// dive has no primary series.
+  Future<String?> primarySeriesIdForDive(String diveId) async {
+    final rows = await _db
+        .customSelect(
+          'SELECT id FROM dive_profile_series '
+          'WHERE dive_id = ? AND is_primary = 1 '
+          'ORDER BY start_timestamp DESC, id DESC LIMIT 1',
+          variables: [Variable<String>(diveId)],
+        )
+        .get();
+    return rows.isEmpty ? null : rows.first.read<String>('id');
+  }
+
+  /// The parent revision id of [seriesId], or null when this series is a root
+  /// revision.
+  Future<String?> parentSeriesIdOf(String seriesId) async {
+    final rows = await _db
+        .customSelect(
+          'SELECT parent_series_id FROM $_historyTable WHERE series_id = ? '
+          'LIMIT 1',
+          variables: [Variable<String>(seriesId)],
+        )
+        .get();
+    return rows.isEmpty ? null : rows.first.read<String?>('parent_series_id');
+  }
+
+  /// Every revision node of [diveId], newest first.
+  Future<List<ProfileSeriesRevision>> getRevisionsForDive(String diveId) async {
+    final rows = await _db
+        .customSelect(
+          'SELECT '
+          'h.series_id, h.dive_id, h.parent_series_id, h.root_series_id, '
+          'h.content_hash, h.revision_kind, h.created_at, '
+          'COALESCE(s.is_primary, 0) AS is_active, '
+          's.source_id, s.computer_id '
+          'FROM $_historyTable h '
+          'LEFT JOIN dive_profile_series s ON s.id = h.series_id '
+          'WHERE h.dive_id = ? '
+          'ORDER BY h.created_at DESC, h.series_id DESC',
+          variables: [Variable<String>(diveId)],
+        )
+        .get();
+    return [
+      for (final row in rows)
+        ProfileSeriesRevision(
+          seriesId: row.read<String>('series_id'),
+          diveId: row.read<String>('dive_id'),
+          parentSeriesId: row.read<String?>('parent_series_id'),
+          rootSeriesId: row.read<String>('root_series_id'),
+          contentHash: row.read<String>('content_hash'),
+          revisionKind: row.read<String>('revision_kind'),
+          createdAt: row.read<int>('created_at'),
+          isActive: row.read<int>('is_active') == 1,
+          sourceId: row.read<String?>('source_id'),
+          computerId: row.read<String?>('computer_id'),
+        ),
+    ];
+  }
+
+  /// Every revision node of [diveIds], keyed by dive id, newest first per dive.
+  ///
+  /// Dives without history rows are absent from the map.
+  Future<Map<String, List<ProfileSeriesRevision>>> getRevisionsForDives(
+    List<String> diveIds,
+  ) async {
+    if (diveIds.isEmpty) return const {};
+    final byDive = <String, List<ProfileSeriesRevision>>{};
+    for (final chunk in seriesIdChunks(diveIds)) {
+      final placeholders = List.filled(chunk.length, '?').join(', ');
+      final rows = await _db
+          .customSelect(
+            'SELECT '
+            'h.series_id, h.dive_id, h.parent_series_id, h.root_series_id, '
+            'h.content_hash, h.revision_kind, h.created_at, '
+            'COALESCE(s.is_primary, 0) AS is_active '
+            'FROM $_historyTable h '
+            'LEFT JOIN dive_profile_series s ON s.id = h.series_id '
+            'WHERE h.dive_id IN ($placeholders) '
+            'ORDER BY h.dive_id ASC, h.created_at DESC, h.series_id DESC',
+            variables: [for (final diveId in chunk) Variable<String>(diveId)],
+          )
+          .get();
+      for (final row in rows) {
+        final revision = ProfileSeriesRevision(
+          seriesId: row.read<String>('series_id'),
+          diveId: row.read<String>('dive_id'),
+          parentSeriesId: row.read<String?>('parent_series_id'),
+          rootSeriesId: row.read<String>('root_series_id'),
+          contentHash: row.read<String>('content_hash'),
+          revisionKind: row.read<String>('revision_kind'),
+          createdAt: row.read<int>('created_at'),
+          isActive: row.read<int>('is_active') == 1,
+        );
+        byDive.putIfAbsent(revision.diveId, () => []).add(revision);
+      }
+    }
+    return byDive;
+  }
+
+  /// Makes one existing series, with its segment siblings, the active
+  /// primary profile of [diveId].
+  ///
+  /// A live profile can span several series: one recording split over
+  /// disjoint time ranges (a merged split dive) is promoted as a set by
+  /// [promoteWinnerOwnedBy]. An edit replaces that whole set but its history
+  /// row names a single parent, so activating the parent also brings back
+  /// every series from the same recording (same source and computer) that
+  /// overlaps neither the target nor another sibling already chosen.
+  ///
+  /// No profile blob is copied: this only flips `is_primary` flags and stamps
+  /// changed rows pending for sync.
+  Future<void> activateSeriesForDive({
+    required String diveId,
+    required String seriesId,
+    int? now,
+  }) async {
+    final nowMs = now ?? DateTime.now().millisecondsSinceEpoch;
+    var changed = false;
+    await _db.transaction(() async {
+      // Read inside the transaction so a concurrent delete or sync cannot
+      // leave the dive with no primary series.
+      final target =
+          await (_db.select(_db.diveProfileSeries)
+                ..where((t) => t.id.equals(seriesId) & t.diveId.equals(diveId)))
+              .getSingleOrNull();
+      if (target == null) return;
+      changed = true;
+
+      final rows =
+          await (_db.select(_db.diveProfileSeries)
+                ..where((t) => t.diveId.equals(diveId))
+                ..orderBy([(t) => OrderingTerm.asc(t.startTimestamp)]))
+              .get();
+      final live = <DiveProfileSeriesRow>[target];
+      for (final row in rows) {
+        if (row.id == target.id ||
+            row.sourceId != target.sourceId ||
+            row.computerId != target.computerId) {
+          continue;
+        }
+        final overlaps = live.any(
+          (chosen) =>
+              row.startTimestamp <= chosen.endTimestamp &&
+              chosen.startTimestamp <= row.endTimestamp,
+        );
+        if (!overlaps) live.add(row);
+      }
+      final liveIds = {for (final row in live) row.id};
+      final toDemote = [
+        for (final r in rows)
+          if (r.isPrimary && !liveIds.contains(r.id)) r.id,
+      ];
+      final toPromote = [
+        for (final r in live)
+          if (!r.isPrimary) r.id,
+      ];
+
+      if (toDemote.isNotEmpty) {
+        await (_db.update(
+          _db.diveProfileSeries,
+        )..where((t) => t.id.isIn(toDemote))).write(
+          DiveProfileSeriesCompanion(
+            isPrimary: const Value(false),
+            updatedAt: Value(nowMs),
+          ),
+        );
+        for (final id in toDemote) {
+          await _markPending(id, nowMs);
+        }
+      }
+
+      // A series made live by choice is its source's newest chosen
+      // generation, so a later primary swap back to the source promotes it
+      // over a newer edit it was chosen over (issue #3189).
+      if (toPromote.isNotEmpty) {
+        await (_db.update(
+          _db.diveProfileSeries,
+        )..where((t) => t.id.isIn(toPromote))).write(
+          DiveProfileSeriesCompanion(
+            isPrimary: const Value(true),
+            updatedAt: Value(nowMs),
+            activatedAt: Value(nowMs),
+          ),
+        );
+        for (final id in toPromote) {
+          await _markPending(id, nowMs);
+        }
+      }
+    });
+    if (changed) SyncEventBus.notifyLocalChange();
+  }
+
+  /// Deletes [seriesId] when it is a demoted manual edit (no computer), the
+  /// state a profile undo leaves the edit it reverted. A computer series or
+  /// a series that is live again is never touched. One tombstone; the
+  /// history row goes with it by cascade.
+  Future<List<String>> deleteUndoneEdit(String seriesId) => _delete(
+    (t) =>
+        t.id.equals(seriesId) &
+        t.computerId.isNull() &
+        t.isPrimary.equals(false),
+  );
 
   /// Timestamp order, ties in input order. Every writer hands over whatever
   /// order it has; the codec and every reader assume ascending timestamps.
@@ -251,10 +479,16 @@ class ProfileSeriesRepository {
   /// nothing else the source owns supersedes. Returns the promoted ids,
   /// empty when the source owns nothing.
   ///
-  /// Ranking: the null-computer series first (a manual edit is the live
-  /// version of its source's samples, the rule `restoreOriginalProfile`
-  /// encodes), then the greatest id. Both halves are derived from synced
-  /// values, so every device resolves the same winners.
+  /// Ranking: the most recently activated series first (`activated_at`, set
+  /// when a series is inserted live or chosen from history), then the
+  /// null-computer series (a manual edit is the live version of its source's
+  /// samples, the rule `restoreOriginalProfile` encodes), then the greatest
+  /// id. Every key is a synced value, so every device resolves the same
+  /// winners. `liveSeriesOf` applies the same ranking on read.
+  ///
+  /// The activation key comes first because the computer key cannot tell a
+  /// file import's original from its edit (neither names a computer), nor
+  /// one edit from the next, and the id is a random UUID (issue #3189).
   ///
   /// A lower-ranked series is superseded only where it overlaps a winner in
   /// time. `saveEditedProfile` does not replace what it supersedes: it
@@ -286,6 +520,11 @@ class ProfileSeriesRepository {
                     _ownedBy(t, sourceId: sourceId, computerId: computerId),
               )
               ..orderBy([
+                (t) => OrderingTerm(
+                  expression: t.activatedAt,
+                  mode: OrderingMode.desc,
+                  nulls: NullsOrder.last,
+                ),
                 (t) => OrderingTerm.desc(t.computerId.isNull()),
                 (t) => OrderingTerm.desc(t.id),
               ]))
@@ -374,17 +613,44 @@ class ProfileSeriesRepository {
     return (count.read(_db.diveProfileSeries.id.count()) ?? 0) > 0;
   }
 
+  ///
+  /// Stamps `activated_at` like [activateSeriesForDive]: the restore chose
+  /// these series, so a later swap must not rank an older edit above them.
   Future<int> promoteByComputer(String diveId, String computerId, {int? now}) =>
       _setPrimary(
         (t) => t.diveId.equals(diveId) & t.computerId.equals(computerId),
         value: true,
+        activate: true,
         now: now,
       );
 
   /// Sets `is_primary` on every series of [diveId]. The single-computer
   /// branch of a profile restore, where nothing else can be the live series.
-  Future<int> promoteAll(String diveId, {int? now}) =>
-      _setPrimary((t) => t.diveId.equals(diveId), value: true, now: now);
+  /// Stamps `activated_at`, as [promoteByComputer] does.
+  Future<int> promoteAll(String diveId, {int? now}) => _setPrimary(
+    (t) => t.diveId.equals(diveId),
+    value: true,
+    activate: true,
+    now: now,
+  );
+
+  /// True when [sourceId] owns a live manual edit of [diveId]: a primary
+  /// series with no computer. An unattributed series never counts: a merge's
+  /// synthetic surface fill has that shape too, and is no edit.
+  Future<bool> hasLiveEdit(String diveId, {required String sourceId}) async {
+    final rows =
+        await (_db.selectOnly(_db.diveProfileSeries)
+              ..addColumns([_db.diveProfileSeries.id])
+              ..where(
+                _db.diveProfileSeries.diveId.equals(diveId) &
+                    _db.diveProfileSeries.isPrimary.equals(true) &
+                    _db.diveProfileSeries.computerId.isNull() &
+                    _db.diveProfileSeries.sourceId.equals(sourceId),
+              )
+              ..limit(1))
+            .get();
+    return rows.isNotEmpty;
+  }
 
   /// Stamps [sourceId] on every series of [diveId] that has no source yet
   /// (the first `dive_data_sources` row of a dive adopts the unattributed
@@ -457,6 +723,7 @@ class ProfileSeriesRepository {
     Expression<bool> Function($DiveProfileSeriesTable t) where, {
     required bool value,
     required int? now,
+    bool activate = false,
   }) async {
     final nowMs = now ?? DateTime.now().millisecondsSinceEpoch;
     final ids = await _ids(where);
@@ -466,6 +733,7 @@ class ProfileSeriesRepository {
       DiveProfileSeriesCompanion(
         isPrimary: Value(value),
         updatedAt: Value(nowMs),
+        activatedAt: activate ? Value(nowMs) : const Value.absent(),
       ),
       nowMs,
     );
@@ -867,6 +1135,49 @@ class ProfileSeriesRepository {
         localUpdatedAt: nowMs,
       );
 
+  String _seriesContentHash(List<int> bytes) =>
+      sha256.convert(bytes).toString();
+
+  Future<void> _upsertHistoryNode({
+    required String seriesId,
+    required String diveId,
+    required String? parentSeriesId,
+    required String contentHash,
+    required String revisionKind,
+    required int createdAt,
+  }) async {
+    final rootSeriesId = parentSeriesId == null
+        ? seriesId
+        : await _rootSeriesIdOf(parentSeriesId) ?? parentSeriesId;
+
+    await _db.customStatement(
+      'INSERT OR IGNORE INTO $_historyTable '
+      '(series_id, dive_id, parent_series_id, root_series_id, '
+      'content_hash, revision_kind, created_at) '
+      'VALUES (?, ?, ?, ?, ?, ?, ?)',
+      [
+        seriesId,
+        diveId,
+        parentSeriesId,
+        rootSeriesId,
+        contentHash,
+        revisionKind,
+        createdAt,
+      ],
+    );
+  }
+
+  Future<String?> _rootSeriesIdOf(String seriesId) async {
+    final rows = await _db
+        .customSelect(
+          'SELECT root_series_id FROM $_historyTable '
+          'WHERE series_id = ? LIMIT 1',
+          variables: [Variable<String>(seriesId)],
+        )
+        .get();
+    return rows.isEmpty ? null : rows.first.read<String>('root_series_id');
+  }
+
   /// Decodes one row, or returns null when its blob does not decode.
   ///
   /// One unreadable blob (a decode failure the writer never should have let
@@ -904,6 +1215,7 @@ class ProfileSeriesRepository {
       createdAt: row.createdAt,
       updatedAt: row.updatedAt,
       hlc: row.hlc,
+      activatedAt: row.activatedAt,
     );
   }
 }

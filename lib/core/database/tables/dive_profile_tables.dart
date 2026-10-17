@@ -326,6 +326,13 @@ class DiveProfileSeries extends Table {
   /// Hybrid Logical Clock for cross-device conflict resolution.
   TextColumn get hlc => text().nullable()();
 
+  /// v283: epoch ms when this series last became the live generation of its
+  /// source by a write or a choice: inserted as primary (a download, an
+  /// import, an edit) or activated from profile history. Null for a series
+  /// that never was. A primary swap promotes the most recently activated
+  /// generation a source owns (issue #3189).
+  IntColumn get activatedAt => integer().nullable()();
+
   @override
   Set<Column> get primaryKey => {id};
   // coverage:ignore-end
@@ -348,6 +355,16 @@ class TankPressureSeries extends Table {
       text().references(DiveTanks, #id, onDelete: KeyAction.cascade)();
   TextColumn get computerId => text().nullable().references(
     DiveComputers,
+    #id,
+    onDelete: KeyAction.setNull,
+  )();
+
+  /// The data source whose recording this series is (v241, issue #2440).
+  /// Two file-imported sources both carry a null [computerId], so without
+  /// this their series of one cylinder cannot be told apart. Null on a
+  /// series whose source could not be determined.
+  TextColumn get sourceId => text().nullable().references(
+    DiveDataSources,
     #id,
     onDelete: KeyAction.setNull,
   )();

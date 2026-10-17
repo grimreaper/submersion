@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' show Variable;
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 
+import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/database.dart';
 
 /// v244 adds the DPV mission tables (issue #2086): dive_plan_missions,
@@ -59,14 +60,18 @@ Future<String?> _ddl(AppDatabase db, String table) async {
 }
 
 void main() {
-  test('v244 is the current schema version and is in the ladder', () {
-    // The newest rung owns the exact assertion; relax it to
-    // greaterThanOrEqualTo when the next one lands.
-    expect(AppDatabase.currentSchemaVersion, 244);
+  test('v244 is at or below the current schema version and in the ladder', () {
+    // Relaxed once v245 (certifications buddy index) landed on top; the
+    // newest rung owns the exact assertion.
+    expect(AppDatabase.currentSchemaVersion, greaterThanOrEqualTo(244));
     expect(AppDatabase.migrationVersions, contains(244));
-    expect(AppDatabase.migrationStepCount(242), 1);
+    expect(AppDatabase.migrationStepCount(242), greaterThanOrEqualTo(1));
     // Table-only rung: the sync compatibility floor must not move.
-    expect(AppDatabase.minimumCompatibleSchemaVersion, 240);
+    // v275 raised the floor later (#3091); this rung did not move it.
+    expect(
+      AppDatabase.minimumCompatibleSchemaVersion,
+      greaterThanOrEqualTo(240),
+    );
   });
 
   test('a database from a v240 build gains the three tables', () async {
@@ -133,7 +138,9 @@ void main() {
   });
 
   test('every table references its plan, and a plan has one mission', () async {
-    final db = AppDatabase(NativeDatabase.memory());
+    final db = AppDatabase(
+      NativeDatabase.memory(setup: registerAppSqlFunctions),
+    );
     addTearDown(db.close);
 
     for (final table in _tables) {
@@ -158,7 +165,9 @@ void main() {
   test('a fresh database matches the upgraded one', () async {
     final upgraded = AppDatabase(_fixture(userVersion: 240));
     addTearDown(upgraded.close);
-    final fresh = AppDatabase(NativeDatabase.memory());
+    final fresh = AppDatabase(
+      NativeDatabase.memory(setup: registerAppSqlFunctions),
+    );
     addTearDown(fresh.close);
 
     for (final table in _tables) {

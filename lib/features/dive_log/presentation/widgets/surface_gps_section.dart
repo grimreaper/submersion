@@ -4,6 +4,7 @@ import 'package:flutter_map/flutter_map.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'package:submersion/core/router/track_locations.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/utils/geo_math.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
@@ -24,8 +25,17 @@ import 'package:submersion/l10n/l10n_extension.dart';
 const double _kFocusZoom = 16.0;
 const double _kMapHeight = 180.0;
 
-/// The dive detail "Surface GPS" section: an interactive map of the entry/exit
-/// GPS fixes and the associated dive site, plus copyable coordinate rows.
+/// The dive detail location section: a map of the entry/exit GPS fixes and
+/// the associated dive site, plus copyable coordinate rows.
+///
+/// The inline map is locked: it sits in the scrolling detail pane, and a map
+/// that takes gestures there catches the mouse wheel, trackpad or drag the
+/// moment it scrolls under the pointer (issue #3156). Tapping a coordinate row
+/// still recenters it, and the fullscreen button opens an interactive copy.
+///
+/// Titled "Surface GPS" when the dive has a GPS fix. A dive with no fix but a
+/// site with coordinates gets the same card titled "Location", mapping the
+/// site alone (issue #402).
 class SurfaceGpsSection extends ConsumerStatefulWidget {
   const SurfaceGpsSection({
     super.key,
@@ -62,7 +72,7 @@ class _SurfaceGpsSectionState extends ConsumerState<SurfaceGpsSection> {
     );
   }
 
-  void _openFullscreen(BuildContext context) {
+  void _openFullscreen(BuildContext context, List<TrackRun>? runs) {
     Navigator.of(context, rootNavigator: true).push(
       MaterialPageRoute<void>(
         builder: (_) => DiveLocationsMapPage(
@@ -70,6 +80,7 @@ class _SurfaceGpsSectionState extends ConsumerState<SurfaceGpsSection> {
           entry: widget.dive.entryLocation,
           exit: widget.dive.exitLocation,
           site: widget.dive.site?.location,
+          trackRuns: runs,
         ),
       ),
     );
@@ -91,14 +102,19 @@ class _SurfaceGpsSectionState extends ConsumerState<SurfaceGpsSection> {
       driftText = '${units.formatDistance(dist)} · ${formatBearing(bearing)}';
     }
 
+    final hasGps = entry != null || exit != null;
     final collapsedSubtitle = driftText != null
         ? '${context.l10n.diveLog_detail_label_drift}: $driftText'
-        : (entry != null
-              ? context.l10n.diveLog_detail_surfaceGps_entryOnly
-              : context.l10n.diveLog_detail_surfaceGps_exitOnly);
+        : entry != null
+        ? context.l10n.diveLog_detail_surfaceGps_entryOnly
+        : exit != null
+        ? context.l10n.diveLog_detail_surfaceGps_exitOnly
+        : dive.site?.name;
 
     return CollapsibleCardSection(
-      title: context.l10n.diveLog_detail_section_surfaceGps,
+      title: hasGps
+          ? context.l10n.diveLog_detail_section_surfaceGps
+          : context.l10n.diveLog_detail_section_location,
       icon: Icons.my_location,
       collapsedSubtitle: collapsedSubtitle,
       isExpanded: isExpanded,
@@ -175,7 +191,6 @@ class _SurfaceGpsSectionState extends ConsumerState<SurfaceGpsSection> {
                       entry: entry,
                       exit: exit,
                       site: site,
-                      interactive: true,
                       controller: _controller,
                       trackRuns: runs,
                       fitToTrack: runs != null && runs.isNotEmpty,
@@ -192,7 +207,7 @@ class _SurfaceGpsSectionState extends ConsumerState<SurfaceGpsSection> {
                         key: const ValueKey('gps-expand'),
                         icon: const Icon(Icons.fullscreen),
                         tooltip: context.l10n.diveLog_detail_locationsMap_title,
-                        onPressed: () => _openFullscreen(context),
+                        onPressed: () => _openFullscreen(context, runs),
                       ),
                     ),
                   ),
@@ -270,7 +285,7 @@ class _SurfaceGpsSectionState extends ConsumerState<SurfaceGpsSection> {
                   Expanded(
                     child: InkWell(
                       key: const ValueKey('gps-track-link'),
-                      onTap: () => context.push('/gps-log/${track.id}'),
+                      onTap: () => context.push(gpsTrackLocation(track.id)),
                       child: Text(
                         '${l10n.diveLog_detail_surfaceGps_track}: '
                         // This provider hydrates points, so the trimmed count

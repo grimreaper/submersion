@@ -20,6 +20,7 @@ class ProfileSeries extends Equatable {
     required this.createdAt,
     required this.updatedAt,
     this.hlc,
+    this.activatedAt,
   });
 
   final String id;
@@ -33,6 +34,10 @@ class ProfileSeries extends Equatable {
   final int createdAt;
   final int updatedAt;
   final String? hlc;
+
+  /// Epoch ms when this series last became the live generation of its
+  /// source, or null when it never was (issue #3189).
+  final int? activatedAt;
 
   /// The samples as the chart and analysis pipeline consume them.
   List<DiveProfilePoint> get points => [
@@ -54,6 +59,8 @@ class ProfileSeries extends Equatable {
     int? updatedAt,
     String? hlc,
     bool clearHlc = false,
+    int? activatedAt,
+    bool clearActivatedAt = false,
   }) {
     return ProfileSeries(
       id: id ?? this.id,
@@ -67,6 +74,7 @@ class ProfileSeries extends Equatable {
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
       hlc: clearHlc ? null : (hlc ?? this.hlc),
+      activatedAt: clearActivatedAt ? null : (activatedAt ?? this.activatedAt),
     );
   }
 
@@ -83,6 +91,7 @@ class ProfileSeries extends Equatable {
     createdAt,
     updatedAt,
     hlc,
+    activatedAt,
   ];
 }
 
@@ -96,6 +105,7 @@ class TankPressureSeries extends Equatable {
     required this.diveId,
     required this.tankId,
     this.computerId,
+    this.sourceId,
     required this.summary,
     required this.samples,
     required this.codecVersion,
@@ -108,6 +118,10 @@ class TankPressureSeries extends Equatable {
   final String diveId;
   final String tankId;
   final String? computerId;
+
+  /// The data source whose recording this is (issue #2440), or null when
+  /// it could not be determined.
+  final String? sourceId;
   final TankPressureSeriesSummary summary;
   final List<TankPressureSample> samples;
   final int codecVersion;
@@ -121,6 +135,8 @@ class TankPressureSeries extends Equatable {
     String? tankId,
     String? computerId,
     bool clearComputerId = false,
+    String? sourceId,
+    bool clearSourceId = false,
     TankPressureSeriesSummary? summary,
     List<TankPressureSample>? samples,
     int? codecVersion,
@@ -134,6 +150,7 @@ class TankPressureSeries extends Equatable {
       diveId: diveId ?? this.diveId,
       tankId: tankId ?? this.tankId,
       computerId: clearComputerId ? null : (computerId ?? this.computerId),
+      sourceId: clearSourceId ? null : (sourceId ?? this.sourceId),
       summary: summary ?? this.summary,
       samples: samples ?? this.samples,
       codecVersion: codecVersion ?? this.codecVersion,
@@ -149,6 +166,7 @@ class TankPressureSeries extends Equatable {
     diveId,
     tankId,
     computerId,
+    sourceId,
     summary,
     samples,
     codecVersion,

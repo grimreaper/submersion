@@ -25,7 +25,7 @@ enum NavTrackSource {
   };
 
   /// The device or brand name, shown inside localized text (the 3D
-  /// caption's "Recorded route ({source})"). Product names are not
+  /// caption's "Recorded track ({source})"). Product names are not
   /// translated, so this carries no other words.
   String get label => switch (this) {
     NavTrackSource.seacraftEnc => 'Seacraft ENC',
@@ -142,6 +142,12 @@ class NavTrack extends Equatable {
   /// Clockwise rotation in degrees.
   final double headingOffsetDeg;
 
+  /// Fields the source exported about the recording that nothing reads
+  /// yet, kept as-is under the export's own names (`nav_tracks.
+  /// source_metadata`, issue #3047): a Suunto route's `DiveRouteQuality`
+  /// and `QualityFeatures`. Null when the source carried none.
+  final Map<String, Object?>? sourceMetadata;
+
   /// Hydrated on demand; empty on a list row.
   final List<NavTrackPoint> points;
 
@@ -176,10 +182,15 @@ class NavTrack extends Equatable {
     this.endLongitude,
     this.trustFraction = 0,
     this.headingOffsetDeg = 0,
+    this.sourceMetadata,
     this.points = const [],
     required this.createdAt,
     required this.updatedAt,
   });
+
+  /// What a list row or picker calls this route: its own name, else the
+  /// file it was imported from, else its id.
+  String get displayName => name ?? sourceRef ?? id;
 
   /// Where the route's local origin sits on the map, or null until the
   /// diver sets one.
@@ -230,6 +241,7 @@ class NavTrack extends Equatable {
     double? endLongitude,
     double? trustFraction,
     double? headingOffsetDeg,
+    Map<String, Object?>? sourceMetadata,
     List<NavTrackPoint>? points,
     DateTime? createdAt,
     DateTime? updatedAt,
@@ -262,6 +274,7 @@ class NavTrack extends Equatable {
       endLongitude: endLongitude ?? this.endLongitude,
       trustFraction: trustFraction ?? this.trustFraction,
       headingOffsetDeg: headingOffsetDeg ?? this.headingOffsetDeg,
+      sourceMetadata: sourceMetadata ?? this.sourceMetadata,
       points: points ?? this.points,
       createdAt: createdAt ?? this.createdAt,
       updatedAt: updatedAt ?? this.updatedAt,
@@ -297,6 +310,7 @@ class NavTrack extends Equatable {
     endLongitude,
     trustFraction,
     headingOffsetDeg,
+    sourceMetadata,
     points,
     createdAt,
     updatedAt,

@@ -4,6 +4,7 @@ import 'dart:typed_data';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:libdivecomputer_plugin/libdivecomputer_plugin.dart' as pigeon;
+import 'package:path/path.dart' as p;
 
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/universal_import/data/models/import_enums.dart';
@@ -21,13 +22,12 @@ void main() {
   late Uint8List bytes;
 
   setUpAll(() async {
-    final path =
-        '${Directory.systemTemp.path}/mdm_${DateTime.now().microsecondsSinceEpoch}.sqlite';
-    final file = buildSyntheticMacDiveDb(path);
-    bytes = Uint8List.fromList(await file.readAsBytes());
+    final dir = Directory.systemTemp.createTempSync('mdm_');
     addTearDown(() {
-      if (file.existsSync()) file.deleteSync();
+      if (dir.existsSync()) dir.deleteSync(recursive: true);
     });
+    final file = buildSyntheticMacDiveDb(p.join(dir.path, 'mdm.sqlite'));
+    bytes = Uint8List.fromList(await file.readAsBytes());
   });
 
   group('MacDiveDiveMapper', () {
@@ -357,6 +357,20 @@ void main() {
       final gasMix = tank['gasMix'] as GasMix;
       expect(gasMix.o2, closeTo(32.0, 0.01));
       expect(gasMix.he, closeTo(0.0, 0.01));
+      // #1496: ZTANKANDGAS.ZDURATION is how long the tank was breathed, under
+      // the key _buildTanks reads. `runtime` is the dive's key, not a tank's.
+      expect(tank['usageDuration'], const Duration(seconds: 2400));
+      expect(tank.containsKey('runtime'), isFalse);
+    });
+
+    test('a tank with no ZDURATION carries no usage duration', () async {
+      final logbook = await MacDiveDbReader.readAll(bytes);
+      final payload = await MacDiveDiveMapper.toPayload(logbook);
+      final dive2 = payload
+          .entitiesOf(ImportEntityType.dives)
+          .firstWhere((d) => d['sourceUuid'] == 'dive-uuid-2');
+      final tank = (dive2['tanks'] as List).single as Map<String, dynamic>;
+      expect(tank.containsKey('usageDuration'), isFalse);
     });
 
     test('sites: saltwater/freshwater mapped to enum names', () async {
@@ -445,6 +459,42 @@ void main() {
       ]);
       expect(payload.warnings, isEmpty);
     });
+
+    test('a deco dive keeps its gas switch from the raw download', () async {
+      final payload = await MacDiveDiveMapper.toPayload(
+        _decoDiveLogbook(),
+        fetchDescriptors: _fakeDescriptors,
+        parseRaw: (v, p, m, d) async => _decoParsedDive(),
+      );
+
+      final dive = payload.entitiesOf(ImportEntityType.dives).single;
+      expect(dive['gasSwitches'], [
+        {'timestamp': 1800, 'depth': 21.0, 'tankIndex': 1},
+      ]);
+      // MacDive's own tank list is kept as it is.
+      final tanks = dive['tanks'] as List<Map<String, dynamic>>;
+      expect(tanks, hasLength(2));
+      expect(tanks[1]['name'], 'AL40');
+    });
+
+    test(
+      'a switch to a gas MacDive did not list gets its own cylinder',
+      () async {
+        final payload = await MacDiveDiveMapper.toPayload(
+          _decoDiveLogbook(listDecoGas: false),
+          fetchDescriptors: _fakeDescriptors,
+          parseRaw: (v, p, m, d) async => _decoParsedDive(),
+        );
+
+        final dive = payload.entitiesOf(ImportEntityType.dives).single;
+        final tanks = dive['tanks'] as List<Map<String, dynamic>>;
+        expect(tanks, hasLength(2));
+        expect(tanks[1]['gasMix'], const GasMix(o2: 50.0));
+        expect(dive['gasSwitches'], [
+          {'timestamp': 1800, 'depth': 21.0, 'tankIndex': 1},
+        ]);
+      },
+    );
 
     test(
       'Suunto EON Steel Black ZRAWDATA is passed through unmodified',
@@ -766,6 +816,22 @@ void main() {
         final dive = payload.entitiesOf(ImportEntityType.dives).single;
         // 17:05Z is 10:05 PDT, the time MacDive shows for this dive.
         expect(dive['dateTime'], DateTime.utc(2024, 7, 1, 10, 5));
+      });
+
+      test('keeps the seconds through the zone conversion (#2509)', () async {
+        // The reader has already put back the seconds ZIDENTIFIER keeps.
+        final payload = await MacDiveDiveMapper.toPayload(
+          _singleDiveLogbook(
+            MacDiveRawDive(
+              pk: 1,
+              uuid: 'dive-1',
+              rawDate: DateTime.utc(2024, 7, 1, 17, 5, 17),
+              timezoneBplist: losAngelesBplist,
+            ),
+          ),
+        );
+        final dive = payload.entitiesOf(ImportEntityType.dives).single;
+        expect(dive['dateTime'], DateTime.utc(2024, 7, 1, 10, 5, 17));
       });
 
       test('a dive with no ZTIMEZONE uses the zone of its site', () async {
@@ -1757,7 +1823,10 @@ MacDiveRawLogbook _multiDiverLogbook({bool singleDiver = false}) {
   );
 }
 
-pigeon.ParsedDive _parsedDive({required List<pigeon.ProfileSample> samples}) {
+pigeon.ParsedDive _parsedDive({
+  required List<pigeon.ProfileSample> samples,
+  List<pigeon.GasMix> gasMixes = const [],
+}) {
   return pigeon.ParsedDive(
     fingerprint: 'fp',
     dateTimeYear: 2026,
@@ -1771,10 +1840,65 @@ pigeon.ParsedDive _parsedDive({required List<pigeon.ProfileSample> samples}) {
     durationSeconds: 3100,
     samples: samples,
     tanks: [],
-    gasMixes: [],
+    gasMixes: gasMixes,
     events: [],
   );
 }
+
+/// One Shearwater dive with a raw download whose MacDive tank list holds the
+/// trimix back gas and, unless [listDecoGas] is false, the EAN50 deco gas.
+MacDiveRawLogbook _decoDiveLogbook({bool listDecoGas = true}) {
+  return MacDiveRawLogbook(
+    dives: [
+      MacDiveRawDive(
+        pk: 1,
+        uuid: 'deco-dive',
+        computer: 'Shearwater Teric',
+        rawDataBlob: _compressedFixture,
+      ),
+    ],
+    sitesByPk: const {},
+    buddiesByPk: const {},
+    tagsByPk: const {},
+    gearByPk: const {},
+    tanksByPk: const {
+      1: MacDiveRawTank(pk: 1, uuid: 'tank-1', name: 'D12'),
+      2: MacDiveRawTank(pk: 2, uuid: 'tank-2', name: 'AL40'),
+    },
+    gasesByPk: const {
+      1: MacDiveRawGas(pk: 1, uuid: 'gas-1', oxygen: 21.0, helium: 35.0),
+      2: MacDiveRawGas(pk: 2, uuid: 'gas-2', oxygen: 50.0, helium: 0.0),
+    },
+    tankAndGases: [
+      const MacDiveRawTankAndGas(diveFk: 1, tankFk: 1, gasFk: 1),
+      if (listDecoGas)
+        const MacDiveRawTankAndGas(diveFk: 1, tankFk: 2, gasFk: 2, order: 1),
+    ],
+    crittersByPk: const {},
+    certifications: const [],
+    serviceRecords: const [],
+    events: const [],
+    diveToBuddyPks: const {},
+    diveToTagPks: const {},
+    diveToGearPks: const {},
+    diveToCritterPks: const {},
+    unitsPreference: 'Metric',
+  );
+}
+
+/// A deco dive's raw parse: trimix 21/35 to depth, EAN50 from 21 m.
+pigeon.ParsedDive _decoParsedDive() => _parsedDive(
+  gasMixes: [
+    pigeon.GasMix(index: 0, o2Percent: 21.0, hePercent: 35.0),
+    pigeon.GasMix(index: 1, o2Percent: 50.0, hePercent: 0.0),
+  ],
+  samples: [
+    pigeon.ProfileSample(timeSeconds: 0, depthMeters: 0.0, gasMixIndex: 0),
+    pigeon.ProfileSample(timeSeconds: 900, depthMeters: 25.4, gasMixIndex: 0),
+    pigeon.ProfileSample(timeSeconds: 1800, depthMeters: 21.0, gasMixIndex: 1),
+    pigeon.ProfileSample(timeSeconds: 3100, depthMeters: 0.0, gasMixIndex: 1),
+  ],
+);
 
 /// One dive whose only interesting column is `ZSURFACEINTERVAL`.
 MacDiveRawLogbook _surfaceIntervalLogbook(double surfaceInterval) {

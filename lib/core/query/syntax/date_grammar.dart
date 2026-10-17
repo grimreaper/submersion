@@ -1,6 +1,5 @@
-/// Copied from Explore's time grammar (`lib/features/explore/domain/
-/// time_grammar.dart` on the Explore branch); PR 5 of #2365 deletes that
-/// copy once both land on main.
+/// The date phrases the typed language and Explore's sentences share
+/// (#2365).
 ///
 /// A small deterministic grammar over the words a diver types for a period
 /// (`2025`, `2025-03`, `2025-03-14`, `last 90 days`, `since 2024`, ...).
@@ -36,6 +35,10 @@ const Map<String, int> _months = {
   'december': 12,
   'dec': 12,
 };
+
+/// The month (1 to 12) an English [word] names, in full or abbreviated as
+/// the grammar reads it, or null.
+int? monthOfWord(String word) => _months[word.toLowerCase()];
 
 final RegExp _year = RegExp(r'^(\d{4})$');
 final RegExp _isoMonth = RegExp(r'^(\d{4})-(\d{2})$');

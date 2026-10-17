@@ -1,6 +1,8 @@
 import 'package:submersion/core/providers/provider.dart';
 
+import 'package:submersion/features/dive_computer/domain/entities/dive_computer_connection.dart';
 import 'package:submersion/features/dive_computer/domain/services/dive_computer_merge_rules.dart';
+import 'package:submersion/features/dive_computer/presentation/providers/dive_computer_connection_providers.dart';
 import 'package:submersion/features/dive_computer/presentation/providers/clock_sync_providers.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/dive_log/data/repositories/dive_computer_merge_repository.dart';
@@ -32,17 +34,32 @@ final allDiveComputersProvider = FutureProvider<List<DiveComputer>>((
   return repository.getAllComputers(diverId: validatedDiverId);
 });
 
-/// Lookup map of saved dive computers keyed by Bluetooth address.
+/// Lookup map of saved dive computers keyed by the address this device
+/// reaches them at.
 ///
 /// Used by the discovery wizard to show serial number and firmware version
-/// for previously-downloaded devices during scan and confirm steps.
+/// for previously-downloaded devices during scan and confirm steps. Holds
+/// the legacy `bluetoothAddress` and every direct connection's local address
+/// (issue #3106), so a computer saved over USB is recognized by its port.
 final savedComputersByAddressProvider =
     FutureProvider<Map<String, DiveComputer>>((ref) async {
       final computers = await ref.watch(allDiveComputersProvider.future);
+      // A failed connections read degrades to the legacy addresses rather
+      // than hiding every saved computer from the scan.
+      final connections = await ref
+          .watch(allDiveComputerConnectionsProvider.future)
+          .catchError(
+            (Object _) => const <String, List<DiveComputerConnection>>{},
+          );
       final map = <String, DiveComputer>{};
       for (final computer in computers) {
         if (computer.bluetoothAddress != null) {
           map[computer.bluetoothAddress!] = computer;
+        }
+        for (final connection in connections[computer.id] ?? const []) {
+          if (connection.reachableHere) {
+            map[connection.address!.trim()] = computer;
+          }
         }
       }
       return map;
@@ -91,68 +108,6 @@ final computersForDiveProvider =
         ref.watch(diveRepositoryProvider).watchDiveDetailChanges(),
       );
       return repository.getComputersForDive(diveId);
-    });
-
-/// Get the primary computer ID for a dive.
-///
-/// Takes the dive DETAIL tick, not the computers tick: this reads the per-dive
-/// `dive_data_sources` rows, so it goes stale when a download or a sync adds a
-/// source to the dive, not when the computer registry changes.
-final primaryComputerIdProvider = FutureProvider.family<String?, String>((
-  ref,
-  diveId,
-) async {
-  final repository = ref.watch(diveComputerRepositoryProvider);
-  ref.invalidateSelfWhen(
-    ref.watch(diveRepositoryProvider).watchDiveDetailChanges(),
-  );
-  return repository.getPrimaryComputerId(diveId);
-});
-
-/// State notifier for selected computer on dive detail view
-class SelectedComputerNotifier extends StateNotifier<String?> {
-  final DiveComputerRepository _repository;
-  final String _diveId;
-
-  SelectedComputerNotifier(this._repository, this._diveId) : super(null) {
-    logFailure(
-      _loadPrimaryComputer(),
-      SelectedComputerNotifier,
-      'load primary computer',
-    );
-  }
-
-  Future<void> _loadPrimaryComputer() async {
-    final primaryId = await _repository.getPrimaryComputerId(_diveId);
-    if (primaryId != null) {
-      state = primaryId;
-    } else {
-      // Fall back to first available computer
-      final computers = await _repository.getComputersForDive(_diveId);
-      if (computers.isNotEmpty) {
-        state = computers.first.id;
-      }
-    }
-  }
-
-  void selectComputer(String computerId) {
-    state = computerId;
-  }
-
-  Future<void> setPrimaryComputer(String computerId) async {
-    await _repository.setPrimaryProfile(_diveId, computerId);
-    state = computerId;
-  }
-}
-
-/// Provider for selected computer on dive detail view
-final selectedComputerProvider =
-    StateNotifierProvider.family<SelectedComputerNotifier, String?, String>((
-      ref,
-      diveId,
-    ) {
-      final repository = ref.watch(diveComputerRepositoryProvider);
-      return SelectedComputerNotifier(repository, diveId);
     });
 
 /// State notifier for managing dive computers
@@ -264,7 +219,6 @@ class DiveComputerNotifier
     _ref.invalidate(favoriteDiveComputerProvider);
     _ref.invalidate(possibleDuplicateComputersProvider);
     _ref.invalidate(computersForDiveProvider);
-    _ref.invalidate(primaryComputerIdProvider);
     _ref.invalidate(diveComputerByIdProvider(survivorId));
     for (final id in result.mergedComputerIds) {
       _ref.invalidate(diveComputerByIdProvider(id));
@@ -281,112 +235,3 @@ final diveComputerNotifierProvider =
         return DiveComputerNotifier(repository, ref);
       },
     );
-
-/// State for dive profile viewing (which computer's profile to display)
-class DiveProfileViewState {
-  /// Currently selected computer ID (null = merged/primary)
-  final String? selectedComputerId;
-
-  /// Whether to show ceiling curve
-  final bool showCeiling;
-
-  /// Whether to show ascent rate coloring
-  final bool showAscentRate;
-
-  /// Whether to show events
-  final bool showEvents;
-
-  /// Whether to show temperature curve
-  final bool showTemperature;
-
-  /// Whether to show tank pressure curve
-  final bool showPressure;
-
-  const DiveProfileViewState({
-    this.selectedComputerId,
-    this.showCeiling = true,
-    this.showAscentRate = true,
-    this.showEvents = true,
-    this.showTemperature = false,
-    this.showPressure = false,
-  });
-
-  DiveProfileViewState copyWith({
-    String? selectedComputerId,
-    bool? showCeiling,
-    bool? showAscentRate,
-    bool? showEvents,
-    bool? showTemperature,
-    bool? showPressure,
-    bool clearComputerId = false,
-  }) {
-    return DiveProfileViewState(
-      selectedComputerId: clearComputerId
-          ? null
-          : (selectedComputerId ?? this.selectedComputerId),
-      showCeiling: showCeiling ?? this.showCeiling,
-      showAscentRate: showAscentRate ?? this.showAscentRate,
-      showEvents: showEvents ?? this.showEvents,
-      showTemperature: showTemperature ?? this.showTemperature,
-      showPressure: showPressure ?? this.showPressure,
-    );
-  }
-}
-
-/// State notifier for dive profile view state
-class DiveProfileViewNotifier extends StateNotifier<DiveProfileViewState> {
-  DiveProfileViewNotifier() : super(const DiveProfileViewState());
-
-  void selectComputer(String? computerId) {
-    state = state.copyWith(
-      selectedComputerId: computerId,
-      clearComputerId: computerId == null,
-    );
-  }
-
-  void toggleCeiling() {
-    state = state.copyWith(showCeiling: !state.showCeiling);
-  }
-
-  void toggleAscentRate() {
-    state = state.copyWith(showAscentRate: !state.showAscentRate);
-  }
-
-  void toggleEvents() {
-    state = state.copyWith(showEvents: !state.showEvents);
-  }
-
-  void toggleTemperature() {
-    state = state.copyWith(showTemperature: !state.showTemperature);
-  }
-
-  void togglePressure() {
-    state = state.copyWith(showPressure: !state.showPressure);
-  }
-
-  void setCeiling(bool show) {
-    state = state.copyWith(showCeiling: show);
-  }
-
-  void setAscentRate(bool show) {
-    state = state.copyWith(showAscentRate: show);
-  }
-
-  void setEvents(bool show) {
-    state = state.copyWith(showEvents: show);
-  }
-
-  void reset() {
-    state = const DiveProfileViewState();
-  }
-}
-
-/// Provider for dive profile view state
-final diveProfileViewProvider =
-    StateNotifierProvider.family<
-      DiveProfileViewNotifier,
-      DiveProfileViewState,
-      String
-    >((ref, diveId) {
-      return DiveProfileViewNotifier();
-    });

@@ -4,15 +4,17 @@ import 'package:submersion/features/cylinder_passports/presentation/widgets/nfc_
 import 'package:submersion/features/cylinder_passports/presentation/utils/nfc_availability_text.dart';
 import 'package:submersion/features/cylinder_passports/data/services/nfc_tag_service.dart';
 import 'package:submersion/core/providers/provider.dart';
-import 'package:submersion/core/theme/status_colors.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
+import 'package:submersion/features/cylinder_passports/domain/entities/cylinder_fill.dart';
 import 'package:submersion/features/cylinder_passports/domain/entities/cylinder_passport_payload.dart';
+import 'package:submersion/features/cylinder_passports/domain/entities/tag_fill.dart';
 import 'package:submersion/features/cylinder_passports/domain/services/ndef_fit.dart';
 import 'package:submersion/features/cylinder_passports/domain/services/passport_payload_codec.dart';
 import 'package:submersion/features/cylinder_passports/domain/services/passport_rules.dart';
 import 'package:submersion/features/cylinder_passports/presentation/providers/cylinder_passport_providers.dart';
 import 'package:submersion/features/cylinder_passports/presentation/widgets/link_existing_tag_dialog.dart';
 import 'package:submersion/features/cylinder_passports/presentation/widgets/passport_qr_view.dart';
+import 'package:submersion/features/cylinder_passports/presentation/widgets/tag_stale_banner.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_item.dart';
 import 'package:submersion/features/equipment/domain/entities/service_clock_status.dart';
@@ -25,19 +27,21 @@ import 'package:submersion/l10n/l10n_extension.dart';
 /// recorded hydro and VIP dates (never a clock's fallback anchor), and O2
 /// clean only when a cleaning is on record and its clock is not overdue.
 /// Null until the passport id exists. An NFC write starts here and lets the
-/// tag's capacity decide what is left off.
+/// tag's capacity decide what is left off; [newestFill] rides along on an
+/// NFC tag only (spec section 11), never on a printed label.
 CylinderPassportPayload? fullPayloadFor(
   EquipmentItem item, {
   required String? passportId,
   required List<ServiceClockStatus> clocks,
   required Iterable<ServiceRecord> records,
   required DateTime now,
+  CylinderFill? newestFill,
 }) {
   if (passportId == null) return null;
   ServiceClockStatus? clock(String kindId) =>
       clocks.where((c) => c.kind.id == kindId).firstOrNull;
   final o2 = clock('o2-clean');
-  return payloadForItem(
+  final payload = payloadForItem(
     item: item,
     passportId: passportId,
     writtenOn: DateTime(now.year, now.month, now.day),
@@ -48,6 +52,9 @@ CylinderPassportPayload? fullPayloadFor(
         o2.severity != ServiceClockSeverity.overdue &&
         recordedServiceDate(clock: o2, records: records) != null,
   );
+  return newestFill == null
+      ? payload
+      : payload.copyWith(fill: TagFill.fromFill(newestFill));
 }
 
 /// [full], bounded so every QR drawn from it (on screen and on the printed
@@ -107,16 +114,23 @@ class PassportTagCard extends ConsumerWidget {
         const <ServiceRecord>[];
     // The label and QR carry the bounded payload; an NFC write starts from
     // the full one and lets the tag's capacity decide what is left off.
+    final newestState = ref.watch(newestFillProvider(equipment.id));
+    final newest = newestState.value;
     final full = fullPayloadFor(
       equipment,
       passportId: passportId,
       clocks: clocks,
       records: records,
       now: DateTime.now(),
+      newestFill: newest,
     );
-    final payload = labelPayloadOf(full);
+    // A printed label never carries a fill: it changes every fill.
+    final payload = labelPayloadOf(full?.copyWith(clearFill: true));
     final nfc = ref.watch(nfcSupportProvider).value;
-    final canWriteNfc = full != null && nfc == NfcSupport.enabled;
+    // Every write carries the newest fill, so the write waits for it; a fill
+    // that fails to load is an extra, and the passport is still written.
+    final canWriteNfc =
+        full != null && nfc == NfcSupport.enabled && !newestState.isLoading;
     ServiceClockStatus? clock(String kindId) =>
         clocks.where((c) => c.kind.id == kindId).firstOrNull;
     final scanned = scannedTag;
@@ -133,7 +147,6 @@ class PassportTagCard extends ConsumerWidget {
           workingPressureBar: equipment.workingPressureBar?.round(),
           material: equipment.tankMaterial,
         );
-    final warn = StatusColors.of(context).warn;
     return Card(
       child: Padding(
         padding: const EdgeInsets.all(16),
@@ -159,51 +172,15 @@ class PassportTagCard extends ConsumerWidget {
             ],
             if (stale) ...[
               const SizedBox(height: 8),
-              Container(
-                padding: const EdgeInsets.all(12),
-                decoration: BoxDecoration(
-                  color: warn.container,
-                  borderRadius: BorderRadius.circular(8),
-                ),
-                child: Column(
-                  crossAxisAlignment: CrossAxisAlignment.start,
-                  children: [
-                    Row(
-                      children: [
-                        Icon(Icons.history, color: warn.onContainer),
-                        const SizedBox(width: 8),
-                        Expanded(
-                          child: Text(
-                            l10n.passport_tag_stale,
-                            style: TextStyle(color: warn.onContainer),
-                          ),
-                        ),
-                      ],
-                    ),
-                    const SizedBox(height: 4),
-                    Wrap(
-                      spacing: 8,
-                      children: [
-                        TextButton(
-                          key: const Key('passportTag_rewrite'),
-                          onPressed: canWriteNfc
-                              ? () => showNfcWriteSheet(context, payload: full)
-                              : null,
-                          child: Text(l10n.passport_nfc_rewrite),
-                        ),
-                        Builder(
-                          builder: (buttonContext) => TextButton(
-                            key: const Key('passportTag_reprint'),
-                            onPressed: payload == null || onPrintLabel == null
-                                ? null
-                                : () => onPrintLabel!(buttonContext),
-                            child: Text(l10n.passport_nfc_reprint),
-                          ),
-                        ),
-                      ],
-                    ),
-                  ],
-                ),
+              TagStaleBanner(
+                rewriteKey: const Key('passportTag_rewrite'),
+                reprintKey: const Key('passportTag_reprint'),
+                onRewrite: canWriteNfc
+                    ? () => showNfcWriteSheet(context, payload: full)
+                    : null,
+                onReprint: payload == null || onPrintLabel == null
+                    ? null
+                    : onPrintLabel,
               ),
             ],
             const SizedBox(height: 12),

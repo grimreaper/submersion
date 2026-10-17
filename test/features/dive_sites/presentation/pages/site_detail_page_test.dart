@@ -16,6 +16,8 @@ import 'package:submersion/features/divers/presentation/providers/diver_provider
 import 'package:submersion/features/dive_sites/domain/entities/dive_site.dart';
 import 'package:submersion/features/dive_sites/domain/entities/site_dive_statistics.dart';
 import 'package:submersion/features/dive_sites/presentation/pages/site_detail_page.dart';
+import 'package:submersion/features/maps/presentation/widgets/locked_map_scroll_passthrough.dart';
+import 'package:submersion/features/maps/presentation/widgets/trackpad_zoom_map.dart';
 import 'package:submersion/features/dive_3d/application/site_seascape_providers.dart';
 import 'package:submersion/features/dive_sites/domain/entities/site_feature.dart';
 import 'package:submersion/features/dive_sites/presentation/providers/site_feature_providers.dart';
@@ -39,6 +41,17 @@ void _setMobileTestSurfaceSize(WidgetTester tester) {
     tester.view.resetDevicePixelRatio();
   });
 }
+
+/// The map preview's own fullscreen button. The Site Seascape card has one
+/// too, so the icon alone does not say which; the preview is the card that
+/// holds the 2D map. Found by structure rather than by its label, so it does
+/// not depend on the test's locale.
+final _previewFullscreen = find.descendant(
+  of: find
+      .ancestor(of: find.byType(FlutterMap).first, matching: find.byType(Card))
+      .first,
+  matching: find.byIcon(Icons.fullscreen),
+);
 
 void main() {
   group('SiteDetailPage desktop redirect', () {
@@ -238,6 +251,8 @@ void main() {
         await tester.pumpWidget(
           ProviderScope(
             overrides: [
+              // No active profile, as before sharing: every action is the owner's.
+              validatedCurrentDiverIdProvider.overrideWith((_) async => null),
               ...overrides,
               siteProvider(
                 sharedSite.id,
@@ -573,6 +588,9 @@ void main() {
       );
       await tester.pumpAndSettle();
 
+      // The button lives on the Dive statistics card, below the fold.
+      await tester.ensureVisible(find.byTooltip('3D History'));
+      await tester.pumpAndSettle();
       await tester.tap(find.byTooltip('3D History'));
       await tester.pumpAndSettle();
 
@@ -1067,6 +1085,39 @@ void main() {
       expect(find.byType(FlutterMap), findsWidgets);
     });
 
+    testWidgets(
+      'the inline preview is locked so the page scrolls over it (#3156)',
+      (tester) async {
+        _setMobileTestSurfaceSize(tester);
+        final overrides = await getBaseOverrides();
+        await tester.pumpWidget(
+          ProviderScope(
+            overrides: [
+              ...overrides,
+              siteProvider(
+                locatedSite.id,
+              ).overrideWith((_) async => locatedSite),
+              siteDiveCountProvider(
+                locatedSite.id,
+              ).overrideWith((_) async => 0),
+            ],
+            child: MaterialApp(
+              localizationsDelegates: AppLocalizations.localizationsDelegates,
+              supportedLocales: AppLocalizations.supportedLocales,
+              home: SiteDetailPage(siteId: locatedSite.id),
+            ),
+          ),
+        );
+        await tester.pump();
+        await tester.pump(const Duration(seconds: 1));
+
+        final map = tester.widget<FlutterMap>(find.byType(FlutterMap).first);
+        expect(map.options.interactionOptions.flags, InteractiveFlag.none);
+        expect(find.byType(TrackpadZoomMap), findsNothing);
+        expect(find.byType(LockedMapScrollPassthrough), findsOneWidget);
+      },
+    );
+
     testWidgets('opens fullscreen map when fullscreen button tapped', (
       tester,
     ) async {
@@ -1089,7 +1140,7 @@ void main() {
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       expect(find.byType(FlutterMap), findsWidgets);
-      await tester.tap(find.byIcon(Icons.fullscreen));
+      await tester.tap(_previewFullscreen);
       await tester.pump();
       await tester.pump(const Duration(seconds: 1));
       // The fullscreen route also renders a FlutterMap.
@@ -1121,7 +1172,7 @@ void main() {
       expect(find.byType(SiteScapeView), findsNothing);
       expect(find.byKey(const ValueKey('siteScape2dButton')), findsNothing);
       expect(find.byKey(const ValueKey('siteScape3dButton')), findsNothing);
-      expect(find.byIcon(Icons.fullscreen), findsOneWidget);
+      expect(_previewFullscreen, findsOneWidget);
     });
   });
 

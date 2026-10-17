@@ -40,6 +40,7 @@ import 'package:submersion/features/settings/presentation/providers/settings_pro
 import 'package:submersion/features/settings/presentation/providers/storage_providers.dart'
     show StoragePlatformCapabilities, storagePlatformCapabilitiesProvider;
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
+import 'package:submersion/features/settings/presentation/providers/webdav_providers.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 import 'package:submersion/l10n/arb/app_localizations_en.dart';
 
@@ -108,7 +109,7 @@ class _FakeSyncService extends SyncService {
 /// No-op database adapter so [_FakeBackupService] never touches a real DB.
 class _NoopBackupAdapter implements BackupDatabaseAdapter {
   @override
-  Future<void> backup(String destinationPath) async {}
+  Future<void> backup(String destinationPath, {String? note}) async {}
 
   @override
   Future<void> restore(
@@ -134,7 +135,10 @@ class _FakeBackupService extends BackupService {
     : super(dbAdapter: _NoopBackupAdapter(), preferences: prefs);
 
   @override
-  Future<BackupRecord> performBackup({bool isAutomatic = false}) async {
+  Future<BackupRecord> performBackup({
+    bool isAutomatic = false,
+    String? note,
+  }) async {
     performBackupCalls++;
     return BackupRecord(
       id: 'fake-safety',
@@ -472,6 +476,7 @@ void main() {
           // Override s3ConfigProvider so existing tests never hit
           // FlutterSecureStorage; individual tests can supply a config.
           s3ConfigProvider.overrideWith((ref) async => s3Config),
+          webdavConfigProvider.overrideWith((ref) async => null),
           // Same for the Dropbox connection: null means not connected.
           dropboxAuthDataProvider.overrideWith((ref) async => dropboxAuth),
           dropboxConfiguredProvider.overrideWith((ref) => dropboxConfigured),
@@ -1305,6 +1310,23 @@ void main() {
       expect(banner.style?.color, scheme.onSecondaryContainer);
     });
 
+    testWidgets('names peers too old to receive this device\'s changes', (
+      tester,
+    ) async {
+      await pumpPage(
+        tester,
+        selectedProvider: CloudProviderType.icloud,
+        syncState: const SyncState(
+          olderSchemaPeerLabels: [(name: 'Stable iPad', shortId: 'aaa11111')],
+        ),
+      );
+
+      expect(
+        find.textContaining('Stable iPad runs an older version of Submersion'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('no update banner when no newer-schema peers were held', (
       tester,
     ) async {
@@ -1713,6 +1735,34 @@ void main() {
       expect(handles.merge.mergeCalls, 0);
     });
 
+    testWidgets('merge confirm says the merge can be undone', (tester) async {
+      // The success snackbar offers Undo, so the confirm text must not claim
+      // the merge is permanent.
+      await pumpPage(
+        tester,
+        duplicateGroups: [makeGroup(name: 'Bob', duplicateCount: 1)],
+      );
+
+      await tester.tap(find.text('Merge'));
+      await tester.pumpAndSettle();
+
+      final dialog = find.byType(AlertDialog);
+      expect(
+        find.descendant(
+          of: dialog,
+          matching: find.textContaining('cannot be undone'),
+        ),
+        findsNothing,
+      );
+      expect(
+        find.descendant(
+          of: dialog,
+          matching: find.textContaining('You can undo this right after'),
+        ),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('merge confirm runs merge and shows undo snackbar', (
       tester,
     ) async {
@@ -1972,6 +2022,7 @@ void main() {
               ),
               conflictsProvider.overrideWith((ref) async => const []),
               s3ConfigProvider.overrideWith((ref) async => config),
+              webdavConfigProvider.overrideWith((ref) async => null),
             ],
             child: MaterialApp.router(
               routerConfig: router,
@@ -1983,8 +2034,14 @@ void main() {
         );
         await tester.pumpAndSettle();
 
-        // Tap the gear icon (settings_outlined), not the tile body.
-        await tester.tap(find.byIcon(Icons.settings_outlined));
+        // Tap the S3 tile's gear icon (settings_outlined), not the tile body.
+        // Scoped to the S3 tile: the WebDAV tile has a gear of its own.
+        await tester.tap(
+          find.descendant(
+            of: find.widgetWithText(ListTile, 'S3-Compatible Storage'),
+            matching: find.byIcon(Icons.settings_outlined),
+          ),
+        );
         await tester.pumpAndSettle();
 
         expect(find.text('s3-config-stub'), findsOneWidget);

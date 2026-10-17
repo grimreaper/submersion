@@ -2,11 +2,15 @@ import 'dart:math' as math;
 
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:go_router/go_router.dart';
 
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
+import 'package:submersion/features/dive_log/presentation/profile_colors/profile_metric.dart';
+import 'package:submersion/features/dive_log/presentation/profile_colors/profile_metric_palette.dart';
 import 'package:submersion/features/dive_log/presentation/providers/profile_legend_provider.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/chart_options_dialog_rows.dart';
+import 'package:submersion/features/dive_log/presentation/utils/gas_switch_format.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/gas_colors.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/legend_candidates.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/o2_cell_readout.dart';
@@ -80,26 +84,36 @@ class ChartOptionsDialog extends StatelessWidget {
                   final legendNotifier = ref.read(
                     profileLegendProvider.notifier,
                   );
+                  final palette = ProfileMetricPalette(
+                    overrides: ref.watch(
+                      settingsProvider.select((s) => s.profileMetricColors),
+                    ),
+                    temperatureAuto: Theme.of(context).colorScheme.tertiary,
+                  );
 
                   return SingleChildScrollView(
                     padding: const EdgeInsets.symmetric(vertical: 8),
                     child: Column(
                       mainAxisSize: MainAxisSize.min,
                       crossAxisAlignment: CrossAxisAlignment.stretch,
-                      children: _buildSections(
-                        context,
-                        legendState: legendState,
-                        legendNotifier: legendNotifier,
-                        // The unit is a viewing preference, not a per-dive
-                        // one: picking it here makes it the default for the
-                        // next dive too.
-                        onO2CellUnitChanged: (unit) {
-                          legendNotifier.setO2CellUnit(unit);
-                          ref
-                              .read(settingsProvider.notifier)
-                              .setO2CellUnit(unit);
-                        },
-                      ),
+                      children: [
+                        ..._buildSections(
+                          context,
+                          palette: palette,
+                          legendState: legendState,
+                          legendNotifier: legendNotifier,
+                          // The unit is a viewing preference, not a per-dive
+                          // one: picking it here makes it the default for the
+                          // next dive too.
+                          onO2CellUnitChanged: (unit) {
+                            legendNotifier.setO2CellUnit(unit);
+                            ref
+                                .read(settingsProvider.notifier)
+                                .setO2CellUnit(unit);
+                          },
+                        ),
+                        const _MetricColorsLink(),
+                      ],
                     ),
                   );
                 },
@@ -116,7 +130,14 @@ class ChartOptionsDialog extends StatelessWidget {
     required ProfileLegendState legendState,
     required ProfileLegend legendNotifier,
     required ValueChanged<O2CellUnit> onO2CellUnitChanged,
+    required ProfileMetricPalette palette,
   }) {
+    // A chosen pressure colour draws a single-tank dive's line and threshold
+    // markers (issue #3012); several tanks keep their gas colours.
+    final singleTankColor = palette.pressureLineColor(
+      pressureSeries: config.tankPressures?.length ?? 0,
+      tankCount: config.tanks?.length ?? 0,
+    );
     final sections = <Widget>[];
 
     // Overlays section
@@ -125,7 +146,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleItem(
           context,
           label: context.l10n.diveLog_legend_label_temp,
-          color: Theme.of(context).colorScheme.tertiary,
+          color: palette.colorOf(ProfileMetric.temperature),
           isEnabled: legendState.showTemperature,
           onTap: legendNotifier.toggleTemperature,
         ),
@@ -133,7 +154,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleItem(
           context,
           label: context.l10n.diveLog_legend_label_pressure,
-          color: ProfileMetricColors.pressure,
+          color: palette.colorOf(ProfileMetric.pressure),
           isEnabled: legendState.showPressure,
           onTap: legendNotifier.togglePressure,
         ),
@@ -157,7 +178,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleItem(
           context,
           label: context.l10n.diveLog_legend_label_heartRate,
-          color: ProfileMetricColors.heartRate,
+          color: palette.colorOf(ProfileMetric.heartRate),
           isEnabled: legendState.showHeartRate,
           onTap: legendNotifier.toggleHeartRate,
         ),
@@ -165,7 +186,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleItem(
           context,
           label: context.l10n.diveLog_legend_label_sacRate,
-          color: ProfileMetricColors.sac,
+          color: palette.colorOf(ProfileMetric.sac),
           isEnabled: legendState.showSac,
           onTap: legendNotifier.toggleSac,
         ),
@@ -212,7 +233,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleItem(
           context,
           label: context.l10n.diveLog_legend_label_maxDepth,
-          color: ProfileMetricColors.maxDepth,
+          color: palette.colorOf(ProfileMetric.maxDepth),
           isEnabled: legendState.showMaxDepthMarker,
           onTap: legendNotifier.toggleMaxDepthMarker,
         ),
@@ -220,7 +241,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleItem(
           context,
           label: context.l10n.diveLog_legend_label_pressureThresholds,
-          color: ProfileMetricColors.pressureMarkers,
+          color: singleTankColor ?? ProfileMetricColors.pressureMarkers,
           isEnabled: legendState.showPressureMarkers,
           onTap: legendNotifier.togglePressureMarkers,
         ),
@@ -231,6 +252,14 @@ class ChartOptionsDialog extends StatelessWidget {
           color: GasColors.nitrox,
           isEnabled: legendState.showGasSwitchMarkers,
           onTap: legendNotifier.toggleGasSwitchMarkers,
+        ),
+      if (config.hasLateGasSwitches)
+        buildToggleItem(
+          context,
+          label: context.l10n.diveLog_legend_label_lateGasSwitches,
+          color: lateSwitchLegendColor,
+          isEnabled: legendState.showLateGasSwitches,
+          onTap: legendNotifier.toggleLateGasSwitches,
         ),
       if (config.hasPhotoMarkers)
         buildToggleItem(
@@ -304,9 +333,11 @@ class ChartOptionsDialog extends StatelessWidget {
       for (var i = 0; i < sortedTankIds.length; i++) {
         final tankId = sortedTankIds[i];
         final tank = _getTankById(tankId);
-        final color = tank != null
-            ? GasColors.forGasMix(tank.gasMix)
-            : tankFallbackColor(i);
+        final color =
+            singleTankColor ??
+            (tank != null
+                ? GasColors.forGasMix(tank.gasMix)
+                : tankFallbackColor(i));
         final baseLabel = tank != null
             ? tankLegendLabel(context, tank, fallbackIndex: i + 1)
             : context.l10n.diveLog_tank_title(i + 1);
@@ -364,7 +395,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleItem(
           context,
           label: context.l10n.diveLog_legend_label_ceiling,
-          color: ProfileMetricColors.ceiling,
+          color: palette.colorOf(ProfileMetric.ceiling),
           isEnabled: legendState.showCeiling,
           onTap: legendNotifier.toggleCeiling,
         ),
@@ -372,7 +403,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleWithSource(
           context,
           label: context.l10n.diveLog_legend_label_ndl,
-          color: ProfileMetricColors.ndl,
+          color: palette.colorOf(ProfileMetric.ndl),
           isEnabled: legendState.showNdl,
           onTap: legendNotifier.toggleNdl,
           currentSource: legendState.ndlSource,
@@ -383,7 +414,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleWithSource(
           context,
           label: context.l10n.diveLog_legend_label_tts,
-          color: ProfileMetricColors.tts,
+          color: palette.colorOf(ProfileMetric.tts),
           isEnabled: legendState.showTts,
           onTap: legendNotifier.toggleTts,
           currentSource: legendState.ttsSource,
@@ -394,7 +425,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleWithSource(
           context,
           label: context.l10n.diveLog_legend_label_gtr,
-          color: ProfileMetricColors.gtr,
+          color: palette.colorOf(ProfileMetric.gtr),
           isEnabled: legendState.showGtr,
           onTap: legendNotifier.toggleGtr,
           currentSource: legendState.gtrSource,
@@ -405,7 +436,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleWithSource(
           context,
           label: context.l10n.diveLog_legend_label_cns,
-          color: ProfileMetricColors.cns,
+          color: palette.colorOf(ProfileMetric.cns),
           isEnabled: legendState.showCns,
           onTap: legendNotifier.toggleCns,
           currentSource: legendState.cnsSource,
@@ -416,7 +447,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleItem(
           context,
           label: context.l10n.diveLog_legend_label_otu,
-          color: ProfileMetricColors.otu,
+          color: palette.colorOf(ProfileMetric.otu),
           isEnabled: legendState.showOtu,
           onTap: legendNotifier.toggleOtu,
         ),
@@ -440,7 +471,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleItem(
           context,
           label: context.l10n.diveLog_legend_label_ppO2,
-          color: ProfileMetricColors.ppO2,
+          color: palette.colorOf(ProfileMetric.ppO2),
           isEnabled: legendState.showPpO2,
           onTap: legendNotifier.togglePpO2,
         ),
@@ -448,7 +479,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleItem(
           context,
           label: context.l10n.diveLog_legend_label_ppN2,
-          color: ProfileMetricColors.ppN2,
+          color: palette.colorOf(ProfileMetric.ppN2),
           isEnabled: legendState.showPpN2,
           onTap: legendNotifier.togglePpN2,
         ),
@@ -456,7 +487,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleItem(
           context,
           label: context.l10n.diveLog_legend_label_ppHe,
-          color: ProfileMetricColors.ppHe,
+          color: palette.colorOf(ProfileMetric.ppHe),
           isEnabled: legendState.showPpHe,
           onTap: legendNotifier.togglePpHe,
         ),
@@ -486,7 +517,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleItem(
           context,
           label: context.l10n.diveLog_legend_label_mod,
-          color: ProfileMetricColors.mod,
+          color: palette.colorOf(ProfileMetric.mod),
           isEnabled: legendState.showMod,
           onTap: legendNotifier.toggleMod,
         ),
@@ -494,7 +525,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleItem(
           context,
           label: context.l10n.diveLog_legend_label_gasDensity,
-          color: ProfileMetricColors.density,
+          color: palette.colorOf(ProfileMetric.density),
           isEnabled: legendState.showDensity,
           onTap: legendNotifier.toggleDensity,
         ),
@@ -518,7 +549,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleItem(
           context,
           label: context.l10n.diveLog_legend_label_gfPercent,
-          color: ProfileMetricColors.gf,
+          color: palette.colorOf(ProfileMetric.gf),
           isEnabled: legendState.showGf,
           onTap: legendNotifier.toggleGf,
         ),
@@ -526,7 +557,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleItem(
           context,
           label: context.l10n.diveLog_legend_label_surfaceGf,
-          color: ProfileMetricColors.surfaceGf,
+          color: palette.colorOf(ProfileMetric.surfaceGf),
           isEnabled: legendState.showSurfaceGf,
           onTap: legendNotifier.toggleSurfaceGf,
         ),
@@ -534,7 +565,7 @@ class ChartOptionsDialog extends StatelessWidget {
         buildToggleItem(
           context,
           label: context.l10n.diveLog_legend_label_meanDepth,
-          color: ProfileMetricColors.meanDepth,
+          color: palette.colorOf(ProfileMetric.meanDepth),
           isEnabled: legendState.showMeanDepth,
           onTap: legendNotifier.toggleMeanDepth,
         ),
@@ -589,5 +620,31 @@ class ChartOptionsDialog extends StatelessWidget {
       if (tank.id == tankId) return tank;
     }
     return null;
+  }
+}
+
+/// Opens Settings > Metric Colors (issue #3012). Sits below every section so
+/// it is visible without expanding one.
+class _MetricColorsLink extends StatelessWidget {
+  const _MetricColorsLink();
+
+  @override
+  Widget build(BuildContext context) {
+    return Align(
+      alignment: AlignmentDirectional.centerStart,
+      child: Padding(
+        padding: const EdgeInsets.symmetric(horizontal: 8),
+        child: TextButton.icon(
+          icon: const Icon(Icons.palette_outlined, size: 18),
+          label: Text(context.l10n.settings_appearance_metricColors),
+          onPressed: () {
+            // Capture the router before the pop unmounts this context.
+            final router = GoRouter.of(context);
+            Navigator.of(context).pop();
+            router.push('/settings/metric-colors');
+          },
+        ),
+      ),
+    );
   }
 }

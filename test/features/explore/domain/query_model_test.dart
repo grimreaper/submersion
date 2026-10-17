@@ -5,7 +5,7 @@ import 'package:submersion/features/explore/domain/query_model.dart';
 
 void main() {
   Map<String, Object?> sample() => {
-    'schemaVersion': 1,
+    'schemaVersion': kQuerySchemaVersion,
     'subject': 'dives',
     'clauses': [
       {
@@ -34,7 +34,7 @@ void main() {
   test('parses the sample sentence payload', () {
     final q = ParsedQuery.fromJson(sample());
     expect(q.schemaVersion, kQuerySchemaVersion);
-    expect(q.subject, QuerySubject.dives);
+    expect(q.subject, ParsedSubject.dives);
     expect(q.clauses, hasLength(2));
     expect(q.clauses.first.field, 'depth');
     expect(q.clauses.first.op, ClauseOp.gt);
@@ -80,10 +80,13 @@ void main() {
   });
 
   test('rejects a wrong schema version', () {
-    expect(
-      () => ParsedQuery.fromJson(sample()..['schemaVersion'] = 2),
-      throwsA(isA<QuerySchemaException>()),
-    );
+    for (final wrong in [0, kQuerySchemaVersion + 1]) {
+      expect(
+        () => ParsedQuery.fromJson(sample()..['schemaVersion'] = wrong),
+        throwsA(isA<QuerySchemaException>()),
+        reason: 'version $wrong',
+      );
+    }
   });
 
   test('rejects an unknown op, unit, kind or subject', () {
@@ -188,15 +191,18 @@ void main() {
     }
     expect(
       ParsedQuery.fromDecoded(<String, Object?>{
-        'schemaVersion': 1,
+        'schemaVersion': kQuerySchemaVersion,
         'subject': 'dives',
       }).subject,
-      QuerySubject.dives,
+      ParsedSubject.dives,
     );
   });
 
   test('missing optional lists default to empty', () {
-    final q = ParsedQuery.fromJson({'schemaVersion': 1, 'subject': 'dives'});
+    final q = ParsedQuery.fromJson({
+      'schemaVersion': kQuerySchemaVersion,
+      'subject': 'dives',
+    });
     expect(q.clauses, isEmpty);
     expect(q.mentions, isEmpty);
     expect(q.unplaced, isEmpty);
@@ -224,5 +230,49 @@ void main() {
     // An unpinned mention writes no identity key, so the model's own payload
     // shape is unchanged.
     expect((q.toJson()['mentions']! as List)[1], isNot(contains('identity')));
+  });
+
+  test('a version 1 parse still reads: every v1 payload is valid v2', () {
+    final q = ParsedQuery.fromJson(sample()..['schemaVersion'] = 1);
+    expect(q.subject, ParsedSubject.dives);
+  });
+
+  test('version 2 payloads still parse under version 3', () {
+    final q = ParsedQuery.fromJson({
+      'schemaVersion': 2,
+      'subject': 'dives',
+      'clauses': const [],
+    });
+    expect(q.subject, ParsedSubject.dives);
+    expect(kQuerySchemaVersion, 4);
+  });
+
+  group('time (#2838)', () {
+    ParsedQuery withTime(Object? time) =>
+        ParsedQuery.fromJson(sample()..['time'] = time);
+
+    test('version 4 writes time as a string, "none" when there is none', () {
+      expect(withTime('last year').time?.text, 'last year');
+      expect(withTime('none').time, isNull);
+      expect(withTime(' None ').time, isNull);
+      expect(withTime('').time, isNull);
+      expect(withTime(null).time, isNull);
+    });
+
+    test('the object form of versions 1 to 3 still reads', () {
+      expect(withTime({'text': 'since 2022'}).time?.text, 'since 2022');
+      expect(withTime({'text': ''}).time, isNull);
+    });
+
+    test('a time of another type is a schema mismatch', () {
+      expect(() => withTime(2023), throwsA(isA<QuerySchemaException>()));
+    });
+
+    test('toJson writes the version 4 form and reads it back', () {
+      final q = withTime('May 2023');
+      expect(q.toJson()['time'], 'May 2023');
+      expect(ParsedQuery.fromJson(q.toJson()).time?.text, 'May 2023');
+      expect(withTime('none').toJson()['time'], isNull);
+    });
   });
 }

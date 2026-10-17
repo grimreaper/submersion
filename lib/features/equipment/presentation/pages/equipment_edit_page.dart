@@ -15,8 +15,16 @@ import 'package:submersion/features/equipment/domain/constants/equipment_attribu
 import 'package:submersion/features/equipment/domain/constants/equipment_colors.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_attribute.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_item.dart';
+import 'package:submersion/features/equipment/data/services/initial_location.dart';
+import 'package:submersion/features/equipment/domain/entities/equipment_location.dart';
+import 'package:submersion/features/equipment/presentation/providers/equipment_location_providers.dart';
+import 'package:submersion/features/equipment/domain/models/equipment_filter_state.dart';
+import 'package:submersion/features/equipment/presentation/helpers/saved_equipment_visibility.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_providers.dart';
+import 'package:submersion/features/equipment/presentation/providers/equipment_service_status_providers.dart';
+import 'package:submersion/features/query/presentation/providers/query_id_set_providers.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_tag_providers.dart';
+import 'package:submersion/features/equipment/presentation/widgets/equipment_location_field.dart';
 import 'package:submersion/features/equipment/presentation/widgets/equipment_tags_field.dart';
 import 'package:submersion/features/tags/domain/entities/tag.dart';
 import 'package:submersion/core/services/logger_service.dart';
@@ -25,7 +33,12 @@ import 'package:submersion/features/equipment/presentation/widgets/equipment_cus
 import 'package:submersion/shared/widgets/app_bar_text_action.dart';
 import 'package:submersion/shared/widgets/app_date_picker.dart';
 import 'package:submersion/features/equipment/presentation/utils/equipment_enum_display.dart';
+import 'package:submersion/features/equipment/presentation/widgets/children_card.dart';
+import 'package:submersion/features/equipment/data/services/equipment_clone_service.dart';
+import 'package:submersion/features/equipment/domain/services/equipment_clone_seed.dart';
+import 'package:submersion/features/equipment/presentation/providers/equipment_clone_providers.dart';
 import 'package:submersion/shared/widgets/forms/number_input_validation.dart';
+import 'package:submersion/shared/widgets/label_with_control.dart';
 
 class EquipmentEditPage extends ConsumerStatefulWidget {
   final String? equipmentId;
@@ -37,6 +50,11 @@ class EquipmentEditPage extends ConsumerStatefulWidget {
   /// Kept while the chosen type can live in that parent.
   final String? initialParentId;
 
+  /// For a new item: the item it is cloned from (issue #3184). The form
+  /// starts from [cloneFormSeed] of it, and the save also copies its
+  /// clocks, sets and documents.
+  final String? cloneFromId;
+
   const EquipmentEditPage({
     super.key,
     this.equipmentId,
@@ -44,9 +62,12 @@ class EquipmentEditPage extends ConsumerStatefulWidget {
     this.onSaved,
     this.onCancel,
     this.initialParentId,
+    this.cloneFromId,
   });
 
   bool get isEditing => equipmentId != null;
+
+  bool get isCloning => equipmentId == null && cloneFromId != null;
 
   @override
   ConsumerState<EquipmentEditPage> createState() => _EquipmentEditPageState();
@@ -66,6 +87,10 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
 
   EquipmentType _selectedType = EquipmentType.regulator;
   EquipmentStatus _selectedStatus = EquipmentStatus.active;
+
+  /// Wishlist gear (#2025): fields that only make sense for gear in hand
+  /// are hidden, but their values are kept and saved unchanged.
+  bool get _isWanted => _selectedStatus == EquipmentStatus.wanted;
   DateTime? _purchaseDate;
   String? _parentEquipmentId;
   bool _isLoading = false;
@@ -78,6 +103,19 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
   /// compares against. Tags live beside the entity, not on it, so they load
   /// on their own.
   List<Tag> _selectedTags = [];
+
+  /// A new item's first place (v268); null leaves it with no location.
+  EquipmentLocation? _initialLocation;
+
+  /// A clone's read of its source's tags and place. Save waits for it, so a
+  /// quick Save still writes them; it never overrides a pick the diver made.
+  Future<void>? _cloneSelectionsLoad;
+
+  /// Whether the diver has changed Tags or Location on this form. A change,
+  /// clearing the field included, makes it theirs: an empty field the diver
+  /// emptied must not be refilled by the clone's late-arriving picks.
+  bool _tagsTouched = false;
+  bool _locationTouched = false;
   Set<String> _originalTagIds = {};
 
   /// Set once an edit's stored tags are read. Until then (and for good, if
@@ -143,7 +181,21 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
   void _initializeFromEquipment(EquipmentItem equipment) {
     if (_isInitialized) return;
     _isInitialized = true;
+    _seedForm(equipment);
+    _loadTags(equipment.id);
+  }
 
+  void _initializeFromClone(EquipmentItem source) {
+    if (_isInitialized) return;
+    _isInitialized = true;
+    _seedForm(
+      cloneFormSeed(source, copyName: context.l10n.equipment_clone_nameCopy),
+    );
+    _cloneSelectionsLoad = _loadCloneSelections(source.id);
+  }
+
+  /// Fills every form field from [equipment].
+  void _seedForm(EquipmentItem equipment) {
     // A colour on a type without one loads as a custom field, so the save
     // keeps it (issue #2520).
     for (final attr in keepStrayColorAsCustom(
@@ -177,16 +229,62 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
     // A legacy row can carry isActive=false with a non-terminal status.
     // Show it as Retired so the form states the item's real condition --
     // otherwise saving would silently reactivate it (#636). "Sold" is the
-    // other status that means gone, so keep it rather than overwrite it.
+    // other status that means gone, so keep it rather than overwrite it, and
+    // "Wanted" (#2025) is inactive by design.
     _selectedStatus =
-        !equipment.isActive && equipment.status != EquipmentStatus.sold
+        !equipment.isActive &&
+            equipment.status != EquipmentStatus.sold &&
+            equipment.status != EquipmentStatus.wanted
         ? EquipmentStatus.retired
         : equipment.status;
     _purchaseDate = equipment.purchaseDate;
     _parentEquipmentId = equipment.parentEquipmentId;
     _customReminderEnabled = equipment.customReminderEnabled;
     _customReminderDays = equipment.customReminderDays ?? const [7, 14, 30];
-    _loadTags(equipment.id);
+  }
+
+  /// The source's tags and place as the clone's starting picks, only those
+  /// that are the active diver's own: cloning shared gear (#2046) must not
+  /// bring the owner's tags or places onto the sharee's item. A pick the
+  /// diver made while these loaded is kept.
+  Future<void> _loadCloneSelections(String sourceId) async {
+    // Called from build: yield before the first provider read, as _loadTags
+    // does.
+    await null;
+    if (!mounted) return;
+    try {
+      final diverId = await ref.read(validatedCurrentDiverIdProvider.future);
+      final tags = await ref.read(tagsForEquipmentProvider(sourceId).future);
+      final own = [
+        for (final t in tags)
+          if (diverId == null || t.diverId == null || t.diverId == diverId) t,
+      ];
+      if (mounted && !_tagsTouched && own.isNotEmpty) {
+        setState(() => _selectedTags = own);
+      }
+    } catch (e, stackTrace) {
+      _log.error(
+        'Could not load the tags of equipment $sourceId to clone',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+    try {
+      final place = (await ref.read(
+        currentEquipmentLocationsProvider.future,
+      ))[sourceId];
+      if (place == null) return;
+      final mine = await ref.read(equipmentLocationsProvider.future);
+      if (mounted && !_locationTouched && mine.any((l) => l.id == place.id)) {
+        setState(() => _initialLocation = place);
+      }
+    } catch (e, stackTrace) {
+      _log.error(
+        'Could not load the location of equipment $sourceId to clone',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
   }
 
   /// Loads the item's tags into the Tags field (issue #1942) and the
@@ -263,21 +361,26 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
   static Set<EquipmentType> _parentTypesFor(EquipmentType type) =>
       switch (type) {
         EquipmentType.o2Cell => const {EquipmentType.rebreather},
-        EquipmentType.battery => const {
-          EquipmentType.computer,
-          EquipmentType.transmitter,
-          EquipmentType.light,
-          EquipmentType.dpv,
-          EquipmentType.rebreather,
-        },
+        // The detail page's host set, so a battery is only ever installed
+        // where its host's Children card will show it.
+        EquipmentType.battery => childHostTypes,
         _ => const {},
       };
 
   @override
   Widget build(BuildContext context) {
-    if (widget.isEditing) {
+    // A seeded clone form no longer needs its source, so it stops watching
+    // it: deleting, transferring or failing to re-read the original mid-edit
+    // must not discard the clone.
+    if (widget.isCloning && _isInitialized) return _buildForm(context, null);
+
+    // The item to edit, or the one a clone starts from.
+    final loadId = widget.equipmentId ?? widget.cloneFromId;
+    if (loadId != null) {
       final equipmentAsync = ref.watch(
-        equipmentItemProvider(widget.equipmentId!),
+        widget.isEditing
+            ? equipmentItemProvider(loadId)
+            : cloneSourceProvider(loadId),
       );
       return equipmentAsync.when(
         data: (equipment) {
@@ -296,8 +399,12 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
               ),
             );
           }
-          _initializeFromEquipment(equipment);
-          return _buildForm(context, equipment);
+          if (widget.isEditing) {
+            _initializeFromEquipment(equipment);
+            return _buildForm(context, equipment);
+          }
+          _initializeFromClone(equipment);
+          return _buildForm(context, null);
         },
         loading: () {
           if (widget.embedded) {
@@ -347,12 +454,15 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
               labelText: context.l10n.equipment_edit_typeLabel,
               prefixIcon: const Icon(Icons.category),
             ),
-            items: EquipmentType.values.map((type) {
-              return DropdownMenuItem(
-                value: type,
-                child: Text(type.localizedName(context.l10n)),
-              );
-            }).toList(),
+            items: [
+              for (final type in EquipmentType.values.sortedByLocalizedName(
+                context.l10n,
+              ))
+                DropdownMenuItem(
+                  value: type,
+                  child: Text(type.localizedName(context.l10n)),
+                ),
+            ],
             onChanged: (value) {
               if (value != null) {
                 setState(() {
@@ -395,8 +505,9 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
           ),
           const SizedBox(height: 16),
 
-          // Parent item, for the child types only (v202).
-          if (_parentTypesFor(_selectedType).isNotEmpty) ...[
+          // Parent item, for the child types only (v202). Wishlist gear
+          // (#2025) cannot be fitted into anything yet.
+          if (!_isWanted && _parentTypesFor(_selectedType).isNotEmpty) ...[
             Builder(
               builder: (context) {
                 final candidates =
@@ -526,14 +637,15 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
               _hasChanges = true;
             }),
           ),
-          // Serial #
-          TextFormField(
-            controller: _serialController,
-            decoration: InputDecoration(
-              labelText: context.l10n.equipment_edit_serialNumberLabel,
-              prefixIcon: const Icon(Icons.numbers),
+          // Serial #, once the gear is in hand (#2025).
+          if (!_isWanted)
+            TextFormField(
+              controller: _serialController,
+              decoration: InputDecoration(
+                labelText: context.l10n.equipment_edit_serialNumberLabel,
+                prefixIcon: const Icon(Icons.numbers),
+              ),
             ),
-          ),
           const SizedBox(height: 24),
           // Purchase Date
           _buildDateSection(context),
@@ -557,42 +669,34 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
             enabled: !widget.isEditing || _tagsLoaded,
             onTagsChanged: (tags) => setState(() {
               _selectedTags = tags;
+              _tagsTouched = true;
               _hasChanges = true;
             }),
           ),
           const SizedBox(height: 24),
+          // Location (new items only): an existing item changes place
+          // through Move, so every change lands in its history.
+          if (!widget.isEditing) ...[
+            EquipmentLocationField(
+              value: _initialLocation,
+              onChanged: (loc) => setState(() {
+                _initialLocation = loc;
+                _locationTouched = true;
+                _hasChanges = true;
+              }),
+            ),
+            const SizedBox(height: 24),
+          ],
           // Advanced (buoyancy metadata for weight prediction)
           _buildAdvancedSection(context),
           const SizedBox(height: 24),
 
-          // Notification Overrides
-          _buildNotificationSection(context),
-
-          if (!widget.embedded) ...[
-            const SizedBox(height: 32),
-            // Save Button
-            Tooltip(
-              message: widget.isEditing
-                  ? context.l10n.equipment_edit_saveTooltip_edit
-                  : context.l10n.equipment_edit_saveTooltip_new,
-              child: FilledButton(
-                onPressed: _isLoading
-                    ? null
-                    : () => _saveEquipment(existingEquipment),
-                child: _isLoading
-                    ? const SizedBox(
-                        height: 20,
-                        width: 20,
-                        child: CircularProgressIndicator(strokeWidth: 2),
-                      )
-                    : Text(
-                        widget.isEditing
-                            ? context.l10n.equipment_edit_saveButton_edit
-                            : context.l10n.equipment_edit_saveButton_new,
-                      ),
-              ),
-            ),
-          ],
+          // Notification Overrides: service reminders are for owned gear
+          // (#2025).
+          if (!_isWanted) _buildNotificationSection(context),
+          // No save button down here: Save lives in the app bar (or the
+          // embedded header) only, since a second, differently labelled one
+          // read as another action (issue #3174).
         ],
       ),
     );
@@ -632,6 +736,8 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
           title: Text(
             widget.isEditing
                 ? context.l10n.equipment_edit_appBar_editTitle
+                : widget.isCloning
+                ? context.l10n.equipment_edit_appBar_cloneTitle
                 : context.l10n.equipment_edit_appBar_newTitle,
           ),
           actions: [
@@ -666,65 +772,75 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
           bottom: BorderSide(color: colorScheme.outlineVariant, width: 1),
         ),
       ),
-      child: Row(
-        children: [
-          CircleAvatar(
-            radius: 20,
-            backgroundColor: colorScheme.primaryContainer,
-            child: Icon(
-              widget.isEditing ? Icons.edit : Icons.add,
-              size: 20,
-              color: colorScheme.onPrimaryContainer,
+      child: LabelWithControl(
+        label: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            CircleAvatar(
+              radius: 20,
+              backgroundColor: colorScheme.primaryContainer,
+              child: Icon(
+                widget.isEditing ? Icons.edit : Icons.add,
+                size: 20,
+                color: colorScheme.onPrimaryContainer,
+              ),
             ),
-          ),
-          const SizedBox(width: 12),
-          Expanded(
-            child: Text(
-              widget.isEditing
-                  ? context.l10n.equipment_edit_embeddedHeader_editTitle
-                  : context.l10n.equipment_edit_embeddedHeader_newTitle,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+            const SizedBox(width: 12),
+            Flexible(
+              child: Text(
+                widget.isEditing
+                    ? context.l10n.equipment_edit_embeddedHeader_editTitle
+                    : context.l10n.equipment_edit_embeddedHeader_newTitle,
+                style: Theme.of(
+                  context,
+                ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+              ),
             ),
-          ),
-          TextButton(
-            onPressed: () async {
-              if (_hasChanges) {
-                final discard = await _showDiscardDialog();
-                if (discard == true && mounted) {
+          ],
+        ),
+        control: Row(
+          mainAxisSize: MainAxisSize.min,
+          children: [
+            TextButton(
+              onPressed: () async {
+                if (_hasChanges) {
+                  final discard = await _showDiscardDialog();
+                  if (discard == true && mounted) {
+                    _handleCancel();
+                  }
+                } else {
                   _handleCancel();
                 }
-              } else {
-                _handleCancel();
-              }
-            },
-            child: Text(
-              context.l10n.equipment_edit_embeddedHeader_cancelButton,
+              },
+              child: Text(
+                context.l10n.equipment_edit_embeddedHeader_cancelButton,
+              ),
             ),
-          ),
-          const SizedBox(width: 8),
-          Tooltip(
-            message: widget.isEditing
-                ? context.l10n.equipment_edit_embeddedHeader_saveTooltip_edit
-                : context.l10n.equipment_edit_embeddedHeader_saveTooltip_new,
-            child: FilledButton(
-              onPressed: _isLoading
-                  ? null
-                  : () => _saveEquipment(existingEquipment),
-              child: _isLoading
-                  ? const SizedBox(
-                      width: 20,
-                      height: 20,
-                      child: CircularProgressIndicator(
-                        strokeWidth: 2,
-                        color: Colors.white,
+            const SizedBox(width: 8),
+            Tooltip(
+              message: widget.isEditing
+                  ? context.l10n.equipment_edit_embeddedHeader_saveTooltip_edit
+                  : context.l10n.equipment_edit_embeddedHeader_saveTooltip_new,
+              child: FilledButton(
+                onPressed: _isLoading
+                    ? null
+                    : () => _saveEquipment(existingEquipment),
+                child: _isLoading
+                    ? const SizedBox(
+                        width: 20,
+                        height: 20,
+                        child: CircularProgressIndicator(
+                          strokeWidth: 2,
+                          color: Colors.white,
+                        ),
+                      )
+                    : Text(
+                        context.l10n.equipment_edit_embeddedHeader_saveButton,
                       ),
-                    )
-                  : Text(context.l10n.equipment_edit_embeddedHeader_saveButton),
+              ),
             ),
-          ),
-        ],
+          ],
+        ),
       ),
     );
   }
@@ -761,38 +877,42 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
               style: Theme.of(context).textTheme.titleMedium,
             ),
             const SizedBox(height: 16),
-            Text(
-              context.l10n.equipment_edit_purchaseDateLabel,
-              style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
+            // A purchase date waits for the purchase (#2025); a date already
+            // entered is kept and comes back when the status changes.
+            if (!_isWanted) ...[
+              Text(
+                context.l10n.equipment_edit_purchaseDateLabel,
+                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
+                  color: Theme.of(context).colorScheme.onSurfaceVariant,
+                ),
               ),
-            ),
-            const SizedBox(height: 8),
-            OutlinedButton.icon(
-              onPressed: _selectPurchaseDate,
-              icon: const Icon(Icons.calendar_today),
-              label: Text(
-                // #1512: hand-rolled M/D/YYYY ignored the diver's preference,
-                // which the detail page for the same field already honours.
-                _purchaseDate != null
-                    ? UnitFormatter(
-                        ref.watch(settingsProvider),
-                      ).formatDate(_purchaseDate)
-                    : context.l10n.equipment_edit_selectDate,
+              const SizedBox(height: 8),
+              OutlinedButton.icon(
+                onPressed: _selectPurchaseDate,
+                icon: const Icon(Icons.calendar_today),
+                label: Text(
+                  // #1512: hand-rolled M/D/YYYY ignored the diver's preference,
+                  // which the detail page for the same field already honours.
+                  _purchaseDate != null
+                      ? UnitFormatter(
+                          ref.watch(settingsProvider),
+                        ).formatDate(_purchaseDate)
+                      : context.l10n.equipment_edit_selectDate,
+                ),
+                style: OutlinedButton.styleFrom(
+                  minimumSize: const Size(double.infinity, 48),
+                ),
               ),
-              style: OutlinedButton.styleFrom(
-                minimumSize: const Size(double.infinity, 48),
-              ),
-            ),
-            if (_purchaseDate != null)
-              TextButton(
-                onPressed: () => setState(() {
-                  _purchaseDate = null;
-                  _hasChanges = true;
-                }),
-                child: Text(context.l10n.equipment_edit_clearDate),
-              ),
-            const SizedBox(height: 16),
+              if (_purchaseDate != null)
+                TextButton(
+                  onPressed: () => setState(() {
+                    _purchaseDate = null;
+                    _hasChanges = true;
+                  }),
+                  child: Text(context.l10n.equipment_edit_clearDate),
+                ),
+              const SizedBox(height: 16),
+            ],
             Row(
               crossAxisAlignment: CrossAxisAlignment.start,
               children: [
@@ -808,8 +928,9 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
                         key: const ValueKey('equipment-purchase-price'),
                         controller: _purchasePriceController,
                         decoration: InputDecoration(
-                          labelText:
-                              context.l10n.equipment_edit_purchasePriceLabel,
+                          labelText: _isWanted
+                              ? context.l10n.equipment_edit_expectedPriceLabel
+                              : context.l10n.equipment_edit_purchasePriceLabel,
                           prefixText: symbol.isEmpty ? null : '$symbol ',
                         ),
                         keyboardType: const TextInputType.numberWithOptions(
@@ -1019,12 +1140,45 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
     }
   }
 
+  /// The list view that shows [savedId] ([view] null when the list's
+  /// current view already does), and whether the check [failed]. The item
+  /// is saved either way, so a failure falls back to the plain confirmation.
+  Future<({EquipmentFilterState? view, bool failed})> _viewRevealing(
+    String savedId,
+    EquipmentStatus status,
+  ) async {
+    try {
+      final view = await viewRevealingSavedEquipment(
+        runner: ref.read(queryIdSetRunnerProvider),
+        filter: ref.read(effectiveEquipmentFilterProvider),
+        diverId: await ref.read(validatedCurrentDiverIdProvider.future),
+        equipmentId: savedId,
+        status: status,
+        beforeQuery: (tables) =>
+            awaitServiceStatusIfReadFromWidget(ref, tables),
+        defaultStatuses: ref.read(equipmentDefaultStatusesProvider),
+      );
+      return (view: view, failed: false);
+    } catch (e, st) {
+      _log.error(
+        "Failed to check the saved item's visibility",
+        error: e,
+        stackTrace: st,
+      );
+      return (view: null, failed: true);
+    }
+  }
+
   Future<void> _saveEquipment(EquipmentItem? existingEquipment) async {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
 
     try {
+      // A clone saved before its source's tags and place arrived would
+      // otherwise go without them (the load never throws).
+      await _cloneSelectionsLoad;
+      if (!mounted) return;
       // Get the current diver ID - preserve existing for edits, get fresh for new items
       final diverId =
           existingEquipment?.diverId ??
@@ -1080,9 +1234,11 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
         notes: _notesController.text.trim(),
         // Retiring or selling via the status dropdown must deactivate the
         // item, or it keeps appearing in active-gear pickers (#636).
+        // Retired, Sold and Wanted (#2025) are all out of the kit.
         isActive:
             _selectedStatus != EquipmentStatus.retired &&
-            _selectedStatus != EquipmentStatus.sold,
+            _selectedStatus != EquipmentStatus.sold &&
+            _selectedStatus != EquipmentStatus.wanted,
         // Only attributes in the SELECTED type's catalog are kept: switching
         // type drops out-of-catalog values at save time (form = source of
         // truth), plus non-empty custom fields with re-packed sort order.
@@ -1101,6 +1257,10 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
 
       final notifier = ref.read(equipmentListNotifierProvider.notifier);
       String savedId;
+      // False only when a chosen first location failed to save.
+      var locationSaved = true;
+      // A clone's extras that could not be copied (issue #3184).
+      var failedCloneSteps = const <CloneExtrasStep>{};
 
       // Tags (issue #1942) are written with the row, in one transaction,
       // only when they differ from what the form loaded; a new item writes
@@ -1123,22 +1283,107 @@ class _EquipmentEditPageState extends ConsumerState<EquipmentEditPage> {
           tagIds: tagsChanged ? tagIds : null,
         );
         savedId = newEquipment.id;
+        final place = _initialLocation;
+        if (place != null) {
+          locationSaved = await recordInitialLocation(
+            moves: ref.read(equipmentLocationMoveRepositoryProvider),
+            equipmentId: savedId,
+            locationId: place.id,
+          );
+        }
+        if (widget.isCloning) {
+          failedCloneSteps = await ref
+              .read(equipmentCloneServiceProvider)
+              .copyExtras(
+                sourceId: widget.cloneFromId!,
+                cloneId: savedId,
+                cloneType: equipment.type,
+                diverId: diverId,
+              );
+        }
       }
 
+      // An edit outside master-detail returns to the item's own page, which
+      // shows it whatever the list's view; only the list can lose it.
+      final reveal = widget.isEditing && !widget.embedded
+          ? (view: null, failed: false)
+          : await _viewRevealing(savedId, equipment.status);
+      final revealView = reveal.view;
+
       if (mounted) {
+        final messenger = ScaffoldMessenger.of(context);
+        final locationFailed = context.l10n.equipment_edit_locationFailed;
+        // A clone confirms as a clone: "Cloned, but ..." when some clocks,
+        // sets or documents did not copy, rather than queueing that behind
+        // the plain message. [cloneSaid] records that it was shown.
+        final cloneMessage = failedCloneSteps.isEmpty
+            ? context.l10n.equipment_clone_snackbar_cloned
+            : context.l10n.equipment_clone_partialCopy;
+        final partialCopy = context.l10n.equipment_clone_partialCopy;
+        var cloneSaid = false;
+        void sayCloned() {
+          messenger.showSnackBar(SnackBar(content: Text(cloneMessage)));
+          cloneSaid = true;
+        }
+
+        final saved = widget.isEditing
+            ? context.l10n.equipment_edit_snackbar_updated
+            : context.l10n.equipment_edit_snackbar_added;
+        final hidden = context.l10n.equipment_edit_snackbar_hiddenByView;
+        final show = context.l10n.equipment_edit_snackbar_showAction;
+        // Captured now: the page is gone by the time the action runs.
+        final filterNotifier = ref.read(equipmentFilterProvider.notifier);
+        final highlightNotifier = ref.read(
+          highlightedEquipmentIdProvider.notifier,
+        );
         if (widget.embedded) {
           widget.onSaved?.call(savedId);
+        } else if (widget.isCloning) {
+          // The clone, not the original, is what the diver goes on to
+          // rename and adjust. On a phone Back still returns to the original;
+          // on desktop the detail route redirects into the master-detail
+          // list, which selects the clone, so a view that hides it gets the
+          // hidden-by-view message below instead.
+          context.pushReplacement('/equipment/$savedId');
+          if (revealView == null) sayCloned();
         } else {
           context.pop();
-          ScaffoldMessenger.of(context).showSnackBar(
+        }
+        // An item the list's view hides seemed not to have saved at all
+        // (#3068), so say where it went and offer the view that shows it.
+        if (revealView != null) {
+          messenger.showSnackBar(
             SnackBar(
-              content: Text(
-                widget.isEditing
-                    ? context.l10n.equipment_edit_snackbar_updated
-                    : context.l10n.equipment_edit_snackbar_added,
+              content: Text(hidden),
+              action: SnackBarAction(
+                label: show,
+                onPressed: () {
+                  filterNotifier.state = revealView;
+                  highlightNotifier.state = savedId;
+                },
               ),
             ),
           );
+        } else if (widget.embedded ? reveal.failed : !widget.isCloning) {
+          // Master-detail confirms by selecting the item; a failed check
+          // cannot vouch for the list, so it confirms in words too. A routed
+          // clone has already confirmed above.
+          if (widget.isCloning) {
+            sayCloned();
+          } else {
+            messenger.showSnackBar(SnackBar(content: Text(saved)));
+          }
+        }
+        // The item is saved; only its location is missing. Say so, so the
+        // diver knows to set it with Move rather than retry the save.
+        if (!locationSaved) {
+          messenger.showSnackBar(SnackBar(content: Text(locationFailed)));
+        }
+        // Likewise for a clone whose clocks, sets or documents did not all
+        // copy, where the "Cloned, but ..." message has not already said so:
+        // they can be added on the clone by hand.
+        if (failedCloneSteps.isNotEmpty && !cloneSaid) {
+          messenger.showSnackBar(SnackBar(content: Text(partialCopy)));
         }
       }
     } catch (e) {

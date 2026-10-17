@@ -7,6 +7,7 @@ import 'package:flutter_test/flutter_test.dart' show Fake;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:submersion/core/data/repositories/sync_repository.dart';
+import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/database/local_cache_database.dart';
 import 'package:submersion/core/services/database_service.dart';
@@ -22,7 +23,6 @@ import 'package:submersion/features/media/data/resolvers/local_file_resolver.dar
 import 'package:submersion/features/media/data/resolvers/media_store_resolver.dart';
 import 'package:submersion/features/media/data/resolvers/platform_gallery_resolver.dart';
 import 'package:submersion/features/media/data/services/asset_resolution_service.dart';
-import 'package:submersion/features/media/data/services/exif_extractor.dart';
 import 'package:submersion/features/media/data/services/gallery_cloud_id_backfill.dart';
 import 'package:submersion/features/media/data/services/gallery_origin_backfill.dart';
 import 'package:submersion/features/media/data/services/local_bookmark_storage.dart';
@@ -181,8 +181,10 @@ class HarnessDevice {
     MediaStoreAttachState attach,
   ) async {
     final d = HarnessDevice._(h, name);
-    d.db = AppDatabase(NativeDatabase.memory());
-    d.cacheDb = LocalCacheDatabase(NativeDatabase.memory());
+    d.db = AppDatabase(NativeDatabase.memory(setup: registerAppSqlFunctions));
+    d.cacheDb = LocalCacheDatabase(
+      NativeDatabase.memory(setup: registerAppSqlFunctions),
+    );
     d.root = await Directory.systemTemp.createTemp(
       'two_device_${name.replaceAll(' ', '_')}_',
     );
@@ -229,7 +231,6 @@ class HarnessDevice {
       MediaSourceType.localFile: LocalFileResolver(
         bookmarkStorage: _NullBookmarkStorage(),
         platform: LocalMediaPlatform(),
-        exifExtractor: ExifExtractor(),
         localDeviceId: () async => d.deviceId,
       ),
     });

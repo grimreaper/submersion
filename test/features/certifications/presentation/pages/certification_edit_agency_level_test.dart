@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/constants/enums.dart';
+import 'package:submersion/features/certification_agencies/data/repositories/custom_certification_repository.dart';
 import 'package:submersion/features/certifications/data/repositories/certification_repository.dart';
 import 'package:submersion/features/certifications/domain/entities/certification.dart';
 import 'package:submersion/features/certifications/presentation/pages/certification_edit_page.dart';
@@ -14,10 +15,16 @@ import '../../../../helpers/test_database.dart';
 
 void main() {
   late CertificationRepository repository;
+  late CustomCertificationRepository customRepository;
 
   setUp(() async {
-    await setUpTestDatabase();
+    final db = await setUpTestDatabase();
+    await db.customStatement(
+      'INSERT INTO divers (id, name, created_at, updated_at) '
+      "VALUES ('owner-1', 'Owner', 0, 0)",
+    );
     repository = CertificationRepository();
+    customRepository = CustomCertificationRepository();
   });
 
   tearDown(() async {
@@ -56,15 +63,14 @@ void main() {
     );
   }
 
-  Finder agencyDropdown() =>
-      find.byType(DropdownButtonFormField<CertificationAgency>);
+  Finder agencyDropdown() => find.byType(DropdownButtonFormField<String>);
   // The certification dropdown is keyed by CertificationOption, not
   // CertificationLevel: group headers need their own distinct values so no
   // two rows share one (see CertificationOption's doc comment).
   Finder levelDropdown() =>
       find.byType(DropdownButtonFormField<CertificationOption>);
 
-  // The "Name on card" hint renders the derived title, so a bare find.text
+  // The "Certification title" hint renders the derived title, so a bare find.text
   // for a certification matches both the dropdown and the hint. Scope to the
   // dropdown when asserting what is selected.
   Finder selectedCertification(String label) =>
@@ -152,6 +158,29 @@ void main() {
     expect(selectedCertification('Nitrox'), findsOneWidget);
   });
 
+  for (final agency in ['PADI', 'SDI']) {
+    testWidgets('$agency offers Master Instructor (issue #3194)', (
+      tester,
+    ) async {
+      await tester.pumpWidget(await buildHarness(tester));
+      await tester.pumpAndSettle();
+
+      // PADI is the default agency; re-selecting it would match both the
+      // closed button and its menu row.
+      if (agency == 'PADI') {
+        expect(
+          find.descendant(of: agencyDropdown(), matching: find.text('PADI')),
+          findsOneWidget,
+        );
+      } else {
+        await selectFromDropdown(tester, agencyDropdown(), agency);
+      }
+      await selectFromDropdown(tester, levelDropdown(), 'Master Instructor');
+
+      expect(selectedCertification('Master Instructor'), findsOneWidget);
+    });
+  }
+
   testWidgets(
     'existing record with out-of-catalog level renders and survives save',
     (tester) async {
@@ -160,8 +189,8 @@ void main() {
         Certification(
           id: '',
           name: 'Legacy CMAS card',
-          agency: CertificationAgency.cmas,
-          level: CertificationLevel.advancedOpenWater,
+          agency: CertificationAgency.cmas.name,
+          level: CertificationLevel.advancedOpenWater.name,
           createdAt: now,
           updatedAt: now,
         ),
@@ -182,8 +211,8 @@ void main() {
       final saved = await tester.runAsync(
         () => repository.getCertificationById(cert.id),
       );
-      expect(saved!.level, CertificationLevel.advancedOpenWater);
-      expect(saved.agency, CertificationAgency.cmas);
+      expect(saved!.level, CertificationLevel.advancedOpenWater.name);
+      expect(saved.agency, CertificationAgency.cmas.name);
     },
   );
 
@@ -224,5 +253,127 @@ void main() {
 
     expect(selectedCertification('Not specified'), findsOneWidget);
     expect(find.text('Progression'), findsNothing);
+  });
+
+  testWidgets(
+    'TDI shows its own five course categories, not Progression/Specialties '
+    '(issue #3072)',
+    (tester) async {
+      await tester.pumpWidget(await buildHarness(tester));
+      await tester.pumpAndSettle();
+
+      await selectFromDropdown(tester, agencyDropdown(), 'TDI');
+
+      await tester.ensureVisible(levelDropdown());
+      await tester.pumpAndSettle();
+      await tester.tap(levelDropdown());
+      await tester.pumpAndSettle();
+
+      expect(find.text('Open Circuit'), findsOneWidget);
+      expect(find.text('Progression'), findsNothing);
+      expect(find.text('Specialties'), findsNothing);
+
+      // TDI's menu (five headers + 34 courses) is far longer than the fold,
+      // so later groups need scrolling into the lazy menu list first.
+      final menuScrollable = find.byType(Scrollable).last;
+      for (final label in const [
+        'Rebreather',
+        'Service',
+        'Overhead',
+        'Professional',
+      ]) {
+        await tester.scrollUntilVisible(
+          find.text(label),
+          100.0,
+          scrollable: menuScrollable,
+        );
+        expect(find.text(label), findsOneWidget);
+      }
+    },
+  );
+
+  testWidgets(
+    'a legacy ambiguous TDI level (techDiver) renders under the Specialties '
+    'catch-all, not headerless after Professional (issue #3072)',
+    (tester) async {
+      final cert = await repository.createCertification(
+        Certification(
+          id: '',
+          name: 'Tech Diver card',
+          agency: CertificationAgency.tdi.name,
+          level: CertificationLevel.techDiver.name,
+          createdAt: DateTime(2024),
+          updatedAt: DateTime(2024),
+        ),
+      );
+
+      await tester.pumpWidget(
+        await buildHarness(tester, certificationId: cert.id),
+      );
+      await tester.pumpAndSettle();
+
+      expect(selectedCertification('Tech Diver'), findsOneWidget);
+
+      await tester.ensureVisible(levelDropdown());
+      await tester.pumpAndSettle();
+      await tester.tap(levelDropdown());
+      await tester.pumpAndSettle();
+
+      final menuScrollable = find.byType(Scrollable).last;
+      await tester.scrollUntilVisible(
+        find.text('Tech Diver').last,
+        100.0,
+        scrollable: menuScrollable,
+      );
+      // Without the fix, a legacy value with no TDI category rendered with
+      // no header of its own right after the last category block
+      // (Professional), so it visually read as belonging there. Fixed, it
+      // gets its own Specialties catch-all header, same as a custom level.
+      expect(find.text('Specialties'), findsOneWidget);
+      expect(find.text('Tech Diver').last, findsOneWidget);
+    },
+  );
+
+  testWidgets("a diver's own custom level under TDI still renders, under a "
+      'catch-all Specialties group (issue #3072)', (tester) async {
+    final custom = await customRepository.createLevel(
+      diverId: 'owner-1',
+      agencyId: CertificationAgency.tdi.name,
+      name: 'Club Technical Diver',
+      isProgression: false,
+      isShared: true,
+    );
+    final cert = await repository.createCertification(
+      Certification(
+        id: '',
+        name: 'Club Technical Diver',
+        agency: CertificationAgency.tdi.name,
+        level: custom.id,
+        createdAt: DateTime(2024),
+        updatedAt: DateTime(2024),
+      ),
+    );
+
+    await tester.pumpWidget(
+      await buildHarness(tester, certificationId: cert.id),
+    );
+    await tester.pumpAndSettle();
+
+    // The custom level still renders as the selected value.
+    expect(selectedCertification('Club Technical Diver'), findsOneWidget);
+
+    await tester.ensureVisible(levelDropdown());
+    await tester.pumpAndSettle();
+    await tester.tap(levelDropdown());
+    await tester.pumpAndSettle();
+
+    final menuScrollable = find.byType(Scrollable).last;
+    await tester.scrollUntilVisible(
+      find.text('Club Technical Diver').last,
+      100.0,
+      scrollable: menuScrollable,
+    );
+    expect(find.text('Club Technical Diver').last, findsOneWidget);
+    expect(find.text('Specialties'), findsOneWidget);
   });
 }

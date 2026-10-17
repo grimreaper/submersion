@@ -22,6 +22,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:integration_test/integration_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:submersion/app.dart';
+import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/services/database_service.dart';
@@ -89,7 +90,7 @@ void main() {
     prefs = await SharedPreferences.getInstance();
 
     // Create in-memory database for testing
-    testDb = AppDatabase(NativeDatabase.memory());
+    testDb = AppDatabase(NativeDatabase.memory(setup: registerAppSqlFunctions));
     DatabaseService.instance.setTestDatabase(testDb);
 
     // Seed with test data - prefer UDDF import for consistent data
@@ -554,6 +555,11 @@ void main() {
         200,
         scrollable: find.byType(Scrollable).first,
       );
+      // scrollUntilVisible stops once the tile is built, and a ListView
+      // builds tiles in its cache extent below the screen, so a tile pushed
+      // down by a new Appearance setting is found but not tappable.
+      await tester.ensureVisible(navBarTile.first);
+      await _settle(tester);
       await tester.tap(navBarTile.first);
       await _settle(tester);
     }
@@ -602,18 +608,42 @@ void main() {
       // Some residual customization may exist from the prior test, or the
       // page may already reflect defaults. In either case, the Reset button
       // should restore defaults afterward.
+      // The actions scroll with the rows (#3370), so bring the button on
+      // screen first; scrollUntilVisible alone stops once it is built in the
+      // cache extent below the screen.
       final resetBtn = find.widgetWithText(TextButton, 'Reset to defaults');
+      Future<void> revealReset() async {
+        await tester.scrollUntilVisible(
+          resetBtn,
+          200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.ensureVisible(resetBtn);
+        await _settle(tester);
+      }
+
+      await revealReset();
       expect(resetBtn, findsOneWidget);
 
       // If Reset is disabled (already defaults), tap Move Equipment up to
       // create a customization the button can undo.
       final resetWidget = tester.widget<TextButton>(resetBtn);
       if (resetWidget.onPressed == null) {
-        await tester.tap(find.byTooltip('Move Equipment up'));
+        final equipmentUp = find.byTooltip('Move Equipment up');
+        // Revealing Reset scrolled the page to the bottom; scroll back up.
+        await tester.scrollUntilVisible(
+          equipmentUp,
+          -200,
+          scrollable: find.byType(Scrollable).first,
+        );
+        await tester.ensureVisible(equipmentUp);
         await _settle(tester);
+        await tester.tap(equipmentUp);
+        await _settle(tester);
+        await revealReset();
       }
 
-      await tester.tap(find.widgetWithText(TextButton, 'Reset to defaults'));
+      await tester.tap(resetBtn);
       await _settle(tester);
 
       await popToBottomNav(tester);

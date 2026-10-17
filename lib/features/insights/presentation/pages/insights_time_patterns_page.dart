@@ -1,5 +1,6 @@
 import 'package:flutter/material.dart';
 import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/core/utils/elapsed_duration_format.dart';
 
 import 'package:submersion/features/insights/presentation/formatters/distribution_labels.dart';
 import 'package:submersion/features/insights/presentation/providers/insights_providers.dart';
@@ -21,21 +22,6 @@ class InsightsTimePatternsPage extends ConsumerWidget {
     context.l10n.insights_timePatterns_dayOfWeek_fri,
     context.l10n.insights_timePatterns_dayOfWeek_sat,
   ];
-  List<String> _monthNames(BuildContext context) => [
-    context.l10n.insights_timePatterns_month_jan,
-    context.l10n.insights_timePatterns_month_feb,
-    context.l10n.insights_timePatterns_month_mar,
-    context.l10n.insights_timePatterns_month_apr,
-    context.l10n.insights_timePatterns_month_may,
-    context.l10n.insights_timePatterns_month_jun,
-    context.l10n.insights_timePatterns_month_jul,
-    context.l10n.insights_timePatterns_month_aug,
-    context.l10n.insights_timePatterns_month_sep,
-    context.l10n.insights_timePatterns_month_oct,
-    context.l10n.insights_timePatterns_month_nov,
-    context.l10n.insights_timePatterns_month_dec,
-  ];
-
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final content = SingleChildScrollView(
@@ -171,7 +157,7 @@ class InsightsTimePatternsPage extends ConsumerWidget {
             );
           }
           // Fill in missing months with 0
-          final monthLabels = _monthNames(context);
+          final monthLabels = insightsMonthLabels(context.l10n);
           final fullData = List.generate(12, (month) {
             final m = month + 1;
             final existing = data.firstWhere(
@@ -300,15 +286,8 @@ class InsightsTimePatternsPage extends ConsumerWidget {
     );
   }
 
-  String _formatMinutes(BuildContext context, double minutes) {
-    if (minutes < 60) {
-      return context.l10n.insights_timePatterns_surfaceInterval_formatMinutes(
-        minutes.round(),
-      );
-    }
-    final hours = (minutes / 60).floor();
-    final mins = (minutes % 60).round();
-    return context.l10n
-        .insights_timePatterns_surfaceInterval_formatHoursMinutes(hours, mins);
-  }
+  /// The stats are fractional-minute averages: round once to whole minutes,
+  /// then let the shared formatter pick the tier.
+  String _formatMinutes(BuildContext context, double minutes) =>
+      formatElapsed(context.l10n, Duration(minutes: minutes.round()));
 }

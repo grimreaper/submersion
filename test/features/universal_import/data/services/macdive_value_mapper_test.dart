@@ -52,6 +52,22 @@ void main() {
       expect(MacDiveValueMapper.entryType('Back Roll'), isNotNull);
     });
 
+    test('maps front and forward roll entries to the front roll', () {
+      for (final raw in [
+        'front roll',
+        'frontroll',
+        'Front Roll',
+        'forward roll',
+        'Forward Roll',
+      ]) {
+        expect(
+          MacDiveValueMapper.entryType(raw),
+          EntryMethod.frontRoll,
+          reason: raw,
+        );
+      }
+    });
+
     test('maps giant stride entries', () {
       expect(MacDiveValueMapper.entryType('giant stride'), isNotNull);
       expect(MacDiveValueMapper.entryType('giantstride'), isNotNull);
@@ -124,7 +140,9 @@ void main() {
       'Harness': EquipmentType.harness,
       'Backplate and harness': EquipmentType.backplate,
       'Camera housing': EquipmentType.housing,
-      'Strobe arm': EquipmentType.strobe,
+      // An arm is part of the rig in its own right (#1997), whatever it
+      // carries.
+      'Strobe arm': EquipmentType.armClamp,
       'Computer': EquipmentType.computer,
       'Dive Watch': EquipmentType.computer,
       'Transmitter': EquipmentType.transmitter,
@@ -134,6 +152,16 @@ void main() {
       'Dry Suit': EquipmentType.drysuit,
       'Rebreather': EquipmentType.rebreather,
       'CCR unit': EquipmentType.rebreather,
+      'SCR': EquipmentType.rebreather,
+      'JJ-CCR': EquipmentType.rebreather,
+      'mCCR': EquipmentType.rebreather,
+      'eCCR': EquipmentType.rebreather,
+      'pSCR': EquipmentType.rebreather,
+      'JJCCR': EquipmentType.rebreather,
+      'Scrubber canister': EquipmentType.rebreather,
+      // "scr" sits inside "prescription", which once made every prescription
+      // mask a rebreather.
+      'Prescription mask': EquipmentType.mask,
       'Tank': EquipmentType.tank,
       'Cylinder': EquipmentType.tank,
       'Weights': EquipmentType.weights,
@@ -199,12 +227,83 @@ void main() {
       'Utility pocket': EquipmentType.gearPocket,
       'Drysuit thigh pocket': EquipmentType.gearPocket,
       'Pocket': EquipmentType.gearPocket,
+      // #1997 camera parts. Compound names win over the light, camera and
+      // strobe words they contain.
+      'Lens': EquipmentType.lens,
+      'Wet lens': EquipmentType.lens,
+      'Macro lens': EquipmentType.lens,
+      'Diopter': EquipmentType.lens,
+      'Port': EquipmentType.port,
+      'Dome port': EquipmentType.port,
+      'Flat ports': EquipmentType.port,
+      'Tray': EquipmentType.trayHandle,
+      'Camera tray': EquipmentType.trayHandle,
+      'Ultralight tray': EquipmentType.trayHandle,
+      'Tray handle': EquipmentType.trayHandle,
+      'Pistol grip': EquipmentType.trayHandle,
+      'Arm': EquipmentType.armClamp,
+      'Arms': EquipmentType.armClamp,
+      'Ball clamp': EquipmentType.armClamp,
+      'Arm clamp': EquipmentType.armClamp,
+      'Video light': EquipmentType.videoLight,
+      'Video lights': EquipmentType.videoLight,
+      'Video lamp': EquipmentType.videoLight,
+      'Float arm': EquipmentType.floatArm,
+      'Float collar': EquipmentType.floatArm,
+      'Arm floats': EquipmentType.floatArm,
+      'Buoyancy arm': EquipmentType.floatArm,
+      // #2952 bags.
+      'Gear bag': EquipmentType.bag,
+      'Dive bag': EquipmentType.bag,
+      'Mesh bag': EquipmentType.bag,
+      'Dry bag': EquipmentType.bag,
+      'Roller bag': EquipmentType.bag,
+      'Catch bag': EquipmentType.bag,
+      'Goodie bag': EquipmentType.bag,
+      'Trash bag': EquipmentType.bag,
+      'Bag': EquipmentType.bag,
+      'Duffel': EquipmentType.bag,
+      'Luggage': EquipmentType.bag,
+      'Suitcase': EquipmentType.bag,
     };
 
     cases.forEach((input, expected) {
       test('maps "$input" to ${expected.name}', () {
         expect(MacDiveValueMapper.equipmentType(input), expected);
       });
+    });
+
+    test('reads socks, wet or dry, ahead of the suit they go with (#2900)', () {
+      const socks = [
+        'Socks',
+        'Sock',
+        'Neoprene socks',
+        'Drysuit socks',
+        'Dry suit socks',
+        'Wetsuit socks',
+        '3mm socks',
+        'Thinsulate socks',
+        'Undersuit socks',
+        'Neoprensocken',
+      ];
+      for (final name in socks) {
+        expect(
+          MacDiveValueMapper.equipmentType(name),
+          EquipmentType.socks,
+          reason: name,
+        );
+      }
+      // "Sock" inside another word is not a sock.
+      expect(
+        MacDiveValueMapper.equipmentType('Socket wrench'),
+        isNot(EquipmentType.socks),
+      );
+      expect(
+        MacDiveValueMapper.equipmentType('Windsock'),
+        isNot(EquipmentType.socks),
+      );
+      // A bag named for what it holds is still a bag.
+      expect(MacDiveValueMapper.equipmentType('Sock bag'), EquipmentType.bag);
     });
 
     test('is case- and whitespace-insensitive', () {
@@ -226,6 +325,34 @@ void main() {
         MacDiveValueMapper.equipmentType('Compass console'),
         EquipmentType.compass,
       );
+    });
+
+    test('camera words match whole words only (#1997)', () {
+      // "Port" sits inside "transport" and "support", "arm" inside "alarm" and
+      // "warm", and "float" inside "floating": none of those is a camera part.
+      const notCameraParts = {
+        'Transport case': EquipmentType.other,
+        'Support strap': EquipmentType.other,
+        'Alarm tool': EquipmentType.tool,
+        // Forearm kit is not a camera arm.
+        'Arm slate': EquipmentType.other,
+        'Arm warmers': EquipmentType.other,
+        'Floating reel': EquipmentType.reel,
+        // A float on its own is a surface float, not a camera part.
+        'Surface float': EquipmentType.other,
+        'Dive flag float': EquipmentType.other,
+        // A mask's lens is still the mask, which is checked first.
+        'Prescription lens mask': EquipmentType.mask,
+        // A plain dive light is not a video light.
+        'Pocket light': EquipmentType.light,
+      };
+      notCameraParts.forEach((input, expected) {
+        expect(
+          MacDiveValueMapper.equipmentType(input),
+          expected,
+          reason: input,
+        );
+      });
     });
 
     test('a bare pocket or band word does not steal a whole item (#1877)', () {
@@ -264,6 +391,112 @@ void main() {
           reason: input,
         );
       });
+    });
+
+    test('a bag named for what it holds is a bag (#2952)', () {
+      // The item words inside these names (reg, fin, wetsuit) would
+      // otherwise claim the bag that carries them.
+      const holders = {
+        'Regulator bag': EquipmentType.bag,
+        'Reg bag': EquipmentType.bag,
+        'Fin bag': EquipmentType.bag,
+        'Wetsuit bag': EquipmentType.bag,
+        // A trailing note does not hand the bag back to what it holds.
+        'Regulator bag (Apeks)': EquipmentType.bag,
+        'Fin bag (large)': EquipmentType.bag,
+        // ...even when the note itself names a joining word.
+        'Regulator bag (with strap)': EquipmentType.bag,
+      };
+      holders.forEach((input, expected) {
+        expect(
+          MacDiveValueMapper.equipmentType(input),
+          expected,
+          reason: input,
+        );
+      });
+    });
+
+    test('a breathing bag is a counterlung, not luggage (#2952)', () {
+      // A rebreather part with no type of its own: it stays Other rather
+      // than being filed as a Bag or as the whole rebreather.
+      for (final input in [
+        'Breathing bag',
+        'Breathing bags',
+        'CCR breathing bag',
+        'Breathing bag (left)',
+      ]) {
+        expect(
+          MacDiveValueMapper.equipmentType(input),
+          EquipmentType.other,
+          reason: input,
+        );
+      }
+    });
+
+    test('a bare bag word does not steal a whole item (#2952)', () {
+      // A lift bag is a lift device, so it files with the SMB rather than
+      // with luggage, and a bag listed beside an item stays that item.
+      expect(MacDiveValueMapper.equipmentType('Lift bag'), EquipmentType.smb);
+      expect(MacDiveValueMapper.equipmentType('Liftbag'), EquipmentType.smb);
+      expect(
+        MacDiveValueMapper.equipmentType('Lift-bag 30kg'),
+        EquipmentType.smb,
+      );
+      expect(MacDiveValueMapper.equipmentType('BCD w/ bag'), EquipmentType.bcd);
+      expect(
+        MacDiveValueMapper.equipmentType('Camera with bag'),
+        EquipmentType.camera,
+      );
+    });
+
+    test('a neoprene vest is a vest, not a hood or a suit (#3108)', () {
+      const cases = {
+        'Ice vest': EquipmentType.vest,
+        '7mm ice vest': EquipmentType.vest,
+        'Hooded vest': EquipmentType.vest,
+        'Hood vest 5mm': EquipmentType.vest,
+        'Hooded-vest': EquipmentType.vest,
+        'Neoprene vest': EquipmentType.vest,
+        'Core warmer': EquipmentType.vest,
+        'Wetsuit hooded vest': EquipmentType.vest,
+        'Eisweste': EquipmentType.vest,
+        'Haubenweste 7mm': EquipmentType.vest,
+        'Kopfhaubenweste': EquipmentType.vest,
+        'Neoprenweste': EquipmentType.vest,
+      };
+      for (final MapEntry(key: input, value: expected) in cases.entries) {
+        expect(
+          MacDiveValueMapper.equipmentType(input),
+          expected,
+          reason: input,
+        );
+      }
+    });
+
+    test('a vest word that names another garment keeps its type (#3108)', () {
+      // A rash vest is the warm-water top and a thermal vest a base layer;
+      // a bare "vest" can mean a BCD, so it names nothing on its own.
+      expect(
+        MacDiveValueMapper.equipmentType('Rash vest'),
+        EquipmentType.rashGuard,
+      );
+      expect(
+        MacDiveValueMapper.equipmentType('Thermal vest'),
+        EquipmentType.baselayer,
+      );
+      expect(MacDiveValueMapper.equipmentType('5mm hood'), EquipmentType.hood);
+      expect(
+        MacDiveValueMapper.equipmentType('7mm hooded wetsuit'),
+        EquipmentType.wetsuit,
+      );
+      expect(
+        MacDiveValueMapper.equipmentType('Vest'),
+        isNot(EquipmentType.vest),
+      );
+      expect(
+        MacDiveValueMapper.equipmentType('Ice vest bag'),
+        EquipmentType.bag,
+      );
     });
 
     test('the Shearwater brand is not read as shears (#2299)', () {
@@ -319,11 +552,9 @@ void main() {
 
     test('"trash" does not read as a rash guard', () {
       // "rash" is a substring of "trash", and a mesh trash bag is ordinary
-      // kit on a cleanup dive, so the rule spells the garment out.
-      expect(
-        MacDiveValueMapper.equipmentType('Trash bag'),
-        EquipmentType.other,
-      );
+      // kit on a cleanup dive, so the rule spells the garment out. Since
+      // #2952 that bag files as a bag.
+      expect(MacDiveValueMapper.equipmentType('Trash bag'), EquipmentType.bag);
       expect(
         MacDiveValueMapper.equipmentType('Trash collection hook'),
         EquipmentType.other,
@@ -382,9 +613,10 @@ void main() {
         MacDiveValueMapper.equipmentType('Thermal boots'),
         EquipmentType.boots,
       );
+      // Socks have their own type since #2900, and still not a base layer.
       expect(
         MacDiveValueMapper.equipmentType('Thermal socks'),
-        EquipmentType.other,
+        EquipmentType.socks,
       );
       // Same for the plural noun: it names the garment on its own, but an
       // accessory word next to it is the more specific signal.

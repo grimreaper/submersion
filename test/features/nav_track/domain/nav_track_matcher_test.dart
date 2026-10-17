@@ -144,4 +144,141 @@ void main() {
       expect(result, isEmpty);
     });
   });
+
+  group('NavTrackMatcher.soleCandidateFor', () {
+    final routeStart = _sec(2026, 8, 22, 10, 10);
+    final routeEnd = _sec(2026, 8, 22, 11, 0);
+    final overlapping = _dive(
+      'd1',
+      DateTime.utc(2026, 8, 22, 10, 0),
+      exit: DateTime.utc(2026, 8, 22, 11, 30),
+    );
+
+    test('suggests the one dive whose window overlaps the route', () {
+      final farAway = _dive(
+        'd2',
+        DateTime.utc(2026, 8, 23, 10, 0),
+        exit: DateTime.utc(2026, 8, 23, 11, 0),
+      );
+      expect(
+        NavTrackMatcher.soleCandidateFor(
+          routeStartSeconds: routeStart,
+          routeEndSeconds: routeEnd,
+          dives: [farAway, overlapping],
+        ),
+        overlapping,
+      );
+    });
+
+    test('suggests nothing when two dives overlap (ambiguous)', () {
+      final alsoOverlapping = _dive(
+        'd2',
+        DateTime.utc(2026, 8, 22, 10, 20),
+        exit: DateTime.utc(2026, 8, 22, 10, 50),
+      );
+      expect(
+        NavTrackMatcher.soleCandidateFor(
+          routeStartSeconds: routeStart,
+          routeEndSeconds: routeEnd,
+          dives: [overlapping, alsoOverlapping],
+        ),
+        isNull,
+      );
+    });
+
+    test('suggests nothing when no dive is close in time (unmatched)', () {
+      final farAway = _dive(
+        'd2',
+        DateTime.utc(2026, 8, 23, 10, 0),
+        exit: DateTime.utc(2026, 8, 23, 11, 0),
+      );
+      expect(
+        NavTrackMatcher.soleCandidateFor(
+          routeStartSeconds: routeStart,
+          routeEndSeconds: routeEnd,
+          dives: [farAway],
+        ),
+        isNull,
+      );
+    });
+  });
+
+  group('NavTrackMatcher.nearestByStart', () {
+    test('orders every dive by distance from the route start, however far '
+        'outside the tolerance window (a device clock set 2 hours ahead)', () {
+      final twoHoursBefore = _dive('two-h', DateTime.utc(2026, 8, 22, 8, 0));
+      final nextDay = _dive('next-day', DateTime.utc(2026, 8, 23, 10, 0));
+      final fiveHoursAfter = _dive('five-h', DateTime.utc(2026, 8, 22, 15, 0));
+      final result = NavTrackMatcher.nearestByStart(
+        routeStartSeconds: _sec(2026, 8, 22, 10, 0),
+        dives: [nextDay, fiveHoursAfter, twoHoursBefore],
+      );
+      expect(result.map((d) => d.id), ['two-h', 'five-h', 'next-day']);
+    });
+
+    test('breaks a tie in distance by the earlier dive', () {
+      final after = _dive('after', DateTime.utc(2026, 8, 22, 11, 0));
+      final before = _dive('before', DateTime.utc(2026, 8, 22, 9, 0));
+      final result = NavTrackMatcher.nearestByStart(
+        routeStartSeconds: _sec(2026, 8, 22, 10, 0),
+        dives: [after, before],
+      );
+      expect(result.map((d) => d.id), ['before', 'after']);
+    });
+
+    test('keeps only the nearest [limit] dives', () {
+      final dives = [
+        for (var h = 1; h <= 30; h++)
+          _dive(
+            'd$h',
+            DateTime.utc(2026, 8, 22, 10, 0).add(Duration(hours: h)),
+          ),
+      ];
+      final result = NavTrackMatcher.nearestByStart(
+        routeStartSeconds: _sec(2026, 8, 22, 10, 0),
+        dives: dives.reversed.toList(),
+        limit: 3,
+      );
+      expect(result.map((d) => d.id), ['d1', 'd2', 'd3']);
+    });
+
+    test('defaults to nearestLimit dives', () {
+      final dives = [
+        for (var h = 1; h <= NavTrackMatcher.nearestLimit + 5; h++)
+          _dive(
+            'd$h',
+            DateTime.utc(2026, 8, 22, 10, 0).add(Duration(hours: h)),
+          ),
+      ];
+      final result = NavTrackMatcher.nearestByStart(
+        routeStartSeconds: _sec(2026, 8, 22, 10, 0),
+        dives: dives,
+      );
+      expect(result, hasLength(NavTrackMatcher.nearestLimit));
+    });
+
+    test('measures from effectiveEntryTime, not the logged dateTime', () {
+      final dive = Dive(
+        id: 'entry-differs',
+        dateTime: DateTime.utc(2026, 8, 22, 6, 0),
+        entryTime: DateTime.utc(2026, 8, 22, 10, 5),
+      );
+      final other = _dive('other', DateTime.utc(2026, 8, 22, 9, 0));
+      final result = NavTrackMatcher.nearestByStart(
+        routeStartSeconds: _sec(2026, 8, 22, 10, 0),
+        dives: [other, dive],
+      );
+      expect(result.map((d) => d.id), ['entry-differs', 'other']);
+    });
+
+    test('returns an empty list for an empty dive list', () {
+      expect(
+        NavTrackMatcher.nearestByStart(
+          routeStartSeconds: _sec(2026, 8, 22, 10, 0),
+          dives: const [],
+        ),
+        isEmpty,
+      );
+    });
+  });
 }

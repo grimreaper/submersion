@@ -11,18 +11,23 @@ import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/services/backup_bookmark_service.dart';
 import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.dart';
+import 'package:submersion/core/utils/byte_format.dart';
+import 'package:submersion/features/backup/data/services/backup_note_stamp.dart';
 import 'package:submersion/features/backup/domain/entities/backup_record.dart';
 import 'package:submersion/features/backup/domain/entities/backup_settings.dart';
 import 'package:submersion/features/backup/domain/exceptions/backup_encrypted_exception.dart';
 import 'package:submersion/features/backup/presentation/providers/backup_providers.dart';
 import 'package:submersion/features/backup/presentation/widgets/backup_encryption_section.dart';
 import 'package:submersion/features/backup/presentation/widgets/backup_history_tile.dart';
+import 'package:submersion/features/backup/presentation/widgets/backup_note_dialog.dart';
 import 'package:submersion/features/backup/presentation/widgets/export_bottom_sheet.dart';
 import 'package:submersion/features/backup/presentation/widgets/quarantined_databases_section.dart';
 import 'package:submersion/features/backup/presentation/widgets/restore_confirmation_dialog.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/encryption_passphrase_dialog.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
+import 'package:submersion/shared/widgets/tile_subtitle_action.dart';
+import 'package:submersion/shared/widgets/label_with_control.dart';
 import 'package:path/path.dart' as p;
 
 class BackupSettingsPage extends ConsumerWidget {
@@ -180,6 +185,58 @@ class BackupSettingsPage extends ConsumerWidget {
   // Export Handler
   // ===========================================================================
 
+  /// Lets the diver pick a backup folder in the form each platform can keep
+  /// writing to across launches.
+  Future<void> _pickLocation(BuildContext context, WidgetRef ref) async {
+    final BackupFolderPick? picked;
+    if (Platform.isIOS) {
+      // iOS: capture a security-scoped bookmark directly. A bare file_picker
+      // path would lose its scope on the next launch.
+      picked = await BackupBookmarkService.pickFolder();
+    } else if (Platform.isAndroid) {
+      // Android: pick a SAF tree (content:// URI). A file_picker path is
+      // unwritable under scoped storage, so persist the URI + its display
+      // name and skip the bookmark flow entirely. Native + platform-gated,
+      // so the branch body is excluded from coverage; setSafBackupLocation
+      // itself is unit-tested separately.
+      // coverage:ignore-start
+      final folder = await SubmersionSaf.pickFolder();
+      if (folder != null) {
+        await ref
+            .read(backupSettingsProvider.notifier)
+            .setSafBackupLocation(folder.uri, folder.displayName);
+      }
+      return;
+      // coverage:ignore-end
+    } else {
+      final path = await FilePicker.getDirectoryPath(
+        dialogTitle: context.l10n.backup_location_title,
+      );
+      picked = path == null
+          ? null
+          : BackupFolderPick(
+              path: path,
+              bookmark: BackupBookmarkService.isSupported
+                  ? await BackupBookmarkService.createBookmark(path)
+                  : null,
+            );
+    }
+    if (picked != null) {
+      await ref
+          .read(backupSettingsProvider.notifier)
+          .setBackupLocationWithBookmark(picked.path, picked.bookmark);
+    }
+  }
+
+  /// Backup Now asks for an optional note first; cancelling backs nothing up.
+  Future<void> _handleBackupNow(BuildContext context, WidgetRef ref) async {
+    final result = await BackupNoteDialog.show(context);
+    if (result == null) return;
+    await ref
+        .read(backupOperationProvider.notifier)
+        .performBackup(note: result.note);
+  }
+
   void _handleExport(BuildContext context, WidgetRef ref) {
     final encrypted = ref.read(backupSettingsProvider).backupEncryptionEnabled;
     // Captured now: the export sheet is dismissed before onShare runs, so the
@@ -187,7 +244,7 @@ class BackupSettingsPage extends ConsumerWidget {
     final anchor = shareAnchorFrom(context);
     ExportBottomSheet.show(
       context,
-      onSaveToFile: () async {
+      onSaveToFile: (note) async {
         // Deliberately a folder pick rather than a Save As sheet.
         // file_picker 12's saveFile requires the entire artifact up front as
         // `bytes`, and a dive library can be far too large to hold in memory,
@@ -205,6 +262,7 @@ class BackupSettingsPage extends ConsumerWidget {
           await notifier.exportToSafTree(
             treeUri: folder.uri,
             fileName: fileName,
+            note: note,
           );
           return;
           // coverage:ignore-end
@@ -214,12 +272,12 @@ class BackupSettingsPage extends ConsumerWidget {
           dialogTitle: context.l10n.backup_export_title,
         );
         if (dir == null) return;
-        await notifier.exportToPath(p.join(dir, fileName));
+        await notifier.exportToPath(p.join(dir, fileName), note: note);
       },
-      onShare: () async {
+      onShare: (note) async {
         final file = await ref
             .read(backupOperationProvider.notifier)
-            .exportForSharing();
+            .exportForSharing(note: note);
         if (file != null && context.mounted) {
           await SharePlus.instance.share(
             ShareParams(files: [XFile(file.path)], sharePositionOrigin: anchor),
@@ -263,6 +321,9 @@ class BackupSettingsPage extends ConsumerWidget {
     // Show confirmation dialog with file info
     final file = File(filePath);
     final sizeBytes = await file.length();
+    // A plaintext backup carries its note inside; an encrypted one cannot
+    // be read before decryption and shows none.
+    final note = await readBackupNote(filePath);
     final record = BackupRecord(
       id: 'temp',
       filename: picked.name,
@@ -271,6 +332,7 @@ class BackupSettingsPage extends ConsumerWidget {
       location: BackupLocation.local,
       diveCount: 0,
       siteCount: 0,
+      note: note,
     );
 
     if (!context.mounted) return;
@@ -390,7 +452,8 @@ class BackupSettingsPage extends ConsumerWidget {
       if (record.pinned) {
         await service.unpinBackup(record.id);
       } else {
-        await service.pinBackup(record.id);
+        // Adopts a cloud backup the history had no record of.
+        await service.pinRecord(record);
       }
       ref.invalidate(backupHistoryProvider);
     } catch (e, stackTrace) {
@@ -438,19 +501,34 @@ class BackupSettingsPage extends ConsumerWidget {
           }
         }
       case 'delete':
-        final confirmed = await _showDeleteConfirmation(context);
+        // A cloud-only row may be another device's only copy (issue #3214).
+        final mayBeShared = await ref
+            .read(backupServiceProvider)
+            .mayBeAnotherDevicesCopy(record);
+        if (!context.mounted) return;
+        final confirmed = await _showDeleteConfirmation(
+          context,
+          mayBeAnotherDevicesCopy: mayBeShared,
+        );
         if (confirmed) {
           ref.read(backupOperationProvider.notifier).deleteBackup(record);
         }
     }
   }
 
-  Future<bool> _showDeleteConfirmation(BuildContext context) async {
+  Future<bool> _showDeleteConfirmation(
+    BuildContext context, {
+    bool mayBeAnotherDevicesCopy = false,
+  }) async {
     final result = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
         title: Text(context.l10n.backup_delete_dialog_title),
-        content: Text(context.l10n.backup_delete_dialog_content),
+        content: Text(
+          mayBeAnotherDevicesCopy
+              ? context.l10n.backup_delete_dialog_content_otherDevice
+              : context.l10n.backup_delete_dialog_content,
+        ),
         actions: [
           TextButton(
             onPressed: () => Navigator.of(context).pop(false),
@@ -507,101 +585,72 @@ class BackupSettingsPage extends ConsumerWidget {
         // Frequency
         if (settings.enabled)
           ListTile(
-            title: Text(context.l10n.backup_schedule_frequency),
-            trailing: DropdownButton<BackupFrequency>(
-              value: settings.frequency,
-              underline: const SizedBox(),
-              onChanged: (value) {
-                if (value != null) {
-                  ref.read(backupSettingsProvider.notifier).setFrequency(value);
-                }
-              },
-              items: BackupFrequency.values.map((f) {
-                return DropdownMenuItem(
-                  value: f,
-                  child: Text(_frequencyLabel(context, f)),
-                );
-              }).toList(),
+            title: LabelWithControl(
+              label: Text(context.l10n.backup_schedule_frequency),
+              control: DropdownButton<BackupFrequency>(
+                value: settings.frequency,
+                underline: const SizedBox(),
+                onChanged: (value) {
+                  if (value != null) {
+                    ref
+                        .read(backupSettingsProvider.notifier)
+                        .setFrequency(value);
+                  }
+                },
+                items: BackupFrequency.values.map((f) {
+                  return DropdownMenuItem(
+                    value: f,
+                    child: Text(_frequencyLabel(context, f)),
+                  );
+                }).toList(),
+              ),
             ),
           ),
         // Retention
         if (settings.enabled)
           ListTile(
-            title: Text(context.l10n.backup_schedule_retention),
-            subtitle: Text(context.l10n.backup_schedule_retention_subtitle),
-            trailing: DropdownButton<int>(
-              value: settings.retentionCount,
-              underline: const SizedBox(),
-              onChanged: (value) {
-                if (value != null) {
-                  ref
-                      .read(backupSettingsProvider.notifier)
-                      .setRetentionCount(value);
-                }
-              },
-              items: [5, 10, 15, 20, 30].map((count) {
-                return DropdownMenuItem(value: count, child: Text('$count'));
-              }).toList(),
+            title: LabelWithControl(
+              label: Text(context.l10n.backup_schedule_retention),
+              control: DropdownButton<int>(
+                value: settings.retentionCount,
+                underline: const SizedBox(),
+                onChanged: (value) {
+                  if (value != null) {
+                    ref
+                        .read(backupSettingsProvider.notifier)
+                        .setRetentionCount(value);
+                  }
+                },
+                items: [5, 10, 15, 20, 30].map((count) {
+                  return DropdownMenuItem(value: count, child: Text('$count'));
+                }).toList(),
+              ),
             ),
+            subtitle: _buildRetentionSubtitle(context, ref),
           ),
         // Backup location: the destination row sits directly above the
         // Cloud backup switch it is mutually exclusive with.
         ListTile(
           title: Text(context.l10n.backup_location_title),
-          subtitle: Text(
-            cloudDestination ??
-                ref.read(backupSettingsProvider.notifier).locationLabel ??
-                settings.backupLocation ??
-                context.l10n.backup_location_default,
-            maxLines: 1,
-            overflow: TextOverflow.ellipsis,
+          subtitle: Column(
+            mainAxisSize: MainAxisSize.min,
+            crossAxisAlignment: CrossAxisAlignment.start,
+            children: [
+              Text(
+                cloudDestination ??
+                    ref.read(backupSettingsProvider.notifier).locationLabel ??
+                    settings.backupLocation ??
+                    context.l10n.backup_location_default,
+                maxLines: 1,
+                overflow: TextOverflow.ellipsis,
+              ),
+              TileSubtitleAction(
+                onPressed: () => _pickLocation(context, ref),
+                label: context.l10n.backup_location_change,
+              ),
+            ],
           ),
-          trailing: TextButton(
-            onPressed: () async {
-              final BackupFolderPick? picked;
-              if (Platform.isIOS) {
-                // iOS: capture a security-scoped bookmark directly -- a bare
-                // file_picker path would lose its scope on the next launch.
-                picked = await BackupBookmarkService.pickFolder();
-              } else if (Platform.isAndroid) {
-                // Android: pick a SAF tree (content:// URI). A file_picker path
-                // is unwritable under scoped storage, so persist the URI + its
-                // display name and skip the bookmark flow entirely. Native +
-                // platform-gated, so the branch body is excluded from coverage;
-                // setSafBackupLocation itself is unit-tested separately.
-                // coverage:ignore-start
-                final folder = await SubmersionSaf.pickFolder();
-                if (folder != null) {
-                  await ref
-                      .read(backupSettingsProvider.notifier)
-                      .setSafBackupLocation(folder.uri, folder.displayName);
-                }
-                return;
-                // coverage:ignore-end
-              } else {
-                final path = await FilePicker.getDirectoryPath(
-                  dialogTitle: context.l10n.backup_location_title,
-                );
-                picked = path == null
-                    ? null
-                    : BackupFolderPick(
-                        path: path,
-                        bookmark: BackupBookmarkService.isSupported
-                            ? await BackupBookmarkService.createBookmark(path)
-                            : null,
-                      );
-              }
-              if (picked != null) {
-                await ref
-                    .read(backupSettingsProvider.notifier)
-                    .setBackupLocationWithBookmark(
-                      picked.path,
-                      picked.bookmark,
-                    );
-              }
-            },
-            child: Text(context.l10n.backup_location_change),
-          ),
+          isThreeLine: true,
         ),
         // Cloud sync
         if (cloudProvider != null)
@@ -623,13 +672,35 @@ class BackupSettingsPage extends ConsumerWidget {
                   ref.watch(backupOperationProvider).status ==
                       BackupOperationStatus.inProgress
                   ? null
-                  : () => ref
-                        .read(backupOperationProvider.notifier)
-                        .performBackup(),
+                  : () => _handleBackupNow(context, ref),
               icon: const Icon(Icons.backup),
               label: Text(context.l10n.backup_backupNow),
             ),
           ),
+        ),
+      ],
+    );
+  }
+
+  /// The retention explanation plus what the retained backups cost, so the
+  /// count is chosen knowing that every backup is a full copy of the database
+  /// (issue #1376).
+  Widget _buildRetentionSubtitle(BuildContext context, WidgetRef ref) {
+    final history = ref.watch(backupHistoryProvider).value;
+    final explanation = Text(context.l10n.backup_schedule_retention_subtitle);
+    if (history == null || history.isEmpty) return explanation;
+    final bytes = history.fold<int>(0, (sum, r) => sum + r.sizeBytes);
+    return Column(
+      mainAxisSize: MainAxisSize.min,
+      crossAxisAlignment: CrossAxisAlignment.start,
+      children: [
+        explanation,
+        Text(
+          context.l10n.backup_schedule_retention_footprint(
+            history.length,
+            formatBytes(bytes),
+          ),
+          key: const ValueKey('backup_retention_footprint'),
         ),
       ],
     );

@@ -18,6 +18,8 @@ import 'package:submersion/features/maps/data/repositories/offline_map_repositor
 import 'package:submersion/features/media/data/repositories/manifest_subscription_repository.dart';
 import 'package:submersion/features/media/data/repositories/media_library_repository.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
+import 'package:submersion/features/media/data/repositories/media_smart_album_repository.dart';
+import 'package:submersion/features/media/domain/entities/media_library_filter.dart';
 import 'package:submersion/features/media_store/data/media_stores_repository.dart';
 import 'package:submersion/features/settings/data/repositories/app_settings_repository.dart';
 import 'package:submersion/features/insights/data/repositories/insights_repository.dart';
@@ -26,6 +28,8 @@ import 'package:submersion/features/trips/data/repositories/trip_cylinder_reposi
 import 'package:submersion/features/trips/data/repositories/liveaboard_details_repository.dart';
 import 'package:submersion/features/universal_import/data/repositories/csv_preset_repository.dart';
 import 'package:submersion/features/weight_planner/data/repositories/weight_history_repository.dart';
+import 'package:submersion/features/divers/data/repositories/profile_hides_repository.dart';
+import 'package:submersion/features/trips/data/repositories/trip_equipment_repository.dart';
 
 import '../helpers/test_database.dart';
 
@@ -184,6 +188,11 @@ void main() {
           MediaRepository().watchMediaChanges(),
       'MediaLibraryRepository.watchMapChanges': () =>
           MediaLibraryRepository().watchMapChanges(),
+      // #2835: a watched COUNT query again, this time behind the Filter media
+      // sheet, which looped mediaSmartAlbumsProvider for as long as it was
+      // open and froze the library when it closed.
+      'MediaSmartAlbumRepository.watchChanges': () =>
+          MediaSmartAlbumRepository().watchChanges(),
       'InsightsRepository.watchInsightsChanges': () =>
           InsightsRepository().watchInsightsChanges(),
       'ServiceRecordRepository.watchServiceRecordsChanges': () =>
@@ -192,6 +201,10 @@ void main() {
           ServiceKindRepository().watchServiceKindsChanges(),
       'EquipmentShareRepository.watchChanges': () =>
           EquipmentShareRepository().watchChanges(),
+      'TripEquipmentRepository.watchChanges': () =>
+          TripEquipmentRepository().watchChanges(),
+      'ProfileHidesRepository.watchChanges': () =>
+          ProfileHidesRepository().watchChanges(),
       'ServiceScheduleRepository.watchSchedulesChanges': () =>
           ServiceScheduleRepository().watchSchedulesChanges(),
       'CylinderConfigRepository.watchConfigsChanges': () =>
@@ -845,6 +858,40 @@ void main() {
         isTrue,
       );
     });
+
+    test('watchGasRecordChanges fires on a slot write', () async {
+      await seedParents();
+      expect(
+        await fires(
+          TripCylinderRepository().watchGasRecordChanges(),
+          () => db
+              .into(db.tripCylinders)
+              .insert(
+                TripCylindersCompanion.insert(
+                  id: 'slot-1',
+                  tripId: 't1',
+                  createdAt: now,
+                  updatedAt: now,
+                ),
+              ),
+        ),
+        isTrue,
+      );
+    });
+
+    test('watchGasRecordChanges fires on a diver rename', () async {
+      // The record names each tank's diver, and a rename writes only the
+      // divers row (issue #2666).
+      await seedParents();
+      expect(
+        await fires(
+          TripCylinderRepository().watchGasRecordChanges(),
+          () => (db.update(db.divers)..where((d) => d.id.equals('diver-1')))
+              .write(const DiversCompanion(name: Value('Renamed'))),
+        ),
+        isTrue,
+      );
+    });
   });
 
   group('maps', () {
@@ -912,6 +959,29 @@ void main() {
   });
 
   group('media', () {
+    test('MediaSmartAlbumRepository.watchChanges fires on create', () async {
+      final repo = MediaSmartAlbumRepository();
+      expect(
+        await fires(
+          repo.watchChanges(),
+          () => repo.create(name: 'x', filter: MediaLibraryFilter.none),
+        ),
+        isTrue,
+      );
+    });
+
+    test('MediaSmartAlbumRepository.watchChanges fires on delete', () async {
+      final repo = MediaSmartAlbumRepository();
+      final album = await repo.create(
+        name: 'x',
+        filter: MediaLibraryFilter.none,
+      );
+      expect(
+        await fires(repo.watchChanges(), () => repo.delete(album.id)),
+        isTrue,
+      );
+    });
+
     test('watchSubscriptionsChanges fires on a state-table write', () async {
       await seedParents();
       // Watches the per-device state table as well as the subscription table:

@@ -39,6 +39,7 @@ import 'package:submersion/features/universal_import/data/parsers/parser_registr
 import 'package:submersion/features/dive_import/data/services/fit_parser_service.dart';
 import 'package:submersion/features/universal_import/data/services/batch_parse_service.dart';
 import 'package:submersion/features/universal_import/data/services/garmin_device_detector.dart';
+import 'package:submersion/features/universal_import/data/services/divemate_schema.dart';
 import 'package:submersion/features/universal_import/data/services/divinglog_db_reader.dart';
 import 'package:submersion/features/universal_import/data/services/macdive_db_reader.dart';
 import 'package:submersion/features/universal_import/data/services/default_diver_mapping.dart';
@@ -46,6 +47,7 @@ import 'package:submersion/features/universal_import/data/services/payload_diver
 import 'package:submersion/features/universal_import/data/services/payload_merger.dart';
 import 'package:submersion/features/universal_import/data/services/shearwater_db_reader.dart';
 import 'package:submersion/features/universal_import/data/services/surfacing_pressure_normalizer.dart';
+import 'package:submersion/features/universal_import/data/services/tank_pressure_glitch_normalizer.dart';
 import 'package:submersion/features/universal_import/data/services/import_duplicate_checker.dart';
 import 'package:submersion/features/universal_import/data/services/zip_expansion_service.dart';
 import 'package:submersion/features/universal_import/domain/services/bundled_photo_exporter.dart';
@@ -55,6 +57,7 @@ import 'package:submersion/features/universal_import/presentation/providers/univ
 import 'package:submersion/core/services/files/picked_file_materializer.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
+import 'package:submersion/features/certification_agencies/presentation/providers/certification_catalog_providers.dart';
 
 export 'package:submersion/features/universal_import/presentation/providers/universal_import_state.dart';
 
@@ -165,12 +168,20 @@ class UniversalImportNotifier extends StateNotifier<UniversalImportState> {
         );
       } else if (DivingLogDbReader.matchesTables(tables)) {
         // Checked last: its marker table is a single common name, so the
-        // more specific flavours claim their own files first.
-        detection = const DetectionResult(
-          format: ImportFormat.divingLogSqlite,
-          sourceApp: SourceApp.divingLog,
-          confidence: 0.95,
-        );
+        // more specific flavours claim their own files first. DiveMate
+        // writes the same schema, so the file is asked which program wrote
+        // it before it is called Diving Log (#3110).
+        detection = await DiveMateSchema.isDiveMateDb(bytes)
+            ? const DetectionResult(
+                format: ImportFormat.diveMateDdb,
+                sourceApp: SourceApp.diveMate,
+                confidence: 0.95,
+              )
+            : const DetectionResult(
+                format: ImportFormat.divingLogSqlite,
+                sourceApp: SourceApp.divingLog,
+                confidence: 0.95,
+              );
       }
     }
 
@@ -242,11 +253,11 @@ class UniversalImportNotifier extends StateNotifier<UniversalImportState> {
         ),
       ],
       detectionResult: detection,
-      // A recognised nav-track (Seacraft ENC) file is not a dive log at all;
-      // it never advances to Confirm Source. The file-selection step shows
-      // NavTrackHandoffCard instead, which reads the bytes straight off this
-      // state to open the review page.
-      currentStep: detection.format == ImportFormat.navTrack
+      // A hand-off format (a Seacraft ENC route, a Suunto JSON export) is
+      // imported by its own flow; it never advances to Confirm Source. The
+      // file-selection step shows that flow's hand-off card instead, which
+      // reads the bytes straight off this state.
+      currentStep: detection.format.isHandoff
           ? ImportWizardStep.fileSelection
           : ImportWizardStep.sourceConfirmation,
     );
@@ -297,12 +308,11 @@ class UniversalImportNotifier extends StateNotifier<UniversalImportState> {
 
       // Don't advance to sourceConfirmation for unsupported formats so the
       // wizard isn't left holding stale bytes if the caller shows a snackbar
-      // and doesn't navigate. A recognised nav-track file is the one
-      // exception: it is deliberately unsupported by the dive pipeline, but
-      // still needs its bytes kept in state so the file-selection step's
-      // NavTrackHandoffCard can hand them to the route review page.
-      if (!detection.format.isSupported &&
-          detection.format != ImportFormat.navTrack) {
+      // and doesn't navigate. A hand-off format (a Seacraft ENC route, a
+      // Suunto JSON export) is the one exception: deliberately unsupported
+      // by the universal pipeline, it still needs its bytes kept in state so
+      // the file-selection step's hand-off card can pass them on.
+      if (!detection.format.isSupported && !detection.format.isHandoff) {
         state = state.copyWith(isLoading: false);
         return detection;
       }
@@ -318,7 +328,7 @@ class UniversalImportNotifier extends StateNotifier<UniversalImportState> {
           ),
         ],
         detectionResult: detection,
-        currentStep: detection.format == ImportFormat.navTrack
+        currentStep: detection.format.isHandoff
             ? ImportWizardStep.fileSelection
             : ImportWizardStep.sourceConfirmation,
         wasLoadedExternally: true,
@@ -399,15 +409,14 @@ class UniversalImportNotifier extends StateNotifier<UniversalImportState> {
       try {
         final bytes = await File(path).readAsBytes();
         final detection = await _detectFormat(bytes);
-        // A recognised nav-track file is excluded from the batch exactly
-        // like a CSV needing the single-file mapping wizard: it needs its
-        // own import (the route review page), not the dive pipeline, so it
-        // reuses `excludedCsv` -> `ImportFileOutcomeStatus.needsIndividualImport`
-        // in the bulk summary (universal_adapter.dart) rather than
-        // `unsupported`.
+        // A hand-off file (a Seacraft ENC route, a Suunto JSON export) is
+        // excluded from the batch exactly like a CSV needing the single-file
+        // mapping wizard: it needs its own import flow, not the universal
+        // pipeline, so it reuses `excludedCsv` ->
+        // `ImportFileOutcomeStatus.needsIndividualImport` in the bulk summary
+        // (universal_adapter.dart) rather than `unsupported`.
         final status =
-            detection.format == ImportFormat.csv ||
-                detection.format == ImportFormat.navTrack
+            detection.format == ImportFormat.csv || detection.format.isHandoff
             ? ImportFileStatus.excludedCsv
             : detection.format.isSupported
             ? ImportFileStatus.pending
@@ -1088,9 +1097,14 @@ class UniversalImportNotifier extends StateNotifier<UniversalImportState> {
   /// to the finished payload so every format is covered at one seam, and after
   /// the parsers have run so a parser that derives other figures from the
   /// source's own start/end pair (FIT cylinder volume) still sees them.
+  ///
+  /// A start or end pressure taken from a transmitter dropout is replaced
+  /// first, whatever the preference (issue #2441): it is wrong for every
+  /// diver, and the surfacing rule should see the corrected value.
   ImportPayload _applySurfacingPressureRule(ImportPayload payload) {
+    final deglitched = replaceGlitchedTankPressures(payload);
     final trim = _ref.read(settingsProvider).trimTankPressureAtSurfacing;
-    return trim ? trimTankPressuresAtSurfacing(payload) : payload;
+    return trim ? trimTankPressuresAtSurfacing(deglitched) : deglitched;
   }
 
   Future<ImportDuplicateResult> _checkDuplicates(ImportPayload payload) async {
@@ -1123,7 +1137,11 @@ class UniversalImportNotifier extends StateNotifier<UniversalImportState> {
       existingDiveTypes: existingDiveTypes,
       existingSourceUuidByDiveId: existingSourceUuidByDiveId,
       checkIntraBatch: (payload.metadata['batchFileCount'] as int? ?? 1) > 1,
+      checkWithinFile: (payload.metadata['batchFileCount'] as int? ?? 1) <= 1,
       units: UnitFormatter(_ref.read(settingsProvider)),
+      certificationCatalog: await _ref.read(
+        allCustomCertificationsCatalogProvider.future,
+      ),
     );
   }
 

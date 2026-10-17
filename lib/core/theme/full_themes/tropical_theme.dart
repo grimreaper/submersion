@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:google_fonts/google_fonts.dart';
 import 'package:submersion/core/theme/feature_accent_colors.dart';
 import 'package:submersion/core/theme/status_colors.dart';
+import 'package:submersion/core/theme/tinted_containers.dart';
 
 // ---------------------------------------------------------------------------
 // Tropical Theme -- bubbly, warm, coral-accented
@@ -13,22 +14,32 @@ import 'package:submersion/core/theme/status_colors.dart';
 const _surfaceLight = Color(0xFFF0FAF8);
 const _surfaceDark = Color(0xFF101A18);
 
-const _appBarLight = Color(0xFF00B4A0);
+// The light app bar shares the primary teal, deep enough for its white title.
+const _appBarLight = _primaryLight;
 const _appBarDark = Color(0xFF152824);
 
-const _primaryLight = Color(0xFF00B4A0);
+// Accents are drawn as text and icons on the surface and white cards, so the
+// light ones are deep enough for WCAG AA there (#2967): the original bright
+// teal #00B4A0 and coral #E07A5F read at under 3:1.
+const _primaryLight = Color(0xFF007D6F);
 const _primaryDark = Color(0xFF40D0BE);
 
-const _secondaryLight = Color(0xFFE07A5F);
+const _secondaryLight = Color(0xFFC24626);
 const _secondaryDark = Color(0xFFE8957E);
 
 const _cardLight = Color(0xFFFFFFFF);
 const _cardDark = Color(0xFF1A2A26);
 
-const _fabColor = Color(0xFFE07A5F);
+// The deep coral carries the FAB's white icon in both modes.
+const _fabColor = _secondaryLight;
 
 const _errorColor = Color(0xFFB00020);
 const _onErrorColor = Color(0xFFFFFFFF);
+
+// A dark surface needs a light error: #B00020 reads at under 3:1 on it.
+// Matches the seeded Submersion dark theme's error tone.
+const _errorDark = Color(0xFFFFB4AB);
+const _onErrorDark = Color(0xFF690005);
 
 // -- Shared shape constants --------------------------------------------------
 
@@ -56,17 +67,19 @@ final ThemeData tropicalLight = ThemeData(
     FeatureAccentColors.light,
     StatusColors.light,
   ],
-  colorScheme: const ColorScheme(
-    brightness: Brightness.light,
-    primary: _primaryLight,
-    onPrimary: Color(0xFFFFFFFF),
-    secondary: _secondaryLight,
-    onSecondary: Color(0xFFFFFFFF),
-    error: _errorColor,
-    onError: _onErrorColor,
-    surface: _surfaceLight,
-    onSurface: Color(0xFF1A2A26),
-    surfaceContainerLow: _cardLight,
+  colorScheme: withTintedContainers(
+    const ColorScheme(
+      brightness: Brightness.light,
+      primary: _primaryLight,
+      onPrimary: Color(0xFFFFFFFF),
+      secondary: _secondaryLight,
+      onSecondary: Color(0xFFFFFFFF),
+      error: _errorColor,
+      onError: _onErrorColor,
+      surface: _surfaceLight,
+      onSurface: Color(0xFF1A2A26),
+      surfaceContainerLow: _cardLight,
+    ),
   ),
   textTheme: _buildTextTheme(Brightness.light),
   appBarTheme: const AppBarTheme(
@@ -108,17 +121,19 @@ final ThemeData tropicalDark = ThemeData(
     FeatureAccentColors.dark,
     StatusColors.dark,
   ],
-  colorScheme: const ColorScheme(
-    brightness: Brightness.dark,
-    primary: _primaryDark,
-    onPrimary: Color(0xFF0A1A18),
-    secondary: _secondaryDark,
-    onSecondary: Color(0xFF1A0A06),
-    error: _errorColor,
-    onError: _onErrorColor,
-    surface: _surfaceDark,
-    onSurface: Color(0xFFE0F0EC),
-    surfaceContainerLow: _cardDark,
+  colorScheme: withTintedContainers(
+    const ColorScheme(
+      brightness: Brightness.dark,
+      primary: _primaryDark,
+      onPrimary: Color(0xFF0A1A18),
+      secondary: _secondaryDark,
+      onSecondary: Color(0xFF1A0A06),
+      error: _errorDark,
+      onError: _onErrorDark,
+      surface: _surfaceDark,
+      onSurface: Color(0xFFE0F0EC),
+      surfaceContainerLow: _cardDark,
+    ),
   ),
   textTheme: _buildTextTheme(Brightness.dark),
   appBarTheme: const AppBarTheme(

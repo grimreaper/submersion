@@ -51,6 +51,10 @@ class DiveSites extends Table {
   TextColumn get entryMethod => text().nullable()();
   TextColumn get exitMethod => text().nullable()();
   BoolColumn get isShared => boolean().withDefault(const Constant(false))();
+
+  /// The shared site library this site belongs to (issue #2567); null for a
+  /// personal site. Set rows never enter the personal sync.
+  TextColumn get sharedLibraryId => text().nullable()();
   IntColumn get createdAt => integer()();
   IntColumn get updatedAt => integer()();
 
@@ -125,6 +129,11 @@ class DiveCenters extends Table {
       text().nullable()(); // PADI, SSI, etc. comma-separated
   RealColumn get rating => real().nullable()();
   TextColumn get notes => text().withDefault(const Constant(''))();
+
+  /// v249: fill hours for the trip fill forecast, minutes after local
+  /// midnight; null when unknown.
+  IntColumn get fillOpensAt => integer().nullable()();
+  IntColumn get fillClosesAt => integer().nullable()();
   IntColumn get createdAt => integer()();
   IntColumn get updatedAt => integer()();
 
@@ -245,4 +254,32 @@ class SiteFeatures extends Table {
 
   @override
   Set<Column> get primaryKey => {id};
+}
+
+/// A shared dive site one diver profile has hidden from itself (v250, issue
+/// #2594). The site stays in its owner's log and in every other profile. A
+/// parent-gated child of `dive_sites`; both parents cascade.
+@DataClassName('SiteHideRow')
+class SiteHides extends Table {
+  // coverage:ignore-start
+  TextColumn get id => text()();
+  TextColumn get siteId =>
+      text().references(DiveSites, #id, onDelete: KeyAction.cascade)();
+  TextColumn get diverId =>
+      text().references(Divers, #id, onDelete: KeyAction.cascade)();
+  IntColumn get createdAt => integer()();
+
+  /// This child's own clock, stamped when it is marked pending
+  /// (SyncDataSerializer.parentGatedChildEntities).
+  TextColumn get hlc => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+
+  /// Leads with the profile: every read is "this profile's hidden sites".
+  @override
+  List<Set<Column>> get uniqueKeys => [
+    {diverId, siteId},
+  ];
+  // coverage:ignore-end
 }

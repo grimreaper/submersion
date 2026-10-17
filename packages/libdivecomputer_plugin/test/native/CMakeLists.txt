@@ -71,6 +71,41 @@ target_include_directories(test_usbhid_descriptor_match PRIVATE
     ${CONFIG_DIR}
 )
 
+# Regression test for issue #2837: the descriptor catalog every platform builds
+# must not advertise libdivecomputer's raw USB transport, which no bridge can
+# drive. Links the real descriptor table, like the HID test above.
+add_executable(test_descriptor_iterator_transports
+    test_descriptor_iterator_transports.c
+    ${WRAPPER_DIR}/libdc_wrapper.c
+    ${LIBDC_DIR}/src/descriptor.c
+    ${LIBDC_DIR}/src/iterator.c
+    ${LIBDC_DIR}/src/array.c
+    ${LIBDC_DIR}/src/platform.c
+    ${LIBDC_DIR}/src/version.c
+)
+target_include_directories(test_descriptor_iterator_transports PRIVATE
+    ${WRAPPER_DIR}
+    ${LIBDC_DIR}/include
+    ${CONFIG_DIR}
+)
+
+# Issue #2902: the catalog says which backends deliver dives oldest-first, so
+# the app only treats a partial download as a resume point when it is one.
+add_executable(test_descriptor_delivery_order
+    test_descriptor_delivery_order.c
+    ${WRAPPER_DIR}/libdc_wrapper.c
+    ${LIBDC_DIR}/src/descriptor.c
+    ${LIBDC_DIR}/src/iterator.c
+    ${LIBDC_DIR}/src/array.c
+    ${LIBDC_DIR}/src/platform.c
+    ${LIBDC_DIR}/src/version.c
+)
+target_include_directories(test_descriptor_delivery_order PRIVATE
+    ${WRAPPER_DIR}
+    ${LIBDC_DIR}/include
+    ${CONFIG_DIR}
+)
+
 # Issue #422: the Cressi Goa BLE backend reads its version block through
 # DC_IOCTL_BLE_CHARACTERISTIC_READ. Every platform bridge decodes and fills
 # that request with the shared helpers pinned here.
@@ -310,6 +345,26 @@ if(WIN32)
     target_link_libraries(test_cressi_goa_ble_download PRIVATE SetupAPI.lib ws2_32.lib)
 endif()
 
+# Issue #2902: the real Halcyon Symbios backend over a scripted BLE iostream
+# that loses one block, delivers it late, or goes silent mid-transfer.
+add_executable(test_halcyon_symbios_ble_download
+    test_halcyon_symbios_ble_download.c
+    ${WRAPPER_DIR}/libdc_wrapper.c
+    ${WRAPPER_DIR}/libdc_download.c
+    ${LIBDC_ALL_SOURCES}
+)
+target_include_directories(test_halcyon_symbios_ble_download PRIVATE
+    ${WRAPPER_DIR}
+    ${LIBDC_DIR}/include
+    ${LIBDC_DIR}/src
+    ${PLATFORM_CONFIG_DIR}
+)
+target_compile_definitions(test_halcyon_symbios_ble_download PRIVATE HAVE_CONFIG_H)
+if(WIN32)
+    target_compile_definitions(test_halcyon_symbios_ble_download PRIVATE _CRT_SECURE_NO_WARNINGS)
+    target_link_libraries(test_halcyon_symbios_ble_download PRIVATE SetupAPI.lib ws2_32.lib)
+endif()
+
 # Regression test for issue #810: the Shearwater parser must report the raw O2
 # cell output even when the logged calibration value cannot be trusted. Exercises
 # the parser through the public API only, so it needs the full library but not
@@ -421,6 +476,8 @@ add_test(NAME test_serial_callbacks COMMAND test_serial_callbacks)
 add_test(NAME test_descriptor_matcher COMMAND test_descriptor_matcher)
 add_test(NAME test_descriptor_match_integration COMMAND test_descriptor_match_integration)
 add_test(NAME test_usbhid_descriptor_match COMMAND test_usbhid_descriptor_match)
+add_test(NAME test_descriptor_iterator_transports COMMAND test_descriptor_iterator_transports)
+add_test(NAME test_descriptor_delivery_order COMMAND test_descriptor_delivery_order)
 add_test(NAME test_ble_characteristic_read COMMAND test_ble_characteristic_read)
 add_test(NAME test_reported_product COMMAND test_reported_product)
 add_test(NAME test_hw_ostc3_read COMMAND test_hw_ostc3_read)
@@ -430,6 +487,7 @@ add_test(NAME test_uwatec_smart_ble_download COMMAND test_uwatec_smart_ble_downl
 add_test(NAME test_event_type_names COMMAND test_event_type_names)
 add_test(NAME test_download_clock_sync COMMAND test_download_clock_sync)
 add_test(NAME test_cressi_goa_ble_download COMMAND test_cressi_goa_ble_download)
+add_test(NAME test_halcyon_symbios_ble_download COMMAND test_halcyon_symbios_ble_download)
 add_test(NAME test_parse_raw_dive COMMAND test_parse_raw_dive
     WORKING_DIRECTORY "${CMAKE_CURRENT_SOURCE_DIR}"
 )

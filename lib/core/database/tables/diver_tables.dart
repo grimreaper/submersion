@@ -84,6 +84,11 @@ class DiverSettings extends Table {
       text().withDefault(const Constant('kilograms'))();
   TextColumn get altitudeUnit => text().withDefault(const Constant('meters'))();
 
+  /// v263: geographic distance unit, a DistanceUnit name (issue #2030).
+  /// Backfilled from depth_unit as the column is added.
+  TextColumn get distanceUnit =>
+      text().withDefault(const Constant('kilometers'))();
+
   /// v170: renamed from sacUnit. Holds a GasConsumptionDisplay name (sac,
   /// rmv, both). The Drift getter name is also the sync wire key, so this
   /// rename raises minimumCompatibleSchemaVersion; see
@@ -166,15 +171,20 @@ class DiverSettings extends Table {
       text().withDefault(const Constant('recreational'))();
   RealColumn get defaultTankVolume =>
       real().withDefault(const Constant(12.0))();
-  IntColumn get defaultStartPressure =>
-      integer().withDefault(const Constant(200))();
+
+  /// Bar. REAL since v275 so a pressure entered in psi keeps its value
+  /// (issue #3091); whole bar before that.
+  RealColumn get defaultStartPressure =>
+      real().withDefault(const Constant(200.0))();
   TextColumn get defaultTankPreset =>
       text().nullable().withDefault(const Constant('al80'))();
   BoolColumn get applyDefaultTankToImports =>
       boolean().withDefault(const Constant(false))();
   // Decompression settings
-  IntColumn get gfLow => integer().withDefault(const Constant(30))();
-  IntColumn get gfHigh => integer().withDefault(const Constant(70))();
+  // The app's default (AppSettings, GF 50/85, the Medium preset). Every
+  // insert names its values; this is the fallback for one that does not.
+  IntColumn get gfLow => integer().withDefault(const Constant(50))();
+  IntColumn get gfHigh => integer().withDefault(const Constant(85))();
   RealColumn get ppO2MaxWorking => real().withDefault(const Constant(1.4))();
   RealColumn get ppO2MaxDeco => real().withDefault(const Constant(1.6))();
   // CCR ppO2 limits (v231, issue #2342): the diver's default setpoints and
@@ -201,6 +211,8 @@ class DiverSettings extends Table {
   // coverage:ignore-end
   BoolColumn get o2Narcotic => boolean().withDefault(const Constant(true))();
   RealColumn get endLimit => real().withDefault(const Constant(30.0))();
+  BoolColumn get icdWarningsEnabled =>
+      boolean().withDefault(const Constant(true))();
   BoolColumn get useDiveComputerCnsData =>
       boolean().withDefault(const Constant(false))();
   // The per-metric data sources stay at DEFAULT 1 (calculated) even though a
@@ -208,10 +220,9 @@ class DiverSettings extends Table {
   // every settings row is written from. Sync fills a key missing from an
   // older peer's payload with this column default and writes it over the
   // local row, so a 0 here would move existing libraries to computer.
-  // Applies to the GTR and deco stop sources below too.
+  // Applies to the GTR and deco stop sources below too. The ceiling line has
+  // no source (#755); its column was dropped in v261 (#767).
   IntColumn get defaultNdlSource => integer().withDefault(const Constant(1))();
-  IntColumn get defaultCeilingSource =>
-      integer().withDefault(const Constant(1))();
   IntColumn get defaultTtsSource => integer().withDefault(const Constant(1))();
   IntColumn get defaultCnsSource => integer().withDefault(const Constant(1))();
   // Gas time remaining on the profile chart (v177). Source is a
@@ -256,6 +267,15 @@ class DiverSettings extends Table {
   /// v227: built-in tank presets the diver hid from the pickers (issue
   /// #2305), JSON list of preset slugs. Null or absent = none hidden.
   TextColumn get hiddenTankPresetIds => text().nullable()();
+
+  /// v265: muted Insights observation rules (#2381), JSON list of
+  /// ObservationRuleId.dbValue. Null or absent = none muted.
+  TextColumn get insightsMutedObservationRules => text().nullable()();
+
+  /// v269: built-in catalog entries the diver hid from the pickers (issue
+  /// #401), a JSON object of catalog key to id list. Null or absent = none
+  /// hidden.
+  TextColumn get hiddenBuiltInIds => text().nullable()();
   // Appearance settings
   BoolColumn get showDepthColoredDiveCards =>
       boolean().withDefault(const Constant(false))();
@@ -309,6 +329,21 @@ class DiverSettings extends Table {
       text().withDefault(const Constant('detailed'))();
   TextColumn get diveCenterListViewMode =>
       text().withDefault(const Constant('detailed'))();
+
+  /// v262 (issue #2948): the certification and course list view modes,
+  /// which were in-memory only and reset on every restart.
+  TextColumn get certificationListViewMode =>
+      text().withDefault(const Constant('detailed'))();
+  TextColumn get courseListViewMode =>
+      text().withDefault(const Constant('detailed'))();
+
+  /// v262 (issue #2948): profile metric overlays follow the zoomed depth
+  /// window, and the passive-SCR ratio. Both were device-local prefs.
+  /// Nullable ON PURPOSE: null marks a row that has never held a value,
+  /// which is what lets each device adopt its old pref into it (see
+  /// SettingsNotifier). Null reads as off and 100.
+  BoolColumn get profileMetricsFollowViewport => boolean().nullable()();
+  RealColumn get pscrRatio => real().nullable()();
   // Map style (v67)
   TextColumn get mapStyle =>
       text().withDefault(const Constant('openStreetMap'))();
@@ -356,6 +391,10 @@ class DiverSettings extends Table {
       boolean().withDefault(const Constant(false))();
   BoolColumn get defaultShowGasSwitchMarkers =>
       boolean().withDefault(const Constant(true))();
+
+  /// v264: shade late and missed deco gas switches on the profile (#2939).
+  BoolColumn get defaultShowLateGasSwitches =>
+      boolean().withDefault(const Constant(true))();
   BoolColumn get defaultShowGasTimeline =>
       boolean().withDefault(const Constant(false))();
   // v161: default visibility for the per-cell O2 mV traces (issue #1235).
@@ -392,6 +431,37 @@ class DiverSettings extends Table {
   // v122: days before a trip to nag about gear due before trip end.
   IntColumn get tripServiceLeadDays =>
       integer().withDefault(const Constant(14))();
+  // v281: calendar months a stretch with no dives must exceed before the
+  // trend charts collapse it into a break (issue #3251); 0 is off. Any
+  // other value reads as 12. Codegen input, never executed.
+  // coverage:ignore-start
+  IntColumn get trendGapCollapseMonths =>
+      integer().withDefault(const Constant(12))();
+  // coverage:ignore-end
+  // v284: per-diver profile metric colours (issue #3012), ARGB ints; null is
+  // the metric's default (or Auto). Codegen input, never executed.
+  // coverage:ignore-start
+  IntColumn get profileColorDepth => integer().nullable()();
+  IntColumn get profileColorTemperature => integer().nullable()();
+  IntColumn get profileColorPressure => integer().nullable()();
+  IntColumn get profileColorHeartRate => integer().nullable()();
+  IntColumn get profileColorSac => integer().nullable()();
+  IntColumn get profileColorMaxDepth => integer().nullable()();
+  IntColumn get profileColorCeiling => integer().nullable()();
+  IntColumn get profileColorNdl => integer().nullable()();
+  IntColumn get profileColorTts => integer().nullable()();
+  IntColumn get profileColorGtr => integer().nullable()();
+  IntColumn get profileColorCns => integer().nullable()();
+  IntColumn get profileColorOtu => integer().nullable()();
+  IntColumn get profileColorPpO2 => integer().nullable()();
+  IntColumn get profileColorPpN2 => integer().nullable()();
+  IntColumn get profileColorPpHe => integer().nullable()();
+  IntColumn get profileColorMod => integer().nullable()();
+  IntColumn get profileColorDensity => integer().nullable()();
+  IntColumn get profileColorGf => integer().nullable()();
+  IntColumn get profileColorSurfaceGf => integer().nullable()();
+  IntColumn get profileColorMeanDepth => integer().nullable()();
+  // coverage:ignore-end
   // Data source badge visibility (v55)
   BoolColumn get showDataSourceBadges =>
       boolean().withDefault(const Constant(true))();
@@ -429,6 +499,14 @@ class DiverSettings extends Table {
       boolean().withDefault(const Constant(false))();
   BoolColumn get showDetailsPaneCourses =>
       boolean().withDefault(const Constant(false))();
+  // v274: one-time confirmation of the planning safety disclaimer (issue
+  // #3120). Off by default; the app never resets it back to false.
+  BoolColumn get hasAcceptedPlanningDisclaimer =>
+      boolean().withDefault(const Constant(false))();
+  // v286: the statuses the Equipment list's default view shows (issue
+  // #2628), a JSON array of EquipmentStatus names. Null reads as the factory
+  // default, everything but retired, sold and wanted gear.
+  TextColumn get equipmentDefaultStatuses => text().nullable()();
   IntColumn get createdAt => integer()();
   IntColumn get updatedAt => integer()();
 

@@ -14,10 +14,20 @@ import 'package:submersion/features/dive_import/data/services/fit/fit_raw_field_
 import 'package:submersion/features/dive_import/data/services/fit/fit_summary_extractor.dart';
 import 'package:submersion/features/dive_import/data/services/fit/fit_tank_extractor.dart';
 import 'package:submersion/features/dive_import/data/services/fit/fit_time_resolver.dart';
+import 'package:submersion/features/dive_import/data/services/fit/fit_tissue_snapshot.dart';
 import 'package:submersion/features/dive_import/domain/entities/imported_dive.dart';
 
 /// Garmin FIT sport codes that represent dive activities.
 const _diveSports = {Sport.diving};
+
+/// The manufacturer a FIT `file_id.manufacturer` code names, for the codes
+/// whose dive computers Submersion imports. Null for any other code, which
+/// leaves the computer's manufacturer blank as before (issue #3106).
+String? fitManufacturerName(int? id) => switch (id) {
+  1 => 'Garmin',
+  23 => 'Suunto',
+  _ => null,
+};
 
 /// Parses Garmin FIT binary files into enriched [ImportedDive] entities.
 ///
@@ -167,7 +177,13 @@ class FitParserService {
 
     final serial = fileId?.serialNumber ?? 0;
     final sourceId = 'garmin-$serial-$sessionStartMs';
-    final productCode = fileId?.garminProduct ?? fileId?.product;
+    final manufacturerName = fitManufacturerName(fileId?.manufacturer);
+    final model = FitDeviceMapper.modelFor(
+      manufacturer: fileId?.manufacturer,
+      manufacturerName: manufacturerName,
+      product: fileId?.garminProduct ?? fileId?.product,
+      productName: fileId?.productName,
+    );
 
     return ImportedDive(
       sourceId: sourceId,
@@ -189,12 +205,14 @@ class FitParserService {
       surfaceIntervalSeconds: summary.surfaceInterval?.inSeconds,
       cnsStart: summary.cnsStart,
       cnsEnd: summary.cnsEnd,
+      computerTissue: fitTissueSnapshot(summary),
       otu: summary.otu,
       waterType: summary.waterType,
       decoModel: summary.decoModel,
       gfLow: summary.gfLow,
       gfHigh: summary.gfHigh,
-      computerModel: FitDeviceMapper.modelName(productCode),
+      computerManufacturer: manufacturerName,
+      computerModel: model,
       computerSerial: serial != 0 ? '$serial' : null,
       tanks: tanks,
       gasSwitches: gasSwitches,
@@ -319,6 +337,7 @@ class FitParserService {
         temperature: s.temperature,
         heartRate: s.heartRate,
         cns: s.cns,
+        n2Load: s.n2Load,
         ndlSeconds: s.ndlSeconds,
         ttsSeconds: s.ttsSeconds,
         ceiling: s.ceiling,

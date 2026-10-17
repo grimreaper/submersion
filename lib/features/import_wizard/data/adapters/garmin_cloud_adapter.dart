@@ -1,6 +1,10 @@
 import 'package:flutter/material.dart';
 import 'package:uuid/uuid.dart';
 
+import 'package:submersion/features/import_wizard/data/adapters/import_connection_recorder.dart';
+import 'package:submersion/features/dive_computer/presentation/providers/dive_computer_connection_providers.dart';
+import 'package:submersion/features/dive_computer/domain/entities/dive_computer_connection.dart';
+import 'package:submersion/features/dive_computer/data/repositories/dive_computer_connection_repository.dart';
 import 'package:submersion/core/constants/enums.dart' show WeightType;
 import 'package:submersion/core/domain/models/incoming_dive_data.dart';
 import 'package:submersion/core/providers/provider.dart';
@@ -15,6 +19,7 @@ import 'package:submersion/features/dive_import/domain/services/dive_matcher.dar
 import 'package:submersion/features/dive_log/data/repositories/dive_computer_repository_impl.dart'
     hide DiveMatchResult;
 import 'package:submersion/features/dive_log/data/repositories/dive_repository_impl.dart';
+import 'package:submersion/features/dive_log/data/services/derived_metrics_scheduler.dart';
 import 'package:submersion/features/dive_log/data/services/dive_consolidation_service.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_computer.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_weight.dart';
@@ -90,7 +95,9 @@ class GarminCloudAdapter implements ImportSourceAdapter {
     required DiveConsolidationService consolidationService,
     required String diverId,
     WidgetRef? ref,
+    DiveComputerConnectionRepository? connectionRepository,
   }) : _importService = importService,
+       _connectionRepository = connectionRepository,
        _computerRepository = computerRepository,
        _diveRepository = diveRepository,
        _consolidationService = consolidationService,
@@ -103,6 +110,10 @@ class GarminCloudAdapter implements ImportSourceAdapter {
   final DiveConsolidationService _consolidationService;
   final String _diverId;
   final WidgetRef? _ref;
+
+  /// Where each computer's Garmin Connect connection is recorded (issue
+  /// #3106); read from [_ref] when not given.
+  final DiveComputerConnectionRepository? _connectionRepository;
 
   List<GarminParsedDive> _parsedDives = [];
 
@@ -118,6 +129,15 @@ class GarminCloudAdapter implements ImportSourceAdapter {
   /// (either from a cached session or a fresh login).
   void setClient(GarminConnectClient client) {
     _client = client;
+  }
+
+  /// The account the sign-in step signed in with, shown on the Review step
+  /// (issue #161).
+  String? _account;
+
+  /// Set by the sign-in step alongside [setClient].
+  void setAccount(String? account) {
+    _account = account;
   }
 
   /// The authenticated client set by the sign-in step. Only meaningful once
@@ -140,6 +160,7 @@ class GarminCloudAdapter implements ImportSourceAdapter {
   void resetState() {
     _computersByKey.clear();
     _client = null;
+    _account = null;
     _parsedDives = [];
     final ref = _ref;
     if (ref == null) return;
@@ -182,7 +203,10 @@ class GarminCloudAdapter implements ImportSourceAdapter {
     WizardStepDef(
       label: 'Sign In',
       icon: Icons.login,
-      builder: (context) => GarminCloudSignInStep(onSignedIn: setClient),
+      builder: (context) => GarminCloudSignInStep(
+        onSignedIn: setClient,
+        onAccountSignedIn: setAccount,
+      ),
       canAdvance: garminCloudSignedInProvider,
       autoAdvance: true,
     ),
@@ -211,6 +235,10 @@ class GarminCloudAdapter implements ImportSourceAdapter {
       source: ImportSourceInfo(
         type: ImportSourceType.garminCloud,
         displayName: displayName,
+        details: ImportSourceDetails(
+          account: _account,
+          deviceModels: _deviceModels(),
+        ),
       ),
       groups: {ImportEntityType.dives: EntityGroup(items: items)},
     );
@@ -428,9 +456,23 @@ class GarminCloudAdapter implements ImportSourceAdapter {
       await _computerRepository.incrementDiveCount(entry.key, by: entry.value);
       await _computerRepository.updateLastDownload(entry.key);
     }
+    // Every computer the fetched dives came from was reached through
+    // Garmin Connect this time, including one whose dives were all skipped
+    // as duplicates or replaced in place (issue #3106).
+    for (final computerId in {for (final c in _computersByKey.values) c.id}) {
+      await recordImportConnection(
+        _connectionRepository ??
+            _ref?.read(diveComputerConnectionRepositoryProvider),
+        computerId: computerId,
+        kind: DiveComputerConnectionKind.cloud,
+        detail: 'garminConnect',
+        log: _log,
+      );
+    }
 
     scheduleQualityScan(importedDiveIds);
     scheduleSensorSummaryRefresh(importedDiveIds);
+    scheduleDerivedMetricsRefresh(importedDiveIds);
 
     final numberConflict = await diveNumberConflictNotice(
       retainSourceDiveNumbers: retainSourceDiveNumbers,
@@ -517,6 +559,15 @@ class GarminCloudAdapter implements ImportSourceAdapter {
   // ---------------------------------------------------------------------------
   // Helpers -- dive computer resolution
   // ---------------------------------------------------------------------------
+
+  /// The models of the devices that recorded the fetched dives, each once,
+  /// in the order the dives list them.
+  List<String> _deviceModels() => {
+    for (final parsed in _parsedDives)
+      ?parsed.profileMissing
+          ? null
+          : normalizedIdentityPart(parsed.deviceModel),
+  }.toList();
 
   Future<void> _ensureComputers() async {
     for (final parsed in _parsedDives) {

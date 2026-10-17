@@ -41,6 +41,11 @@ enum ImportNoticeKind {
   /// imported dives affected.
   unknownTransmitter,
 
+  /// A downloaded cylinder took its oxygen or diluent role from the name the
+  /// diver gave its unassigned transmitter, which nothing checks (issue
+  /// #2595). [ImportNotice.count] is the number of imported dives affected.
+  transmitterNameRoles,
+
   /// Auto-mapped CSV columns left out because another column already fills
   /// the same field. [ImportNotice.names] lists the columns.
   columnsNotImported,
@@ -52,6 +57,15 @@ enum ImportNoticeKind {
   /// Photo references with no file name, which could not be linked.
   /// [ImportNotice.count] is the number of photos.
   photosSkipped,
+
+  /// Pictures stored inside a logbook file that Submersion has nowhere to
+  /// keep, such as gear photos and site maps. [ImportNotice.count] is the
+  /// number of pictures.
+  logbookImagesNotImported,
+
+  /// Trips with no dates and no dated dives, so they could not be saved.
+  /// [ImportNotice.names] lists the trips.
+  tripsNotImported,
 
   /// A MacDive XML file carries no certifications or equipment service
   /// records, because MacDive leaves both out of its XML export.
@@ -112,6 +126,7 @@ enum ImportNoticeKind {
     profileUndecodableOnPlatform ||
     noTankPressure ||
     unknownTransmitter ||
+    transmitterNameRoles ||
     sitesUnresolved ||
     macdiveDeviceTimeZone ||
     diveNumberConflict => true,
@@ -120,6 +135,8 @@ enum ImportNoticeKind {
     columnsNotImported ||
     valuesNotConverted ||
     photosSkipped ||
+    logbookImagesNotImported ||
+    tripsNotImported ||
     macdiveXmlOmitsCertsAndService ||
     macdiveLogbooksNotImported ||
     gearUnavailable ||

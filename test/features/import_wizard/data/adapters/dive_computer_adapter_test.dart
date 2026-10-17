@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
+import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/features/dive_computer/data/services/dive_import_service.dart';
 import 'package:submersion/features/dive_computer/domain/entities/device_model.dart';
 import 'package:submersion/features/dive_computer/domain/entities/downloaded_dive.dart';
@@ -224,6 +225,206 @@ void main() {
 
       expect(bundle.source.type, equals(ImportSourceType.diveComputer));
       expect(bundle.source.displayName, equals('My Perdix'));
+    });
+
+    group('source details (#161)', () {
+      test('known computer: name, model and stored identity', () async {
+        adapter.setDownloadedDives([]);
+
+        final details = (await adapter.buildBundle()).source.details;
+
+        expect(details.title, 'My Perdix');
+        expect(details.model, 'Shearwater Perdix');
+        expect(details.serialNumber, 'SN-12345');
+        expect(details.connection, isNull);
+      });
+
+      test('this download\'s serial, firmware and connection win', () async {
+        await adapter.ensureComputer(
+          device: DiscoveredDevice(
+            id: 'device-1',
+            name: 'Perdix',
+            connectionType: DeviceConnectionType.ble,
+            address: 'AA:BB:CC:DD:EE:FF',
+            discoveredAt: DateTime(2026, 3, 20),
+          ),
+          serialNumber: 'SN-99',
+          firmwareVersion: '92',
+        );
+        adapter.setDownloadedDives([]);
+
+        final details = (await adapter.buildBundle()).source.details;
+
+        expect(details.serialNumber, 'SN-99');
+        expect(details.firmwareVersion, '92');
+        expect(details.connection, DeviceConnectionType.ble);
+      });
+
+      test('a stored record without a model falls back to the '
+          'recognized device', () async {
+        final bareAdapter = DiveComputerAdapter(
+          importService: mockImportService,
+          computerRepository: mockComputerRepo,
+          diveRepository: mockDiveRepo,
+          consolidationService: mockConsolidationService,
+          diverId: diverId,
+          knownComputer: makeComputer(manufacturer: null, model: null),
+        );
+        await bareAdapter.ensureComputer(
+          device: DiscoveredDevice(
+            id: 'device-1',
+            name: 'Perdix',
+            connectionType: DeviceConnectionType.ble,
+            address: 'AA:BB:CC:DD:EE:FF',
+            recognizedModel: const DeviceModel(
+              id: 'shearwater_perdix',
+              manufacturer: 'Shearwater',
+              model: 'Perdix',
+              connectionTypes: [DeviceConnectionType.ble],
+            ),
+            discoveredAt: DateTime(2026, 3, 20),
+          ),
+        );
+        bareAdapter.setDownloadedDives([]);
+
+        final details = (await bareAdapter.buildBundle()).source.details;
+
+        expect(details.model, 'Shearwater Perdix');
+      });
+
+      group('a model the device reported about itself (#422)', () {
+        DiveComputerAdapter cartesioAdapter() => DiveComputerAdapter(
+          importService: mockImportService,
+          computerRepository: mockComputerRepo,
+          diveRepository: mockDiveRepo,
+          consolidationService: mockConsolidationService,
+          diverId: diverId,
+          knownComputer: makeComputer(
+            name: 'Cressi Cartesio',
+            manufacturer: 'Cressi',
+            model: 'Cartesio',
+            serialNumber: 'SN-1',
+          ),
+        );
+
+        Future<ImportSourceDetails> detailsAfter({
+          required DiveComputerAdapter adapter,
+          String? serial,
+        }) async {
+          await adapter.ensureComputer(
+            device: DiscoveredDevice(
+              id: 'device-1',
+              name: 'Cartesio',
+              connectionType: DeviceConnectionType.ble,
+              address: 'AA:BB:CC:DD:EE:FF',
+              discoveredAt: DateTime(2026, 3, 20),
+            ),
+            serialNumber: serial,
+            reportedProduct: 'Donatello',
+            reportedModel: 7,
+          );
+          adapter.setDownloadedDives([]);
+          return (await adapter.buildBundle()).source.details;
+        }
+
+        test('relabels the stored computer as the download did', () async {
+          final details = await detailsAfter(
+            adapter: cartesioAdapter(),
+            serial: 'SN-1',
+          );
+
+          expect(details.title, 'Cressi Donatello');
+          expect(details.model, 'Cressi Donatello');
+        });
+
+        test('keeps the record when the serial says it is another', () async {
+          final details = await detailsAfter(
+            adapter: cartesioAdapter(),
+            serial: 'SN-2',
+          );
+
+          expect(details.model, 'Cressi Cartesio');
+        });
+      });
+
+      test('a blank stored manufacturer does not hide the recognized '
+          'device', () async {
+        final blankAdapter = DiveComputerAdapter(
+          importService: mockImportService,
+          computerRepository: mockComputerRepo,
+          diveRepository: mockDiveRepo,
+          consolidationService: mockConsolidationService,
+          diverId: diverId,
+          knownComputer: makeComputer(manufacturer: '', model: null),
+        );
+        await blankAdapter.ensureComputer(
+          device: DiscoveredDevice(
+            id: 'device-1',
+            name: 'Perdix',
+            connectionType: DeviceConnectionType.ble,
+            address: 'AA:BB:CC:DD:EE:FF',
+            recognizedModel: const DeviceModel(
+              id: 'shearwater_perdix',
+              manufacturer: 'Shearwater',
+              model: 'Perdix',
+              connectionTypes: [DeviceConnectionType.ble],
+            ),
+            discoveredAt: DateTime(2026, 3, 20),
+          ),
+        );
+        blankAdapter.setDownloadedDives([]);
+
+        final details = (await blankAdapter.buildBundle()).source.details;
+
+        expect(details.model, 'Shearwater Perdix');
+      });
+
+      test('the name typed on the confirm step is the title', () async {
+        adapter
+          ..setCustomDeviceName('Backup computer')
+          ..setDownloadedDives([]);
+
+        final details = (await adapter.buildBundle()).source.details;
+
+        expect(details.title, 'Backup computer');
+      });
+
+      for (final (stored, expected) in [
+        ('BLE', DeviceConnectionType.ble),
+        ('bluetoothClassic', DeviceConnectionType.bluetoothClassic),
+        ('Bluetooth', DeviceConnectionType.bluetoothClassic),
+        ('wifi', null),
+      ]) {
+        test('a stored "$stored" connection reads as $expected', () async {
+          final storedAdapter = DiveComputerAdapter(
+            importService: mockImportService,
+            computerRepository: mockComputerRepo,
+            diveRepository: mockDiveRepo,
+            consolidationService: mockConsolidationService,
+            diverId: diverId,
+            knownComputer: makeComputer().copyWith(connectionType: stored),
+          )..setDownloadedDives([]);
+
+          final details = (await storedAdapter.buildBundle()).source.details;
+
+          expect(details.connection, expected);
+        });
+      }
+
+      test('a stored USB connection is reported when nothing newer', () async {
+        final usbAdapter = DiveComputerAdapter(
+          importService: mockImportService,
+          computerRepository: mockComputerRepo,
+          diveRepository: mockDiveRepo,
+          consolidationService: mockConsolidationService,
+          diverId: diverId,
+          knownComputer: makeComputer().copyWith(connectionType: 'usb'),
+        )..setDownloadedDives([]);
+
+        final details = (await usbAdapter.buildBundle()).source.details;
+
+        expect(details.connection, DeviceConnectionType.usb);
+      });
     });
 
     test('handles multiple dives', () async {
@@ -763,6 +964,68 @@ void main() {
       },
     );
 
+    test('a role read off an unassigned transmitter name adds its own '
+        'notice (#2595)', () async {
+      // Dive 0: the oxygen role came from the transmitter name "O2" and the
+      // serial is unassigned. Dive 1: an unassigned serial, role not from a
+      // name. Dive 2: a name-derived role on a serial the registry claimed,
+      // so the registry's role replaced it.
+      const nameDerived = DownloadedTank(
+        index: 0,
+        o2Percent: 100,
+        role: 'oxygenSupply',
+        roleSource: TankRoleSource.transmitterName,
+        transmitterSerial: '999',
+      );
+      const plain = DownloadedTank(
+        index: 0,
+        o2Percent: 21,
+        transmitterSerial: '888',
+      );
+      const claimed = DownloadedTank(
+        index: 0,
+        o2Percent: 100,
+        role: 'oxygenSupply',
+        roleSource: TankRoleSource.transmitterName,
+        transmitterSerial: '777',
+      );
+      final dives = [
+        makeDownloadedDive(fingerprint: 'fp-0', tanks: const [nameDerived]),
+        makeDownloadedDive(
+          fingerprint: 'fp-1',
+          startTime: DateTime(2026, 3, 16, 10, 32),
+          tanks: const [plain],
+        ),
+        makeDownloadedDive(
+          fingerprint: 'fp-2',
+          startTime: DateTime(2026, 3, 17, 10, 32),
+          tanks: const [claimed],
+        ),
+      ];
+      adapter.setDownloadedDives(dives);
+      final bundle = await adapter.buildBundle();
+      when(
+        mockImportService.unmatchedTransmitterSerials,
+      ).thenReturn(['888', '999']);
+      for (final (i, dive) in dives.indexed) {
+        when(
+          mockImportService.importSingleDiveAsNew(
+            dive,
+            computerId: computer.id,
+            diverId: diverId,
+          ),
+        ).thenAnswer((_) async => 'new-dive-$i');
+      }
+
+      final result = await adapter.performImport(bundle, {
+        ImportEntityType.dives: {0, 1, 2},
+      }, const {});
+
+      final byKind = {for (final n in result.notices) n.kind: n.count};
+      expect(byKind[ImportNoticeKind.unknownTransmitter], 2);
+      expect(byKind[ImportNoticeKind.transmitterNameRoles], 1);
+    });
+
     test('handles DuplicateAction.importAsNew', () async {
       final dive = makeDownloadedDive();
       adapter.setDownloadedDives([dive]);
@@ -1066,6 +1329,65 @@ void main() {
       verify(
         mockComputerRepo.updateLastFingerprint('computer-1', 'fp-newest'),
       ).called(1);
+    });
+
+    group('after an interrupted download (issue #2902)', () {
+      final older = makeDownloadedDive(
+        startTime: DateTime(2026, 9, 19, 10),
+        fingerprint: 'fp-older',
+      );
+      final newer = makeDownloadedDive(
+        startTime: DateTime(2026, 9, 20, 10),
+        fingerprint: 'fp-newer',
+      );
+
+      test('keeps the saved fingerprint for a newest-first backend', () async {
+        // A Halcyon Symbios session that stopped after its newest dive.
+        // Resuming from that dive would hide every older one it never sent.
+        adapter.setDownloadedDives([newer], interrupted: true);
+        final bundle = await adapter.buildBundle();
+
+        await adapter.performImport(bundle, {
+          ImportEntityType.dives: {0},
+        }, {});
+
+        verify(mockComputerRepo.updateLastDownload('computer-1')).called(1);
+        verifyNever(mockComputerRepo.updateLastFingerprint(any, any));
+      });
+
+      test(
+        'resumes from the newest dive for an oldest-first backend',
+        () async {
+          adapter.setDownloadedDives(
+            [older, newer],
+            interrupted: true,
+            deliversOldestFirst: true,
+          );
+          final bundle = await adapter.buildBundle();
+
+          await adapter.performImport(bundle, {
+            ImportEntityType.dives: {0, 1},
+          }, {});
+
+          verify(
+            mockComputerRepo.updateLastFingerprint('computer-1', 'fp-newer'),
+          ).called(1);
+        },
+      );
+
+      test('a later complete download resumes from its newest dive', () async {
+        adapter.setDownloadedDives([newer], interrupted: true);
+        adapter.setDownloadedDives([newer, older]);
+        final bundle = await adapter.buildBundle();
+
+        await adapter.performImport(bundle, {
+          ImportEntityType.dives: {0, 1},
+        }, {});
+
+        verify(
+          mockComputerRepo.updateLastFingerprint('computer-1', 'fp-newer'),
+        ).called(1);
+      });
     });
 
     test('returns error result when no computer is available', () async {

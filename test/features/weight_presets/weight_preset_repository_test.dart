@@ -6,6 +6,7 @@ import 'package:drift/native.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:submersion/core/constants/enums.dart';
+import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/database.dart' show AppDatabase;
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_weight.dart';
@@ -112,7 +113,12 @@ void main() {
       // the statement log rather than the repository's Dart control flow.
       await tearDownTestDatabase();
       DatabaseService.instance.setTestDatabase(
-        AppDatabase(NativeDatabase.memory(logStatements: true)),
+        AppDatabase(
+          NativeDatabase.memory(
+            setup: registerAppSqlFunctions,
+            logStatements: true,
+          ),
+        ),
       );
       final divers = DiverRepository();
       final now = DateTime.now();
@@ -167,8 +173,13 @@ void main() {
         diverId: diverId,
         displayName: '  Wetsuit 5mm  ',
         entries: const [
-          (weightType: WeightType.belt, amountKg: 4.0, notes: ''),
-          (weightType: WeightType.trimWeights, amountKg: 1.0, notes: 'tail'),
+          (weightType: WeightType.belt, amountKg: 4.0, notes: '', label: ''),
+          (
+            weightType: WeightType.trimWeights,
+            amountKg: 1.0,
+            notes: 'tail',
+            label: '',
+          ),
         ],
       );
 
@@ -206,7 +217,12 @@ void main() {
       id: preset.id,
       displayName: 'New name',
       entries: const [
-        (weightType: WeightType.integrated, amountKg: 6.0, notes: ''),
+        (
+          weightType: WeightType.integrated,
+          amountKg: 6.0,
+          notes: '',
+          label: '',
+        ),
       ],
     );
 
@@ -233,5 +249,47 @@ void main() {
         )
         .getSingle();
     expect(presetTombstones.read<int>('n'), 0);
+  });
+
+  test('createFromWeights keeps each weight\'s name', () async {
+    final preset = await repo.createFromWeights(
+      diverId: diverId,
+      displayName: 'Sidemount',
+      weights: [
+        _w(WeightType.trimWeights, 2).copyWith(label: 'Top pocket'),
+        _w(WeightType.trimWeights, 1).copyWith(label: '  2nd pocket '),
+      ],
+    );
+    expect(preset.entries.map((e) => e.label).toList(), [
+      'Top pocket',
+      '2nd pocket',
+    ]);
+    final reread = (await repo.getPresets(diverId: diverId)).single;
+    expect(reread.entries.map((e) => e.label).toList(), [
+      'Top pocket',
+      '2nd pocket',
+    ]);
+  });
+
+  test('updatePreset writes the entries\' names', () async {
+    final preset = await repo.createFromWeights(
+      diverId: diverId,
+      displayName: 'Sidemount',
+      weights: [_w(WeightType.trimWeights, 2)],
+    );
+    await repo.updatePreset(
+      id: preset.id,
+      displayName: 'Sidemount',
+      entries: const [
+        (
+          weightType: WeightType.trimWeights,
+          amountKg: 2,
+          notes: '',
+          label: 'Top pocket',
+        ),
+      ],
+    );
+    final reread = (await repo.getPresets(diverId: diverId)).single;
+    expect(reread.entries.single.label, 'Top pocket');
   });
 }

@@ -1,5 +1,6 @@
 import 'package:submersion/features/universal_import/data/models/import_enums.dart';
 import 'package:submersion/features/universal_import/data/parsers/dan_dl7_import_parser.dart';
+import 'package:submersion/features/universal_import/data/parsers/divemate_ddb_parser.dart';
 import 'package:submersion/features/universal_import/data/parsers/divinglog_sqlite_parser.dart';
 import 'package:submersion/features/universal_import/data/parsers/fit_import_parser.dart';
 import 'package:submersion/features/universal_import/data/parsers/import_parser.dart';
@@ -10,6 +11,7 @@ import 'package:submersion/features/universal_import/data/parsers/ratio_xml_pars
 import 'package:submersion/features/universal_import/data/parsers/shearwater_cloud_parser.dart';
 import 'package:submersion/features/universal_import/data/parsers/submersion_csv/submersion_dives_csv_parser.dart';
 import 'package:submersion/features/universal_import/data/parsers/submersion_csv/submersion_equipment_csv_parser.dart';
+import 'package:submersion/features/universal_import/data/parsers/submersion_csv/submersion_fills_csv_parser.dart';
 import 'package:submersion/features/universal_import/data/parsers/submersion_csv/submersion_sites_csv_parser.dart';
 import 'package:submersion/features/universal_import/data/parsers/subsurface_xml_parser.dart';
 import 'package:submersion/features/universal_import/data/parsers/uddf_import_parser.dart';
@@ -23,6 +25,7 @@ ImportParser parserForFormat(ImportFormat format) {
     ImportFormat.macdiveXml => const MacDiveXmlParser(),
     ImportFormat.macdiveSqlite => const MacDiveSqliteParser(),
     ImportFormat.divingLogSqlite => const DivingLogSqliteParser(),
+    ImportFormat.diveMateDdb => const DiveMateDdbParser(),
     ImportFormat.subsurfaceXml => SubsurfaceXmlParser(),
     ImportFormat.danDl7 => const DanDl7Parser(),
     ImportFormat.fit => const FitImportParser(),
@@ -31,6 +34,7 @@ ImportParser parserForFormat(ImportFormat format) {
     ImportFormat.submersionDivesCsv => const SubmersionDivesCsvParser(),
     ImportFormat.submersionSitesCsv => const SubmersionSitesCsvParser(),
     ImportFormat.submersionEquipmentCsv => const SubmersionEquipmentCsvParser(),
+    ImportFormat.submersionFillsCsv => const SubmersionFillsCsvParser(),
     _ => const PlaceholderParser(),
   };
 }

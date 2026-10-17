@@ -6,11 +6,13 @@ import 'package:uuid/uuid.dart';
 import 'package:submersion/core/data/repositories/sync_repository.dart';
 import 'package:submersion/core/data/visibility/visibility_filter.dart';
 import 'package:submersion/core/database/database.dart';
+import 'package:submersion/core/database/dive_source_stamp.dart';
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/services/sync/sync_event_bus.dart';
 import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/text/text_sort.dart';
+import 'package:submersion/features/equipment/data/repositories/equipment_location_move_repository.dart';
 import 'package:submersion/features/equipment/data/repositories/equipment_share_repository.dart';
 import 'package:submersion/features/equipment/data/repositories/equipment_tag_repository.dart';
 import 'package:submersion/features/equipment/data/repositories/equipment_visibility_queries.dart';
@@ -30,6 +32,9 @@ import 'package:submersion/features/equipment/data/repositories/cylinder_gear_li
 import 'package:submersion/features/safety/data/repositories/incident_repository.dart';
 import 'package:submersion/features/cylinder_passports/data/repositories/cylinder_fill_repository.dart';
 import 'package:submersion/features/transmitters/data/repositories/transmitter_repository.dart';
+import 'package:submersion/features/trips/data/repositories/trip_equipment_repository.dart';
+import 'package:submersion/features/documents/data/repositories/document_repository.dart';
+import 'package:submersion/features/documents/domain/entities/document.dart';
 
 /// One item's exposure as [EquipmentRepository.getItemExposure] wires it:
 /// its parent, its parts still fitted, whether it breathes a loop, and the
@@ -79,12 +84,14 @@ class EquipmentRepository {
         // status is the user-visible retirement flag; legacy rows can carry
         // status=retired with isActive still true, so filter on both (#636).
         // "Sold" is the same kind of terminal status -- gear that has left
-        // the kit -- so it drops out of the active list the same way.
+        // the kit -- so it drops out of the active list the same way, and
+        // "Wanted" gear has not joined the kit yet (#2025).
         ..where(
           (t) =>
               t.isActive.equals(true) &
               t.status.isNotValue(EquipmentStatus.retired.name) &
-              t.status.isNotValue(EquipmentStatus.sold.name),
+              t.status.isNotValue(EquipmentStatus.sold.name) &
+              t.status.isNotValue(EquipmentStatus.wanted.name),
         )
         ..orderBy([
           (t) => OrderingTerm.asc(t.type),
@@ -113,13 +120,15 @@ class EquipmentRepository {
       // Either retirement marker counts, so items retired before the two
       // fields were kept in sync are still listed (#636). Sold gear is also
       // isActive=false but is not retired -- keep it out of this list so the
-      // Sold status stays distinct.
+      // Sold status stays distinct. Wanted gear (#2025) is inactive too and
+      // is not retired either.
       final query = _db.select(_db.equipment)
         ..where(
           (t) =>
               (t.isActive.equals(false) |
                   t.status.equals(EquipmentStatus.retired.name)) &
-              t.status.isNotValue(EquipmentStatus.sold.name),
+              t.status.isNotValue(EquipmentStatus.sold.name) &
+              t.status.isNotValue(EquipmentStatus.wanted.name),
         )
         ..orderBy([(t) => OrderingTerm.asc(t.name.collate(Collate.noCase))]);
 
@@ -186,12 +195,14 @@ class EquipmentRepository {
     try {
       // The Retired filter also matches legacy rows that only ever had
       // isActive flipped, so nothing becomes unreachable in the UI (#636) --
-      // but not sold gear, which is isActive=false yet has its own status.
+      // but not sold or wanted gear (#2025), which are isActive=false yet
+      // have their own status.
       final query = _db.select(_db.equipment)
         ..where(
           (t) => status == EquipmentStatus.retired
               ? (t.status.equals(status.name) | t.isActive.equals(false)) &
-                    t.status.isNotValue(EquipmentStatus.sold.name)
+                    t.status.isNotValue(EquipmentStatus.sold.name) &
+                    t.status.isNotValue(EquipmentStatus.wanted.name)
               : t.status.equals(status.name),
         )
         ..orderBy([
@@ -570,6 +581,11 @@ class EquipmentRepository {
       // same reasoning as SiteRepository's media cascade.
       await _cascadeMediaForEquipmentDeletion([id]);
       await _db.transaction(() async {
+        // Its documents go with it, tombstoned (issue #2613).
+        await DocumentRepository().deleteForOwner(
+          DocumentOwnerKind.equipment,
+          id,
+        );
         final schedules = await (_db.select(
           _db.serviceSchedules,
         )..where((t) => t.equipmentId.equals(id))).get();
@@ -615,6 +631,10 @@ class EquipmentRepository {
         // Shares and their event log (issue #2046): deleted and tombstoned
         // before the row, like the tag links, so every peer drops them too.
         await EquipmentShareRepository().deleteForEquipment(id);
+        // Trip packing links (issue #2338), tombstoned like the shares.
+        await TripEquipmentRepository().deleteForEquipment(id);
+        // Location history (v268), tombstoned like the shares.
+        await EquipmentLocationMoveRepository().deleteForEquipment(id);
         await (_db.delete(_db.equipment)..where((t) => t.id.equals(id))).go();
         for (final s in schedules) {
           await _syncRepository.logDeletion(
@@ -731,6 +751,48 @@ class EquipmentRepository {
     }
   }
 
+  /// Sets [status] on every item in [ids], for the status offer after a
+  /// location move. Only ever In Service, Loaned Out or Active, so the items
+  /// stay active: is_active pairs with retired and sold only (#636).
+  Future<void> setStatusForMany(
+    Iterable<String> ids,
+    EquipmentStatus status,
+  ) async {
+    final list = ids.toSet().toList();
+    if (list.isEmpty) return;
+    assert(
+      status != EquipmentStatus.retired && status != EquipmentStatus.sold,
+      'Retire through retireEquipment, which also clears is_active',
+    );
+    try {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await _db.transaction(() async {
+        await (_db.update(_db.equipment)..where((t) => t.id.isIn(list))).write(
+          EquipmentCompanion(
+            status: Value(status.name),
+            isActive: const Value(true),
+            updatedAt: Value(now),
+          ),
+        );
+        for (final id in list) {
+          await _syncRepository.markRecordPending(
+            entityType: 'equipment',
+            recordId: id,
+            localUpdatedAt: now,
+          );
+        }
+      });
+      SyncEventBus.notifyLocalChange();
+    } catch (e, stackTrace) {
+      _log.error(
+        'Failed to set status ${status.name} on ${list.length} items',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
+  }
+
   /// Retires [old] and creates its successor in the same parent and slot
   /// (condition phase 4a): same diver, type, name, brand and model, the
   /// `cell_slot` attribute when present, `installed_date` set to [now];
@@ -815,9 +877,15 @@ class EquipmentRepository {
       final current = await (_db.select(
         _db.equipment,
       )..where((t) => t.id.equals(id))).getSingleOrNull();
+      // Wanted gear is not owned yet (#2025): reactivating would leave a
+      // wishlist row flagged active. Buying it goes through
+      // markEquipmentPurchased instead.
+      if (current == null || current.status == EquipmentStatus.wanted.name) {
+        return;
+      }
       final clearsTerminalStatus =
-          current?.status == EquipmentStatus.retired.name ||
-          current?.status == EquipmentStatus.sold.name;
+          current.status == EquipmentStatus.retired.name ||
+          current.status == EquipmentStatus.sold.name;
       await (_db.update(_db.equipment)..where((t) => t.id.equals(id))).write(
         EquipmentCompanion(
           isActive: const Value(true),
@@ -836,6 +904,49 @@ class EquipmentRepository {
     } catch (e, stackTrace) {
       _log.error(
         'Failed to reactivate equipment: $id',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      rethrow;
+    }
+  }
+
+  /// Turns a Wanted item into owned, active gear (#2025): status active,
+  /// isActive true, and the purchase date set to [today] (date only) unless
+  /// one was already entered on the wishlist. Everything else is kept. A
+  /// row that is not Wanted is left alone.
+  Future<void> markEquipmentPurchased(String id, {DateTime? today}) async {
+    try {
+      final current = await (_db.select(
+        _db.equipment,
+      )..where((t) => t.id.equals(id))).getSingleOrNull();
+      if (current == null || current.status != EquipmentStatus.wanted.name) {
+        return;
+      }
+      final now = DateTime.now();
+      final day = today ?? now;
+      final ts = now.millisecondsSinceEpoch;
+      await (_db.update(_db.equipment)..where((t) => t.id.equals(id))).write(
+        EquipmentCompanion(
+          isActive: const Value(true),
+          status: Value(EquipmentStatus.active.name),
+          purchaseDate: current.purchaseDate == null
+              ? Value(
+                  DateTime(day.year, day.month, day.day).millisecondsSinceEpoch,
+                )
+              : const Value.absent(),
+          updatedAt: Value(ts),
+        ),
+      );
+      await _syncRepository.markRecordPending(
+        entityType: 'equipment',
+        recordId: id,
+        localUpdatedAt: ts,
+      );
+      SyncEventBus.notifyLocalChange();
+    } catch (e, stackTrace) {
+      _log.error(
+        'Failed to mark equipment as purchased: $id',
         error: e,
         stackTrace: stackTrace,
       );
@@ -896,11 +1007,11 @@ class EquipmentRepository {
         SELECT DISTINCT e.* FROM equipment e
         LEFT JOIN equipment_tags et ON et.equipment_id = e.id
         LEFT JOIN tags t ON t.id = et.tag_id
-        WHERE (LOWER(e.name) LIKE ?
-           OR LOWER(e.brand) LIKE ?
-           OR LOWER(e.model) LIKE ?
-           OR LOWER(e.serial_number) LIKE ?
-           OR LOWER(t.name) LIKE ?)
+        WHERE (unicode_lower(e.name) LIKE ?
+           OR unicode_lower(e.brand) LIKE ?
+           OR unicode_lower(e.model) LIKE ?
+           OR unicode_lower(e.serial_number) LIKE ?
+           OR unicode_lower(t.name) LIKE ?)
         ${visibility.whereClause}
         ORDER BY e.is_active DESC, e.type ASC, e.name COLLATE NOCASE ASC
       ''', variables: variables).get();
@@ -1047,7 +1158,9 @@ class EquipmentRepository {
           .customSelect(
             '''
         SELECT d.id AS dive_id,
-               d.updated_at AS updated_at,
+               -- The dive and its synced series (#1769): the stamp a
+               -- current summary was built from, and the fingerprint's.
+               ${diveSourceStampSql()} AS updated_at,
                d.dive_date_time AS date_ms,
                -- The first positive length: a manual zero runtime beside
                -- a real bottom time is no figure, and must not count the
@@ -1102,7 +1215,7 @@ class EquipmentRepository {
         ) je
         JOIN dives d ON d.id = je.dive_id
         LEFT JOIN dive_sensor_summaries s ON s.dive_id = d.id
-          AND s.source_updated_at = d.updated_at
+          AND s.source_updated_at = ${diveSourceStampSql()}
           AND s.engine_version >= ?6
         WHERE (je.via_parent = 0 OR ?3 IS NULL OR d.dive_date_time >= ?3)
           AND (?4 IS NULL OR d.dive_date_time >= ?4)
@@ -1425,7 +1538,9 @@ class EquipmentRepository {
         )
         SELECT je.owner_id AS owner_id,
                d.id AS dive_id,
-               d.updated_at AS updated_at,
+               -- The dive and its synced series (#1769): the stamp a
+               -- current summary was built from, and the fingerprint's.
+               ${diveSourceStampSql()} AS updated_at,
                d.dive_date_time AS date_ms,
                CASE
                  WHEN d.runtime > 0 THEN d.runtime
@@ -1484,7 +1599,7 @@ class EquipmentRepository {
         JOIN owners o ON o.owner_id = je.owner_id
         JOIN dives d ON d.id = je.dive_id
         LEFT JOIN dive_sensor_summaries s ON s.dive_id = d.id
-          AND s.source_updated_at = d.updated_at
+          AND s.source_updated_at = ${diveSourceStampSql()}
           AND s.engine_version >= ?
         WHERE (je.via_parent = 0 OR o.installed_since IS NULL
           OR d.dive_date_time >= o.installed_since)
@@ -1552,7 +1667,9 @@ class EquipmentRepository {
   /// The regulator last paired with a cylinder preset, for prefilling the
   /// tank editor: the newest dive whose tank of that preset names one.
   /// Operational, not descriptive: an excluded dive still tells us which
-  /// regulator the diver hangs on that cylinder.
+  /// regulator the diver hangs on that cylinder. Only a regulator still in
+  /// the kit, by the same test as [getActiveEquipment]: prefilling a new
+  /// tank with one since retired or sold would put it back in use (#3210).
   // stats-scope-exempt: editor prefill, not a statistic
   Future<String?> getLastRegulatorForPreset(String presetName) async {
     final rows = await _db
@@ -1561,11 +1678,19 @@ class EquipmentRepository {
       SELECT t.regulator_equipment_id AS reg
       FROM dive_tanks t
       JOIN dives d ON d.id = t.dive_id
-      WHERE t.preset_name = ?1 AND t.regulator_equipment_id IS NOT NULL
+      JOIN equipment e ON e.id = t.regulator_equipment_id
+      WHERE t.preset_name = ?1
+        AND e.is_active = 1
+        AND e.status NOT IN (?2, ?3, ?4)
       ORDER BY d.dive_date_time DESC
       LIMIT 1
     ''',
-          variables: [Variable.withString(presetName)],
+          variables: [
+            Variable.withString(presetName),
+            Variable.withString(EquipmentStatus.retired.name),
+            Variable.withString(EquipmentStatus.sold.name),
+            Variable.withString(EquipmentStatus.wanted.name),
+          ],
         )
         .get();
     return rows.isEmpty ? null : rows.first.data['reg'] as String?;

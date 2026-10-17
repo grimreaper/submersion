@@ -1,6 +1,7 @@
 import 'dart:io';
 
 import 'package:flutter/material.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:submersion/core/providers/provider.dart';
@@ -87,6 +88,21 @@ void main() {
         settingsSections.map((s) => s.id),
         isNot(contains('equipmentCondition')),
       );
+    });
+
+    testWidgets('shows Network between Manage and Notifications', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(400, 2000));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(await buildWidget(debugEnabled: false));
+      await tester.pumpAndSettle();
+      expect(find.text('Network'), findsOneWidget);
+      expect(find.text('Proxy server'), findsOneWidget);
+      final manage = tester.getTopLeft(find.text('Manage')).dy;
+      final network = tester.getTopLeft(find.text('Network')).dy;
+      final notifications = tester.getTopLeft(find.text('Notifications')).dy;
+      expect(manage < network && network < notifications, isTrue);
     });
 
     testWidgets('shows Debug section when debug mode is enabled', (
@@ -221,6 +237,37 @@ void main() {
         materials.any((m) => m.color != null && m.color != Colors.transparent),
         isTrue,
       );
+    });
+
+    testWidgets('Down and Up open the neighbouring sections (#3065)', (
+      tester,
+    ) async {
+      // Wide enough for the split view, where a move opens the section.
+      tester.view.physicalSize = const Size(1400, 2000);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(tester.view.reset);
+      final opened = <String?>[];
+
+      await tester.pumpWidget(
+        await buildWidget(
+          debugEnabled: false,
+          showAppBar: false,
+          onItemSelected: opened.add,
+          locale: const Locale('en'),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Appearance'));
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowDown);
+      await tester.pumpAndSettle();
+      await tester.sendKeyEvent(LogicalKeyboardKey.arrowUp);
+      await tester.pumpAndSettle();
+
+      expect(opened, hasLength(3));
+      expect(opened[1], isNot(opened[0]));
+      expect(opened[2], opened[0]);
     });
   });
 }

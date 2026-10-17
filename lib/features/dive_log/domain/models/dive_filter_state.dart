@@ -103,8 +103,9 @@ class DiveFilterState {
   final double? minWaterTemp;
   final double? maxWaterTemp;
 
-  /// Visibility bounds in metres against `dives.visibility_meters` only; the
-  /// legacy `visibility` bucket column is read-only and ignored.
+  /// Visibility bounds in metres against `dives.visibility_meters`, or for a
+  /// band-picked dive its whole range (issue #3226); the legacy `visibility`
+  /// bucket column is read-only and ignored.
   final double? minVisibility;
   final double? maxVisibility;
 
@@ -122,6 +123,12 @@ class DiveFilterState {
   /// rule builder edits (#2365). ANDed with every other axis by
   /// `toQuery()`. Null means no advanced conditions.
   final QueryNode? query;
+
+  /// "All dives" in the search row (#2773): while true every axis other
+  /// than [query] is kept but not applied, so the typed search runs over
+  /// the whole log. Only the dive list's search row sets it; Open in
+  /// Insights hands over [effective] instead, since Insights has no toggle.
+  final bool axesSuspended;
 
   const DiveFilterState({
     this.startDate,
@@ -159,6 +166,7 @@ class DiveFilterState {
     this.speciesIds = const [],
     this.siteIds = const [],
     this.query,
+    this.axesSuspended = false,
   });
 
   /// Inclusive lower bound for `dives.dive_date_time`, in the wall-clock-as-UTC
@@ -222,6 +230,13 @@ class DiveFilterState {
     query != null,
   ].where((active) => active).length;
 
+  /// Active axes the Refine panel owns: everything but the typed [query].
+  int get panelAxisCount => activeAxisCount - (query != null ? 1 : 0);
+
+  /// What actually applies: the query alone while [axesSuspended].
+  DiveFilterState get effective =>
+      axesSuspended ? DiveFilterState(query: query) : this;
+
   /// Value equality over every axis, so an unchanged filter set again is
   /// no change to a listener, and the id-set family keyed on the filter
   /// reuses its instance for an equal filter.
@@ -263,7 +278,8 @@ class DiveFilterState {
           listEquals(other.waterTypes, waterTypes) &&
           listEquals(other.speciesIds, speciesIds) &&
           listEquals(other.siteIds, siteIds) &&
-          other.query == query;
+          other.query == query &&
+          other.axesSuspended == axesSuspended;
 
   @override
   int get hashCode => Object.hashAll([
@@ -302,6 +318,7 @@ class DiveFilterState {
     Object.hashAll(speciesIds),
     Object.hashAll(siteIds),
     query,
+    axesSuspended,
   ]);
 
   DiveFilterState copyWith({
@@ -340,6 +357,7 @@ class DiveFilterState {
     List<String>? speciesIds,
     List<String>? siteIds,
     QueryNode? query,
+    bool? axesSuspended,
     bool clearStartDate = false,
     bool clearEndDate = false,
     bool clearDiveType = false,
@@ -444,6 +462,7 @@ class DiveFilterState {
           ? const []
           : (equipmentAttrConditions ?? this.equipmentAttrConditions),
       query: clearQuery ? null : (query ?? this.query),
+      axesSuspended: axesSuspended ?? this.axesSuspended,
     );
   }
 }

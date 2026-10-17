@@ -15,20 +15,27 @@ Widget app() {
         ),
       ),
       GoRoute(
-        path: '/gps-log',
-        builder: (context, state) => const Scaffold(body: Text('GPS-LOG-PAGE')),
+        path: '/tracks',
+        builder: (context, state) => const Scaffold(body: Text('TRACKS-PAGE')),
       ),
     ],
   );
-  return testAppRouter(router: router);
+  return testAppRouter(router: router, locale: const Locale('en'));
 }
 
 void main() {
-  testWidgets('GPS Logger quick action navigates to /gps-log', (tester) async {
+  testWidgets('Tracks quick action navigates to /tracks', (tester) async {
     await tester.pumpWidget(app());
     await tester.pumpAndSettle();
-    await tester.tap(find.text('GPS Logger'));
+    await tester.tap(find.text('Tracks'));
     await tester.pumpAndSettle();
-    expect(find.text('GPS-LOG-PAGE'), findsOneWidget);
+    expect(find.text('TRACKS-PAGE'), findsOneWidget);
+  });
+
+  testWidgets('there is no Underwater Routes quick action', (tester) async {
+    await tester.pumpWidget(app());
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.route), findsNothing);
+    expect(find.textContaining('nderwater'), findsNothing);
   });
 }

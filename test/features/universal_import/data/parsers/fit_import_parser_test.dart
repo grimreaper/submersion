@@ -184,6 +184,8 @@ void main() {
       expect(d['sourceUuid'], d['sourceId']);
       expect(d['latitude'], closeTo(35.815, 1e-3));
       expect(d['diveComputerModel'], 'Descent Mk3i');
+      // FIT file_id manufacturer 1 is Garmin (#3106).
+      expect(d['diveComputerManufacturer'], 'Garmin');
 
       final tanks = d['tanks'] as List<Map<String, dynamic>>;
       expect(tanks, hasLength(1));
@@ -195,6 +197,15 @@ void main() {
       expect(profile.any((p) => p['tts'] == 480), isTrue);
     },
   );
+
+  test('omits n2Load and computerTissue when the file records no N2', () async {
+    final payload = await const FitImportParser().parse(_richFitBytes());
+    final d = payload.entities[ImportEntityType.dives]!.single;
+
+    expect(d.containsKey('computerTissue'), isFalse);
+    final profile = d['profile'] as List<Map<String, dynamic>>;
+    expect(profile.any((p) => p.containsKey('n2Load')), isFalse);
+  });
 
   test(
     'emits tank pressure, allTankPressures, exit GPS, and heart rate',

@@ -7,6 +7,9 @@ import 'package:submersion/core/services/sync/hlc.dart';
 import 'package:submersion/core/services/sync/sync_data_serializer.dart';
 import 'package:submersion/core/services/sync/sync_service.dart';
 import 'package:submersion/features/dive_log/data/repositories/dive_repository_impl.dart';
+import 'package:submersion/features/nav_track/data/repositories/nav_track_repository.dart';
+import 'package:submersion/features/nav_track/domain/entities/nav_track.dart';
+import 'package:submersion/features/nav_track/domain/entities/nav_track_point.dart';
 import 'package:submersion/features/planner/data/repositories/dive_plan_repository.dart';
 import 'package:submersion/features/planner/domain/entities/dive_plan.dart';
 
@@ -343,6 +346,118 @@ void main() {
         expect(logged.originHlc, isNull);
       },
     );
+
+    // Issue #3025. Keep remote overlays the remote row onto the local one;
+    // a peer below the compatibility floor spells the category the old way,
+    // and its value must still replace ours.
+    test("keepRemote applies an older peer's legacy service key", () async {
+      final db = DatabaseService.instance.database;
+      await db.customStatement(
+        "INSERT INTO equipment (id, name, type, purchase_currency, "
+        "custom_reminder_enabled, custom_reminder_days, created_at, "
+        "updated_at) VALUES ('e1', 'Reg', 'regulator', 'USD', 0, '', 1, 1)",
+      );
+      final record = {
+        'id': 'svc-1',
+        'equipmentId': 'e1',
+        'serviceDate': 1700000000000,
+        'currency': 'USD',
+        'notes': '',
+        'createdAt': 1700000000000,
+        'updatedAt': 1700000000000,
+      };
+      await SyncDataSerializer().upsertRecord('serviceRecords', {
+        ...record,
+        'serviceCategory': 'cleaning',
+      });
+      await raiseConflict('serviceRecords', 'svc-1', {
+        ...record,
+        'serviceType': 'repair',
+        'updatedAt': 1700000005000,
+      });
+
+      await buildService().resolveConflict(
+        'serviceRecords',
+        'svc-1',
+        ConflictResolution.keepRemote,
+      );
+
+      final row = await db
+          .customSelect(
+            "SELECT service_category FROM service_records WHERE id = 'svc-1'",
+          )
+          .getSingle();
+      expect(row.read<String>('service_category'), 'repair');
+    });
+
+    group('a route from a peer below v252 (no diverId)', () {
+      late String routeId;
+      late Map<String, dynamic> fromOlderPeer;
+
+      Future<String?> ownerOf(String id) async {
+        final row = await DatabaseService.instance.database
+            .customSelect("SELECT diver_id FROM nav_tracks WHERE id = '$id'")
+            .getSingle();
+        return row.read<String?>('diver_id');
+      }
+
+      setUp(() async {
+        final db = DatabaseService.instance.database;
+        for (final id in ['me', 'buddy']) {
+          await db.customStatement(
+            "INSERT INTO divers (id, name, created_at, updated_at) "
+            "VALUES ('$id', '$id', 1, 1)",
+          );
+        }
+        await db.customStatement(
+          "INSERT INTO dives (id, diver_id, dive_date_time, created_at, "
+          "updated_at) VALUES ('buddy-dive', 'buddy', 1700000000000, 1, 1)",
+        );
+        routeId = await NavTrackRepository().insertImportedRoute(
+          points: const [
+            NavTrackPoint(timestamp: 1700000000, north: 0, east: 0, depth: 2),
+            NavTrackPoint(timestamp: 1700000010, north: 9, east: 0, depth: 5),
+          ],
+          source: NavTrackSource.seacraftEnc,
+          sourceRef: '008.DAT.csv',
+          diverId: 'me',
+        );
+        final local = await SyncDataSerializer().fetchRecord(
+          'navTracks',
+          routeId,
+        );
+        // The peer linked the route to the buddy's dive; it knows no owner.
+        fromOlderPeer = {...local!, 'diveId': 'buddy-dive'}..remove('diverId');
+        await raiseConflict('navTracks', routeId, fromOlderPeer);
+      });
+
+      test('keepRemote hands the linked route to its dive\'s diver', () async {
+        await buildService().resolveConflict(
+          'navTracks',
+          routeId,
+          ConflictResolution.keepRemote,
+        );
+
+        expect(await ownerOf(routeId), 'buddy');
+      });
+
+      test('keepBoth gives the linked copy its dive\'s diver and leaves the '
+          'local route as it was', () async {
+        await buildService().resolveConflict(
+          'navTracks',
+          routeId,
+          ConflictResolution.keepBoth,
+        );
+
+        expect(await ownerOf(routeId), 'me');
+        final copies = await DatabaseService.instance.database
+            .customSelect(
+              "SELECT diver_id FROM nav_tracks WHERE id != '$routeId'",
+            )
+            .get();
+        expect(copies.map((r) => r.read<String?>('diver_id')), ['buddy']);
+      });
+    });
 
     test('keepBoth keeps the local row and duplicates the remote under a new '
         'id', () async {

@@ -19,7 +19,7 @@ import '../../support/fake_cloud_storage_provider.dart';
 /// Writes a stand-in backup file so the service has real bytes to upload.
 class _FakeBackupDatabaseAdapter implements BackupDatabaseAdapter {
   @override
-  Future<void> backup(String destinationPath) async {
+  Future<void> backup(String destinationPath, {String? note}) async {
     final file = File(destinationPath);
     await file.parent.create(recursive: true);
     await file.writeAsString('fake backup data');
@@ -46,7 +46,7 @@ class _FakeBackupDatabaseAdapter implements BackupDatabaseAdapter {
 /// unreadable database.
 class _FailingBackupDatabaseAdapter extends _FakeBackupDatabaseAdapter {
   @override
-  Future<void> backup(String destinationPath) async =>
+  Future<void> backup(String destinationPath, {String? note}) async =>
       throw const FileSystemException('no space left on device');
 }
 
@@ -237,6 +237,70 @@ void main() {
       expect(notifications.single.success, isFalse);
       expect(notifications.single.error, contains('no space left on device'));
       expect(BackupPreferences(prefs).getHistory(), isEmpty);
+    });
+  });
+
+  // Settings > Data health (issues #3390, #3394) reads these after the
+  // background isolate is gone, so they must be persisted, not just notified.
+  group('what Settings > Data remembers', () {
+    test('a failed scheduled backup stores when and why', () async {
+      final prefs = await seedPrefs();
+
+      await run(prefs, dbAdapter: _FailingBackupDatabaseAdapter());
+
+      final settings = BackupPreferences(prefs).getSettings();
+      expect(settings.lastScheduledFailureAt, isNotNull);
+      expect(
+        settings.lastScheduledFailureMessage,
+        contains('no space left on device'),
+      );
+    });
+
+    test('a successful scheduled backup stores no failure', () async {
+      final prefs = await seedPrefs();
+
+      await run(prefs);
+
+      expect(
+        BackupPreferences(prefs).getSettings().lastScheduledFailureAt,
+        isNull,
+      );
+    });
+
+    test('a cloud copy that failed to upload is remembered', () async {
+      cloud = _UploadFailingCloud();
+      final prefs = await seedPrefs();
+
+      await run(prefs);
+
+      expect(
+        BackupPreferences(prefs).getSettings().lastCloudCopyMissing,
+        isTrue,
+      );
+    });
+
+    test('a later backup that uploads clears the missing cloud copy', () async {
+      final prefs = await seedPrefs();
+      await BackupPreferences(prefs).setLastCloudCopyMissing(true);
+
+      await run(prefs);
+
+      expect(
+        BackupPreferences(prefs).getSettings().lastCloudCopyMissing,
+        isFalse,
+      );
+    });
+
+    test('with cloud backup off no cloud copy is missing', () async {
+      final prefs = await seedPrefs(cloudBackupEnabled: false);
+      await BackupPreferences(prefs).setLastCloudCopyMissing(true);
+
+      await run(prefs);
+
+      expect(
+        BackupPreferences(prefs).getSettings().lastCloudCopyMissing,
+        isFalse,
+      );
     });
   });
 

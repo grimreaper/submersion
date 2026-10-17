@@ -64,9 +64,37 @@ const List<_OwnedTable> _ownedTables = [
     children: [],
   ),
   (
+    table: 'nav_tracks',
+    entityType: 'navTracks',
+    hasBuiltIns: false,
+    children: [],
+  ),
+  (
     table: 'dive_roles',
     entityType: 'diveRoles',
     hasBuiltIns: true,
+    children: [],
+  ),
+  // Built-in currency rules belong to the device, not the diver, and stay.
+  // Prefs and events hang off certifications and go with them.
+  (
+    table: 'certification_currency_rules',
+    entityType: 'certificationCurrencyRules',
+    hasBuiltIns: true,
+    children: [],
+  ),
+  // Custom certification levels before agencies: a level names its agency
+  // by id (issue #690).
+  (
+    table: 'custom_certification_levels',
+    entityType: 'customCertificationLevels',
+    hasBuiltIns: false,
+    children: [],
+  ),
+  (
+    table: 'custom_certification_agencies',
+    entityType: 'customCertificationAgencies',
+    hasBuiltIns: false,
     children: [],
   ),
   // Mission rows first (they reference only the plan), then segments before

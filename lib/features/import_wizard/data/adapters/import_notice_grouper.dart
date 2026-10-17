@@ -70,6 +70,9 @@ ImportNoticeKind? _kindFor(ImportWarningCode? code) => switch (code) {
   ImportWarningCode.columnsNotImported => ImportNoticeKind.columnsNotImported,
   ImportWarningCode.valuesNotConverted => ImportNoticeKind.valuesNotConverted,
   ImportWarningCode.photosSkipped => ImportNoticeKind.photosSkipped,
+  ImportWarningCode.logbookImagesNotImported =>
+    ImportNoticeKind.logbookImagesNotImported,
+  ImportWarningCode.tripsNotImported => ImportNoticeKind.tripsNotImported,
   ImportWarningCode.macdiveXmlOmitsCertsAndService =>
     ImportNoticeKind.macdiveXmlOmitsCertsAndService,
   ImportWarningCode.macdiveLogbooksNotImported =>

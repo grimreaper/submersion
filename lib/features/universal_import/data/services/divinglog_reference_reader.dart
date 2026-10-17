@@ -1,5 +1,6 @@
 import 'package:sqlite3/sqlite3.dart';
 
+import 'package:submersion/features/universal_import/data/services/divinglog_id_list.dart';
 import 'package:submersion/features/universal_import/data/services/divinglog_raw_types.dart';
 import 'package:submersion/features/universal_import/data/services/divinglog_row_values.dart';
 
@@ -54,10 +55,13 @@ class DivingLogReferenceReader {
     'Mobile',
     'Comments',
     'URL',
+    'Photo',
   ];
   static const _placeColumns = [
     'ID',
     'CountryID',
+    'Country',
+    'Region',
     'Place',
     'Lat',
     'Lon',
@@ -73,10 +77,19 @@ class DivingLogReferenceReader {
   static const _countryColumns = ['ID', 'Country'];
   static const _equipmentColumns = [
     'ID',
+    'Name',
     'Object',
+    'Category',
+    'Info',
+    'TypeID',
+    'Val1',
+    'Val3',
     'Manufacturer',
     'Serial',
     'DateP',
+    'Shop',
+    'DateR',
+    'DateRN',
     'Price',
     'Weight',
     'Inactive',
@@ -113,6 +126,9 @@ class DivingLogReferenceReader {
     'CertDate',
     'Number',
     'Instructor',
+    'InstructorNo',
+    'Scan1',
+    'Scan2',
   ];
   static const _speciesColumns = ['ID', 'CommonName', 'ScientificName'];
   static const _speciesLinkColumns = ['LogID', 'FishID'];
@@ -131,7 +147,7 @@ class DivingLogReferenceReader {
     'Place': ['Place'],
     'City': ['City'],
     'Country': ['Country'],
-    'Equipment': ['Object'],
+    'Equipment': ['Object', 'Name'],
     'Trip': ['TripName'],
     'Shop': ['ShopName'],
     'Divetype': ['Typename'],
@@ -160,14 +176,22 @@ class DivingLogReferenceReader {
     'Pictures': ['LogID'],
   };
 
+  /// Diving Log tables DiveMate never writes (#3110).
+  static const _notInDiveMate = {'City', 'Country', 'Trip', 'Fish', 'FishRel'};
+
   /// One schema note per reference table this file cannot use, naming what
   /// the diver loses. A table that is present but keyless is a different
   /// message from one that is absent, because "no Buddy table" would be
   /// factually wrong for a table that exists.
-  static List<String> schemaNotes(DivingLogCapabilities caps) {
+  static List<String> schemaNotes(
+    DivingLogCapabilities caps, {
+    bool isDiveMate = false,
+  }) {
     final notes = <String>[];
     for (final entry in _tables.entries) {
       if (!caps.hasTable(entry.key)) {
+        // DiveMate has no such table at all, so its absence loses nothing.
+        if (isDiveMate && _notInDiveMate.contains(entry.key)) continue;
         notes.add('No ${entry.key} table, so its records were not imported.');
         continue;
       }
@@ -195,7 +219,14 @@ class DivingLogReferenceReader {
     return notes;
   }
 
-  static DivingLogReferences read(Database db, DivingLogCapabilities caps) {
+  /// [isDiveMate] gates the equipment columns whose codes only DiveMate
+  /// defines (`TypeID`, `Val1`, `Val3` and the set marker): a Diving Log
+  /// file is never read through DiveMate's code tables.
+  static DivingLogReferences read(
+    Database db,
+    DivingLogCapabilities caps, {
+    bool isDiveMate = false,
+  }) {
     final cities = _read(
       db,
       caps,
@@ -228,6 +259,7 @@ class DivingLogReferenceReader {
           mobile: rowString(r, 'Mobile'),
           comments: rowString(r, 'Comments'),
           url: rowString(r, 'URL'),
+          photo: rowBytes(r, 'Photo'),
         ),
       ),
       places: _read(
@@ -239,6 +271,8 @@ class DivingLogReferenceReader {
         (r) => DivingLogRawPlace(
           id: rowInt(r, 'ID')!,
           countryId: rowInt(r, 'CountryID'),
+          country: rowString(r, 'Country'),
+          region: rowString(r, 'Region'),
           place: rowString(r, 'Place'),
           // Stored as degrees, minutes and seconds text in the real
           // export, not as a decimal, so this cannot be rowDouble.
@@ -263,10 +297,21 @@ class DivingLogReferenceReader {
         'ID',
         (r) => DivingLogRawEquipment(
           id: rowInt(r, 'ID')!,
+          name: rowString(r, 'Name'),
           object: rowString(r, 'Object'),
+          category: rowString(r, 'Category'),
+          setMemberIds: isDiveMate ? _setMemberIds(r) : null,
+          typeId: isDiveMate ? rowInt(r, 'TypeID') : null,
+          volumeLiters: isDiveMate
+              ? positiveOrNull(rowDouble(r, 'Val1'))
+              : null,
+          materialCode: isDiveMate ? rowInt(r, 'Val3') : null,
           manufacturer: rowString(r, 'Manufacturer'),
           serial: rowString(r, 'Serial'),
           purchaseDate: rowDate(r, 'DateP'),
+          purchaseShop: rowString(r, 'Shop'),
+          lastServiceDate: rowDate(r, 'DateR'),
+          nextServiceDate: rowDate(r, 'DateRN'),
           price: rowDouble(r, 'Price'),
           weightKg: rowDouble(r, 'Weight'),
           inactive: (rowInt(r, 'Inactive') ?? 0) > 0,
@@ -335,6 +380,9 @@ class DivingLogReferenceReader {
           certDate: rowDate(r, 'CertDate'),
           number: rowString(r, 'Number'),
           instructor: rowString(r, 'Instructor'),
+          instructorNumber: rowString(r, 'InstructorNo'),
+          photoFront: rowBytes(r, 'Scan1'),
+          photoBack: rowBytes(r, 'Scan2'),
         ),
       ).values.toList(),
       species: _read(
@@ -352,6 +400,45 @@ class DivingLogReferenceReader {
       speciesIdsByLogId: _readSpeciesLinks(db, caps),
       picturesByLogId: _readPictures(db, caps),
     );
+  }
+
+  /// Pictures stored in tables whose records Submersion has no picture
+  /// field for, counted per kind without loading their blobs so the import
+  /// can say what it left behind. Kinds with none are absent.
+  static Map<String, int> unsupportedImageCounts(
+    Database db,
+    DivingLogCapabilities caps,
+  ) {
+    final counts = <String, int>{};
+    for (final (table, column, label) in const [
+      ('Equipment', 'Photo', 'equipment photos'),
+      ('Fish', 'Photo', 'marine-life photos'),
+      ('Place', 'Map', 'site maps'),
+      ('Trip', 'Photo', 'trip photos'),
+      ('Shop', 'Photo', 'dive-center photos'),
+    ]) {
+      final actualTable = caps.actualTable(table);
+      final actualColumn = caps.actualColumn(table, column);
+      if (actualTable == null || actualColumn == null) continue;
+      final count =
+          db
+                  .select(
+                    'SELECT COUNT(*) AS n FROM ${quoteSqlIdentifier(actualTable)} '
+                    'WHERE length(${quoteSqlIdentifier(actualColumn)}) > 0',
+                  )
+                  .single['n']
+              as int;
+      if (count > 0) counts[label] = count;
+    }
+    return counts;
+  }
+
+  /// DiveMate's set marker: the `---SET` category, or type 9. A set lists
+  /// its members' ids in `Info`.
+  static List<int>? _setMemberIds(Row r) {
+    final isSet =
+        rowString(r, 'Category') == '---SET' || rowInt(r, 'TypeID') == 9;
+    return isSet ? parseDivingLogIdList(rowString(r, 'Info')) : null;
   }
 
   static Map<int, String> _named(Map<int, String?> raw) => {

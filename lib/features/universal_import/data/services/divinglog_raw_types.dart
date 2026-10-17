@@ -1,3 +1,7 @@
+import 'dart:typed_data';
+
+import 'package:submersion/features/universal_import/data/services/divemate_raw_types.dart';
+
 /// Quotes [name] as a SQL identifier, doubling any embedded quote.
 ///
 /// Table and column names here come out of a file someone else wrote, so
@@ -79,6 +83,12 @@ class DivingLogRawSample {
   final double? temperatureCelsius;
   final double? pressureBar;
   final int? tankId;
+
+  /// Transmitter readings from `Profile3`, one per cylinder, in bar. DiveMate
+  /// records both transmitters here while `Profile2` carries only the
+  /// cylinder in use (#3110).
+  final double? tank1PressureBar;
+  final double? tank2PressureBar;
   final int? rbtSeconds;
   final int? heartRate;
   final int? ndlSeconds;
@@ -99,6 +109,8 @@ class DivingLogRawSample {
     this.temperatureCelsius,
     this.pressureBar,
     this.tankId,
+    this.tank1PressureBar,
+    this.tank2PressureBar,
     this.rbtSeconds,
     this.heartRate,
     this.ndlSeconds,
@@ -117,6 +129,9 @@ class DivingLogRawSample {
 class DivingLogRawTank {
   final int tankId;
   final double? sizeLiters;
+
+  /// Dive Log's Tanktype: 1 aluminum, 2 steel, 3 carbon fiber.
+  final int? materialCode;
   final double? startPressureBar;
   final double? endPressureBar;
   final double? workingPressureBar;
@@ -127,15 +142,20 @@ class DivingLogRawTank {
   /// imported volume doubles.
   final bool isDouble;
 
+  /// DiveMate's extra columns, null for a Diving Log row.
+  final DiveMateTankExtras? diveMate;
+
   const DivingLogRawTank({
     required this.tankId,
     this.sizeLiters,
+    this.materialCode,
     this.startPressureBar,
     this.endPressureBar,
     this.workingPressureBar,
     this.o2Percent,
     this.hePercent,
     this.isDouble = false,
+    this.diveMate,
   });
 }
 
@@ -156,6 +176,9 @@ class DivingLogRawDive {
   final String? divemaster;
   final String? comments;
   final double? depthMeters;
+
+  /// `DepthAvg`, when the source recorded an average depth.
+  final double? avgDepthMeters;
   final double? diveTimeMinutes;
   final double? airTempCelsius;
   final double? waterTempCelsius;
@@ -167,6 +190,17 @@ class DivingLogRawDive {
   /// unset.
   final int? visibilityCode;
   final String? supplyType;
+  final int? waterCode;
+  final int? rating;
+  final int? entryCode;
+  final String? weather;
+  final String? current;
+  final String? surface;
+  final String? surfaceInterval;
+  final String? horizontalVisibility;
+  final String? boat;
+  final String? gasDescription;
+  final String? altitude;
 
   /// Ids from `Logbook`'s reference columns. Empty when the column is
   /// absent or blank.
@@ -181,6 +215,9 @@ class DivingLogRawDive {
   final List<DivingLogRawTank> tanks;
   final List<DivingLogRawSample> samples;
 
+  /// DiveMate's extra columns, null for a Diving Log row.
+  final DiveMateDiveExtras? diveMate;
+
   const DivingLogRawDive({
     required this.id,
     this.uuid,
@@ -194,6 +231,7 @@ class DivingLogRawDive {
     this.divemaster,
     this.comments,
     this.depthMeters,
+    this.avgDepthMeters,
     this.diveTimeMinutes,
     this.airTempCelsius,
     this.waterTempCelsius,
@@ -202,6 +240,17 @@ class DivingLogRawDive {
     this.computer,
     this.visibilityCode,
     this.supplyType,
+    this.waterCode,
+    this.rating,
+    this.entryCode,
+    this.weather,
+    this.current,
+    this.surface,
+    this.surfaceInterval,
+    this.horizontalVisibility,
+    this.boat,
+    this.gasDescription,
+    this.altitude,
     this.buddyIds = const [],
     this.equipmentIds = const [],
     this.diveTypeIds = const [],
@@ -212,6 +261,7 @@ class DivingLogRawDive {
     this.tripId,
     this.tanks = const [],
     this.samples = const [],
+    this.diveMate,
   });
 }
 
@@ -223,6 +273,10 @@ class DivingLogLogbook {
   /// Human-readable notes about tables and columns this file lacked,
   /// recorded once per import as diagnostics rather than shown per dive.
   final List<String> schemaNotes;
+
+  /// Pictures the file stores on records Submersion keeps no picture for
+  /// (gear, marine life, site maps, trips, dive centers), by kind.
+  final Map<String, int> unsupportedImageCounts;
 
   final Map<int, DivingLogRawBuddy> buddiesById;
   final Map<int, DivingLogRawPlace> placesById;
@@ -241,10 +295,17 @@ class DivingLogLogbook {
   /// Dive `Logbook.ID` to its `Pictures` rows.
   final Map<int, List<DivingLogRawPicture>> picturesByLogId;
 
+  /// Rows DiveMate marks discarded (`Status` 2), left out of [dives].
+  final int discardedDiveCount;
+
+  /// Whether DiveMate wrote the file (see `DiveMateSchema`).
+  final bool isDiveMate;
+
   const DivingLogLogbook({
     required this.dives,
     required this.capabilities,
     this.schemaNotes = const [],
+    this.unsupportedImageCounts = const {},
     this.buddiesById = const {},
     this.placesById = const {},
     this.cityNamesById = const {},
@@ -257,6 +318,8 @@ class DivingLogLogbook {
     this.speciesById = const {},
     this.speciesIdsByLogId = const {},
     this.picturesByLogId = const {},
+    this.discardedDiveCount = 0,
+    this.isDiveMate = false,
   });
 }
 
@@ -270,6 +333,7 @@ class DivingLogRawBuddy {
   final String? mobile;
   final String? comments;
   final String? url;
+  final Uint8List? photo;
 
   const DivingLogRawBuddy({
     required this.id,
@@ -280,6 +344,7 @@ class DivingLogRawBuddy {
     this.mobile,
     this.comments,
     this.url,
+    this.photo,
   });
 
   /// The display name, or null when the row has neither name part.
@@ -296,6 +361,11 @@ class DivingLogRawBuddy {
 class DivingLogRawPlace {
   final int id;
   final int? countryId;
+
+  /// The country and region as text. DiveMate writes these on the row
+  /// instead of a `CountryID` (#3110).
+  final String? country;
+  final String? region;
   final String? place;
   final double? latitude;
   final double? longitude;
@@ -316,6 +386,8 @@ class DivingLogRawPlace {
   const DivingLogRawPlace({
     required this.id,
     this.countryId,
+    this.country,
+    this.region,
     this.place,
     this.latitude,
     this.longitude,
@@ -331,12 +403,35 @@ class DivingLogRawPlace {
 
 /// A row of the `Equipment` table. There is no type column: [object] is a
 /// free-text name and the type has to be read from it.
+///
+/// DiveMate writes the same table with a [name] beside it, where [object] is
+/// then the model and is often blank, plus [category] and its own sets
+/// (#3110).
 class DivingLogRawEquipment {
   final int id;
+  final String? name;
   final String? object;
+  final String? category;
+
+  /// The member ids of a DiveMate equipment set, or null for a real item.
+  /// A set is a named group of gear, not gear itself.
+  final List<int>? setMemberIds;
+
+  /// DiveMate's fixed kind code (`TypeID`): 11 cylinder, 12 weight, 17
+  /// computer, 0 for the category to say.
+  final int? typeId;
+
+  /// A DiveMate cylinder's volume in litres (`Val1`).
+  final double? volumeLiters;
+
+  /// A DiveMate cylinder's material code (`Val3`): 1 aluminium, 2 steel.
+  final int? materialCode;
   final String? manufacturer;
   final String? serial;
   final DateTime? purchaseDate;
+  final String? purchaseShop;
+  final DateTime? lastServiceDate;
+  final DateTime? nextServiceDate;
   final double? price;
   final double? weightKg;
   final bool inactive;
@@ -345,10 +440,19 @@ class DivingLogRawEquipment {
 
   const DivingLogRawEquipment({
     required this.id,
+    this.name,
     this.object,
+    this.category,
+    this.setMemberIds,
+    this.typeId,
+    this.volumeLiters,
+    this.materialCode,
     this.manufacturer,
     this.serial,
     this.purchaseDate,
+    this.purchaseShop,
+    this.lastServiceDate,
+    this.nextServiceDate,
     this.price,
     this.weightKg,
     this.inactive = false,
@@ -424,6 +528,9 @@ class DivingLogRawCertification {
   final DateTime? certDate;
   final String? number;
   final String? instructor;
+  final String? instructorNumber;
+  final Uint8List? photoFront;
+  final Uint8List? photoBack;
 
   const DivingLogRawCertification({
     required this.id,
@@ -432,6 +539,9 @@ class DivingLogRawCertification {
     this.certDate,
     this.number,
     this.instructor,
+    this.instructorNumber,
+    this.photoFront,
+    this.photoBack,
   });
 }
 

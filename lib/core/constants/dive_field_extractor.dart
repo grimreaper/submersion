@@ -9,10 +9,11 @@ import 'package:submersion/features/dive_log/domain/services/dive_participant_na
 extension DiveFieldExtractor on DiveField {
   /// Extract the raw value for this field from a full [Dive] entity.
   ///
-  /// [DiveField.sac] yields bar/min from [Dive.sac] (one reference tank, no
-  /// volume needed); [DiveField.rmv] yields L/min from [Dive.rmvFor] under
-  /// [gasModel] (every tank with a volume). The two are separate columns, so
-  /// there is no unit preference to thread through here.
+  /// [DiveField.sac] yields bar/min from [Dive.sac] (in bar of one reference
+  /// tank, no volume needed for it); [DiveField.rmv] yields L/min from
+  /// [Dive.rmvFor] under [gasModel] (every tank with a volume). The two are
+  /// separate columns, so there is no unit preference to thread through
+  /// here.
   ///
   /// [diveTypeLabel] resolves a dive-type slug to its display label for
   /// [DiveField.diveTypeName]. On-screen callers pass the localizing resolver
@@ -52,7 +53,11 @@ extension DiveFieldExtractor on DiveField {
         // Raw metric value, consistent with maxDepth and swellHeight: the
         // UnitFormatter converts at render time. Pre-v144 dives have no
         // measurement, so they fall back to the legacy bucket's English label.
-        return dive.visibilityMeters ?? dive.visibility?.displayName;
+        // A band-picked dive (issue #3226) yields its VisibilityRange, which
+        // sorts after measured values and before legacy text.
+        return dive.visibilityMeters ??
+            dive.visibilityRange ??
+            dive.visibility?.displayName;
       case DiveField.currentDirection:
         return dive.currentDirection?.displayName;
       case DiveField.currentStrength:
@@ -79,6 +84,8 @@ extension DiveFieldExtractor on DiveField {
         return dive.humidity;
       case DiveField.weatherDescription:
         return dive.weatherDescription;
+      case DiveField.surfaceConditions:
+        return dive.surfaceConditions;
       case DiveField.primaryGas:
         return dive.tanks.isNotEmpty ? dive.tanks.first.gasMix.name : null;
       case DiveField.diluentGas:
@@ -129,6 +136,12 @@ extension DiveFieldExtractor on DiveField {
         return dive.site?.locationString;
       case DiveField.diveCenterName:
         return dive.diveCenter?.name;
+      case DiveField.diveOperator:
+        return dive.diveOperator;
+      case DiveField.boatName:
+        return dive.boatName;
+      case DiveField.boatCaptain:
+        return dive.boatCaptain;
       case DiveField.siteLatitude:
         return dive.site?.location?.latitude;
       case DiveField.siteLongitude:

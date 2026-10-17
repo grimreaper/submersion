@@ -300,6 +300,22 @@ make_proximity_fixture() {
         printf "import 'package:submersion/features/alpha/domain/alpha_entity.dart';\n"
     } > test/features/beta/presentation/pages/beta_multi_hit_test.dart
 
+    # Repo-wide guards. Each imports nothing the branch changes and lives in no
+    # feature area, so only the guard tier can select it:
+    #   - test/architecture/ is implicitly "scans lib/";
+    #   - a marked scanner elsewhere declares the path prefixes it reads;
+    #   - a prefix can be narrow (the ARBs) or list several trees;
+    #   - a CRLF file's marker still matches (the repo has CRLF Dart files).
+    mkdir -p test/architecture test/l10n
+    printf '// scans every file under lib/\n' \
+        > test/architecture/sample_guard_test.dart
+    printf '// pre-push: scans lib/\n' > test/l10n/arb_scan_test.dart
+    printf '// pre-push: scans lib/l10n/arb/\n' > test/l10n/arb_only_scan_test.dart
+    printf '// pre-push: scans lib/l10n/arb/\r\n' > test/l10n/crlf_scan_test.dart
+    printf '// pre-push: scans lib/l10n/arb/ test/\n' \
+        > test/architecture/test_scan_guard_test.dart
+    printf '{}\n' > lib/l10n/arb/app_en.arb
+
     # 60 importers of the generated l10n file, so a 40-file sample is a strict
     # subset and "sampled" is distinguishable from "all".
     for i in $(seq 1 60); do
@@ -347,6 +363,20 @@ assert_selected has 'test/features/beta/presentation/pages/beta_multi_hit_test.d
     'keeps a distant test that imports two or more changed files'
 assert_selected lacks 'test/features/beta/presentation/pages/beta_only_far_test.dart' \
     'drops a distant test that imports only one changed file'
+
+# --- Test 3b: repo-wide architecture guards run for any lib change ----------
+#
+# test/architecture/ scans every file under lib/ (and some of test/), so a new
+# file anywhere can break a guard that imports none of it. Neither the import
+# tiers nor proximity can see that dependency, which let a push go green
+# locally and turn main red (issue #2611).
+
+assert_selected has 'test/architecture/sample_guard_test.dart' \
+    'runs the architecture guards when a lib file changes'
+assert_selected has 'test/l10n/arb_scan_test.dart' \
+    'runs a marked lib scanner outside test/architecture when lib changes'
+assert_selected lacks 'test/l10n/arb_only_scan_test.dart' \
+    'skips an ARB-scoped guard when no ARB changed'
 
 # --- Test 4: the format check is scoped to the changed files ----------------
 #
@@ -426,6 +456,68 @@ run_hook "$tmp"
 
 assert_selected has 'test/features/delta/main_importer_test.dart' \
     'keeps importers of a changed top-level lib file'
+
+rm -rf "$tmp"
+
+# --- Test 7b: a push with no Dart change skips the architecture guards ------
+#
+# The guards cost tens of seconds of isolate startup, so a docs-only push must
+# not pay for them. "lacks" alone would also pass if the hook died before
+# printing its selection, so first prove it reached the DRY_RUN listing.
+
+tmp="$(make_proximity_fixture 'NOTES.md')"
+run_hook "$tmp"
+
+if [ "$hook_status" -eq 0 ] && [[ "$hook_output" == *DRY_RUN* ]]; then
+    pass 'reaches the test selection for a push with no Dart change'
+else
+    fail 'reaches the test selection for a push with no Dart change' \
+        "exit $hook_status: $hook_output"
+fi
+
+assert_selected lacks 'test/architecture/sample_guard_test.dart' \
+    'skips the architecture guards for a push with no Dart change'
+assert_selected lacks 'test/l10n/arb_scan_test.dart' \
+    'skips marked scanners for a push outside lib/ and test/'
+
+rm -rf "$tmp"
+
+# --- Test 7c: a non-Dart lib change still runs the lib scanners -------------
+#
+# An ARB edit changes no Dart file, but the l10n parity guards read the ARBs.
+
+tmp="$(make_proximity_fixture 'lib/l10n/arb/app_en.arb')"
+run_hook "$tmp"
+
+assert_selected has 'test/l10n/arb_scan_test.dart' \
+    'runs the lib scanners for an ARB-only change'
+assert_selected has 'test/architecture/sample_guard_test.dart' \
+    'runs the architecture guards for an ARB-only change'
+assert_selected has 'test/l10n/arb_only_scan_test.dart' \
+    'runs an ARB-scoped guard for an ARB change'
+assert_selected has 'test/l10n/crlf_scan_test.dart' \
+    'reads the marker of a CRLF file'
+assert_selected has 'test/architecture/test_scan_guard_test.dart' \
+    'matches the first of several prefixes'
+
+rm -rf "$tmp"
+
+# --- Test 7d: a test-only change runs only the guards that read test/ -------
+#
+# Most guards read lib/ alone, and a push that only edits a test cannot break
+# them; running them all would cost tens of seconds for nothing.
+
+tmp="$(make_proximity_fixture 'test/features/gamma/l10n_1_test.dart')"
+run_hook "$tmp"
+
+assert_selected has 'test/architecture/test_scan_guard_test.dart' \
+    'runs a guard marked as reading test/ for a test-only change (a later prefix)'
+assert_selected lacks 'test/architecture/sample_guard_test.dart' \
+    'skips lib-only architecture guards for a test-only change'
+assert_selected lacks 'test/l10n/arb_scan_test.dart' \
+    'skips marked lib scanners for a test-only change'
+assert_selected lacks 'test/l10n/arb_only_scan_test.dart' \
+    'skips ARB-scoped guards for a test-only change'
 
 rm -rf "$tmp"
 
@@ -516,6 +608,17 @@ if [ "$selected_l10n" -eq 40 ]; then
 else
     fail 'a zero sample size falls back to 40 instead of selecting nothing' \
         "selected $selected_l10n of 60"
+fi
+
+# BSD head rejected most line counts from 2^31 up and set -e ended the push
+# silently. An oversized sample now means every importer.
+run_hook "$tmp" L10N_SAMPLE=3000000000
+selected_l10n="$(printf '%s\n' "$hook_output" | grep -c 'test/features/gamma/l10n_' || true)"
+if [ "$hook_status" -eq 0 ] && [ "$selected_l10n" -eq 60 ]; then
+    pass 'an oversized L10N_SAMPLE runs every l10n importer'
+else
+    fail 'an oversized L10N_SAMPLE runs every l10n importer' \
+        "exit $hook_status; selected $selected_l10n of 60: $hook_output"
 fi
 
 rm -rf "$tmp"
@@ -672,6 +775,223 @@ case "$flutter_test_args" in
         pass 'runs the test files one by one there'
         ;;
 esac
+
+rm -rf "$tmp"
+
+# Build a repo whose changed files include HUBS: files imported by more test
+# files than HUB_THRESHOLD (default 100). Mirrors the shape of issue #3129, where
+# a migration rung plus a mock_providers.dart edit selected 1,192 of 4,598
+# files. Echoes the temp dir.
+#
+#   lib/core/database/database.dart      170 importers: 60 near (test/core/
+#                                        database/) and 110 far
+#   lib/features/alpha/providers/hub.dart  the same 110 far importers, so each
+#                                        of those imports TWO changed hubs
+#   test/helpers/mock_providers.dart     110 importers
+#   test/helpers/small_helper.dart       1 importer (not a hub)
+#   two non-hub lib files, both imported by one distant test
+#
+# The branch changes a table file (which the hook treats as database.dart), the
+# hub provider, both helpers and both non-hub files.
+make_hub_fixture() {
+    tmp="$(mktemp -d)"
+    main_tree="$tmp/main"
+
+    mkdir -p "$main_tree"
+    cd "$main_tree" || exit 1
+
+    git init -q -b main .
+    git config user.email 'test@example.com'
+    git config user.name 'Test'
+    git config commit.gpgsign false
+
+    mkdir -p lib/core/database/tables lib/features/alpha/providers \
+             lib/features/alpha/domain hooks test/helpers test/core/database \
+             test/features/omega test/features/zeta test/features/beta/x
+
+    printf '// database\n' > lib/core/database/database.dart
+    printf '// table\n' > lib/core/database/tables/dive_tables.dart
+    printf '// hub provider\n' > lib/features/alpha/providers/hub.dart
+    printf '// entity e\n' > lib/features/alpha/domain/e.dart
+    printf '// entity f\n' > lib/features/alpha/domain/f.dart
+    printf '// mocks\n' > test/helpers/mock_providers.dart
+    printf '// small\n' > test/helpers/small_helper.dart
+
+    for i in $(seq 1 60); do
+        printf "import 'package:submersion/core/database/database.dart';\n" \
+            > "test/core/database/db_${i}_test.dart"
+    done
+    for i in $(seq 1 110); do
+        {
+            printf "import 'package:submersion/core/database/database.dart';\n"
+            printf "import 'package:submersion/features/alpha/providers/hub.dart';\n"
+        } > "test/features/omega/far_db_${i}_test.dart"
+        printf "import '../../helpers/mock_providers.dart';\n" \
+            > "test/features/zeta/mock_${i}_test.dart"
+    done
+    printf "import '../../helpers/small_helper.dart';\n" \
+        > test/features/zeta/small_helper_user_test.dart
+    {
+        printf "import 'package:submersion/features/alpha/domain/e.dart';\n"
+        printf "import 'package:submersion/features/alpha/domain/f.dart';\n"
+    } > test/features/beta/x/two_non_hub_test.dart
+
+    git add -A
+    git commit -q -m 'initial'
+
+    cp "$HOOK_SRC" "$main_tree/hooks/pre-push"
+    chmod +x "$main_tree/hooks/pre-push"
+    # The hook sources its concurrency helper from beside itself.
+    mkdir -p "$main_tree/scripts"
+    cp "$REPO_ROOT/scripts/test_concurrency.sh" "$main_tree/scripts/test_concurrency.sh"
+
+    git worktree add -q "$tmp/wt" -b feature
+    cd "$tmp/wt" || exit 1
+    for f in lib/core/database/tables/dive_tables.dart \
+             lib/features/alpha/providers/hub.dart \
+             lib/features/alpha/domain/e.dart lib/features/alpha/domain/f.dart \
+             test/helpers/mock_providers.dart test/helpers/small_helper.dart; do
+        printf '// changed on the branch\n' >> "$f"
+    done
+    git add -A
+    git commit -q -m 'change on feature'
+
+    write_stubs "$tmp"
+
+    printf '%s\n' "$tmp"
+}
+
+# Count the selected files whose path matches the extended regex $1.
+count_selected() {
+    printf '%s\n' "$hook_output" | grep -cE "$1" || true
+}
+
+hub_importers='test/core/database/db_|test/features/omega/far_db_|test/features/zeta/mock_'
+
+# --- Test 13: hub importers are sampled, not expanded -----------------------
+#
+# Issue #3129: database.dart, settings_providers.dart and mock_providers.dart
+# each have 740-952 test importers. The helper tier kept every importer of a
+# changed helper, the migration change put all of test/core/database/ in
+# proximity, and a test importing two hubs counted as a two-hit dependent.
+# Together that selected 26% of the suite. Importers of a hub now share one
+# seeded sample, drawn near the change first.
+
+tmp="$(make_hub_fixture)"
+run_hook "$tmp"
+
+selected_hub="$(count_selected "$hub_importers")"
+if [ "$selected_hub" -eq 40 ]; then
+    pass 'samples 40 hub importers instead of all 280'
+else
+    fail 'samples 40 hub importers instead of all 280' "selected $selected_hub of 280"
+fi
+
+selected_near="$(count_selected 'test/core/database/db_')"
+if [ "$selected_near" -eq 40 ]; then
+    pass 'draws the hub sample from importers near the change first'
+else
+    fail 'draws the hub sample from importers near the change first' \
+        "selected $selected_near of 60 near importers"
+fi
+
+assert_selected has 'test/features/zeta/small_helper_user_test.dart' \
+    'still keeps every importer of a changed non-hub helper'
+assert_selected has 'test/features/beta/x/two_non_hub_test.dart' \
+    'still keeps a distant test importing two changed non-hub files'
+
+first_sample="$(printf '%s\n' "$hook_output" | grep -E "$hub_importers" | sort)"
+run_hook "$tmp"
+second_sample="$(printf '%s\n' "$hook_output" | grep -E "$hub_importers" | sort)"
+if [ "$first_sample" = "$second_sample" ]; then
+    pass 'the hub sample is deterministic for a given commit'
+else
+    fail 'the hub sample is deterministic for a given commit' 'sample changed between runs'
+fi
+
+# --- Test 14: the hub knobs --------------------------------------------------
+
+run_hook "$tmp" HUB_SAMPLE=10
+selected_hub="$(count_selected "$hub_importers")"
+if [ "$selected_hub" -eq 10 ]; then
+    pass 'HUB_SAMPLE sets the hub sample size'
+else
+    fail 'HUB_SAMPLE sets the hub sample size' "selected $selected_hub with HUB_SAMPLE=10"
+fi
+
+run_hook "$tmp" HUB_SAMPLE=lots
+case "$hook_output" in
+    *"invalid HUB_SAMPLE='lots'"*)
+        pass 'warns about an invalid HUB_SAMPLE'
+        ;;
+    *)
+        fail 'warns about an invalid HUB_SAMPLE' "output: $hook_output"
+        ;;
+esac
+selected_hub="$(count_selected "$hub_importers")"
+if [ "$selected_hub" -eq 40 ]; then
+    pass 'an invalid HUB_SAMPLE falls back to 40'
+else
+    fail 'an invalid HUB_SAMPLE falls back to 40' "selected $selected_hub"
+fi
+
+# Raising the threshold above every importer count turns the hubs back into
+# ordinary files: all 110 helper importers are kept again.
+run_hook "$tmp" HUB_THRESHOLD=1000
+selected_mock="$(count_selected 'test/features/zeta/mock_')"
+if [ "$selected_mock" -eq 110 ]; then
+    pass 'HUB_THRESHOLD above every importer count restores the old tiers'
+else
+    fail 'HUB_THRESHOLD above every importer count restores the old tiers' \
+        "selected $selected_mock of 110 helper importers"
+fi
+
+# A hub is counted in FILES. small_helper_user_test.dart names its helper
+# twice, so counting matches would make a one-importer helper a hub at a
+# threshold of 1 and push its only importer into the sample.
+#
+# The extra mention is deliberately left UNCOMMITTED. Hub counting greps the
+# working tree, so it sees the edit; committing it would make the file a changed
+# test, which tier 1 always selects, and the assertion would pass whichever way
+# importers were counted. (Verified: restoring per-match counting fails this.)
+printf '// see ../../helpers/small_helper.dart\n' \
+    >> "$tmp/wt/test/features/zeta/small_helper_user_test.dart"
+run_hook "$tmp" HUB_THRESHOLD=1 HUB_SAMPLE=1
+assert_selected has 'test/features/zeta/small_helper_user_test.dart' \
+    'counts hub importers per file, not per mention'
+git -C "$tmp/wt" checkout -q -- test/features/zeta/small_helper_user_test.dart
+
+# An oversized knob means "more than any pool": run every importer. BSD head
+# rejects most line counts from 2^31 up, and inside the hook's $(...) under set -e
+# that killed the push with no message; past 2^63 bash arithmetic wrapped the
+# value instead. Both are clamped before they reach head.
+for big in 3000000000 99999999999999999999; do
+    run_hook "$tmp" HUB_SAMPLE="$big"
+    selected_hub="$(count_selected "$hub_importers")"
+    if [ "$hook_status" -eq 0 ] && [ "$selected_hub" -eq 280 ]; then
+        pass "HUB_SAMPLE=$big runs every hub importer"
+    else
+        fail "HUB_SAMPLE=$big runs every hub importer" \
+            "exit $hook_status; selected $selected_hub of 280: $hook_output"
+    fi
+done
+
+run_hook "$tmp" HUB_THRESHOLD=99999999999999999999
+selected_mock="$(count_selected 'test/features/zeta/mock_')"
+if [ "$hook_status" -eq 0 ] && [ "$selected_mock" -eq 110 ]; then
+    pass 'an oversized HUB_THRESHOLD means no hubs'
+else
+    fail 'an oversized HUB_THRESHOLD means no hubs' \
+        "exit $hook_status; selected $selected_mock of 110 helper importers"
+fi
+
+run_hook "$tmp" RUN_ALL_AFFECTED=1
+selected_hub="$(count_selected "$hub_importers")"
+if [ "$selected_hub" -eq 280 ]; then
+    pass 'RUN_ALL_AFFECTED=1 runs every hub importer'
+else
+    fail 'RUN_ALL_AFFECTED=1 runs every hub importer' "selected $selected_hub of 280"
+fi
 
 rm -rf "$tmp"
 

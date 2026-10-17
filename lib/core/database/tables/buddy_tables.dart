@@ -142,6 +142,59 @@ class DiveRoles extends Table {
   Set<Column> get primaryKey => {id};
 }
 
+/// A diver's own certification agency (v267, issue #690). Built-in agencies
+/// are code constants and never have a row; custom ids are UUIDs, stored in
+/// the same agency text columns as the built-in enum names.
+@DataClassName('CustomCertificationAgencyRow')
+class CustomCertificationAgencies extends Table {
+  TextColumn get id => text()();
+  // No ON DELETE action: the diver deletion clears and tombstones these
+  // rows itself (diver_owned_rows.dart), as it does dive_roles.
+  TextColumn get diverId => text().references(Divers, #id)();
+  TextColumn get name => text()();
+
+  /// Primary e-card colour (ARGB). The gradient's second colour is derived.
+  IntColumn get colorArgb => integer()();
+  BoolColumn get isShared => boolean().withDefault(const Constant(false))();
+  IntColumn get createdAt => integer()();
+  IntColumn get updatedAt => integer()();
+
+  /// Hybrid Logical Clock for cross-device conflict resolution.
+  TextColumn get hlc => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// A diver's own certification (level) under any agency, built-in or custom
+/// (v267, issue #690). [agencyId] is a built-in enum name or a custom agency
+/// UUID, so it carries no foreign key.
+@DataClassName('CustomCertificationLevelRow')
+class CustomCertificationLevels extends Table {
+  TextColumn get id => text()();
+  TextColumn get diverId => text().references(Divers, #id)();
+  TextColumn get agencyId => text()();
+  TextColumn get name => text()();
+
+  /// A ranked rung (after the agency's built-in ladder) or a specialty.
+  BoolColumn get isProgression => boolean()();
+
+  /// Rank among this agency's custom progression rungs.
+  IntColumn get sortOrder => integer().withDefault(const Constant(0))();
+
+  /// Used only under a built-in agency; under a custom agency the level
+  /// follows its agency's visibility.
+  BoolColumn get isShared => boolean().withDefault(const Constant(false))();
+  IntColumn get createdAt => integer()();
+  IntColumn get updatedAt => integer()();
+
+  /// Hybrid Logical Clock for cross-device conflict resolution.
+  TextColumn get hlc => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
 /// Seeds the nine built-in dive roles. Mirrors [kSeedBuiltInDiveTypesSql]:
 /// INSERT OR IGNORE keyed on stable slug ids keeps it idempotent, and the
 /// seed is re-asserted in beforeOpen so replace-adopt flows that clear the
@@ -196,7 +249,7 @@ class Courses extends Table {
 }
 
 /// Countable requirements for a training course (requirement tracker spec,
-/// docs/superpowers/specs/2026-07-16-course-requirement-tracker-design.md).
+/// docs/design/specs/2026-07-16-course-requirement-tracker-design.md).
 /// kind is a RequirementKind enum name: 'dive' rows derive progress from
 /// course_requirement_dives links; 'checklist' rows complete via completedAt.
 @DataClassName('CourseRequirementRow')
@@ -245,4 +298,70 @@ class CourseRequirementDives extends Table {
   /// stale full row from a peer cannot overwrite a newer local edit
   /// (SyncDataSerializer.parentGatedChildEntities).
   TextColumn get hlc => text().nullable()();
+}
+
+/// The courses a dive belongs to (v288, issue #2515). The source of truth for
+/// a dive's courses; `dives.course_id` stays as a denormalized representative
+/// for older app versions and single-value exports.
+///
+/// The id is a DETERMINISTIC UUIDv5 of (dive, course), see
+/// `diveCourseLinkId`, and the pair is also uniquely indexed
+/// (`idx_dive_courses_dive_course_unique`).
+@DataClassName('DiveCourseRow')
+class DiveCourses extends Table {
+  TextColumn get id => text()();
+  TextColumn get diveId =>
+      text().references(Dives, #id, onDelete: KeyAction.cascade)();
+  TextColumn get courseId =>
+      text().references(Courses, #id, onDelete: KeyAction.cascade)();
+  IntColumn get createdAt => integer()();
+
+  /// This child's own clock, stamped when it is marked pending
+  /// (SyncDataSerializer.parentGatedChildEntities).
+  TextColumn get hlc => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// The diver's own roles on a dive (v272, issue #1221). `dives.diver_role`
+/// stays as the primary role for older app versions (see DiveRoleSet).
+/// Surrogate uuid key, as `dive_dive_types`; `roleId` has no foreign key
+/// because a custom role can arrive by sync after a row naming it.
+@DataClassName('DiveDiverRole')
+class DiveDiverRoles extends Table {
+  TextColumn get id => text()();
+  TextColumn get diveId =>
+      text().references(Dives, #id, onDelete: KeyAction.cascade)();
+  TextColumn get roleId => text()();
+  IntColumn get createdAt => integer()();
+
+  /// This child's own clock, stamped when it is marked pending
+  /// (SyncDataSerializer.parentGatedChildEntities).
+  TextColumn get hlc => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
+}
+
+/// Each buddy's roles on a dive (v272, issue #1221). Keyed on the
+/// (dive, buddy) pair rather than on `dive_buddies.id`: older app versions
+/// save a dive's buddies by deleting and re-inserting every `dive_buddies`
+/// row under fresh ids, which would orphan rows hung off the row id.
+/// `dive_buddies.role` stays as the primary role.
+@DataClassName('DiveBuddyRole')
+class DiveBuddyRoles extends Table {
+  TextColumn get id => text()();
+  TextColumn get diveId =>
+      text().references(Dives, #id, onDelete: KeyAction.cascade)();
+  TextColumn get buddyId =>
+      text().references(Buddies, #id, onDelete: KeyAction.cascade)();
+  TextColumn get roleId => text()();
+  IntColumn get createdAt => integer()();
+
+  /// This child's own clock (see [DiveDiverRoles.hlc]).
+  TextColumn get hlc => text().nullable()();
+
+  @override
+  Set<Column> get primaryKey => {id};
 }

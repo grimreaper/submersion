@@ -1,11 +1,18 @@
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:submersion/core/database/database.dart'
+    show AppDatabase, CoursesCompanion, DiversCompanion;
 import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/features/courses/domain/entities/course.dart';
+import 'package:submersion/features/courses/presentation/providers/course_providers.dart';
 import 'package:submersion/features/buddies/data/repositories/buddy_repository.dart';
 import 'package:submersion/features/buddies/domain/entities/buddy.dart';
 import 'package:submersion/features/dive_log/data/repositories/dive_repository_impl.dart';
 import 'package:submersion/features/dive_log/presentation/pages/dive_edit_page.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_providers.dart';
+import 'package:submersion/features/dive_log/presentation/providers/visibility_input_mode_provider.dart';
+import 'package:submersion/features/dive_log/presentation/widgets/visibility_input/visibility_entry.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/bulk_collection_mode_selector.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/bulk_field_gate.dart';
 import 'package:submersion/shared/bulk_edit/bulk_membership_editor.dart';
@@ -23,13 +30,15 @@ import 'package:submersion/l10n/arb/app_localizations.dart';
 
 import '../../../../helpers/mock_providers.dart';
 import '../../../../helpers/test_database.dart';
+import '../../../../helpers/role_sheet.dart';
 
 void main() {
   group('DiveEditPage bulk mode', () {
     late DiveRepository repository;
+    late AppDatabase db;
 
     setUp(() async {
-      await setUpTestDatabase();
+      db = await setUpTestDatabase();
       repository = DiveRepository();
     });
 
@@ -72,19 +81,24 @@ void main() {
     testWidgets('renders gated Logistics + Notes fields', (tester) async {
       await pumpBulk(tester);
 
-      // 4 Logistics + 9 Conditions + 6 Weather + 6 Rebreather + 1 Buddies
-      // (my role, #1220) + 1 Notes + 2 statistics-exclusion gates (#526,
-      // #1272) = 29.
-      // (dive type moved from a scalar gate to the collection lane, #414)
-      expect(find.byType(BulkFieldGate), findsNWidgets(29));
+      // 7 Logistics (operator, boat, captain, #3229)
+      // + 10 Conditions (surface conditions, #3229) + 6 Weather
+      // + 6 Rebreather + 1 Buddies (my role, #1220) + 1 Notes
+      // + 2 statistics-exclusion gates (#526, #1272) = 33.
+      // (dive type moved from a scalar gate to the collection lane, #414,
+      // and so did course, #2515)
+      expect(find.byType(BulkFieldGate), findsNWidgets(33));
+      // Courses moved to the membership editors (#2515).
+      expect(find.text('Training Courses'), findsOneWidget);
       expect(find.text('Favorite'), findsOneWidget);
       expect(find.text('Exclude from statistics'), findsOneWidget);
       expect(find.text('Exclude from gas statistics'), findsOneWidget);
       // Only the 3 owned collections (weights, tanks, sightings) still use a
-      // mode selector; the 4 reference collections (tags, diveTypes,
-      // equipment, buddies) use the tri-state membership editor.
+      // mode selector; the 5 reference collections (tags, diveTypes,
+      // courses (#2515), equipment, buddies) use the tri-state membership
+      // editor.
       expect(find.byType(BulkCollectionModeSelector), findsNWidgets(3));
-      expect(find.byType(BulkMembershipEditor), findsNWidgets(4));
+      expect(find.byType(BulkMembershipEditor), findsNWidgets(5));
     });
 
     testWidgets('equipment membership reflects current gear and a toggle', (
@@ -184,8 +198,7 @@ void main() {
         await tester.pumpAndSettle();
 
         // Role selector: pick Instructor instead of the default Buddy role.
-        await tester.tap(find.text('Instructor'));
-        await tester.pumpAndSettle();
+        await pickOnlyRole(tester, 'Instructor');
 
         await tester.tap(find.text('Done'));
         await tester.pumpAndSettle();
@@ -202,7 +215,7 @@ void main() {
 
         final saved = await BuddyRepository().getBuddiesForDive(d1.id);
         expect(saved, hasLength(1));
-        expect(saved.single.role.id, DiveRole.instructorId);
+        expect(saved.single.primaryRole.id, DiveRole.instructorId);
       },
     );
 
@@ -253,8 +266,7 @@ void main() {
         find.descendant(of: roleGate, matching: find.byType(FormRow)),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Instructor'));
-      await tester.pumpAndSettle();
+      await pickOnlyRole(tester, 'Instructor');
 
       await tester.ensureVisible(find.text('Save'));
       await tester.tap(find.text('Save'));
@@ -263,12 +275,437 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(
-        (await repository.getDiveById(d1.id))!.diverRoleId,
+        (await repository.getDiveById(d1.id))!.diverRoleIds.firstOrNull,
         DiveRole.instructorId,
       );
       expect(
-        (await repository.getDiveById(d2.id))!.diverRoleId,
+        (await repository.getDiveById(d2.id))!.diverRoleIds.firstOrNull,
         DiveRole.instructorId,
+      );
+    });
+
+    testWidgets('a bulk band pick writes its range to every dive and is '
+        'remembered for the next new dive (issue #3226)', (tester) async {
+      final d1 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(id: 'vis-1'),
+      );
+      final d2 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(id: 'vis-2'),
+      );
+      final overrides = await getBaseOverrides();
+      final container = ProviderContainer(
+        overrides: buildOverrides(overrides).cast(),
+      );
+      addTearDown(container.dispose);
+      await tester.pumpWidget(
+        UncontrolledProviderScope(
+          container: container,
+          child: MaterialApp(
+            locale: const Locale('en'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: DiveEditPage(bulkDiveIds: [d1.id, d2.id], embedded: true),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final gate = find.ancestor(
+        of: find.text('Visibility'),
+        matching: find.byType(BulkFieldGate),
+      );
+      await tester.ensureVisible(gate);
+      await tester.tap(
+        find.descendant(of: gate, matching: find.byType(Checkbox)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.descendant(of: gate, matching: find.text('Range')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(ChoiceChip, 'Good'));
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Save'));
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Apply'));
+      await tester.pumpAndSettle();
+
+      // Default (tropical) scale: Good is 15-30 m.
+      for (final id in [d1.id, d2.id]) {
+        final dive = (await repository.getDiveById(id))!;
+        expect(dive.visibilityMinMeters, 15, reason: id);
+        expect(dive.visibilityMaxMeters, 30, reason: id);
+        expect(dive.visibilityMeters, isNull, reason: id);
+      }
+      expect(
+        container.read(visibilityInputModeProvider),
+        VisibilityInputMode.range,
+      );
+    });
+
+    Future<Course> insertCourse() async {
+      final now = DateTime.utc(2024, 3, 1);
+      final ms = now.millisecondsSinceEpoch;
+      await db
+          .into(db.divers)
+          .insert(
+            DiversCompanion(
+              id: const Value('course-diver'),
+              name: const Value('Course Diver'),
+              createdAt: Value(ms),
+              updatedAt: Value(ms),
+            ),
+          );
+      await db
+          .into(db.courses)
+          .insert(
+            CoursesCompanion(
+              id: const Value('aow'),
+              diverId: const Value('course-diver'),
+              name: const Value('Advanced Open Water'),
+              agency: Value(CertificationAgency.padi.name),
+              startDate: Value(ms),
+              createdAt: Value(ms),
+              updatedAt: Value(ms),
+            ),
+          );
+      return Course(
+        id: 'aow',
+        diverId: 'course-diver',
+        name: 'Advanced Open Water',
+        agency: CertificationAgency.padi.name,
+        startDate: now,
+        createdAt: now,
+        updatedAt: now,
+      );
+    }
+
+    Future<void> pumpBulkDives(
+      WidgetTester tester,
+      List<String> ids, {
+      List<Course> courses = const [],
+    }) async {
+      tester.view.physicalSize = const Size(800, 1600);
+      tester.view.devicePixelRatio = 1.0;
+      addTearDown(() {
+        tester.view.resetPhysicalSize();
+        tester.view.resetDevicePixelRatio();
+      });
+      final overrides = await getBaseOverrides();
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            ...buildOverrides(overrides),
+            courseListNotifierProvider.overrideWith(
+              (ref) => _FixedCourseListNotifier(courses),
+            ),
+          ].cast(),
+          child: MaterialApp(
+            locale: const Locale('en'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Scaffold(
+              body: DiveEditPage(bulkDiveIds: ids, embedded: true),
+            ),
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    Finder myRoleGate() => find.ancestor(
+      of: find.text('My role'),
+      matching: find.byType(BulkFieldGate),
+    );
+
+    testWidgets('the My role gate replaces the set on every dive (#1221)', (
+      tester,
+    ) async {
+      final d1 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(
+          id: 'my-roles-1',
+          diverRoleIds: const [DiveRole.instructorId],
+        ),
+      );
+      final d2 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(id: 'my-roles-2'),
+      );
+      await pumpBulkDives(tester, [d1.id, d2.id]);
+
+      await tester.ensureVisible(myRoleGate());
+      await tester.tap(
+        find.descendant(of: myRoleGate(), matching: find.byType(Checkbox)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.descendant(of: myRoleGate(), matching: find.byType(FormRow)),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Divemaster'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Dive Guide'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Done').last);
+      await tester.pumpAndSettle();
+
+      await tester.ensureVisible(find.text('Save'));
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Apply'));
+      await tester.pumpAndSettle();
+
+      for (final id in [d1.id, d2.id]) {
+        expect((await repository.getDiveById(id))!.diverRoleIds, [
+          DiveRole.diveGuideId,
+          DiveRole.diveMasterId,
+        ]);
+      }
+    });
+
+    testWidgets('My role reads Mixed when the dives\' sets differ (#1221)', (
+      tester,
+    ) async {
+      final d1 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(
+          id: 'mixed-roles-1',
+          diverRoleIds: const [DiveRole.instructorId],
+        ),
+      );
+      final d2 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(
+          id: 'mixed-roles-2',
+          diverRoleIds: const [DiveRole.diveGuideId, DiveRole.diveMasterId],
+        ),
+      );
+      await pumpBulkDives(tester, [d1.id, d2.id]);
+
+      await tester.ensureVisible(myRoleGate());
+      expect(
+        find.descendant(of: myRoleGate(), matching: find.text('Mixed')),
+        findsOneWidget,
+      );
+    });
+
+    Future<List<String>> sharedPair(WidgetTester tester) async {
+      final ids = <String>[];
+      for (final id in ['seed-roles-1', 'seed-roles-2']) {
+        ids.add(
+          (await repository.createDive(
+            createTestDiveWithBottomTime().copyWith(
+              id: id,
+              diverRoleIds: const [DiveRole.diveGuideId, DiveRole.diveMasterId],
+            ),
+          )).id,
+        );
+      }
+      await pumpBulkDives(tester, ids);
+      await tester.ensureVisible(myRoleGate());
+      await tester.tap(
+        find.descendant(of: myRoleGate(), matching: find.byType(Checkbox)),
+      );
+      await tester.pumpAndSettle();
+      return ids;
+    }
+
+    Future<void> saveBulk(WidgetTester tester) async {
+      await tester.ensureVisible(find.text('Save'));
+      await tester.tap(find.text('Save'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Apply'));
+      await tester.pumpAndSettle();
+    }
+
+    Future<Course> insertRescueCourse() async {
+      final now = DateTime.utc(2024, 4, 1);
+      await db
+          .into(db.courses)
+          .insert(
+            CoursesCompanion(
+              id: const Value('rescue'),
+              diverId: const Value('course-diver'),
+              name: const Value('Rescue Diver'),
+              agency: Value(CertificationAgency.padi.name),
+              startDate: Value(now.millisecondsSinceEpoch),
+              createdAt: Value(now.millisecondsSinceEpoch),
+              updatedAt: Value(now.millisecondsSinceEpoch),
+            ),
+          );
+      return Course(
+        id: 'rescue',
+        diverId: 'course-diver',
+        name: 'Rescue Diver',
+        agency: CertificationAgency.padi.name,
+        startDate: now,
+        createdAt: now,
+        updatedAt: now,
+      );
+    }
+
+    Finder courseEditor() => find.ancestor(
+      of: find.text('Training Courses'),
+      matching: find.byType(BulkMembershipEditor),
+    );
+
+    Future<Set<String>> coursesOf(String id) async =>
+        (await repository.getDiveById(id))!.courseIds.toSet();
+
+    testWidgets('adding a course keeps every dive other courses (#2515)', (
+      tester,
+    ) async {
+      final aow = await insertCourse();
+      final rescue = await insertRescueCourse();
+      final d1 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(
+          id: 'course-add-1',
+          courseIds: ['rescue'],
+        ),
+      );
+      final d2 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(id: 'course-add-2'),
+      );
+      await pumpBulkDives(tester, [d1.id, d2.id], courses: [aow, rescue]);
+
+      final add = find.descendant(
+        of: courseEditor(),
+        matching: find.widgetWithText(TextButton, 'Add'),
+      );
+      await tester.ensureVisible(add);
+      await tester.tap(add);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.widgetWithText(CheckboxListTile, 'Advanced Open Water'),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Done'));
+      await tester.pumpAndSettle();
+
+      await saveBulk(tester);
+
+      expect(await coursesOf(d1.id), {'rescue', 'aow'});
+      expect(await coursesOf(d2.id), {'aow'});
+    });
+
+    testWidgets('removing a course leaves the dive other courses (#2515)', (
+      tester,
+    ) async {
+      final aow = await insertCourse();
+      final rescue = await insertRescueCourse();
+      final d1 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(
+          id: 'course-drop-1',
+          courseIds: ['aow', 'rescue'],
+        ),
+      );
+      final d2 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(
+          id: 'course-drop-2',
+          courseIds: ['aow'],
+        ),
+      );
+      await pumpBulkDives(tester, [d1.id, d2.id], courses: [aow, rescue]);
+
+      final toggle = find.byKey(const ValueKey('membership-toggle-aow'));
+      await tester.ensureVisible(toggle);
+      await tester.tap(toggle);
+      await tester.pumpAndSettle();
+      await saveBulk(tester);
+
+      expect(await coursesOf(d1.id), {'rescue'});
+      expect(await coursesOf(d2.id), isEmpty);
+    });
+
+    testWidgets('an untouched course list leaves existing links alone', (
+      tester,
+    ) async {
+      final course = await insertCourse();
+      final d1 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(
+          id: 'course-keep-1',
+          courseIds: ['aow'],
+        ),
+      );
+      final d2 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(id: 'course-keep-2'),
+      );
+      await pumpBulkDives(tester, [d1.id, d2.id], courses: [course]);
+
+      final favoriteGate = find.ancestor(
+        of: find.text('Favorite'),
+        matching: find.byType(BulkFieldGate),
+      );
+      await tester.tap(
+        find.descendant(of: favoriteGate, matching: find.byType(Checkbox)),
+      );
+      await tester.pumpAndSettle();
+      await saveBulk(tester);
+
+      expect((await repository.getDiveById(d1.id))!.courseId, 'aow');
+      expect((await repository.getDiveById(d2.id))!.courseId, isNull);
+    });
+
+    testWidgets('a shared role set is the starting value (#1221)', (
+      tester,
+    ) async {
+      final ids = await sharedPair(tester);
+      await tester.tap(
+        find.descendant(of: myRoleGate(), matching: find.byType(FormRow)),
+      );
+      await tester.pumpAndSettle();
+      // The picker opens with the shared set ticked; adding one keeps both.
+      await tester.tap(find.widgetWithText(CheckboxListTile, 'Instructor'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Done').last);
+      await tester.pumpAndSettle();
+      await saveBulk(tester);
+
+      for (final id in ids) {
+        expect((await repository.getDiveById(id))!.diverRoleIds, [
+          DiveRole.diveGuideId,
+          DiveRole.instructorId,
+          DiveRole.diveMasterId,
+        ]);
+      }
+    });
+
+    testWidgets('enabling My role and saving keeps a shared set (#1221)', (
+      tester,
+    ) async {
+      final ids = await sharedPair(tester);
+      await saveBulk(tester);
+
+      for (final id in ids) {
+        expect((await repository.getDiveById(id))!.diverRoleIds, [
+          DiveRole.diveGuideId,
+          DiveRole.diveMasterId,
+        ]);
+      }
+    });
+
+    testWidgets('My role shows the set every dive shares (#1221)', (
+      tester,
+    ) async {
+      final ids = <String>[];
+      for (final id in ['shared-roles-1', 'shared-roles-2']) {
+        ids.add(
+          (await repository.createDive(
+            createTestDiveWithBottomTime().copyWith(
+              id: id,
+              diverRoleIds: const [DiveRole.diveGuideId, DiveRole.diveMasterId],
+            ),
+          )).id,
+        );
+      }
+      await pumpBulkDives(tester, ids);
+
+      await tester.ensureVisible(myRoleGate());
+      expect(
+        find.descendant(
+          of: myRoleGate(),
+          matching: find.text('Dive Guide, Divemaster'),
+        ),
+        findsOneWidget,
       );
     });
 
@@ -298,7 +735,9 @@ void main() {
       );
       await BuddyRepository().bulkAddBuddies(
         [d1.id, d2.id],
-        [BuddyWithRole(buddy: buddy, role: DiveRole.builtInBuddy())],
+        [
+          BuddyWithRole(buddy: buddy, roles: [DiveRole.builtInBuddy()]),
+        ],
       );
 
       final overrides = await getBaseOverrides();
@@ -327,8 +766,7 @@ void main() {
 
       await tester.tap(roleButton);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Instructor'));
-      await tester.pumpAndSettle();
+      await pickOnlyRole(tester, 'Instructor');
       expect(
         find.descendant(of: roleButton, matching: find.text('Instructor')),
         findsOneWidget,
@@ -342,7 +780,7 @@ void main() {
 
       for (final id in [d1.id, d2.id]) {
         final saved = await BuddyRepository().getBuddiesForDive(id);
-        expect(saved.single.role.id, DiveRole.instructorId);
+        expect(saved.single.primaryRole.id, DiveRole.instructorId);
       }
     });
 
@@ -372,7 +810,9 @@ void main() {
       // Only d1 has the buddy.
       await BuddyRepository().bulkAddBuddies(
         [d1.id],
-        [BuddyWithRole(buddy: buddy, role: DiveRole.builtInBuddy())],
+        [
+          BuddyWithRole(buddy: buddy, roles: [DiveRole.builtInBuddy()]),
+        ],
       );
 
       final overrides = await getBaseOverrides();
@@ -395,8 +835,7 @@ void main() {
       await tester.ensureVisible(roleButton);
       await tester.tap(roleButton);
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Instructor'));
-      await tester.pumpAndSettle();
+      await pickOnlyRole(tester, 'Instructor');
 
       await tester.ensureVisible(find.text('Save'));
       await tester.tap(find.text('Save'));
@@ -405,7 +844,7 @@ void main() {
       await tester.pumpAndSettle();
 
       final onD1 = await BuddyRepository().getBuddiesForDive(d1.id);
-      expect(onD1.single.role.id, DiveRole.instructorId);
+      expect(onD1.single.primaryRole.id, DiveRole.instructorId);
       // The membership checkbox was left on "some", so d2 stays untouched.
       expect(await BuddyRepository().getBuddiesForDive(d2.id), isEmpty);
     });
@@ -436,7 +875,9 @@ void main() {
       // Both dives already carry the buddy as a plain Buddy.
       await BuddyRepository().bulkAddBuddies(
         [d1.id, d2.id],
-        [BuddyWithRole(buddy: buddy, role: DiveRole.builtInBuddy())],
+        [
+          BuddyWithRole(buddy: buddy, roles: [DiveRole.builtInBuddy()]),
+        ],
       );
 
       final overrides = await getBaseOverrides();
@@ -479,8 +920,7 @@ void main() {
       await tester.tap(find.text(buddy.name).last);
       await tester.pumpAndSettle();
 
-      await tester.tap(find.text('Instructor'));
-      await tester.pumpAndSettle();
+      await pickOnlyRole(tester, 'Instructor');
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
       await tester.tap(find.widgetWithText(FilledButton, 'Add').last);
@@ -496,7 +936,7 @@ void main() {
       for (final id in [d1.id, d2.id]) {
         final saved = await BuddyRepository().getBuddiesForDive(id);
         expect(saved, hasLength(1));
-        expect(saved.single.role.id, DiveRole.instructorId);
+        expect(saved.single.primaryRole.id, DiveRole.instructorId);
       }
     });
 
@@ -1118,5 +1558,126 @@ void main() {
 
       expect(find.byType(SnackBar), findsOneWidget);
     });
+    Finder gateOf(String label) => find.ancestor(
+      of: find.text(label),
+      matching: find.byType(BulkFieldGate),
+    );
+
+    Future<void> fillGate(
+      WidgetTester tester,
+      String label,
+      String text,
+    ) async {
+      await tester.ensureVisible(gateOf(label));
+      await tester.tap(
+        find.descendant(of: gateOf(label), matching: find.byType(Checkbox)),
+      );
+      await tester.pumpAndSettle();
+      await tester.enterText(
+        find.descendant(of: gateOf(label), matching: find.byType(TextField)),
+        text,
+      );
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('bulk boat rows capitalize like the single editor', (
+      tester,
+    ) async {
+      final d1 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(id: 'caps-1'),
+      );
+      final d2 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(id: 'caps-2'),
+      );
+      await pumpBulkDives(tester, [d1.id, d2.id]);
+
+      TextCapitalization capitalizationOf(String label) => tester
+          .widget<TextField>(
+            find.descendant(
+              of: gateOf(label),
+              matching: find.byType(TextField),
+            ),
+          )
+          .textCapitalization;
+      expect(capitalizationOf('Operator'), TextCapitalization.words);
+      expect(capitalizationOf('Boat'), TextCapitalization.words);
+      expect(capitalizationOf('Captain'), TextCapitalization.words);
+      expect(
+        capitalizationOf('Surface Conditions'),
+        TextCapitalization.sentences,
+      );
+    });
+
+    testWidgets('the Captain gate sets every selected dive (#3229)', (
+      tester,
+    ) async {
+      final d1 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(id: 'cap-1'),
+      );
+      final d2 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(
+          id: 'cap-2',
+          boatCaptain: 'Old',
+        ),
+      );
+      await pumpBulkDives(tester, [d1.id, d2.id]);
+
+      await fillGate(tester, 'Captain', '  Rik ');
+      await saveBulk(tester);
+
+      expect((await repository.getDiveById(d1.id))!.boatCaptain, 'Rik');
+      expect((await repository.getDiveById(d2.id))!.boatCaptain, 'Rik');
+    });
+
+    testWidgets('an enabled Captain gate holding only spaces clears it', (
+      tester,
+    ) async {
+      final d1 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(
+          id: 'cap-3',
+          boatCaptain: 'Rik',
+        ),
+      );
+      final d2 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(
+          id: 'cap-4',
+          boatCaptain: 'Ana',
+        ),
+      );
+      await pumpBulkDives(tester, [d1.id, d2.id]);
+
+      await fillGate(tester, 'Captain', '   ');
+      await saveBulk(tester);
+
+      expect((await repository.getDiveById(d1.id))!.boatCaptain, isNull);
+      expect((await repository.getDiveById(d2.id))!.boatCaptain, isNull);
+    });
+
+    testWidgets('the Surface Conditions gate sets every dive (#3229)', (
+      tester,
+    ) async {
+      final d1 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(id: 'sea-1'),
+      );
+      final d2 = await repository.createDive(
+        createTestDiveWithBottomTime().copyWith(id: 'sea-2'),
+      );
+      await pumpBulkDives(tester, [d1.id, d2.id]);
+
+      await fillGate(tester, 'Surface Conditions', 'Calm');
+      await saveBulk(tester);
+
+      expect((await repository.getDiveById(d1.id))!.surfaceConditions, 'Calm');
+      expect((await repository.getDiveById(d2.id))!.surfaceConditions, 'Calm');
+    });
   });
+}
+
+class _FixedCourseListNotifier extends StateNotifier<AsyncValue<List<Course>>>
+    implements CourseListNotifier {
+  _FixedCourseListNotifier(List<Course> courses)
+    : super(AsyncValue.data(courses));
+
+  @override
+  dynamic noSuchMethod(Invocation invocation) => null;
 }

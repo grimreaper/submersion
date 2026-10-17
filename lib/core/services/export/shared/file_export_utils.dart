@@ -120,6 +120,38 @@ Future<String> _saveViaDialog(
   return _writeToDocuments(bytes, fileName);
 }
 
+/// Hand a file that already exists at [path] to the share sheet, or to the
+/// save dialog where [canShareFiles] is false.
+///
+/// Unlike [saveAndShareFileBytes] nothing is copied into the documents
+/// directory first, so an export built in temp space (an encrypted documents
+/// archive) leaves no lasting copy behind. Returns the shared path, the saved
+/// location, or null when the sheet is dismissed or the dialog cancelled.
+Future<String?> shareFileAtPath(
+  String path,
+  String fileName,
+  String mimeType, {
+  required String dialogTitle,
+  Rect? sharePositionOrigin,
+}) async {
+  if (!canShareFiles) {
+    return saveBytesToFile(
+      await File(path).readAsBytes(),
+      fileName,
+      dialogTitle: dialogTitle,
+      mimeType: mimeType,
+    );
+  }
+  final result = await SharePlus.instance.share(
+    ShareParams(
+      files: [XFile(path, mimeType: mimeType, name: fileName)],
+      subject: fileName,
+      sharePositionOrigin: sharePositionOrigin,
+    ),
+  );
+  return result.status == ShareResultStatus.dismissed ? null : path;
+}
+
 Future<String> _writeToDocuments(Uint8List bytes, String fileName) async {
   final directory = await getApplicationDocumentsDirectory();
   final file = File(p.join(directory.path, fileName));
@@ -182,9 +214,15 @@ String savedFileLocation(Uri uri) =>
 ///
 /// Opens a file picker dialog allowing the user to choose where to save.
 /// Returns the saved file location, or null if the user cancelled.
-Future<String?> saveImageToFile(List<int> pngBytes, String fileName) async {
+/// [dialogTitle] names what is being saved; the default is the dive profile
+/// image, its first caller.
+Future<String?> saveImageToFile(
+  List<int> pngBytes,
+  String fileName, {
+  String dialogTitle = 'Save Profile Image',
+}) async {
   final result = await FilePicker.saveFile(
-    dialogTitle: 'Save Profile Image',
+    dialogTitle: dialogTitle,
     fileName: fileName,
     type: FileType.image,
     bytes: Uint8List.fromList(pngBytes),
@@ -222,13 +260,32 @@ Future<String?> saveTextToFile(
   String fileName, {
   required String dialogTitle,
   required String mimeType,
+}) => saveBytesToFile(
+  utf8.encode(content),
+  fileName,
+  dialogTitle: dialogTitle,
+  mimeType: mimeType,
+);
+
+/// Save raw bytes to a user-selected file location.
+///
+/// Opens a file picker dialog allowing the user to choose where to save.
+/// Returns the saved file location, or null if the user cancelled.
+///
+/// The general form of [saveTextToFile] and [savePdfToFile], for callers that
+/// deliver several file types through one path and so cannot pick a typed
+/// helper up front.
+Future<String?> saveBytesToFile(
+  List<int> bytes,
+  String fileName, {
+  required String dialogTitle,
+  required String mimeType,
 }) async {
-  final bytes = Uint8List.fromList(utf8.encode(content));
   final result = await FilePicker.saveFile(
     dialogTitle: dialogTitle,
     fileName: fileName,
     type: FileType.custom,
-    bytes: bytes,
+    bytes: bytes is Uint8List ? bytes : Uint8List.fromList(bytes),
     mimeType: mimeType,
   );
 
@@ -240,15 +297,10 @@ Future<String?> saveTextToFile(
 ///
 /// Opens a file picker dialog allowing the user to choose where to save.
 /// Returns the saved file path, or null if the user cancelled.
-Future<String?> savePdfToFile(List<int> pdfBytes, String fileName) async {
-  final result = await FilePicker.saveFile(
-    dialogTitle: 'Save PDF',
-    fileName: fileName,
-    type: FileType.custom,
-    bytes: Uint8List.fromList(pdfBytes),
-    mimeType: 'application/pdf',
-  );
-
-  if (result == null) return null;
-  return savedFileLocation(result);
-}
+Future<String?> savePdfToFile(List<int> pdfBytes, String fileName) =>
+    saveBytesToFile(
+      pdfBytes,
+      fileName,
+      dialogTitle: 'Save PDF',
+      mimeType: 'application/pdf',
+    );

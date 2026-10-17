@@ -17,6 +17,7 @@ import 'package:submersion/shared/widgets/wizard/wizard_step_def.dart';
 import 'package:submersion/features/import_wizard/presentation/providers/import_wizard_providers.dart';
 import 'package:submersion/features/import_wizard/presentation/widgets/import_summary_step.dart';
 import 'package:submersion/features/dive_sites/presentation/providers/site_match_review_notifier.dart';
+import 'package:submersion/features/data_quality/presentation/providers/quality_inbox_providers.dart';
 
 // ---------------------------------------------------------------------------
 // Fake adapter
@@ -896,6 +897,58 @@ void main() {
     );
   });
 
+  group('ImportSummaryStep - corrected dive times (#2812)', () {
+    testWidgets('counts the corrected dives when nothing else changed', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(800, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final notifier = _makeNotifier();
+      notifier.state = notifier.state.copyWith(
+        importResult: const UnifiedImportResult(
+          importedCounts: {},
+          consolidatedCount: 0,
+          timesCorrectedCount: 4,
+          skippedCount: 4,
+        ),
+      );
+
+      await tester.pumpWidget(_buildWidget(notifier));
+      await tester.pump();
+
+      expect(find.text('Successfully Updated'), findsOneWidget);
+      expect(
+        find.byKey(const Key('import_summary_times_corrected_row')),
+        findsOneWidget,
+      );
+      expect(find.text('Dive times corrected'), findsOneWidget);
+      expect(find.text('View Dives'), findsOneWidget);
+    });
+
+    testWidgets('hides the row when no time was corrected', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final notifier = _makeNotifier();
+      notifier.state = notifier.state.copyWith(
+        importResult: const UnifiedImportResult(
+          importedCounts: {ImportEntityType.dives: 2},
+          consolidatedCount: 0,
+          skippedCount: 0,
+        ),
+      );
+
+      await tester.pumpWidget(_buildWidget(notifier));
+      await tester.pump();
+
+      expect(
+        find.byKey(const Key('import_summary_times_corrected_row')),
+        findsNothing,
+      );
+    });
+  });
+
   group('ImportSummaryStep - entity type coverage', () {
     testWidgets('shows equipment row', (tester) async {
       await tester.binding.setSurfaceSize(const Size(800, 600));
@@ -1055,6 +1108,29 @@ void main() {
 
       expect(find.text('Courses'), findsOneWidget);
       expect(find.text('3'), findsOneWidget);
+    });
+
+    testWidgets('shows cylinder fills row (cylinder passports phase 5)', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(800, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final notifier = _makeNotifier();
+      notifier.state = notifier.state.copyWith(
+        importResult: const UnifiedImportResult(
+          importedCounts: {ImportEntityType.fills: 5},
+          consolidatedCount: 0,
+          skippedCount: 0,
+        ),
+      );
+
+      await tester.pumpWidget(_buildWidget(notifier));
+      await tester.pump();
+
+      expect(find.text('Fills'), findsOneWidget);
+      expect(find.text('5'), findsOneWidget);
+      expect(find.byIcon(Icons.propane_tank_outlined), findsOneWidget);
     });
   });
 
@@ -1390,6 +1466,65 @@ void main() {
       expect(find.text('TRANSMITTERS_PAGE'), findsOneWidget);
     });
 
+    testWidgets('explains roles read from transmitter names (#2595)', (
+      tester,
+    ) async {
+      await tester.binding.setSurfaceSize(const Size(800, 900));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final notifier = _makeNotifier();
+      notifier.state = notifier.state.copyWith(
+        importResult: const UnifiedImportResult(
+          importedCounts: {ImportEntityType.dives: 3},
+          consolidatedCount: 0,
+          skippedCount: 0,
+          notices: [
+            ImportNotice(kind: ImportNoticeKind.transmitterNameRoles, count: 3),
+          ],
+        ),
+      );
+      // The action pushes a route, so this test hosts the step in a router.
+      final router = GoRouter(
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, state) => Scaffold(
+              body: ImportSummaryStep(onDone: () {}, onViewDives: () {}),
+            ),
+          ),
+          GoRoute(
+            path: '/transmitters',
+            builder: (context, state) =>
+                const Scaffold(body: Text('TRANSMITTERS_PAGE')),
+          ),
+        ],
+      );
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            importWizardNotifierProvider.overrideWith((_) => notifier),
+          ],
+          child: MaterialApp.router(
+            locale: const Locale('en'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            routerConfig: router,
+          ),
+        ),
+      );
+      await tester.pump();
+
+      expect(
+        find.text('Cylinder roles read from transmitter names'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('starting with O'), findsOneWidget);
+      expect(find.text('Affects 3 dives'), findsOneWidget);
+
+      await tester.tap(find.text('Assign transmitters'));
+      await tester.pumpAndSettle();
+      expect(find.text('TRANSMITTERS_PAGE'), findsOneWidget);
+    });
+
     testWidgets('still reports the import as successful', (tester) async {
       await pumpWithNotices(tester, const [
         ImportNotice(kind: ImportNoticeKind.noTankPressure, count: 12),
@@ -1505,6 +1640,33 @@ void main() {
         const ImportNotice(kind: ImportNoticeKind.photosSkipped, count: 1),
         title: 'Some photos skipped',
         bodyFragment: '1 photo had no file name and could not be linked.',
+        countLine: null,
+      );
+    });
+
+    testWidgets('counts pictures stored inside the logbook', (tester) async {
+      await expectCard(
+        tester,
+        const ImportNotice(
+          kind: ImportNoticeKind.logbookImagesNotImported,
+          count: 3,
+        ),
+        title: 'Some pictures not imported',
+        bodyFragment: '3 pictures stored in the logbook file',
+        countLine: null,
+      );
+    });
+
+    testWidgets('names the trips that had no dates', (tester) async {
+      await expectCard(
+        tester,
+        const ImportNotice(
+          kind: ImportNoticeKind.tripsNotImported,
+          count: 2,
+          names: ['Red Sea', 'Lake weekend'],
+        ),
+        title: 'Some trips not imported',
+        bodyFragment: 'could not be imported: Red Sea, Lake weekend.',
         countLine: null,
       );
     });
@@ -1885,9 +2047,58 @@ void main() {
     });
   });
 
+  group('ImportSummaryStep - excluded Suunto JSON export in a batch', () {
+    testWidgets(
+      '"Import with Suunto importer" appears for a Suunto JSON outcome with a '
+      'path, and the route action does not (#1445)',
+      (tester) async {
+        await tester.binding.setSurfaceSize(const Size(800, 900));
+        addTearDown(() => tester.binding.setSurfaceSize(null));
+
+        final notifier = _makeNotifier();
+        notifier.state = notifier.state.copyWith(
+          importResult: const UnifiedImportResult(
+            importedCounts: {},
+            consolidatedCount: 0,
+            skippedCount: 0,
+            fileOutcomes: [
+              ImportFileOutcome(
+                fileName: 'no-path.json',
+                formatName: 'Suunto JSON',
+                status: ImportFileOutcomeStatus.needsIndividualImport,
+                isSuuntoJson: true,
+              ),
+              ImportFileOutcome(
+                fileName: 'nautic.json',
+                formatName: 'Suunto JSON',
+                status: ImportFileOutcomeStatus.needsIndividualImport,
+                isSuuntoJson: true,
+                // Only needs to be non-null; never read.
+                filePath: 'nautic.json',
+              ),
+            ],
+          ),
+        );
+
+        await tester.pumpWidget(_buildWidget(notifier));
+        await tester.pump();
+
+        expect(
+          find.byKey(const ValueKey('import-summary-import-with-suunto')),
+          findsOneWidget,
+        );
+        expect(find.text('Import with Suunto importer'), findsOneWidget);
+        expect(
+          find.byKey(const ValueKey('import-summary-import-as-route')),
+          findsNothing,
+        );
+      },
+    );
+  });
+
   group('ImportSummaryStep - excluded Seacraft ENC route in a batch', () {
     testWidgets(
-      '"Import as route" only appears for a navTrack outcome with a path',
+      '"Import as underwater track" only appears for a navTrack outcome with a path',
       (tester) async {
         await tester.binding.setSurfaceSize(const Size(800, 900));
         addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -1953,5 +2164,74 @@ void main() {
     // call), and the button-visibility test above covers the condition
     // this handler's precondition depends on (isNavTrackRoute && filePath
     // != null).
+  });
+
+  group('ImportSummaryStep - flagged findings (#2717)', () {
+    testWidgets('the Review action sits under the flagged count and opens the '
+        'quality inbox for the imported dives', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 600));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+
+      final ids = ['d1', 'd2'];
+      final notifier = _makeNotifier();
+      notifier.state = notifier.state.copyWith(
+        importResult: UnifiedImportResult(
+          importedCounts: const {ImportEntityType.dives: 2},
+          consolidatedCount: 0,
+          skippedCount: 0,
+          importedDiveIds: ids,
+        ),
+      );
+
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (_, _) => Scaffold(
+              body: ImportSummaryStep(onDone: () {}, onViewDives: () {}),
+            ),
+          ),
+          GoRoute(
+            path: '/dives/quality',
+            builder: (_, state) => Scaffold(
+              body: Text('inbox ${state.uri.queryParameters['dive']}'),
+            ),
+          ),
+        ],
+      );
+      addTearDown(router.dispose);
+
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            importWizardNotifierProvider.overrideWith((_) => notifier),
+            eligibleImportedDivesProvider(
+              ImportedDiveIds(ids),
+            ).overrideWith((ref) => const <String>[]),
+            importedDivesOpenFindingsCountProvider(
+              importedDivesFindingsKey(ids),
+            ).overrideWith((ref) => Stream.value(3)),
+          ],
+          child: MaterialApp.router(
+            routerConfig: router,
+            locale: const Locale('en'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+          ),
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      final label = tester.getRect(find.text('3 items flagged for review'));
+      final review = find.widgetWithText(TextButton, 'Review');
+      expect(review, findsOneWidget);
+      expect(tester.getRect(review).top, greaterThanOrEqualTo(label.bottom));
+
+      await tester.tap(review);
+      await tester.pumpAndSettle();
+
+      expect(find.text('inbox d1,d2'), findsOneWidget);
+    });
   });
 }

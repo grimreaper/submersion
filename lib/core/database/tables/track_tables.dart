@@ -10,6 +10,7 @@ library;
 import 'package:drift/drift.dart';
 
 import 'package:submersion/core/database/tables/dive_tables.dart';
+import 'package:submersion/core/database/tables/diver_tables.dart';
 import 'package:submersion/core/database/tables/equipment_tables.dart';
 import 'package:submersion/core/database/tables/site_tables.dart';
 
@@ -94,6 +95,16 @@ class NavTracks extends Table {
   TextColumn get diveId =>
       text().nullable().references(Dives, #id, onDelete: KeyAction.setNull)();
 
+  /// The diver this route belongs to (v252). Stamped with the active diver
+  /// at import and moved to the dive's diver whenever the route is linked,
+  /// so a linked route's owner always matches its dive. Null is a route
+  /// with no owner (imported before v252 and never linked, or with no
+  /// diver profile): every diver sees it, the house meaning of an ownerless
+  /// row. No ON DELETE action: deleting a diver deletes and tombstones
+  /// their routes (`diver_owned_rows.dart`), so a peer never shows them to
+  /// everyone after its FK repair nulls the owner.
+  TextColumn get diverId => text().nullable().references(Divers, #id)();
+
   /// 'auto' when the match sweep linked it, 'manual' when the diver did.
   /// The sweep never touches a linked row of either kind; the flag exists
   /// so the UI can say how the link came about.
@@ -171,6 +182,13 @@ class NavTracks extends Table {
   RealColumn get headingOffsetDeg => real().withDefault(const Constant(0))();
 
   IntColumn get codecVersion => integer().withDefault(const Constant(1))();
+
+  /// Source-specific fields kept exactly as the export carried them, as a
+  /// JSON object under the export's own names (v285, issue #3047): a
+  /// Suunto route's `DiveRouteQuality` and `QualityFeatures`, whose meaning
+  /// is undocumented. Null when the source carried none. Nothing reads it
+  /// yet; the codec is nav_track_source_metadata_codec.dart.
+  TextColumn get sourceMetadata => text().nullable()();
 
   /// Gzipped JSON array of
   /// [wallClockEpochSeconds, north, east, depth, course, pitch, roll,

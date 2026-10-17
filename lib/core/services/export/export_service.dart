@@ -2,6 +2,7 @@ import 'dart:typed_data';
 import 'dart:ui' show Rect;
 
 import 'package:submersion/core/constants/units.dart';
+import 'package:submersion/core/services/export/models/currency_backup_data.dart';
 import 'package:submersion/core/services/export/csv/codec/csv_export_units.dart';
 import 'package:submersion/core/services/export/csv/csv_export_service.dart';
 import 'package:submersion/core/services/export/excel/blender_invoice_excel_export_service.dart';
@@ -30,6 +31,7 @@ import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/features/buddies/domain/entities/buddy.dart';
 import 'package:submersion/features/certifications/domain/entities/certification.dart';
 import 'package:submersion/features/courses/domain/entities/course.dart';
+import 'package:submersion/features/cylinder_passports/domain/entities/cylinder_fill.dart';
 import 'package:submersion/features/dive_centers/domain/entities/dive_center.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_source_export.dart';
@@ -45,12 +47,17 @@ import 'package:submersion/features/dive_roles/domain/entities/dive_role.dart';
 import 'package:submersion/features/divers/domain/entities/diver.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_item.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_observation.dart';
+import 'package:submersion/features/equipment/domain/entities/service_kind.dart';
+import 'package:submersion/features/equipment/domain/entities/service_schedule.dart';
 import 'package:submersion/features/pre_dive/domain/entities/pre_dive_session.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_component.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_set.dart';
 import 'package:submersion/features/marine_life/domain/entities/species.dart';
 import 'package:submersion/features/tags/domain/entities/tag.dart';
 import 'package:submersion/features/trips/domain/entities/trip.dart';
+import 'package:submersion/features/trips/domain/entities/trip_gas_record.dart';
+import 'package:submersion/features/dive_log/domain/entities/dive_tank_pressure_export.dart';
+import 'package:submersion/features/certification_agencies/domain/certification_catalog.dart';
 
 export 'package:submersion/core/services/export/models/blender_invoice_export_data.dart';
 export 'package:submersion/core/services/export/models/export_service_record.dart';
@@ -105,11 +112,13 @@ class ExportService {
     List<EquipmentItem> equipment, {
     Map<String, List<String>> componentNames = const {},
     Map<String, List<String>> tagNames = const {},
+    Map<String, String> locationNames = const {},
     CsvExportUnits units = CsvExportUnits.metric,
   }) => _csv.exportEquipmentToCsv(
     equipment,
     componentNames: componentNames,
     tagNames: tagNames,
+    locationNames: locationNames,
     units: units,
   );
 
@@ -144,11 +153,13 @@ class ExportService {
     List<EquipmentItem> equipment, {
     Map<String, List<String>> componentNames = const {},
     Map<String, List<String>> tagNames = const {},
+    Map<String, String> locationNames = const {},
     CsvExportUnits units = CsvExportUnits.metric,
   }) => _csv.generateEquipmentCsvContent(
     equipment,
     componentNames: componentNames,
     tagNames: tagNames,
+    locationNames: locationNames,
     units: units,
   );
 
@@ -186,12 +197,14 @@ class ExportService {
     List<EquipmentItem> equipment, {
     Map<String, List<String>> componentNames = const {},
     Map<String, List<String>> tagNames = const {},
+    Map<String, String> locationNames = const {},
     required String dialogTitle,
     CsvExportUnits units = CsvExportUnits.metric,
   }) => _csv.saveEquipmentCsvToFile(
     equipment,
     componentNames: componentNames,
     tagNames: tagNames,
+    locationNames: locationNames,
     dialogTitle: dialogTitle,
     units: units,
   );
@@ -206,6 +219,63 @@ class ExportService {
     List<ObservationExportRow> rows, {
     required String dialogTitle,
   }) => _csv.saveObservationsCsvToFile(rows, dialogTitle: dialogTitle);
+
+  Future<String> exportFillsToCsv(
+    List<CylinderFill> fills, {
+    Map<String, EquipmentItem> equipmentById = const {},
+    CsvExportUnits units = CsvExportUnits.metric,
+  }) =>
+      _csv.exportFillsToCsv(fills, equipmentById: equipmentById, units: units);
+
+  String generateFillsCsvContent(
+    List<CylinderFill> fills, {
+    Map<String, EquipmentItem> equipmentById = const {},
+    CsvExportUnits units = CsvExportUnits.metric,
+  }) => _csv.generateFillsCsvContent(
+    fills,
+    equipmentById: equipmentById,
+    units: units,
+  );
+
+  Future<String> exportTripGasRecordToCsv(
+    TripGasRecord record, {
+    required String tripName,
+    Map<String, String> centerNames = const {},
+    CsvExportUnits units = CsvExportUnits.metric,
+    Rect? sharePositionOrigin,
+  }) => _csv.exportTripGasRecordToCsv(
+    record,
+    tripName: tripName,
+    centerNames: centerNames,
+    units: units,
+    sharePositionOrigin: sharePositionOrigin,
+  );
+
+  Future<String?> saveTripGasRecordCsvToFile(
+    TripGasRecord record, {
+    required String tripName,
+    Map<String, String> centerNames = const {},
+    required String dialogTitle,
+    CsvExportUnits units = CsvExportUnits.metric,
+  }) => _csv.saveTripGasRecordCsvToFile(
+    record,
+    tripName: tripName,
+    centerNames: centerNames,
+    dialogTitle: dialogTitle,
+    units: units,
+  );
+
+  Future<String?> saveFillsCsvToFile(
+    List<CylinderFill> fills, {
+    Map<String, EquipmentItem> equipmentById = const {},
+    required String dialogTitle,
+    CsvExportUnits units = CsvExportUnits.metric,
+  }) => _csv.saveFillsCsvToFile(
+    fills,
+    equipmentById: equipmentById,
+    dialogTitle: dialogTitle,
+    units: units,
+  );
 
   // ==================== PDF Export ====================
 
@@ -233,9 +303,11 @@ class ExportService {
     String? title,
     Map<String, PdfProfileSeries>? profiles,
     List<Certification>? certifications,
+    CertificationCatalog? certificationCatalog,
     Diver? diver,
     Uint8List? diverPhoto,
     Map<String, DiveTypeEntity> diveTypesById = const {},
+    Map<String, DiveRole> diveRolesById = const {},
   }) => _pdf.generateDivePdfBytes(
     dives,
     dates: dates,
@@ -243,10 +315,12 @@ class ExportService {
     options: options,
     profiles: profiles,
     certifications: certifications,
+    certificationCatalog: certificationCatalog,
     diver: diver,
     diverPhoto: diverPhoto,
     title: title,
     diveTypesById: diveTypesById,
+    diveRolesById: diveRolesById,
   );
 
   Future<String> exportDivesToPdf(
@@ -257,9 +331,11 @@ class ExportService {
     String? title,
     Map<String, PdfProfileSeries>? profiles,
     List<Certification>? certifications,
+    CertificationCatalog? certificationCatalog,
     Diver? diver,
     Uint8List? diverPhoto,
     Map<String, DiveTypeEntity> diveTypesById = const {},
+    Map<String, DiveRole> diveRolesById = const {},
   }) => _pdf.exportDivesToPdf(
     dives,
     dates: dates,
@@ -267,10 +343,12 @@ class ExportService {
     options: options,
     profiles: profiles,
     certifications: certifications,
+    certificationCatalog: certificationCatalog,
     diver: diver,
     diverPhoto: diverPhoto,
     title: title,
     diveTypesById: diveTypesById,
+    diveRolesById: diveRolesById,
   );
 
   Future<String?> saveDivesToPdfFile(
@@ -281,9 +359,11 @@ class ExportService {
     String? title,
     Map<String, PdfProfileSeries>? profiles,
     List<Certification>? certifications,
+    CertificationCatalog? certificationCatalog,
     Diver? diver,
     Uint8List? diverPhoto,
     Map<String, DiveTypeEntity> diveTypesById = const {},
+    Map<String, DiveRole> diveRolesById = const {},
   }) => _pdf.saveDivesToPdfFile(
     dives,
     dates: dates,
@@ -291,10 +371,12 @@ class ExportService {
     options: options,
     profiles: profiles,
     certifications: certifications,
+    certificationCatalog: certificationCatalog,
     diver: diver,
     diverPhoto: diverPhoto,
     title: title,
     diveTypesById: diveTypesById,
+    diveRolesById: diveRolesById,
   );
 
   Future<String?> savePdfBytesToFile(List<int> bytes, String fileName) =>
@@ -336,12 +418,14 @@ class ExportService {
     required PdfDateFormatter dates,
     required UnitFormatter units,
     PdfLocalization? localization,
+    CertificationCatalog? catalog,
   }) => _pdfCourse.exportCourseTrainingLogToPdf(
     course,
     trainingDives,
     dates: dates,
     units: units,
     localization: localization,
+    catalog: catalog,
   );
 
   // ==================== Excel Export ====================
@@ -491,8 +575,9 @@ class ExportService {
   Future<String> exportDivesToUddf(
     List<Dive> dives, {
     List<DiveSite>? sites,
-    Map<String, Map<String, List<TankPressurePoint>>>? diveTankPressures,
+    Map<String, DiveTankPressureExport>? diveTankPressures,
     List<DiveSourceExport>? dataSources,
+    CertificationCatalog? certificationCatalog,
     UddfDivesExtras extras = const UddfDivesExtras.empty(),
     UddfExportOptions options = const UddfExportOptions(),
   }) => _uddf.exportDivesToUddf(
@@ -500,6 +585,7 @@ class ExportService {
     sites: sites,
     diveTankPressures: diveTankPressures,
     dataSources: dataSources,
+    certificationCatalog: certificationCatalog,
     extras: extras,
     options: options,
   );
@@ -507,8 +593,9 @@ class ExportService {
   Future<String?> saveDivesToUddfFile(
     List<Dive> dives, {
     List<DiveSite>? sites,
-    Map<String, Map<String, List<TankPressurePoint>>>? diveTankPressures,
+    Map<String, DiveTankPressureExport>? diveTankPressures,
     List<DiveSourceExport>? dataSources,
+    CertificationCatalog? certificationCatalog,
     UddfDivesExtras extras = const UddfDivesExtras.empty(),
     UddfExportOptions options = const UddfExportOptions(),
   }) => _uddf.saveDivesToUddfFile(
@@ -516,6 +603,7 @@ class ExportService {
     sites: sites,
     diveTankPressures: diveTankPressures,
     dataSources: dataSources,
+    certificationCatalog: certificationCatalog,
     extras: extras,
     options: options,
   );
@@ -526,10 +614,15 @@ class ExportService {
     List<EquipmentItem>? equipment,
     List<Buddy>? buddies,
     List<Certification>? certifications,
+    CurrencyBackupData currency = const CurrencyBackupData(),
+    CertificationCatalog? certificationCatalog,
     List<DiveCenter>? diveCenters,
     List<Species>? species,
     List<ServiceRecord>? serviceRecords,
     List<EquipmentObservation>? observations,
+    List<CylinderFill>? fills,
+    List<ServiceKind>? serviceKinds,
+    Map<String, List<ServiceSchedule>> serviceSchedulesByItem = const {},
     Map<String, String>? settings,
     Map<String, List<BuddyWithRole>>? diveBuddies,
     Diver? owner,
@@ -552,7 +645,7 @@ class ExportService {
     List<EquipmentComponent>? components,
     List<Course>? courses,
     Map<String, List<GasSwitchWithTank>>? diveGasSwitches,
-    Map<String, Map<String, List<TankPressurePoint>>>? diveTankPressures,
+    Map<String, DiveTankPressureExport>? diveTankPressures,
     List<DiveSourceExport>? dataSources,
     UddfExportOptions options = const UddfExportOptions(),
   }) => _uddfFull.exportAllDataToUddf(
@@ -561,10 +654,15 @@ class ExportService {
     equipment: equipment,
     buddies: buddies,
     certifications: certifications,
+    currency: currency,
+    certificationCatalog: certificationCatalog,
     diveCenters: diveCenters,
     species: species,
     serviceRecords: serviceRecords,
     observations: observations,
+    fills: fills,
+    serviceKinds: serviceKinds,
+    serviceSchedulesByItem: serviceSchedulesByItem,
     settings: settings,
     diveBuddies: diveBuddies,
     owner: owner,
@@ -596,10 +694,15 @@ class ExportService {
     List<EquipmentItem>? equipment,
     List<Buddy>? buddies,
     List<Certification>? certifications,
+    CurrencyBackupData currency = const CurrencyBackupData(),
+    CertificationCatalog? certificationCatalog,
     List<DiveCenter>? diveCenters,
     List<Species>? species,
     List<ServiceRecord>? serviceRecords,
     List<EquipmentObservation>? observations,
+    List<CylinderFill>? fills,
+    List<ServiceKind>? serviceKinds,
+    Map<String, List<ServiceSchedule>> serviceSchedulesByItem = const {},
     Map<String, String>? settings,
     Map<String, List<BuddyWithRole>>? diveBuddies,
     Diver? owner,
@@ -622,7 +725,7 @@ class ExportService {
     List<EquipmentComponent>? components,
     List<Course>? courses,
     Map<String, List<GasSwitchWithTank>>? diveGasSwitches,
-    Map<String, Map<String, List<TankPressurePoint>>>? diveTankPressures,
+    Map<String, DiveTankPressureExport>? diveTankPressures,
     List<DiveSourceExport>? dataSources,
     UddfExportOptions options = const UddfExportOptions(),
   }) => _uddfFull.saveAllDataToUddfFile(
@@ -631,10 +734,15 @@ class ExportService {
     equipment: equipment,
     buddies: buddies,
     certifications: certifications,
+    currency: currency,
+    certificationCatalog: certificationCatalog,
     diveCenters: diveCenters,
     species: species,
     serviceRecords: serviceRecords,
     observations: observations,
+    fills: fills,
+    serviceKinds: serviceKinds,
+    serviceSchedulesByItem: serviceSchedulesByItem,
     settings: settings,
     diveBuddies: diveBuddies,
     owner: owner,

@@ -195,9 +195,15 @@ class DivePlan extends Equatable {
     this.mission,
   });
 
-  /// CCR setpoints with the spec defaults (0.7 shallow, 1.3 below 10 m).
-  double get effectiveSetpointLow => setpointLow ?? 0.7;
-  double get effectiveSetpointHigh => setpointHigh ?? 1.3;
+  /// Pure spec defaults (0.7 shallow, 1.3 below 10 m), the last resort for
+  /// a caller with no access to the diver's CCR ppO2 Settings. An unset
+  /// [setpointLow] / [setpointHigh] resolves through
+  /// `PlanEngineConfig.setpointLowFor` / `setpointHighFor`, which carry the
+  /// diver's Settings and default to these constants; there is deliberately
+  /// no getter here that falls back to them directly, because one would
+  /// skip the Settings (issue #2801).
+  static const double specSetpointLow = 0.7;
+  static const double specSetpointHigh = 1.3;
   double get effectiveSetpointSwitchDepth => setpointSwitchDepth ?? 10.0;
 
   /// Deco SAC: explicit value, otherwise 15 L/min (same default as bottom SAC).

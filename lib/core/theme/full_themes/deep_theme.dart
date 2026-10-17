@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:submersion/core/theme/feature_accent_colors.dart';
 import 'package:submersion/core/theme/status_colors.dart';
+import 'package:submersion/core/theme/tinted_containers.dart';
 
 // ---------------------------------------------------------------------------
 // Deep Theme -- immersive, deep ocean feel
@@ -15,8 +16,14 @@ const _surfaceDark = Color(0xFF080E18);
 const _appBarLight = Color(0xFF0A1628);
 const _appBarDark = Color(0xFF0A1428);
 
-const _primaryLight = Color(0xFF2070C0);
+// Deep enough to read as text on the light surface: the original #2070C0 sat
+// at 4.41:1, just under WCAG AA (#2967). The FAB keeps it as a fill.
+const _primaryLight = Color(0xFF1F6BB8);
 const _primaryDark = Color(0xFF40A0E8);
+
+// #3080D0 read at 4.06:1 on the dark cards and carried white text at only
+// 4.10:1 (#2967); a lighter blue with dark text clears AA on both.
+const _secondaryDark = Color(0xFF438CD4);
 
 const _cardLight = Color(0xFFF0F4F8);
 const Color _cardDark = Color.fromRGBO(15, 30, 55, 0.7);
@@ -27,6 +34,11 @@ const _fabColor = Color(0xFF2070C0);
 
 const _errorColor = Color(0xFFB00020);
 const _onErrorColor = Color(0xFFFFFFFF);
+
+// A dark surface needs a light error: #B00020 reads at under 3:1 on it.
+// Matches the seeded Submersion dark theme's error tone.
+const _errorDark = Color(0xFFFFB4AB);
+const _onErrorDark = Color(0xFF690005);
 
 // -- Shared shape constants --------------------------------------------------
 
@@ -63,17 +75,19 @@ final ThemeData deepLight = ThemeData(
     FeatureAccentColors.light,
     StatusColors.light,
   ],
-  colorScheme: const ColorScheme(
-    brightness: Brightness.light,
-    primary: _primaryLight,
-    onPrimary: Color(0xFFFFFFFF),
-    secondary: Color(0xFF1858A0),
-    onSecondary: Color(0xFFFFFFFF),
-    error: _errorColor,
-    onError: _onErrorColor,
-    surface: _surfaceLight,
-    onSurface: Color(0xFF0A1628),
-    surfaceContainerLow: _cardLight,
+  colorScheme: withTintedContainers(
+    const ColorScheme(
+      brightness: Brightness.light,
+      primary: _primaryLight,
+      onPrimary: Color(0xFFFFFFFF),
+      secondary: Color(0xFF1858A0),
+      onSecondary: Color(0xFFFFFFFF),
+      error: _errorColor,
+      onError: _onErrorColor,
+      surface: _surfaceLight,
+      onSurface: Color(0xFF0A1628),
+      surfaceContainerLow: _cardLight,
+    ),
   ),
   textTheme: _buildTextTheme(Brightness.light),
   appBarTheme: const AppBarTheme(
@@ -116,17 +130,19 @@ final ThemeData deepDark = ThemeData(
     FeatureAccentColors.dark,
     StatusColors.dark,
   ],
-  colorScheme: const ColorScheme(
-    brightness: Brightness.dark,
-    primary: _primaryDark,
-    onPrimary: Color(0xFF0A1428),
-    secondary: Color(0xFF3080D0),
-    onSecondary: Color(0xFFFFFFFF),
-    error: _errorColor,
-    onError: _onErrorColor,
-    surface: _surfaceDark,
-    onSurface: Color(0xFFD0E0F0),
-    surfaceContainerLow: Color(0xFF0F1E37),
+  colorScheme: withTintedContainers(
+    const ColorScheme(
+      brightness: Brightness.dark,
+      primary: _primaryDark,
+      onPrimary: Color(0xFF0A1428),
+      secondary: _secondaryDark,
+      onSecondary: Color(0xFF0A1428),
+      error: _errorDark,
+      onError: _onErrorDark,
+      surface: _surfaceDark,
+      onSurface: Color(0xFFD0E0F0),
+      surfaceContainerLow: Color(0xFF0F1E37),
+    ),
   ),
   textTheme: _buildTextTheme(Brightness.dark),
   appBarTheme: const AppBarTheme(

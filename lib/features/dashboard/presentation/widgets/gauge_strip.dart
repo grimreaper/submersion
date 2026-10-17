@@ -2,8 +2,10 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/theme/status_colors.dart';
+import 'package:submersion/core/utils/elapsed_duration_format.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
 
+import 'package:submersion/features/certifications/presentation/certification_attention_navigation.dart';
 import 'package:submersion/features/dashboard/presentation/providers/gauge_providers.dart';
 import 'package:submersion/features/equipment/domain/models/equipment_filter_state.dart';
 import 'package:submersion/features/equipment/presentation/equipment_service_navigation.dart';
@@ -12,6 +14,9 @@ import 'package:submersion/features/settings/presentation/providers/settings_pro
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/sync_now_action.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
+import 'package:submersion/features/documents/domain/document_expiry.dart';
+import 'package:submersion/features/documents/domain/entities/document.dart';
+import 'package:submersion/features/documents/presentation/document_l10n.dart';
 
 /// Dive-currency thresholds for the last-dive chip: quiet under 6 months,
 /// amber past 6, red past 12 (typical agency refresher guidance).
@@ -140,7 +145,7 @@ class GaugeStrip extends ConsumerWidget {
 
     final insurance = g.insurance;
     // Emptiness keys off the provider, not the expiry date: expiry is
-    // optional on InsuranceEditPage, so a DAN policy recorded without a
+    // optional on an insurance document, so a DAN policy recorded without a
     // renewal date is a complete record. This matches
     // DiverInsurance.isValid and the diver profile hub. Both isExpired and
     // isExpiringSoon return false when expiryDate is null, so such a policy
@@ -159,7 +164,7 @@ class GaugeStrip extends ConsumerWidget {
           icon: Icons.health_and_safety_outlined,
           label: l10n.dashboard_gauges_insuranceExpired,
           tone: _Tone.alert,
-          onTap: () => context.push('/settings/diver-profile/insurance'),
+          onTap: () => context.push('/documents?type=insurance'),
         ),
       );
     } else if (_shown(hidden, HomeChipType.insurance)) {
@@ -170,7 +175,7 @@ class GaugeStrip extends ConsumerWidget {
             icon: Icons.health_and_safety_outlined,
             label: l10n.dashboard_gauges_noInsurance,
             tone: _Tone.neutral,
-            onTap: () => context.push('/settings/diver-profile/insurance'),
+            onTap: () => context.push('/documents?type=insurance'),
           ),
         );
       } else if (policy.isExpiringSoon) {
@@ -182,7 +187,7 @@ class GaugeStrip extends ConsumerWidget {
               units.formatDate(policy.expiryDate),
             ),
             tone: _Tone.warn,
-            onTap: () => context.push('/settings/diver-profile/insurance'),
+            onTap: () => context.push('/documents?type=insurance'),
           ),
         );
       } else {
@@ -192,7 +197,7 @@ class GaugeStrip extends ConsumerWidget {
             icon: Icons.health_and_safety_outlined,
             label: l10n.dashboard_gauges_insuranceOk,
             tone: _Tone.ok,
-            onTap: () => context.push('/settings/diver-profile/insurance'),
+            onTap: () => context.push('/documents?type=insurance'),
           ),
         );
       }
@@ -272,6 +277,8 @@ class GaugeStrip extends ConsumerWidget {
           : days >= kCurrencyWarnDays
           ? _Tone.warn
           : _Tone.neutral;
+      // From a year on the bare day count stops being readable.
+      final longGap = days == null ? null : formatElapsedDays(l10n, days);
       chips.add(
         _chip(
           context,
@@ -280,6 +287,8 @@ class GaugeStrip extends ConsumerWidget {
               ? l10n.dashboard_gauges_noDivesYet
               : days == 0
               ? l10n.dashboard_gauges_lastDiveToday
+              : longGap != null
+              ? l10n.dashboard_gauges_lastDiveSpan(longGap)
               : l10n.dashboard_gauges_lastDiveDays(days),
           tone: tone,
           onTap: () => context.push('/dives'),
@@ -287,15 +296,65 @@ class GaugeStrip extends ConsumerWidget {
       );
     }
 
-    if (_shown(hidden, HomeChipType.certifications) &&
-        g.expiringCertCount > 0) {
+    // Certification currency (issue #2267). Hardened like gear, insurance
+    // and the flight window: a lapse on a date the diver entered (a card
+    // expiry or a logged event) renders through the hide. An inferred lapse
+    // (no recent dive, an issue date plus a catalog interval) stays hideable.
+    // Through a hide the chip names only the hardened certifications, as
+    // the gear chip shows only overdue items.
+    final cert = g.certCurrency;
+    final certShown = _shown(hidden, HomeChipType.certifications);
+    final certCount = certShown ? cert.count : cert.hardenedCount;
+    if (certCount > 0) {
       chips.add(
         _chip(
           context,
           icon: Icons.card_membership_outlined,
-          label: l10n.dashboard_gauges_certsExpiring(g.expiringCertCount),
-          tone: _Tone.warn,
-          onTap: () => context.push('/certifications'),
+          label: l10n.dashboard_gauges_certsNeedAttention(certCount),
+          tone: cert.anyLapsed || !certShown ? _Tone.alert : _Tone.warn,
+          onTap: () => openCertificationsNeedingAttention(context, ref),
+        ),
+      );
+    }
+
+    // Documents (issue #2613). An expired medical clearance is hardened like
+    // insurance: it renders even with the chip hidden. Everything else
+    // follows the hide.
+    final docsShown = _shown(hidden, HomeChipType.documents);
+    final docs = [
+      for (final e in g.attentionDocuments)
+        if (docsShown ||
+            (e.$1.type == DocumentType.medicalClearance &&
+                e.$2.kind == DocumentExpiryKind.expired))
+          e,
+    ];
+    if (docs.isNotEmpty) {
+      final anyExpired = docs.any(
+        (e) => e.$2.kind == DocumentExpiryKind.expired,
+      );
+      final single = docs.length == 1 ? docs.single : null;
+      final label = switch (single) {
+        null => l10n.dashboard_gauges_documentsNeedAttention(docs.length),
+        (final doc, DocumentExpiryStatus(kind: DocumentExpiryKind.expired)) =>
+          l10n.dashboard_gauges_documentExpired(
+            documentDisplayTitle(l10n, doc),
+          ),
+        (final doc, _) => l10n.dashboard_gauges_documentExpires(
+          documentDisplayTitle(l10n, doc),
+          units.formatDate(doc.expiryDate),
+        ),
+      };
+      chips.add(
+        _chip(
+          context,
+          icon: Icons.folder_copy_outlined,
+          label: label,
+          tone: anyExpired || !docsShown ? _Tone.alert : _Tone.warn,
+          onTap: () => context.push(
+            single == null
+                ? '/documents?filter=expiring'
+                : '/documents/${single.$1.id}',
+          ),
         ),
       );
     }
@@ -311,7 +370,8 @@ class GaugeStrip extends ConsumerWidget {
             trip.daysUntilStart,
           ),
           tone: _Tone.ok,
-          onTap: () => context.push('/trips'),
+          // The chip names one trip, so it opens that trip (#3350).
+          onTap: () => context.push('/trips/${trip.id}'),
         ),
       );
     }

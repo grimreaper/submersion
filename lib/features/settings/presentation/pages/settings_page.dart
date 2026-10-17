@@ -10,27 +10,26 @@ import 'package:submersion/features/equipment/presentation/providers/equipment_p
 import 'package:submersion/core/icons/mdi_icons.dart';
 import 'package:submersion/core/utils/app_version.dart';
 import 'package:submersion/core/utils/currency.dart';
-import 'package:submersion/core/utils/number_input.dart';
-import 'package:submersion/core/constants/map_style.dart';
-import 'package:submersion/core/deco/entities/cns_calculation_method.dart';
 import 'package:submersion/core/providers/provider.dart';
 
 import 'package:submersion/features/gas_calculators/presentation/gas_calculator_tools.dart';
+import 'package:submersion/features/settings/presentation/widgets/equipment_default_view_tile.dart';
+import 'package:submersion/features/settings/presentation/widgets/altitude_distance_unit_pickers.dart';
 import 'package:submersion/features/settings/presentation/widgets/notification_permission_card.dart';
+import 'package:submersion/features/settings/presentation/pages/data_section_content.dart';
 import 'package:submersion/features/settings/presentation/pages/column_config_page.dart';
-import 'package:submersion/features/settings/presentation/pages/safety_settings_page.dart';
+import 'package:submersion/features/settings/presentation/pages/safety_hub_page.dart';
 import 'package:submersion/features/settings/presentation/pages/security_settings_page.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
-import 'package:submersion/features/settings/presentation/widgets/ccr_ppo2_limit_dialog.dart';
 import 'package:submersion/features/settings/presentation/widgets/coordinate_format_picker.dart';
 import 'package:submersion/features/dive_sites/domain/services/site_location_backfill_service.dart';
 import 'package:submersion/features/dive_sites/presentation/widgets/site_location_backfill_dialog.dart';
 import 'package:submersion/features/settings/presentation/widgets/place_name_language_picker.dart';
+import 'package:submersion/features/settings/presentation/widgets/settings_value_tile.dart';
 import 'package:submersion/features/settings/presentation/widgets/visibility_scale_picker.dart';
-import 'package:submersion/core/constants/profile_metrics.dart';
 import 'package:submersion/features/settings/presentation/pages/home_appearance_page.dart';
 import 'package:submersion/features/settings/presentation/pages/section_appearance_page.dart';
-import 'package:submersion/features/settings/presentation/widgets/nav_customization_tile.dart';
+import 'package:submersion/features/settings/presentation/widgets/appearance_settings_tiles.dart';
 import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/constants/gas_model.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/environment_enum_display.dart';
@@ -38,21 +37,19 @@ import 'package:submersion/core/constants/gas_consumption_display.dart';
 import 'package:submersion/core/constants/units.dart';
 import 'package:submersion/core/services/notification_service.dart';
 import 'package:submersion/features/notifications/presentation/providers/notification_providers.dart';
-import 'package:submersion/core/domain/entities/storage_config.dart';
 import 'package:submersion/shared/widgets/master_detail/master_detail_scaffold.dart';
 import 'package:submersion/shared/widgets/master_detail/responsive_breakpoints.dart';
-import 'package:submersion/features/backup/presentation/providers/backup_providers.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
-import 'package:submersion/features/dive_sites/domain/matching/site_match_sensitivity.dart';
+import 'package:submersion/features/divers/presentation/providers/profile_hides_providers.dart';
 import 'package:submersion/features/dive_sites/presentation/providers/site_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
-import 'package:submersion/features/settings/presentation/providers/storage_providers.dart';
 import 'package:submersion/features/settings/presentation/pages/diver_profile_hub_page.dart';
 import 'package:submersion/features/settings/presentation/pages/language_settings_page.dart';
-import 'package:submersion/core/theme/app_theme_registry.dart';
 import 'package:submersion/features/settings/presentation/widgets/diagnostics_card.dart';
 import 'package:submersion/features/settings/presentation/widgets/pending_setup_card.dart';
 import 'package:submersion/features/settings/presentation/widgets/settings_list_content.dart';
+import 'package:submersion/core/router/section_navigation.dart';
+import 'package:submersion/features/settings/presentation/settings_legacy_links.dart';
 import 'package:submersion/features/settings/presentation/widgets/settings_summary_widget.dart';
 import 'package:submersion/features/trips/presentation/providers/trip_providers.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
@@ -65,23 +62,14 @@ import 'package:submersion/features/auto_update/domain/entities/update_status.da
 import 'package:submersion/features/auto_update/presentation/providers/update_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/debug_mode_provider.dart';
 import 'package:submersion/features/settings/presentation/pages/debug_log_viewer_page.dart';
-import 'package:submersion/features/settings/presentation/widgets/gtr_reserve_dialog.dart';
-import 'package:submersion/shared/widgets/feature_accent.dart';
+import 'package:submersion/features/settings/presentation/pages/network_settings_page.dart';
 import 'package:submersion/features/settings/presentation/format_enum_display.dart';
+import 'package:submersion/shared/widgets/label_with_control.dart';
 import 'package:url_launcher/url_launcher.dart';
+import 'package:submersion/features/settings/presentation/widgets/settings_section_helpers.dart';
 
 /// The URL for the GitHub issues page, used by [launchReportIssue].
 const reportIssueUrl = 'https://github.com/submersion-app/submersion/issues';
-
-/// Reference URLs for the CNS calculation methods, opened from the CNS method
-/// picker dialog's "Sources" section.
-const _cnsSourceNoaaUrl = 'https://www.omao.noaa.gov/noaa-diving-program';
-const _cnsSourceShearwaterUrl =
-    'https://shearwater.com/blogs/community/shearwater-and-the-cns-oxygen-clock';
-const _cnsSourceTheoreticalDiverUrl =
-    'https://thetheoreticaldiver.org/wordpress/index.php/2019/08/15/calculating-oxygen-cns-toxicity/';
-const _cnsSourceSubsurfaceUrl =
-    'https://github.com/subsurface/subsurface/commit/a0912b38bd';
 
 /// Opens the GitHub issues page in an external browser. Falls back to a
 /// snackbar with a copy-link action if the launch fails.
@@ -121,7 +109,32 @@ class SettingsPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
-    if (ResponsiveBreakpoints.isMasterDetail(context)) {
+    final masterDetail = ResponsiveBreakpoints.isMasterDetail(context);
+    Uri? uri;
+    try {
+      uri = GoRouterState.of(context).uri;
+    } catch (_) {
+      // GoRouter not available (e.g., in tests)
+    }
+
+    // An old link (Decompression before it moved under Safety, or Safety
+    // itself on a phone, where it is a full page) is sent on after this
+    // frame: navigating during build is not allowed.
+    final legacyTarget = uri == null
+        ? null
+        : resolveLegacySettingsLocation(uri, masterDetail: masterDetail);
+    if (legacyTarget != null) {
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (!context.mounted) return;
+        if (masterDetail) {
+          context.goInPlace(legacyTarget);
+        } else {
+          context.go(legacyTarget);
+        }
+      });
+    }
+
+    if (masterDetail) {
       return MasterDetailScaffold(
         sectionId: 'settings',
         masterBuilder: (context, onItemSelected, selectedId) =>
@@ -137,16 +150,11 @@ class SettingsPage extends ConsumerWidget {
     }
 
     // Mobile: Check for selected section via query param
-    String? selectedSection;
-    try {
-      selectedSection = GoRouterState.of(
-        context,
-      ).uri.queryParameters['selected'];
-    } catch (_) {
-      // GoRouter not available (e.g., in tests)
-    }
+    final selectedSection = uri?.queryParameters['selected'];
 
-    if (selectedSection != null) {
+    // Until the redirect lands, show the list rather than wrapping a full
+    // page in the section wrapper for a frame.
+    if (selectedSection != null && legacyTarget == null) {
       // Show section detail page
       return SettingsSectionDetailPage(sectionId: selectedSection);
     }
@@ -165,21 +173,21 @@ class SettingsPage extends ConsumerWidget {
       case 'profile':
         return const DiverProfileHubPage();
       case 'safety':
-        return const SafetySettingsPage();
+        return const SafetySettingsPane();
       case 'security':
         return const SecuritySettingsPage();
       case 'units':
         return _UnitsSectionContent(ref: ref);
-      case 'decompression':
-        return _DecompressionSectionContent(ref: ref);
       case 'appearance':
         return const _AppearanceSectionContent();
+      case 'network':
+        return const NetworkSettingsPage();
       case 'notifications':
         return _NotificationsSectionContent(ref: ref);
       case 'manage':
         return const _ManageSectionContent();
       case 'data':
-        return _DataSectionContent(ref: ref);
+        return const DataSectionContent();
       case 'dataSources':
         return const _DataSourcesSectionContent();
       case 'about':
@@ -188,6 +196,11 @@ class SettingsPage extends ConsumerWidget {
         return const SharedDataSectionContent();
       case 'debug':
         return const DebugLogViewerPage();
+      case 'decompression':
+        // An old link to the retired root section. build() redirects it to
+        // Safety after this frame; until then show nothing rather than the
+        // unknown-section fallback.
+        return const SizedBox.shrink();
       default:
         return Center(child: Text('Unknown section: $sectionId'));
     }
@@ -249,7 +262,9 @@ class SettingsMobileContent extends ConsumerWidget {
 /// [SettingsSectionDetailPage] supplies a Scaffold and an AppBar, so sections
 /// whose content is itself a Scaffold with an AppBar (Diver Profile, Safety,
 /// Debug) would show two stacked app bars inside it. Appearance is listed too
-/// because it has a dedicated page, keeping that route canonical.
+/// because it has a dedicated page, keeping that route canonical, and
+/// Decompression because it is no longer a root section: it lives under
+/// Safety, so a link to the old section lands on its new page.
 ///
 /// Used both by the settings list tile and by the '/settings/section/:id'
 /// route's redirect, so a deep link to that path cannot bypass it.
@@ -257,6 +272,8 @@ const settingsSectionDedicatedRoutes = <String, String>{
   'profile': '/settings/diver-profile',
   'appearance': '/settings/appearance',
   'safety': '/settings/safety',
+  // Moved under Safety (#3395); old links to the section follow it.
+  'decompression': '/settings/safety/decompression',
   'debug': '/settings/debug-logs',
 };
 
@@ -285,8 +302,15 @@ class SettingsSectionDetailPage extends ConsumerWidget {
           // Pop the pushed section route; fall back to go() for deep links
           // where the detail page is the root of the stack.
           onPressed: () {
+            // maybePop, not pop: a section with unsaved edits (Network)
+            // can ask before its route closes.
             if (context.canPop()) {
-              context.pop();
+              unawaited(() async {
+                // maybePop bubbles (false) for the first route of a nested
+                // navigator; the router can still pop a parent then.
+                final handled = await Navigator.of(context).maybePop();
+                if (!handled && context.mounted) context.pop();
+              }());
             } else {
               context.go('/settings');
             }
@@ -301,8 +325,8 @@ class SettingsSectionDetailPage extends ConsumerWidget {
     return switch (id) {
       'profile' => context.l10n.settings_section_diverProfile_title,
       'units' => context.l10n.settings_section_units_title,
-      'decompression' => context.l10n.settings_section_decompression_title,
       'appearance' => context.l10n.settings_section_appearance_title,
+      'network' => context.l10n.settings_section_network_title,
       'notifications' => context.l10n.settings_section_notifications_title,
       'manage' => context.l10n.settings_section_manage_title,
       'data' => context.l10n.settings_section_data_title,
@@ -319,21 +343,21 @@ class SettingsSectionDetailPage extends ConsumerWidget {
       case 'profile':
         return const DiverProfileHubPage();
       case 'safety':
-        return const SafetySettingsPage();
+        return const SafetyHubPage();
       case 'security':
         return const SecuritySettingsPage();
       case 'units':
         return _UnitsSectionContent(ref: ref);
-      case 'decompression':
-        return _DecompressionSectionContent(ref: ref);
       case 'appearance':
         return const _AppearanceSectionContent();
+      case 'network':
+        return const NetworkSettingsPage();
       case 'notifications':
         return _NotificationsSectionContent(ref: ref);
       case 'manage':
         return const _ManageSectionContent();
       case 'data':
-        return _DataSectionContent(ref: ref);
+        return const DataSectionContent();
       case 'dataSources':
         return const _DataSourcesSectionContent();
       case 'about':
@@ -390,8 +414,8 @@ class _MobileSettingsTile extends StatelessWidget {
     return switch (section.id) {
       'profile' => context.l10n.settings_section_diverProfile_title,
       'units' => context.l10n.settings_section_units_title,
-      'decompression' => context.l10n.settings_section_decompression_title,
       'appearance' => context.l10n.settings_section_appearance_title,
+      'network' => context.l10n.settings_section_network_title,
       'notifications' => context.l10n.settings_section_notifications_title,
       'manage' => context.l10n.settings_section_manage_title,
       'data' => context.l10n.settings_section_data_title,
@@ -409,8 +433,8 @@ class _MobileSettingsTile extends StatelessWidget {
     return switch (section.id) {
       'profile' => context.l10n.settings_section_diverProfile_subtitle,
       'units' => context.l10n.settings_section_units_subtitle,
-      'decompression' => context.l10n.settings_section_decompression_subtitle,
       'appearance' => context.l10n.settings_section_appearance_subtitle,
+      'network' => context.l10n.settings_section_network_subtitle,
       'notifications' => context.l10n.settings_section_notifications_subtitle,
       'manage' => context.l10n.settings_section_manage_subtitle,
       'data' => context.l10n.settings_section_data_subtitle,
@@ -459,14 +483,14 @@ class _UnitsSectionContent extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionHeader(
+          buildSettingsSectionHeader(
             context,
             context.l10n.settings_units_header_unitSystem,
           ),
           const SizedBox(height: 8),
           _buildUnitPresetSelector(context, ref, settings),
           const SizedBox(height: 24),
-          _buildSectionHeader(
+          buildSettingsSectionHeader(
             context,
             context.l10n.settings_units_header_individualUnits,
           ),
@@ -518,6 +542,28 @@ class _UnitsSectionContent extends ConsumerWidget {
                   value: settings.weightUnit.symbol,
                   onTap: () =>
                       _showWeightUnitPicker(context, ref, settings.weightUnit),
+                ),
+                const Divider(height: 1),
+                _buildUnitTile(
+                  context,
+                  title: context.l10n.settings_units_altitude,
+                  value: settings.altitudeUnit.symbol,
+                  onTap: () => showAltitudeUnitPicker(
+                    context,
+                    ref,
+                    settings.altitudeUnit,
+                  ),
+                ),
+                const Divider(height: 1),
+                _buildUnitTile(
+                  context,
+                  title: context.l10n.settings_units_distance,
+                  value: settings.distanceUnit.symbol,
+                  onTap: () => showDistanceUnitPicker(
+                    context,
+                    ref,
+                    settings.distanceUnit,
+                  ),
                 ),
                 const Divider(height: 1),
                 _buildUnitTile(
@@ -595,23 +641,11 @@ class _UnitsSectionContent extends ConsumerWidget {
                       showCoordinateFormatPicker(context, ref, settings),
                 ),
                 const Divider(height: 1),
-                ListTile(
-                  title: Text(context.l10n.settings_placeNameLanguage_title),
-                  subtitle: Text(
-                    context.l10n.settings_placeNameLanguage_subtitle,
-                  ),
-                  trailing: Row(
-                    mainAxisSize: MainAxisSize.min,
-                    children: [
-                      Text(
-                        placeNameLanguageLabel(settings.placeNameLanguage),
-                        style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                          color: Theme.of(context).colorScheme.primary,
-                        ),
-                      ),
-                      const Icon(Icons.chevron_right),
-                    ],
-                  ),
+                _buildUnitTile(
+                  context,
+                  title: context.l10n.settings_placeNameLanguage_title,
+                  subtitle: context.l10n.settings_placeNameLanguage_subtitle,
+                  value: placeNameLanguageLabel(settings.placeNameLanguage),
                   onTap: () =>
                       unawaited(_pickPlaceNameLanguage(context, ref, settings)),
                 ),
@@ -619,7 +653,7 @@ class _UnitsSectionContent extends ConsumerWidget {
             ),
           ),
           const SizedBox(height: 24),
-          _buildSectionHeader(
+          buildSettingsSectionHeader(
             context,
             context.l10n.settings_units_header_timeDateFormat,
           ),
@@ -709,21 +743,10 @@ class _UnitsSectionContent extends ConsumerWidget {
     required String value,
     required VoidCallback onTap,
   }) {
-    return ListTile(
-      title: Text(title),
-      subtitle: subtitle == null ? null : Text(subtitle),
-      trailing: Row(
-        mainAxisSize: MainAxisSize.min,
-        children: [
-          Text(
-            value,
-            style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-              color: Theme.of(context).colorScheme.primary,
-            ),
-          ),
-          const Icon(Icons.chevron_right),
-        ],
-      ),
+    return SettingsValueTile(
+      title: title,
+      subtitle: subtitle,
+      value: value,
       onTap: onTap,
     );
   }
@@ -1215,663 +1238,8 @@ class _UnitsSectionContent extends ConsumerWidget {
   }
 }
 
-/// Decompression section content
-class _DecompressionSectionContent extends ConsumerWidget {
-  final WidgetRef ref;
-
-  const _DecompressionSectionContent({required this.ref});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final settings = ref.watch(settingsProvider);
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          _buildSectionHeader(
-            context,
-            context.l10n.settings_decompression_header_gradientFactors,
-          ),
-          const SizedBox(height: 8),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.timeline),
-              title: Text(context.l10n.settings_decompression_currentSettings),
-              subtitle: Text(
-                context.l10n.settings_decompression_gfValue(
-                  settings.gfLow,
-                  settings.gfHigh,
-                ),
-              ),
-              trailing: const Icon(Icons.edit),
-              onTap: () => _showGradientFactorPicker(context, ref, settings),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildInfoCard(
-            context,
-            context.l10n.settings_decompression_aboutTitle,
-            context.l10n.settings_decompression_aboutContent,
-          ),
-          const SizedBox(height: 24),
-          _buildSectionHeader(
-            context,
-            context.l10n.settings_decompression_header_oxygenToxicity,
-          ),
-          const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.percent),
-                  title: Text(
-                    context.l10n.settings_decompression_cnsMethodTitle,
-                  ),
-                  subtitle: Text(
-                    _cnsMethodLabel(context, settings.cnsCalculationMethod),
-                  ),
-                  trailing: const Icon(Icons.edit),
-                  onTap: () => _showCnsMethodPicker(context, ref, settings),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.speed),
-                  title: Text(
-                    context.l10n.settings_decompression_ppO2LimitsTitle,
-                  ),
-                  subtitle: Text(
-                    context.l10n.settings_decompression_ppO2LimitsSubtitle(
-                      formatRoundedForInput(settings.ppO2MaxWorking, 1),
-                      formatRoundedForInput(settings.ppO2MaxDeco, 1),
-                    ),
-                  ),
-                  trailing: const Icon(Icons.edit),
-                  onTap: () => _showPpO2LimitPicker(context, ref, settings),
-                ),
-                const Divider(height: 1),
-                const CcrPpO2LimitTile(),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          _buildSectionHeader(
-            context,
-            context.l10n.settings_decompression_header_dataSources,
-          ),
-          const SizedBox(height: 4),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              context.l10n.settings_decompression_header_dataSources_subtitle,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: [
-                _buildSourceDropdownTile(
-                  context,
-                  title: context.l10n.settings_decompression_ndlSource,
-                  value: settings.defaultNdlSource,
-                  onChanged: (source) => ref
-                      .read(settingsProvider.notifier)
-                      .setDefaultNdlSource(source),
-                ),
-                const Divider(height: 1),
-                // No Ceiling Source tile: the ceiling line always renders the
-                // exact calculated curve (issue #755). The Computer/Calculated
-                // choice remains meaningful for the deco stop schedule below.
-                _buildSourceDropdownTile(
-                  context,
-                  title: context.l10n.settings_decompression_decoStopSource,
-                  value: settings.defaultDecoStopSource,
-                  onChanged: (source) => ref
-                      .read(settingsProvider.notifier)
-                      .setDefaultDecoStopSource(source),
-                ),
-                const Divider(height: 1),
-                _buildSourceDropdownTile(
-                  context,
-                  title: context.l10n.settings_decompression_ttsSource,
-                  value: settings.defaultTtsSource,
-                  onChanged: (source) => ref
-                      .read(settingsProvider.notifier)
-                      .setDefaultTtsSource(source),
-                ),
-                const Divider(height: 1),
-                _buildSourceDropdownTile(
-                  context,
-                  title: context.l10n.settings_decompression_gtrSource,
-                  value: settings.defaultGtrSource,
-                  onChanged: (source) => ref
-                      .read(settingsProvider.notifier)
-                      .setDefaultGtrSource(source),
-                ),
-                const Divider(height: 1),
-                _buildGtrReserveTile(context, ref, settings),
-                const Divider(height: 1),
-                _buildSourceDropdownTile(
-                  context,
-                  title: context.l10n.settings_decompression_cnsSource,
-                  value: settings.defaultCnsSource,
-                  onChanged: (source) => ref
-                      .read(settingsProvider.notifier)
-                      .setDefaultCnsSource(source),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          _buildSectionHeader(
-            context,
-            context.l10n.settings_decompression_header_narcosis,
-          ),
-          const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: [
-                SwitchListTile(
-                  secondary: const Icon(Icons.air),
-                  title: Text(context.l10n.settings_decompression_o2Narcotic),
-                  subtitle: Text(
-                    context.l10n.settings_decompression_o2Narcotic_subtitle,
-                  ),
-                  value: settings.o2Narcotic,
-                  onChanged: (value) {
-                    ref.read(settingsProvider.notifier).setO2Narcotic(value);
-                  },
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.vertical_align_bottom),
-                  title: Text(context.l10n.settings_decompression_endLimit),
-                  subtitle: Text(
-                    context.l10n.settings_decompression_endLimit_subtitle,
-                  ),
-                  trailing: Text(
-                    UnitFormatter(
-                      settings,
-                    ).formatDepth(settings.endLimit, decimals: 0),
-                    style: Theme.of(context).textTheme.titleMedium,
-                  ),
-                  onTap: () => _showEndLimitDialog(context, ref, settings),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 24),
-          _buildSectionHeader(
-            context,
-            context.l10n.settings_decompression_header_ascent,
-          ),
-          const SizedBox(height: 4),
-          Padding(
-            padding: const EdgeInsets.symmetric(horizontal: 4),
-            child: Text(
-              context.l10n.settings_decompression_header_ascent_subtitle,
-              style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.swap_vert),
-              title: Text(context.l10n.settings_decompression_ascentGasLabel),
-              dense: true,
-              trailing: DropdownButton<AscentGasSet>(
-                value: settings.ascentGasSet,
-                underline: const SizedBox.shrink(),
-                items: [
-                  DropdownMenuItem(
-                    value: AscentGasSet.allCarried,
-                    child: Text(
-                      context.l10n.settings_decompression_ascentGas_allCarried,
-                    ),
-                  ),
-                  DropdownMenuItem(
-                    value: AscentGasSet.decoStageOnly,
-                    child: Text(
-                      context.l10n.settings_decompression_ascentGas_decoStage,
-                    ),
-                  ),
-                ],
-                onChanged: (value) {
-                  if (value != null) {
-                    ref.read(settingsProvider.notifier).setAscentGasSet(value);
-                  }
-                },
-              ),
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-
-  Widget _buildSourceDropdownTile(
-    BuildContext context, {
-    required String title,
-    required MetricDataSource value,
-    required ValueChanged<MetricDataSource> onChanged,
-  }) {
-    return ListTile(
-      title: Text(title),
-      dense: true,
-      trailing: DropdownButton<MetricDataSource>(
-        value: value,
-        underline: const SizedBox.shrink(),
-        items: [
-          DropdownMenuItem(
-            value: MetricDataSource.calculated,
-            child: Text(context.l10n.settings_decompression_sourceCalculated),
-          ),
-          DropdownMenuItem(
-            value: MetricDataSource.computer,
-            child: Text(context.l10n.settings_decompression_sourceComputer),
-          ),
-        ],
-        onChanged: (newValue) {
-          if (newValue != null) onChanged(newValue);
-        },
-      ),
-    );
-  }
-
-  /// Reserve pressure the calculated GTR counts down to, shown and edited in
-  /// the diver's pressure unit, stored in bar.
-  Widget _buildGtrReserveTile(
-    BuildContext context,
-    WidgetRef ref,
-    AppSettings settings,
-  ) {
-    final units = UnitFormatter(settings);
-    return ListTile(
-      dense: true,
-      title: Text(context.l10n.settings_decompression_gtrReserve),
-      subtitle: Text(context.l10n.settings_decompression_gtrReserve_subtitle),
-      trailing: Text(units.formatPressure(settings.gtrReservePressure)),
-      onTap: () => _showGtrReserveDialog(context, ref, settings),
-    );
-  }
-
-  Future<void> _showGtrReserveDialog(
-    BuildContext context,
-    WidgetRef ref,
-    AppSettings settings,
-  ) async {
-    final units = UnitFormatter(settings);
-    final entered = await showDialog<double>(
-      context: context,
-      builder: (_) => GtrReserveDialog(
-        initialValue: units.convertPressure(settings.gtrReservePressure),
-        unitSymbol: units.pressureSymbol,
-      ),
-    );
-    if (entered == null || !entered.isFinite || entered <= 0) return;
-    await ref
-        .read(settingsProvider.notifier)
-        .setGtrReservePressure(units.pressureToBar(entered));
-  }
-
-  String _cnsMethodLabel(BuildContext context, CnsCalculationMethod method) {
-    switch (method) {
-      case CnsCalculationMethod.classic:
-        return context.l10n.settings_decompression_cnsMethodClassic;
-      case CnsCalculationMethod.shearwater:
-        return context.l10n.settings_decompression_cnsMethodShearwater;
-      case CnsCalculationMethod.subsurface:
-        return context.l10n.settings_decompression_cnsMethodSubsurface;
-    }
-  }
-
-  String _cnsMethodDescription(
-    BuildContext context,
-    CnsCalculationMethod method,
-  ) {
-    switch (method) {
-      case CnsCalculationMethod.classic:
-        return context.l10n.settings_decompression_cnsMethodClassicDesc;
-      case CnsCalculationMethod.shearwater:
-        return context.l10n.settings_decompression_cnsMethodShearwaterDesc;
-      case CnsCalculationMethod.subsurface:
-        return context.l10n.settings_decompression_cnsMethodSubsurfaceDesc;
-    }
-  }
-
-  Widget _buildCnsSourceLink(BuildContext context, String label, String url) {
-    final color = Theme.of(context).colorScheme.primary;
-    return InkWell(
-      onTap: () => _launchCnsSource(context, url),
-      child: Padding(
-        padding: const EdgeInsets.symmetric(vertical: 6),
-        child: Row(
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Icon(Icons.open_in_new, size: 16, color: color),
-            const SizedBox(width: 8),
-            Expanded(
-              child: Text(
-                label,
-                style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                  color: color,
-                  decoration: TextDecoration.underline,
-                ),
-              ),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-
-  Future<void> _launchCnsSource(BuildContext context, String url) async {
-    final uri = Uri.parse(url);
-    var didLaunch = false;
-
-    if (await canLaunchUrl(uri)) {
-      try {
-        didLaunch = await launchUrl(uri, mode: LaunchMode.externalApplication);
-      } catch (_) {
-        didLaunch = false;
-      }
-    }
-
-    if (!didLaunch && context.mounted) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(content: Text(context.l10n.settings_linkOpenFailed)),
-      );
-    }
-  }
-
-  Widget _buildCnsMethodOption(
-    BuildContext context,
-    BuildContext dialogContext,
-    WidgetRef ref,
-    AppSettings settings,
-    CnsCalculationMethod method,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-    final isSelected = settings.cnsCalculationMethod == method;
-
-    return Padding(
-      padding: const EdgeInsets.only(bottom: 8),
-      child: Semantics(
-        button: true,
-        label: _cnsMethodLabel(context, method),
-        child: InkWell(
-          onTap: () {
-            ref.read(settingsProvider.notifier).setCnsCalculationMethod(method);
-            Navigator.of(dialogContext).pop();
-          },
-          borderRadius: BorderRadius.circular(8),
-          child: Container(
-            padding: const EdgeInsets.symmetric(horizontal: 12, vertical: 10),
-            decoration: BoxDecoration(
-              color: isSelected
-                  ? colorScheme.primaryContainer
-                  : colorScheme.surfaceContainerHighest,
-              borderRadius: BorderRadius.circular(8),
-              border: isSelected
-                  ? Border.all(color: colorScheme.primary, width: 2)
-                  : null,
-            ),
-            child: Row(
-              children: [
-                Expanded(
-                  child: Column(
-                    crossAxisAlignment: CrossAxisAlignment.start,
-                    children: [
-                      Text(
-                        _cnsMethodLabel(context, method),
-                        style: textTheme.bodyMedium?.copyWith(
-                          fontWeight: FontWeight.w600,
-                        ),
-                      ),
-                      Text(
-                        _cnsMethodDescription(context, method),
-                        style: textTheme.bodySmall?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                        ),
-                      ),
-                    ],
-                  ),
-                ),
-                if (isSelected)
-                  Icon(Icons.check, color: colorScheme.primary, size: 20),
-              ],
-            ),
-          ),
-        ),
-      ),
-    );
-  }
-
-  void _showCnsMethodPicker(
-    BuildContext context,
-    WidgetRef ref,
-    AppSettings settings,
-  ) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(context.l10n.settings_decompression_cnsMethodTitle),
-        content: SingleChildScrollView(
-          child: Column(
-            mainAxisSize: MainAxisSize.min,
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              for (final method in CnsCalculationMethod.values)
-                _buildCnsMethodOption(
-                  context,
-                  dialogContext,
-                  ref,
-                  settings,
-                  method,
-                ),
-              const SizedBox(height: 8),
-              const Divider(),
-              ExpansionTile(
-                title: Text(
-                  context.l10n.settings_decompression_cnsMethodAboutTitle,
-                  style: textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                tilePadding: EdgeInsets.zero,
-                childrenPadding: const EdgeInsets.only(bottom: 8),
-                expandedCrossAxisAlignment: CrossAxisAlignment.start,
-                children: [
-                  Text(
-                    context.l10n.settings_decompression_cnsMethodAboutBody,
-                    style: textTheme.bodySmall,
-                  ),
-                  const SizedBox(height: 12),
-                  Text(
-                    context.l10n.settings_decompression_cnsMethodSourcesTitle,
-                    style: textTheme.titleSmall?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                  ),
-                  const SizedBox(height: 4),
-                  _buildCnsSourceLink(
-                    context,
-                    context.l10n.settings_decompression_cnsMethodSourceNoaa,
-                    _cnsSourceNoaaUrl,
-                  ),
-                  _buildCnsSourceLink(
-                    context,
-                    context
-                        .l10n
-                        .settings_decompression_cnsMethodSourceShearwater,
-                    _cnsSourceShearwaterUrl,
-                  ),
-                  _buildCnsSourceLink(
-                    context,
-                    context
-                        .l10n
-                        .settings_decompression_cnsMethodSourceTheoreticalDiver,
-                    _cnsSourceTheoreticalDiverUrl,
-                  ),
-                  _buildCnsSourceLink(
-                    context,
-                    context
-                        .l10n
-                        .settings_decompression_cnsMethodSourceSubsurface,
-                    _cnsSourceSubsurfaceUrl,
-                  ),
-                ],
-              ),
-              const SizedBox(height: 4),
-              Text(
-                context.l10n.settings_decompression_cnsMethodDisclaimer,
-                style: textTheme.bodySmall?.copyWith(
-                  color: colorScheme.onSurfaceVariant,
-                  fontStyle: FontStyle.italic,
-                ),
-              ),
-            ],
-          ),
-        ),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogContext).pop(),
-            child: Text(context.l10n.common_action_close),
-          ),
-        ],
-      ),
-    );
-  }
-
-  void _showGradientFactorPicker(
-    BuildContext context,
-    WidgetRef ref,
-    AppSettings settings,
-  ) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => _GradientFactorDialog(
-        initialGfLow: settings.gfLow,
-        initialGfHigh: settings.gfHigh,
-        onSave: (low, high) {
-          ref.read(settingsProvider.notifier).setGradientFactors(low, high);
-        },
-      ),
-    );
-  }
-
-  void _showPpO2LimitPicker(
-    BuildContext context,
-    WidgetRef ref,
-    AppSettings settings,
-  ) {
-    showDialog(
-      context: context,
-      builder: (dialogContext) => _PpO2LimitDialog(
-        initialWorking: settings.ppO2MaxWorking,
-        initialMax: settings.ppO2MaxDeco,
-        onSave: (working, max) {
-          ref.read(settingsProvider.notifier).setPpO2Limits(working, max);
-        },
-      ),
-    );
-  }
-
-  void _showEndLimitDialog(
-    BuildContext context,
-    WidgetRef ref,
-    AppSettings settings,
-  ) {
-    final units = UnitFormatter(settings);
-    var currentValue = settings.endLimit;
-
-    showDialog(
-      context: context,
-      builder: (dialogContext) => StatefulBuilder(
-        builder: (context, setDialogState) => AlertDialog(
-          title: Text(
-            context.l10n.settings_decompression_endLimit_dialog_title,
-          ),
-          content: Column(
-            mainAxisSize: MainAxisSize.min,
-            children: [
-              Text(
-                units.formatDepth(currentValue, decimals: 0),
-                style: Theme.of(context).textTheme.headlineMedium,
-              ),
-              const SizedBox(height: 16),
-              Slider(
-                value: currentValue,
-                min: 20.0,
-                max: 50.0,
-                divisions: 30,
-                label: units.formatDepth(currentValue, decimals: 0),
-                onChanged: (value) {
-                  setDialogState(() => currentValue = value);
-                },
-              ),
-            ],
-          ),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(dialogContext),
-              child: Text(MaterialLocalizations.of(context).cancelButtonLabel),
-            ),
-            FilledButton(
-              onPressed: () {
-                ref.read(settingsProvider.notifier).setEndLimit(currentValue);
-                Navigator.pop(dialogContext);
-              },
-              child: Text(MaterialLocalizations.of(context).okButtonLabel),
-            ),
-          ],
-        ),
-      ),
-    );
-  }
-}
-
-/// Appearance section content. Ordered section keys; labels are resolved
-/// through [_getSectionDisplayName] so the desktop pane localizes like the
-/// standalone AppearancePage.
-const _sectionHubKeys = [
-  'home',
-  'dives',
-  'sites',
-  'buddies',
-  'trips',
-  'equipment',
-  'diveCenters',
-  'certifications',
-  'courses',
-];
-
-String _getSectionDisplayName(BuildContext context, String key) {
-  final l10n = context.l10n;
-  return switch (key) {
-    'home' => l10n.nav_home,
-    'dives' => l10n.nav_dives,
-    'sites' => l10n.nav_sites,
-    'buddies' => l10n.nav_buddies,
-    'trips' => l10n.nav_trips,
-    'equipment' => l10n.nav_equipment,
-    'diveCenters' => l10n.nav_diveCenters,
-    'certifications' => l10n.nav_certifications,
-    'courses' => l10n.nav_courses,
-    _ => key,
-  };
-}
-
+/// Appearance section content: the tablet and desktop counterpart of
+/// AppearancePage, sharing its tiles from appearance_settings_tiles.dart.
 class _AppearanceSectionContent extends ConsumerStatefulWidget {
   const _AppearanceSectionContent();
 
@@ -1889,12 +1257,10 @@ class _AppearanceSectionContentState
 
   @override
   Widget build(BuildContext context) {
-    final settings = ref.watch(settingsProvider);
-
     // Priority 1: Column config sub-page
     if (_showColumnConfig) {
       final backLabel = _columnConfigSection != null
-          ? _getSectionDisplayName(context, _columnConfigSection!)
+          ? appearanceSectionDisplayName(context, _columnConfigSection!)
           : context.l10n.settings_section_appearance_title;
       return Column(
         children: [
@@ -1919,7 +1285,7 @@ class _AppearanceSectionContentState
 
     // Priority 2: Language sub-page
     if (_showLanguageList) {
-      return _buildLanguageSubPage(context, settings);
+      return _buildLanguageSubPage(context);
     }
 
     // Priority 3: Section appearance sub-page
@@ -1959,163 +1325,36 @@ class _AppearanceSectionContentState
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          // -- General --
-          _buildSectionHeader(
+          buildSettingsSectionHeader(
             context,
             context.l10n.settings_appearance_general,
           ),
           const SizedBox(height: 8),
           Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.palette_outlined),
-                  title: Text(context.l10n.settings_themes_current),
-                  subtitle: Text(_resolveCurrentThemeName(context)),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/settings/themes'),
-                ),
-                const Divider(height: 1),
-                ...ThemeMode.values.map((mode) {
-                  final isSelected = mode == settings.themeMode;
-                  return ListTile(
-                    leading: Icon(_getThemeModeIcon(mode)),
-                    title: Text(_getThemeModeName(context, mode)),
-                    trailing: isSelected
-                        ? Icon(
-                            Icons.check,
-                            color: Theme.of(context).colorScheme.primary,
-                          )
-                        : null,
-                    onTap: () {
-                      ref.read(settingsProvider.notifier).setThemeMode(mode);
-                    },
-                  );
-                }),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.language),
-                  title: Text(context.l10n.settings_appearance_header_language),
-                  subtitle: Text(
-                    LanguageSettingsPage.getDisplayName(
-                      context.l10n,
-                      settings.locale,
-                    ),
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => setState(() => _showLanguageList = true),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.map_outlined),
-                  title: Text(context.l10n.settings_appearance_mapStyle),
-                  subtitle: Text(
-                    _getMapStyleDisplayName(context, settings.mapStyle),
-                  ),
-                  trailing: DropdownButton<MapStyle>(
-                    value: settings.mapStyle,
-                    underline: const SizedBox.shrink(),
-                    onChanged: (style) {
-                      if (style != null) {
-                        ref.read(settingsProvider.notifier).setMapStyle(style);
-                      }
-                    },
-                    items: MapStyle.values.map((style) {
-                      return DropdownMenuItem(
-                        value: style,
-                        child: Text(_getMapStyleDisplayName(context, style)),
-                      );
-                    }).toList(),
-                  ),
-                ),
-                const Divider(height: 1),
-                const NavCustomizationTile(),
-              ],
+            child: AppearanceGeneralTiles(
+              separator: const Divider(height: 1),
+              onLanguageTap: () => setState(() => _showLanguageList = true),
             ),
           ),
           const SizedBox(height: 24),
-          // -- Color accents --
-          _buildSectionHeader(
+          buildSettingsSectionHeader(
             context,
             context.l10n.settings_appearance_colorAccents,
           ),
           const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: [
-                SwitchListTile(
-                  secondary: const FeatureAccentIcon(
-                    Icons.format_paint_outlined,
-                    featureId: 'settings-appearance',
-                    surface: AccentSurface.list,
-                  ),
-                  title: Text(context.l10n.settings_appearance_accentNavIcons),
-                  subtitle: Text(
-                    context.l10n.settings_appearance_accentNavIcons_subtitle,
-                  ),
-                  value: settings.accentNavIcons,
-                  onChanged: (value) => ref
-                      .read(settingsProvider.notifier)
-                      .setAccentNavIcons(value),
-                ),
-                const Divider(height: 1),
-                SwitchListTile(
-                  secondary: const FeatureAccentIcon(
-                    Icons.title_outlined,
-                    featureId: 'settings-appearance',
-                    surface: AccentSurface.list,
-                  ),
-                  title: Text(
-                    context.l10n.settings_appearance_accentSectionHeaders,
-                  ),
-                  subtitle: Text(
-                    context
-                        .l10n
-                        .settings_appearance_accentSectionHeaders_subtitle,
-                  ),
-                  value: settings.accentSectionHeaders,
-                  onChanged: (value) => ref
-                      .read(settingsProvider.notifier)
-                      .setAccentSectionHeaders(value),
-                ),
-                const Divider(height: 1),
-                SwitchListTile(
-                  secondary: const FeatureAccentIcon(
-                    Icons.list_alt_outlined,
-                    featureId: 'settings-appearance',
-                    surface: AccentSurface.list,
-                  ),
-                  title: Text(context.l10n.settings_appearance_accentListIcons),
-                  subtitle: Text(
-                    context.l10n.settings_appearance_accentListIcons_subtitle,
-                  ),
-                  value: settings.accentListIcons,
-                  onChanged: (value) => ref
-                      .read(settingsProvider.notifier)
-                      .setAccentListIcons(value),
-                ),
-              ],
-            ),
+          const Card(
+            child: AppearanceAccentTiles(separator: Divider(height: 1)),
           ),
           const SizedBox(height: 24),
-          // -- Sections --
-          _buildSectionHeader(
+          buildSettingsSectionHeader(
             context,
             context.l10n.settings_appearance_sections,
           ),
           const SizedBox(height: 8),
           Card(
-            child: Column(
-              children: [
-                for (final (index, key) in _sectionHubKeys.indexed) ...[
-                  if (index > 0) const Divider(height: 1),
-                  ListTile(
-                    title: Text(_getSectionDisplayName(context, key)),
-                    trailing: const Icon(Icons.chevron_right),
-                    onTap: () => setState(() => _activeSectionKey = key),
-                  ),
-                ],
-              ],
+            child: AppearanceSectionTiles(
+              separator: const Divider(height: 1),
+              onSectionTap: (key) => setState(() => _activeSectionKey = key),
             ),
           ),
         ],
@@ -2123,38 +1362,7 @@ class _AppearanceSectionContentState
     );
   }
 
-  String _resolveCurrentThemeName(BuildContext context) {
-    final presetId = ref.watch(settingsProvider.select((s) => s.themePresetId));
-    final preset = AppThemeRegistry.findById(presetId);
-    final l10n = context.l10n;
-    switch (preset.nameKey) {
-      case 'theme_submersion':
-        return l10n.theme_submersion;
-      case 'theme_console':
-        return l10n.theme_console;
-      case 'theme_tropical':
-        return l10n.theme_tropical;
-      case 'theme_minimalist':
-        return l10n.theme_minimalist;
-      case 'theme_deep':
-        return l10n.theme_deep;
-      default:
-        return preset.nameKey;
-    }
-  }
-
-  String _getMapStyleDisplayName(BuildContext context, MapStyle style) {
-    return switch (style) {
-      MapStyle.openStreetMap =>
-        context.l10n.settings_appearance_mapStyle_openStreetMap,
-      MapStyle.openTopoMap =>
-        context.l10n.settings_appearance_mapStyle_openTopoMap,
-      MapStyle.esriSatellite =>
-        context.l10n.settings_appearance_mapStyle_esriSatellite,
-    };
-  }
-
-  Widget _buildLanguageSubPage(BuildContext context, AppSettings settings) {
+  Widget _buildLanguageSubPage(BuildContext context) {
     final theme = Theme.of(context);
 
     return SingleChildScrollView(
@@ -2181,42 +1389,7 @@ class _AppearanceSectionContentState
             ],
           ),
           const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: LanguageSettingsPage.supportedLocales.map((option) {
-                final isSelected = option.code == settings.locale;
-                return Semantics(
-                  selected: isSelected,
-                  child: ListTile(
-                    leading: option.code == 'system'
-                        ? const Icon(Icons.phone_android)
-                        : null,
-                    title: Text(
-                      option.code == 'system'
-                          ? context.l10n.settings_language_systemDefault
-                          : option.nativeName,
-                    ),
-                    subtitle: option.englishName.isNotEmpty
-                        ? Text(option.englishName)
-                        : null,
-                    trailing: isSelected
-                        ? Icon(
-                            Icons.check,
-                            color: theme.colorScheme.primary,
-                            semanticLabel:
-                                context.l10n.settings_language_selected,
-                          )
-                        : null,
-                    onTap: () {
-                      ref
-                          .read(settingsProvider.notifier)
-                          .setLocale(option.code);
-                    },
-                  ),
-                );
-              }).toList(),
-            ),
-          ),
+          const Card(child: LanguageOptionTiles()),
         ],
       ),
     );
@@ -2239,7 +1412,7 @@ class _NotificationsSectionContent extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionHeader(
+          buildSettingsSectionHeader(
             context,
             context.l10n.settings_notifications_header_serviceReminders,
           ),
@@ -2299,7 +1472,7 @@ class _NotificationsSectionContent extends ConsumerWidget {
           ),
           if (settings.notificationsEnabled) ...[
             const SizedBox(height: 24),
-            _buildSectionHeader(
+            buildSettingsSectionHeader(
               context,
               context.l10n.settings_notifications_header_reminderSchedule,
             ),
@@ -2353,40 +1526,44 @@ class _NotificationsSectionContent extends ConsumerWidget {
             Card(
               child: ListTile(
                 leading: const Icon(Icons.luggage),
-                title: Text(context.l10n.settings_notifications_tripLeadTitle),
+                title: LabelWithControl(
+                  label: Text(
+                    context.l10n.settings_notifications_tripLeadTitle,
+                  ),
+                  control: DropdownButton<int>(
+                    value: settings.tripServiceLeadDays,
+                    underline: const SizedBox.shrink(),
+                    // Always include the persisted value so a non-standard lead
+                    // time (a future UI, manual edit, or migration) never trips
+                    // DropdownButton's "value must appear in items" assertion.
+                    items:
+                        ({7, 14, 21, 30, settings.tripServiceLeadDays}.toList()
+                              ..sort())
+                            .map(
+                              (days) => DropdownMenuItem(
+                                value: days,
+                                child: Text('$days'),
+                              ),
+                            )
+                            .toList(),
+                    onChanged: (days) {
+                      if (days != null) {
+                        ref
+                            .read(settingsProvider.notifier)
+                            .setTripServiceLeadDays(days);
+                      }
+                    },
+                  ),
+                ),
                 subtitle: Text(
                   context.l10n.settings_notifications_tripLeadDays(
                     settings.tripServiceLeadDays,
                   ),
                 ),
-                trailing: DropdownButton<int>(
-                  value: settings.tripServiceLeadDays,
-                  underline: const SizedBox.shrink(),
-                  // Always include the persisted value so a non-standard lead
-                  // time (a future UI, manual edit, or migration) never trips
-                  // DropdownButton's "value must appear in items" assertion.
-                  items:
-                      ({7, 14, 21, 30, settings.tripServiceLeadDays}.toList()
-                            ..sort())
-                          .map(
-                            (days) => DropdownMenuItem(
-                              value: days,
-                              child: Text('$days'),
-                            ),
-                          )
-                          .toList(),
-                  onChanged: (days) {
-                    if (days != null) {
-                      ref
-                          .read(settingsProvider.notifier)
-                          .setTripServiceLeadDays(days);
-                    }
-                  },
-                ),
               ),
             ),
             const SizedBox(height: 16),
-            _buildInfoCard(
+            buildSettingsInfoCard(
               context,
               context.l10n.settings_notifications_howItWorks_title,
               context.l10n.settings_notifications_howItWorks_content,
@@ -2423,7 +1600,7 @@ class _ManageSectionContent extends StatelessWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionHeader(
+          buildSettingsSectionHeader(
             context,
             context.l10n.settings_manage_header_manageData,
           ),
@@ -2459,6 +1636,18 @@ class _ManageSectionContent extends StatelessWidget {
                   ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.push('/dive-roles'),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.workspace_premium_outlined),
+                  title: Text(
+                    context.l10n.settings_manage_certificationAgencies,
+                  ),
+                  subtitle: Text(
+                    context.l10n.settings_manage_certificationAgencies_subtitle,
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/certification-agencies'),
                 ),
                 const Divider(height: 1),
                 ListTile(
@@ -2511,6 +1700,30 @@ class _ManageSectionContent extends StatelessWidget {
                   onTap: () => context.push('/equipment/service-types'),
                 ),
                 const Divider(height: 1),
+                // Refresher and renewal rules (issue #2267)
+                ListTile(
+                  leading: const Icon(Icons.event_repeat_outlined),
+                  title: Text(context.l10n.settings_manage_currencyRules),
+                  subtitle: Text(
+                    context.l10n.settings_manage_currencyRules_subtitle,
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/currency-rules'),
+                ),
+                const Divider(height: 1),
+                ListTile(
+                  key: const ValueKey('settings_manage_locations'),
+                  leading: const Icon(Icons.place_outlined),
+                  title: Text(context.l10n.settings_manage_locations),
+                  subtitle: Text(
+                    context.l10n.settings_manage_locations_subtitle,
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => context.push('/equipment/locations'),
+                ),
+                const Divider(height: 1),
+                const EquipmentDefaultViewTile(),
+                const Divider(height: 1),
                 ListTile(
                   leading: const Icon(Icons.auto_fix_high),
                   title: Text(context.l10n.settings_manage_setupAssistant),
@@ -2539,14 +1752,6 @@ class _ManageSectionContent extends StatelessWidget {
                   ),
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => context.push('/pre-dive-checklists'),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.flag_outlined),
-                  title: Text(context.l10n.safetyHub_incidentsLink),
-                  subtitle: Text(context.l10n.safetyHub_incidentsLink_subtitle),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/incidents'),
                 ),
                 const Divider(height: 1),
                 ListTile(
@@ -2775,13 +1980,15 @@ class SharedDataSectionContent extends ConsumerWidget {
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final shareByDefaultAsync = ref.watch(shareByDefaultProvider);
+    // A profile's hidden shared trips and sites (issue #2594).
+    final hidden = ref.watch(hiddenItemsProvider).value ?? const [];
 
     return SingleChildScrollView(
       padding: const EdgeInsets.all(16),
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionHeader(
+          buildSettingsSectionHeader(
             context,
             context.l10n.settings_sharedData_sectionTitle,
           ),
@@ -2841,216 +2048,26 @@ class SharedDataSectionContent extends ConsumerWidget {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _confirmAndBulkShareEquipment(context, ref),
                 ),
-              ],
-            ),
-          ),
-        ],
-      ),
-    );
-  }
-}
-
-/// Data section content
-class _DataSectionContent extends ConsumerWidget {
-  final WidgetRef ref;
-
-  const _DataSectionContent({required this.ref});
-
-  @override
-  Widget build(BuildContext context, WidgetRef ref) {
-    final storageState = ref.watch(storageConfigNotifierProvider);
-    final isCustomFolder =
-        storageState.config.mode == StorageLocationMode.customFolder;
-
-    return SingleChildScrollView(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Card(
-            child: ListTile(
-              leading: const Icon(Icons.add_location_alt_outlined),
-              title: Text(context.l10n.settings_siteMatch_title),
-              subtitle: Text(context.l10n.settings_siteMatch_subtitle),
-              trailing: DropdownButton<SiteMatchSensitivity>(
-                value: ref.watch(settingsProvider).siteMatchSensitivity,
-                underline: const SizedBox.shrink(),
-                onChanged: (value) {
-                  if (value != null) {
-                    ref
-                        .read(settingsProvider.notifier)
-                        .setSiteMatchSensitivity(value);
-                  }
-                },
-                items: [
-                  DropdownMenuItem(
-                    value: SiteMatchSensitivity.strict,
-                    child: Text(context.l10n.settings_siteMatch_strict),
-                  ),
-                  DropdownMenuItem(
-                    value: SiteMatchSensitivity.balanced,
-                    child: Text(context.l10n.settings_siteMatch_balanced),
-                  ),
-                  DropdownMenuItem(
-                    value: SiteMatchSensitivity.relaxed,
-                    child: Text(context.l10n.settings_siteMatch_relaxed),
+                if (hidden.isNotEmpty) ...[
+                  const Divider(height: 1),
+                  ListTile(
+                    title: Text(context.l10n.settings_hiddenItems_title),
+                    trailing: Row(
+                      mainAxisSize: MainAxisSize.min,
+                      children: [
+                        Text('${hidden.length}'),
+                        const Icon(Icons.chevron_right),
+                      ],
+                    ),
+                    onTap: () => context.push('/settings/hidden-items'),
                   ),
                 ],
-              ),
-            ),
-          ),
-          const SizedBox(height: 8),
-          Card(
-            child: SwitchListTile(
-              secondary: const Icon(Icons.compress),
-              title: Text(context.l10n.settings_tankPressureAtSurfacing_title),
-              subtitle: Text(
-                context.l10n.settings_tankPressureAtSurfacing_subtitle,
-              ),
-              value: ref.watch(settingsProvider).trimTankPressureAtSurfacing,
-              onChanged: (value) => ref
-                  .read(settingsProvider.notifier)
-                  .setTrimTankPressureAtSurfacing(value),
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildSectionHeader(
-            context,
-            context.l10n.settings_data_header_backupSync,
-          ),
-          const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.backup),
-                  title: Text(context.l10n.settings_data_backup),
-                  subtitle: _buildBackupSubtitle(context, ref),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/settings/backup'),
-                ),
-                // Cloud sync is available on every platform (iCloud on
-                // Apple devices, S3-compatible storage elsewhere); the
-                // Cloud Sync page gates which providers each platform sees.
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.cloud_sync),
-                  title: Text(context.l10n.settings_cloudSync_appBar_title),
-                  subtitle: Text(
-                    context.l10n.settings_cloudSync_entry_subtitle,
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/settings/cloud-sync'),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.perm_media_outlined),
-                  title: Text(context.l10n.settings_photosMedia_title),
-                  subtitle: Text(context.l10n.settings_photosMedia_subtitle),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/settings/photos-media'),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildSectionHeader(
-            context,
-            context.l10n.settings_data_header_storage,
-          ),
-          const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.folder),
-                  title: Text(context.l10n.settings_data_databaseStorage),
-                  subtitle: Text(
-                    isCustomFolder
-                        ? context.l10n.settings_data_customFolder
-                        : context.l10n.settings_data_appDefaultLocation,
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/settings/storage'),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.cloud_download),
-                  title: Text(context.l10n.settings_data_offlineMaps),
-                  subtitle: Text(
-                    context.l10n.settings_data_offlineMaps_subtitle,
-                  ),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/settings/offline-maps'),
-                ),
-              ],
-            ),
-          ),
-          const SizedBox(height: 16),
-          _buildSectionHeader(
-            context,
-            context.l10n.settings_data_header_dataTools,
-          ),
-          const SizedBox(height: 8),
-          Card(
-            child: Column(
-              children: [
-                ListTile(
-                  leading: const Icon(Icons.access_time),
-                  title: Text(context.l10n.settings_fixDiveTimes_title),
-                  subtitle: Text(context.l10n.settings_fixDiveTimes_subtitle),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/settings/fix-dive-times'),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.group_add),
-                  title: Text(context.l10n.buddies_linkText_page_title),
-                  subtitle: Text(context.l10n.buddies_linkText_page_subtitle),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/settings/link-buddy-names'),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.category),
-                  title: Text(context.l10n.equipment_retypeOther_title),
-                  subtitle: Text(context.l10n.equipment_retypeOther_subtitle),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/settings/retype-other-gear'),
-                ),
-                const Divider(height: 1),
-                ListTile(
-                  leading: const Icon(Icons.rule),
-                  title: Text(context.l10n.dataQuality_settings_title),
-                  subtitle: Text(context.l10n.dataQuality_settings_subtitle),
-                  trailing: const Icon(Icons.chevron_right),
-                  onTap: () => context.push('/settings/data-quality'),
-                ),
               ],
             ),
           ),
         ],
       ),
     );
-  }
-
-  Widget? _buildBackupSubtitle(BuildContext context, WidgetRef ref) {
-    final lastBackup = ref.watch(lastBackupTimeProvider);
-    if (lastBackup == null) {
-      return Text(context.l10n.settings_data_backup_subtitle);
-    }
-    final diff = DateTime.now().difference(lastBackup);
-    final String timeAgo;
-    if (diff.inMinutes < 1) {
-      timeAgo = context.l10n.backup_time_justNow;
-    } else if (diff.inHours < 1) {
-      timeAgo = context.l10n.backup_time_minutesAgo(diff.inMinutes);
-    } else if (diff.inDays < 1) {
-      timeAgo = context.l10n.backup_time_hoursAgo(diff.inHours);
-    } else {
-      timeAgo = context.l10n.backup_time_daysAgo(diff.inDays);
-    }
-    return Text(context.l10n.backup_status_lastBackup(timeAgo));
   }
 }
 
@@ -3075,7 +2092,7 @@ class _DataSourcesSectionContent extends ConsumerWidget {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionHeader(
+          buildSettingsSectionHeader(
             context,
             context.l10n.settings_dataSources_header,
           ),
@@ -3152,7 +2169,7 @@ class _DataSourcesSectionContent extends ConsumerWidget {
           ),
           const SizedBox(height: 16),
           // Data types card
-          _buildSectionHeader(
+          buildSettingsSectionHeader(
             context,
             context.l10n.settings_dataSources_appleHealth_dataTypesHeader,
           ),
@@ -3376,7 +2393,10 @@ class _AboutSectionContentState extends ConsumerState<_AboutSectionContent> {
       child: Column(
         crossAxisAlignment: CrossAxisAlignment.start,
         children: [
-          _buildSectionHeader(context, context.l10n.settings_about_header),
+          buildSettingsSectionHeader(
+            context,
+            context.l10n.settings_about_header,
+          ),
           const SizedBox(height: 8),
           Card(
             child: Column(
@@ -3430,12 +2450,15 @@ class _AboutSectionContentState extends ConsumerState<_AboutSectionContent> {
           // Auto-update section (only for non-store builds)
           if (UpdateChannelConfig.isAutoUpdateEnabled) ...[
             const SizedBox(height: 24),
-            _buildSectionHeader(context, context.l10n.settings_updates_header),
+            buildSettingsSectionHeader(
+              context,
+              context.l10n.settings_updates_header,
+            ),
             const SizedBox(height: 8),
             _buildUpdatesCard(context),
           ],
           const SizedBox(height: 24),
-          _buildSectionHeader(
+          buildSettingsSectionHeader(
             context,
             context.l10n.settings_diagnostics_header,
           ),
@@ -3601,26 +2624,38 @@ class _AboutSectionContentState extends ConsumerState<_AboutSectionContent> {
     );
     if (selected == null || selected == current || !context.mounted) return;
 
-    if (selected == ReleaseChannel.beta) {
-      final confirmed = await showDialog<bool>(
-        context: context,
-        builder: (ctx) => AlertDialog(
-          title: Text(ctx.l10n.settings_updates_betaDialogTitle),
-          content: Text(ctx.l10n.settings_updates_betaDialogBody),
-          actions: [
-            TextButton(
-              onPressed: () => Navigator.pop(ctx, false),
-              child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel),
-            ),
-            FilledButton(
-              onPressed: () => Navigator.pop(ctx, true),
-              child: Text(ctx.l10n.settings_updates_betaDialogConfirm),
-            ),
-          ],
-        ),
-      );
-      if (confirmed != true) return;
-    }
+    // Both directions are confirmed. Leaving beta keeps this build, and the
+    // dive log it may have upgraded, until stable catches up, and stable
+    // peers cannot read its changes meanwhile (issue #2619).
+    final confirmed = await showDialog<bool>(
+      context: context,
+      builder: (ctx) => AlertDialog(
+        title: Text(switch (selected) {
+          ReleaseChannel.beta => ctx.l10n.settings_updates_betaDialogTitle,
+          ReleaseChannel.stable => ctx.l10n.settings_updates_stableDialogTitle,
+        }),
+        content: Text(switch (selected) {
+          ReleaseChannel.beta => ctx.l10n.settings_updates_betaDialogBody,
+          ReleaseChannel.stable => ctx.l10n.settings_updates_stableDialogBody,
+        }),
+        actions: [
+          TextButton(
+            onPressed: () => Navigator.pop(ctx, false),
+            child: Text(MaterialLocalizations.of(ctx).cancelButtonLabel),
+          ),
+          FilledButton(
+            onPressed: () => Navigator.pop(ctx, true),
+            child: Text(switch (selected) {
+              ReleaseChannel.beta =>
+                ctx.l10n.settings_updates_betaDialogConfirm,
+              ReleaseChannel.stable =>
+                ctx.l10n.settings_updates_stableDialogConfirm,
+            }),
+          ),
+        ],
+      ),
+    );
+    if (confirmed != true) return;
 
     final prefs = ref.read(updatePreferencesProvider);
     await prefs.setReleaseChannel(selected);
@@ -3629,13 +2664,6 @@ class _AboutSectionContentState extends ConsumerState<_AboutSectionContent> {
     // invalidated preferences; the fresh service applies the new feed on
     // its next check.
     if (!mounted || !context.mounted) return;
-    if (selected == ReleaseChannel.stable) {
-      ScaffoldMessenger.of(context).showSnackBar(
-        SnackBar(
-          content: Text(context.l10n.settings_updates_stableSwitchNotice),
-        ),
-      );
-    }
     await ref.read(updateStatusProvider.notifier).checkForUpdate();
   }
 
@@ -3649,609 +2677,6 @@ class _AboutSectionContentState extends ConsumerState<_AboutSectionContent> {
         child: Image.asset('assets/icon/icon.png', width: 64, height: 64),
       ),
       children: [Text(context.l10n.settings_about_description)],
-    );
-  }
-}
-
-// ============================================================================
-// HELPER WIDGETS & FUNCTIONS
-// ============================================================================
-
-Widget _buildSectionHeader(BuildContext context, String title) {
-  return Text(
-    title,
-    style: Theme.of(context).textTheme.titleSmall?.copyWith(
-      color: Theme.of(context).colorScheme.primary,
-      fontWeight: FontWeight.bold,
-    ),
-  );
-}
-
-Widget _buildInfoCard(BuildContext context, String title, String content) {
-  return Card(
-    color: Theme.of(
-      context,
-    ).colorScheme.primaryContainer.withValues(alpha: 0.3),
-    child: Padding(
-      padding: const EdgeInsets.all(16),
-      child: Column(
-        crossAxisAlignment: CrossAxisAlignment.start,
-        children: [
-          Row(
-            children: [
-              Icon(
-                Icons.info_outline,
-                size: 20,
-                color: Theme.of(context).colorScheme.primary,
-              ),
-              const SizedBox(width: 8),
-              Text(
-                title,
-                style: Theme.of(
-                  context,
-                ).textTheme.titleSmall?.copyWith(fontWeight: FontWeight.bold),
-              ),
-            ],
-          ),
-          const SizedBox(height: 8),
-          Text(content, style: Theme.of(context).textTheme.bodySmall),
-        ],
-      ),
-    ),
-  );
-}
-
-String _getThemeModeName(BuildContext context, ThemeMode mode) {
-  switch (mode) {
-    case ThemeMode.system:
-      return context.l10n.settings_appearance_theme_system;
-    case ThemeMode.light:
-      return context.l10n.settings_appearance_theme_light;
-    case ThemeMode.dark:
-      return context.l10n.settings_appearance_theme_dark;
-  }
-}
-
-IconData _getThemeModeIcon(ThemeMode mode) {
-  switch (mode) {
-    case ThemeMode.system:
-      return Icons.brightness_auto;
-    case ThemeMode.light:
-      return Icons.light_mode;
-    case ThemeMode.dark:
-      return Icons.dark_mode;
-  }
-}
-
-// ============================================================================
-// GRADIENT FACTOR DIALOG
-// ============================================================================
-
-/// Gradient Factor preset configurations
-enum GfPreset {
-  high(50, 75, 'High', 'Most conservative, longer deco stops'),
-  medium(50, 85, 'Medium', 'Balanced approach'),
-  low(50, 95, 'Low', 'Least conservative, shorter deco'),
-  custom(0, 0, 'Custom', 'Set your own values');
-
-  final int gfLow;
-  final int gfHigh;
-  final String name;
-  final String description;
-
-  const GfPreset(this.gfLow, this.gfHigh, this.name, this.description);
-
-  bool matches(int low, int high) {
-    if (this == GfPreset.custom) return false;
-    return gfLow == low && gfHigh == high;
-  }
-
-  static GfPreset fromValues(int low, int high) {
-    for (final preset in GfPreset.values) {
-      if (preset != GfPreset.custom && preset.matches(low, high)) {
-        return preset;
-      }
-    }
-    return GfPreset.custom;
-  }
-}
-
-class _GradientFactorDialog extends StatefulWidget {
-  final int initialGfLow;
-  final int initialGfHigh;
-  final void Function(int low, int high) onSave;
-
-  const _GradientFactorDialog({
-    required this.initialGfLow,
-    required this.initialGfHigh,
-    required this.onSave,
-  });
-
-  @override
-  State<_GradientFactorDialog> createState() => _GradientFactorDialogState();
-}
-
-class _GradientFactorDialogState extends State<_GradientFactorDialog> {
-  late int _gfLow;
-  late int _gfHigh;
-  late GfPreset _selectedPreset;
-
-  @override
-  void initState() {
-    super.initState();
-    _gfLow = widget.initialGfLow;
-    _gfHigh = widget.initialGfHigh;
-    _selectedPreset = GfPreset.fromValues(_gfLow, _gfHigh);
-  }
-
-  void _selectPreset(GfPreset preset) {
-    setState(() {
-      _selectedPreset = preset;
-      if (preset != GfPreset.custom) {
-        _gfLow = preset.gfLow;
-        _gfHigh = preset.gfHigh;
-      }
-    });
-  }
-
-  void _updateGfLow(int value) {
-    setState(() {
-      _gfLow = value;
-      if (_gfHigh < _gfLow) _gfHigh = _gfLow;
-      _selectedPreset = GfPreset.fromValues(_gfLow, _gfHigh);
-    });
-  }
-
-  void _updateGfHigh(int value) {
-    setState(() {
-      _gfHigh = value;
-      if (_gfLow > _gfHigh) _gfLow = _gfHigh;
-      _selectedPreset = GfPreset.fromValues(_gfLow, _gfHigh);
-    });
-  }
-
-  String _getPresetName(BuildContext context, GfPreset preset) {
-    switch (preset) {
-      case GfPreset.high:
-        return context.l10n.settings_gfPreset_high_name;
-      case GfPreset.medium:
-        return context.l10n.settings_gfPreset_medium_name;
-      case GfPreset.low:
-        return context.l10n.settings_gfPreset_low_name;
-      case GfPreset.custom:
-        return context.l10n.settings_gfPreset_custom_name;
-    }
-  }
-
-  String _getPresetDescription(BuildContext context, GfPreset preset) {
-    switch (preset) {
-      case GfPreset.high:
-        return context.l10n.settings_gfPreset_high_description;
-      case GfPreset.medium:
-        return context.l10n.settings_gfPreset_medium_description;
-      case GfPreset.low:
-        return context.l10n.settings_gfPreset_low_description;
-      case GfPreset.custom:
-        return context.l10n.settings_gfPreset_custom_description;
-    }
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return AlertDialog(
-      title: Text(context.l10n.settings_decompression_dialog_title),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    size: 20,
-                    color: colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      context.l10n.settings_decompression_dialog_info,
-                      style: textTheme.bodySmall,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              context.l10n.settings_decompression_dialog_presets,
-              style: textTheme.titleSmall?.copyWith(
-                fontWeight: FontWeight.bold,
-              ),
-            ),
-            const SizedBox(height: 8),
-            ...GfPreset.values.where((p) => p != GfPreset.custom).map((preset) {
-              final isSelected = _selectedPreset == preset;
-              return Padding(
-                padding: const EdgeInsets.only(bottom: 8),
-                child: Semantics(
-                  button: true,
-                  label: context.l10n.settings_decompression_preset_selectLabel(
-                    _getPresetName(context, preset),
-                  ),
-                  child: InkWell(
-                    onTap: () => _selectPreset(preset),
-                    borderRadius: BorderRadius.circular(8),
-                    child: Container(
-                      padding: const EdgeInsets.symmetric(
-                        horizontal: 12,
-                        vertical: 10,
-                      ),
-                      decoration: BoxDecoration(
-                        color: isSelected
-                            ? colorScheme.primaryContainer
-                            : colorScheme.surfaceContainerHighest,
-                        borderRadius: BorderRadius.circular(8),
-                        border: isSelected
-                            ? Border.all(color: colorScheme.primary, width: 2)
-                            : null,
-                      ),
-                      child: Row(
-                        children: [
-                          Expanded(
-                            child: Column(
-                              crossAxisAlignment: CrossAxisAlignment.start,
-                              children: [
-                                Text(
-                                  _getPresetName(context, preset),
-                                  style: textTheme.bodyMedium?.copyWith(
-                                    fontWeight: FontWeight.w600,
-                                  ),
-                                ),
-                                Text(
-                                  _getPresetDescription(context, preset),
-                                  style: textTheme.bodySmall?.copyWith(
-                                    color: colorScheme.onSurfaceVariant,
-                                  ),
-                                ),
-                              ],
-                            ),
-                          ),
-                          Container(
-                            padding: const EdgeInsets.symmetric(
-                              horizontal: 8,
-                              vertical: 4,
-                            ),
-                            decoration: BoxDecoration(
-                              color: isSelected
-                                  ? colorScheme.primary
-                                  : colorScheme.surfaceContainerHigh,
-                              borderRadius: BorderRadius.circular(12),
-                            ),
-                            child: Text(
-                              '${preset.gfLow}/${preset.gfHigh}',
-                              style: textTheme.labelMedium?.copyWith(
-                                color: isSelected
-                                    ? colorScheme.onPrimary
-                                    : colorScheme.onSurfaceVariant,
-                                fontWeight: FontWeight.bold,
-                              ),
-                            ),
-                          ),
-                        ],
-                      ),
-                    ),
-                  ),
-                ),
-              );
-            }),
-            const SizedBox(height: 16),
-            const Divider(),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                Text(
-                  context.l10n.settings_decompression_dialog_customValues,
-                  style: textTheme.titleSmall?.copyWith(
-                    fontWeight: FontWeight.bold,
-                  ),
-                ),
-                const Spacer(),
-                Container(
-                  padding: const EdgeInsets.symmetric(
-                    horizontal: 12,
-                    vertical: 6,
-                  ),
-                  decoration: BoxDecoration(
-                    color: colorScheme.primaryContainer,
-                    borderRadius: BorderRadius.circular(16),
-                  ),
-                  child: Text(
-                    'GF $_gfLow/$_gfHigh',
-                    style: textTheme.titleMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                      color: colorScheme.onPrimaryContainer,
-                    ),
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 16),
-            Row(
-              children: [
-                SizedBox(
-                  width: 60,
-                  child: Text(
-                    context.l10n.settings_decompression_dialog_gfLow,
-                    style: textTheme.bodyMedium,
-                  ),
-                ),
-                Expanded(
-                  child: Slider(
-                    value: _gfLow.toDouble(),
-                    min: 15,
-                    max: 100,
-                    divisions: 85,
-                    label: '$_gfLow',
-                    onChanged: (value) => _updateGfLow(value.round()),
-                  ),
-                ),
-                SizedBox(
-                  width: 36,
-                  child: Text(
-                    '$_gfLow',
-                    style: textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.end,
-                  ),
-                ),
-              ],
-            ),
-            Row(
-              children: [
-                SizedBox(
-                  width: 60,
-                  child: Text(
-                    context.l10n.settings_decompression_dialog_gfHigh,
-                    style: textTheme.bodyMedium,
-                  ),
-                ),
-                Expanded(
-                  child: Slider(
-                    value: _gfHigh.toDouble(),
-                    min: 15,
-                    max: 100,
-                    divisions: 85,
-                    label: '$_gfHigh',
-                    onChanged: (value) => _updateGfHigh(value.round()),
-                  ),
-                ),
-                SizedBox(
-                  width: 36,
-                  child: Text(
-                    '$_gfHigh',
-                    style: textTheme.bodyMedium?.copyWith(
-                      fontWeight: FontWeight.bold,
-                    ),
-                    textAlign: TextAlign.end,
-                  ),
-                ),
-              ],
-            ),
-            const SizedBox(height: 8),
-            Text(
-              context.l10n.settings_decompression_dialog_conservatismHint,
-              style: textTheme.bodySmall?.copyWith(
-                color: colorScheme.onSurfaceVariant,
-                fontStyle: FontStyle.italic,
-              ),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(context.l10n.settings_decompression_dialog_cancel),
-        ),
-        FilledButton(
-          onPressed: () {
-            widget.onSave(_gfLow, _gfHigh);
-            Navigator.of(context).pop();
-          },
-          child: Text(context.l10n.settings_decompression_dialog_save),
-        ),
-      ],
-    );
-  }
-}
-
-/// Picks the two ppO2 ceilings (working and maximum) that drive MOD, gas
-/// planning and the oxygen toxicity warnings. Kept to the values a dive
-/// computer actually offers, and holds max >= working.
-class _PpO2LimitDialog extends StatefulWidget {
-  final double initialWorking;
-  final double initialMax;
-  final void Function(double working, double max) onSave;
-
-  const _PpO2LimitDialog({
-    required this.initialWorking,
-    required this.initialMax,
-    required this.onSave,
-  });
-
-  @override
-  State<_PpO2LimitDialog> createState() => _PpO2LimitDialogState();
-}
-
-class _PpO2LimitDialogState extends State<_PpO2LimitDialog> {
-  // Generated from the notifier's own bounds so the offered options can never
-  // drift from what setPpO2Limits will accept (0.1-bar grid).
-  static final List<double> _workingOptions = _tenths(
-    SettingsNotifier.ppO2WorkingMin,
-    SettingsNotifier.ppO2Ceiling,
-  );
-  static final List<double> _maxOptions = _tenths(
-    SettingsNotifier.ppO2MaxMin,
-    SettingsNotifier.ppO2Ceiling,
-  );
-
-  static List<double> _tenths(double min, double max) {
-    final lo = (min * 10).round();
-    final hi = (max * 10).round();
-    return [for (var i = lo; i <= hi; i++) i / 10.0];
-  }
-
-  late double _working;
-  late double _max;
-
-  /// Snap a stored value (which may carry float noise or sit off the grid
-  /// after a clamp) to the nearest offered option.
-  static double _snap(double value, List<double> options) =>
-      options.reduce((a, b) => (a - value).abs() <= (b - value).abs() ? a : b);
-
-  @override
-  void initState() {
-    super.initState();
-    _working = _snap(widget.initialWorking, _workingOptions);
-    _max = _snap(widget.initialMax, _maxOptions);
-    if (_max < _working) _max = _working;
-  }
-
-  @override
-  Widget build(BuildContext context) {
-    final colorScheme = Theme.of(context).colorScheme;
-    final textTheme = Theme.of(context).textTheme;
-
-    return AlertDialog(
-      title: Text(context.l10n.settings_decompression_ppO2Dialog_title),
-      content: SingleChildScrollView(
-        child: Column(
-          mainAxisSize: MainAxisSize.min,
-          crossAxisAlignment: CrossAxisAlignment.start,
-          children: [
-            Container(
-              padding: const EdgeInsets.all(12),
-              decoration: BoxDecoration(
-                color: colorScheme.primaryContainer.withValues(alpha: 0.3),
-                borderRadius: BorderRadius.circular(8),
-              ),
-              child: Row(
-                children: [
-                  Icon(
-                    Icons.info_outline,
-                    size: 20,
-                    color: colorScheme.primary,
-                  ),
-                  const SizedBox(width: 8),
-                  Expanded(
-                    child: Text(
-                      context.l10n.settings_decompression_ppO2Dialog_info,
-                      style: textTheme.bodySmall,
-                    ),
-                  ),
-                ],
-              ),
-            ),
-            const SizedBox(height: 16),
-            _buildRow(
-              context,
-              label: context.l10n.settings_decompression_ppO2Dialog_working,
-              hint: context.l10n.settings_decompression_ppO2Dialog_workingHint,
-              value: _working,
-              options: _workingOptions,
-              onChanged: (v) => setState(() {
-                _working = v;
-                if (_max < _working) _max = _snap(_working, _maxOptions);
-              }),
-            ),
-            const SizedBox(height: 12),
-            _buildRow(
-              context,
-              label: context.l10n.settings_decompression_ppO2Dialog_max,
-              hint: context.l10n.settings_decompression_ppO2Dialog_maxHint,
-              value: _max,
-              options: _maxOptions,
-              onChanged: (v) => setState(() {
-                _max = v;
-                if (_working > _max) _working = v;
-              }),
-            ),
-          ],
-        ),
-      ),
-      actions: [
-        TextButton(
-          onPressed: () => Navigator.of(context).pop(),
-          child: Text(context.l10n.settings_decompression_dialog_cancel),
-        ),
-        FilledButton(
-          onPressed: () {
-            widget.onSave(_working, _max);
-            Navigator.of(context).pop();
-          },
-          child: Text(context.l10n.settings_decompression_dialog_save),
-        ),
-      ],
-    );
-  }
-
-  Widget _buildRow(
-    BuildContext context, {
-    required String label,
-    required String hint,
-    required double value,
-    required List<double> options,
-    required ValueChanged<double> onChanged,
-  }) {
-    final textTheme = Theme.of(context).textTheme;
-    return Row(
-      crossAxisAlignment: CrossAxisAlignment.start,
-      children: [
-        Expanded(
-          child: Column(
-            crossAxisAlignment: CrossAxisAlignment.start,
-            children: [
-              Text(
-                label,
-                style: textTheme.bodyMedium?.copyWith(
-                  fontWeight: FontWeight.w600,
-                ),
-              ),
-              Text(
-                hint,
-                style: textTheme.bodySmall?.copyWith(
-                  color: Theme.of(context).colorScheme.onSurfaceVariant,
-                ),
-              ),
-            ],
-          ),
-        ),
-        const SizedBox(width: 12),
-        DropdownButton<double>(
-          value: value,
-          onChanged: (v) {
-            if (v != null) onChanged(v);
-          },
-          items: [
-            for (final o in options)
-              DropdownMenuItem(
-                value: o,
-                child: Text('${formatRoundedForInput(o, 1)} bar'),
-              ),
-          ],
-        ),
-      ],
     );
   }
 }

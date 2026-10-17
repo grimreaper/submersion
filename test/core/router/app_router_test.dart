@@ -3,25 +3,50 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
+import 'package:submersion/features/gps_log/presentation/pages/gps_track_detail_page.dart';
+import 'package:submersion/features/nav_track/presentation/pages/nav_track_align_page.dart';
+import 'package:submersion/features/nav_track/presentation/pages/nav_track_detail_page.dart';
+import 'package:submersion/features/nav_track/presentation/pages/nav_track_seascape_page.dart';
+import 'package:submersion/features/tracks/domain/track_kind.dart';
+import 'package:submersion/features/tracks/presentation/pages/tracks_map_page.dart';
+import 'package:submersion/features/tracks/presentation/pages/tracks_page.dart';
+import 'package:submersion/core/router/track_locations.dart';
+import 'package:submersion/core/router/training_locations.dart';
+import 'package:submersion/features/training/presentation/pages/training_page.dart';
 import 'package:submersion/core/constants/feature_flags.dart';
 import 'package:submersion/core/router/app_router.dart';
 import 'package:submersion/features/connections/presentation/connections_links.dart';
 import 'package:submersion/features/checklists/presentation/pages/checklist_template_edit_page.dart';
 import 'package:submersion/features/checklists/presentation/pages/checklist_templates_page.dart';
-import 'package:submersion/features/dive_log/presentation/pages/dive_search_page.dart';
+import 'package:submersion/features/dive_log/presentation/providers/dive_search_providers.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
+import 'package:submersion/features/gas_calculators/presentation/gas_calculator_tools.dart';
 import 'package:submersion/features/planner/presentation/pages/plan_canvas_page.dart';
+import 'package:submersion/features/planning/presentation/widgets/planning_disclaimer_gate.dart';
 import 'package:submersion/features/marine_life/presentation/pages/species_page.dart';
 import 'package:submersion/features/safety/presentation/pages/incident_edit_page.dart';
 import 'package:submersion/features/safety/presentation/pages/incidents_list_page.dart';
+import 'package:submersion/features/safety/presentation/pages/cns_otu_page.dart';
 import 'package:submersion/features/safety/presentation/pages/no_fly_page.dart';
+import 'package:submersion/features/surface_interval_tool/presentation/pages/surface_interval_tool_page.dart';
+import 'package:submersion/features/settings/presentation/pages/manage_currency_rules_page.dart';
 import 'package:submersion/features/settings/presentation/pages/section_appearance_page.dart';
-import 'package:submersion/features/insights/presentation/providers/insights_filter_provider.dart';
 import 'package:submersion/features/settings/presentation/pages/settings_page.dart';
 import 'package:submersion/features/settings/presentation/pages/site_detail_sections_page.dart';
+import 'package:submersion/features/settings/presentation/widgets/appearance_settings_tiles.dart';
 import 'package:submersion/features/settings/presentation/widgets/unrecognized_backups_notice.dart';
 import 'package:submersion/features/settings/presentation/pages/column_config_page.dart';
+import 'package:submersion/features/settings/presentation/pages/profile_metric_colors_page.dart';
+import 'package:submersion/features/trips/presentation/helpers/trip_edit_navigation.dart';
+import 'package:submersion/features/trips/presentation/pages/trip_edit_page.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
+import 'package:submersion/features/dive_log/domain/models/dive_filter_state.dart';
+import 'package:submersion/features/dive_log/presentation/pages/dive_list_page.dart';
+import 'package:submersion/features/dive_log/presentation/navigation/open_dive_list.dart';
+import 'package:submersion/features/trips/presentation/navigation/open_trip_list.dart';
+import 'package:submersion/features/trips/presentation/pages/trip_list_page.dart';
+import 'package:submersion/features/trips/presentation/providers/trip_providers.dart';
+import 'package:submersion/features/dive_log/presentation/pages/bulk_dive_edit_page.dart';
 
 /// Finds a [GoRoute] by name in a route tree recursively.
 GoRoute? _findRouteByName(List<RouteBase> routes, String name) {
@@ -37,6 +62,38 @@ GoRoute? _findRouteByName(List<RouteBase> routes, String name) {
     }
   }
   return null;
+}
+
+/// Finds a [GoRoute] by its own path segment in a route tree recursively.
+GoRoute? _findRouteByPath(List<RouteBase> routes, String path) {
+  for (final route in routes) {
+    if (route is GoRoute) {
+      if (route.path == path) return route;
+      final found = _findRouteByPath(route.routes, path);
+      if (found != null) return found;
+    }
+    if (route is ShellRoute) {
+      final found = _findRouteByPath(route.routes, path);
+      if (found != null) return found;
+    }
+  }
+  return null;
+}
+
+/// Collects every [ShellRoute] in a route tree recursively, however deeply
+/// nested (a [ShellRoute] inside another [ShellRoute]'s routes list).
+List<ShellRoute> _collectShellRoutes(List<RouteBase> routes) {
+  final shells = <ShellRoute>[];
+  for (final route in routes) {
+    if (route is ShellRoute) {
+      shells.add(route);
+      shells.addAll(_collectShellRoutes(route.routes));
+    }
+    if (route is GoRoute) {
+      shells.addAll(_collectShellRoutes(route.routes));
+    }
+  }
+  return shells;
 }
 
 /// Collects all named [GoRoute]s from a route tree recursively.
@@ -121,11 +178,285 @@ void main() {
     container.dispose();
   });
 
-  group('gps-log relocation', () {
-    test('gpsLog route is registered at top level', () {
-      final route = _findRouteByName(router.configuration.routes, 'gpsLog');
-      expect(route, isNotNull);
-      expect(route!.path, '/gps-log');
+  group('trip edit (#2880)', () {
+    test('openTripEdit pushes the editTrip route', () {
+      // openTripEdit writes the path by hand; it must stay this route's.
+      expect(
+        _locationOfRoute(router.configuration.routes, 'editTrip'),
+        '/trips/:tripId/edit',
+      );
+    });
+
+    testWidgets('editTrip opens the form at the section in the URL', (
+      tester,
+    ) async {
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      TripEditPage build(String location) =>
+          _findRouteByName(router.configuration.routes, 'editTrip')!.builder!(
+                capturedContext,
+                GoRouterState(
+                  router.configuration,
+                  uri: Uri.parse(location),
+                  matchedLocation: Uri.parse(location).path,
+                  fullPath: '/trips/:tripId/edit',
+                  pathParameters: const {'tripId': 't1'},
+                  pageKey: ValueKey(location),
+                ),
+              )
+              as TripEditPage;
+
+      final planning = build('/trips/t1/edit?section=planning');
+      expect(planning.tripId, 't1');
+      expect(planning.initialSection, TripEditSection.planning);
+      expect(build('/trips/t1/edit').initialSection, isNull);
+    });
+  });
+
+  group('tracks area', () {
+    test('every tracks page is a top-level sibling of /tracks', () {
+      // go_router builds one page per matched segment and /tracks has its
+      // own pageBuilder, so a nested detail would stack the landing page
+      // under it: two Back presses from a dive's track link.
+      final routes = router.configuration.routes;
+      final tracks = _findRouteByName(routes, 'tracks');
+      expect(tracks?.path, kTracksLocation);
+      expect(tracks!.routes, isEmpty);
+      for (final (name, path) in const [
+        ('tracksMap', '/tracks/map'),
+        ('gpsTrackDetail', '/tracks/gps/:id'),
+        ('underwaterTrackDetail', '/tracks/underwater/:id'),
+        ('underwaterTrackAlign', '/tracks/underwater/:id/align'),
+        ('underwaterTrackSeascape', '/tracks/underwater/:id/3d'),
+      ]) {
+        expect(_findRouteByName(routes, name)?.path, path, reason: name);
+      }
+    });
+
+    test('the location helpers match the route table', () {
+      final config = router.configuration;
+      for (final (location, fullPath) in [
+        (kTracksMapLocation, '/tracks/map'),
+        (gpsTrackLocation('abc'), '/tracks/gps/:id'),
+        (underwaterTrackLocation('abc'), '/tracks/underwater/:id'),
+        (underwaterTrackAlignLocation('abc'), '/tracks/underwater/:id/align'),
+        (underwaterTrackSeascapeLocation('abc'), '/tracks/underwater/:id/3d'),
+      ]) {
+        expect(
+          config.findMatch(Uri.parse(location)).fullPath,
+          fullPath,
+          reason: location,
+        );
+      }
+    });
+
+    test('static paths are declared before parameterised siblings', () {
+      // ':id' matches any single segment, so a static sibling declared after
+      // it would never match.
+      final paths = _orderedRoutePaths(router.configuration.routes);
+      expect(
+        paths.indexOf('/tracks/map'),
+        lessThan(paths.indexOf('/tracks/gps/:id')),
+      );
+      expect(paths.indexOf('/gps-log/map'), isNot(-1));
+      expect(
+        paths.indexOf('/gps-log/map'),
+        lessThan(paths.indexOf('/gps-log/:id')),
+      );
+    });
+
+    testWidgets('each tracks route builds its page with the path id', (
+      tester,
+    ) async {
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      GoRouterState stateFor(
+        String fullPath,
+        String location, [
+        Map<String, String> params = const {},
+      ]) => GoRouterState(
+        router.configuration,
+        uri: Uri.parse(location),
+        matchedLocation: Uri.parse(location).path,
+        fullPath: fullPath,
+        pathParameters: params,
+        pageKey: ValueKey(location),
+      );
+      final routes = router.configuration.routes;
+      Widget build(String name, GoRouterState state) =>
+          _findRouteByName(routes, name)!.builder!(capturedContext, state);
+
+      final landing = _findRouteByName(routes, 'tracks')!.pageBuilder!(
+        capturedContext,
+        stateFor('/tracks', '/tracks?kind=underwater'),
+      );
+      expect(landing, isA<NoTransitionPage<void>>());
+      final tracksPage =
+          (landing as NoTransitionPage<void>).child as TracksPage;
+      expect(tracksPage.initialKind, TrackKindFilter.underwater);
+
+      expect(
+        build('tracksMap', stateFor('/tracks/map', '/tracks/map')),
+        isA<TracksMapPage>(),
+      );
+      final gps =
+          build(
+                'gpsTrackDetail',
+                stateFor('/tracks/gps/:id', '/tracks/gps/g1', {'id': 'g1'}),
+              )
+              as GpsTrackDetailPage;
+      expect(gps.trackId, 'g1');
+      final detail =
+          build(
+                'underwaterTrackDetail',
+                stateFor('/tracks/underwater/:id', '/tracks/underwater/u1', {
+                  'id': 'u1',
+                }),
+              )
+              as NavTrackDetailPage;
+      expect(detail.trackId, 'u1');
+      final align =
+          build(
+                'underwaterTrackAlign',
+                stateFor(
+                  '/tracks/underwater/:id/align',
+                  '/tracks/underwater/u1/align',
+                  {'id': 'u1'},
+                ),
+              )
+              as NavTrackAlignPage;
+      expect(align.routeId, 'u1');
+      final seascape =
+          build(
+                'underwaterTrackSeascape',
+                stateFor(
+                  '/tracks/underwater/:id/3d',
+                  '/tracks/underwater/u1/3d',
+                  {'id': 'u1'},
+                ),
+              )
+              as NavTrackSeascapePage;
+      expect(seascape.trackId, 'u1');
+    });
+
+    testWidgets('old GPS log and underwater route locations redirect into '
+        '/tracks', (tester) async {
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+
+      Future<String?> redirect(
+        String path,
+        String location, [
+        Map<String, String> params = const {},
+      ]) async {
+        final route = _findRouteByPath(router.configuration.routes, path);
+        expect(route?.redirect, isNotNull, reason: path);
+        return route!.redirect!(
+          capturedContext,
+          GoRouterState(
+            router.configuration,
+            uri: Uri.parse(location),
+            matchedLocation: location,
+            fullPath: path,
+            pathParameters: params,
+            pageKey: ValueKey(location),
+          ),
+        );
+      }
+
+      expect(await redirect('/gps-log', '/gps-log'), '/tracks');
+      expect(await redirect('/gps-log/map', '/gps-log/map'), '/tracks/map');
+      expect(
+        await redirect('/gps-log/:id', '/gps-log/abc', {'id': 'abc'}),
+        '/tracks/gps/abc',
+      );
+      expect(
+        await redirect('/nav-routes', '/nav-routes'),
+        '/tracks?kind=underwater',
+      );
+      expect(
+        await redirect('/nav-routes/:id', '/nav-routes/r1', {'id': 'r1'}),
+        '/tracks/underwater/r1',
+      );
+      expect(
+        await redirect('/nav-routes/:id/align', '/nav-routes/r1/align', {
+          'id': 'r1',
+        }),
+        '/tracks/underwater/r1/align',
+      );
+      expect(
+        await redirect('/nav-routes/:id/3d', '/nav-routes/r1/3d', {'id': 'r1'}),
+        '/tracks/underwater/r1/3d',
+      );
+      expect(await redirect('gps-logger', '/planning/gps-logger'), '/tracks');
+    });
+
+    testWidgets('Training opens on Certifications, and both tab addresses '
+        'build the one Training host (#3437)', (tester) async {
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      GoRouterState stateAt(String path) => GoRouterState(
+        router.configuration,
+        uri: Uri.parse(path),
+        matchedLocation: path,
+        fullPath: path,
+        pathParameters: const {},
+        pageKey: ValueKey(path),
+      );
+
+      final training = _findRouteByPath(
+        router.configuration.routes,
+        kTrainingLocation,
+      );
+      expect(
+        await training!.redirect!(capturedContext, stateAt(kTrainingLocation)),
+        '/certifications',
+      );
+
+      for (final tab in TrainingTab.values) {
+        final route = _findRouteByPath(router.configuration.routes, tab.path);
+        final page = route!.pageBuilder!(capturedContext, stateAt(tab.path));
+        expect(page.key, kTrainingHostPageKey, reason: tab.path);
+        final child = (page as NoTransitionPage<void>).child;
+        expect(child, isA<TrainingPage>(), reason: tab.path);
+        expect((child as TrainingPage).tab, tab);
+      }
     });
 
     test('old planning gps-logger path is a redirect', () {
@@ -149,46 +480,6 @@ void main() {
       expect(route!.redirect, isNotNull);
       expect(route.builder, isNull);
     });
-
-    test('gpsTrackDetail is a SIBLING of gps-log, not a child', () {
-      // go_router builds one page per matched segment and /gps-log has its
-      // own pageBuilder, so nesting stacked a GpsLoggerPage underneath the
-      // detail page - two Back presses to leave, the first landing on a
-      // logger page the diver never opened.
-      final gpsLog = _findRouteByName(router.configuration.routes, 'gpsLog');
-      expect(
-        gpsLog!.routes.whereType<GoRoute>().map((r) => r.name),
-        isNot(contains('gpsTrackDetail')),
-      );
-
-      final detail = _findRouteByName(
-        router.configuration.routes,
-        'gpsTrackDetail',
-      );
-      expect(detail!.path, '/gps-log/:id');
-    });
-
-    test('gpsTrackMap is a sibling too', () {
-      final gpsLog = _findRouteByName(router.configuration.routes, 'gpsLog');
-      expect(
-        gpsLog!.routes.whereType<GoRoute>().map((r) => r.name),
-        isNot(contains('gpsTrackMap')),
-      );
-      final map = _findRouteByName(router.configuration.routes, 'gpsTrackMap');
-      expect(map!.path, '/gps-log/map');
-    });
-
-    test('the static gps-log route is declared before the :id route', () {
-      // ':id' matches any single segment, so a static sibling declared after
-      // it would never match.
-      // _collectRoutePaths returns a Set, which cannot express order.
-      final paths = _orderedRoutePaths(router.configuration.routes);
-      final mapIndex = paths.indexOf('/gps-log/map');
-      final idIndex = paths.indexOf('/gps-log/:id');
-      expect(mapIndex, isNot(-1));
-      expect(idIndex, isNot(-1));
-      expect(mapIndex, lessThan(idIndex));
-    });
   });
 
   group('app_router route configuration', () {
@@ -200,6 +491,15 @@ void main() {
         Uri.parse('/insights/connections?mode=around&focus=buddy:abc'),
       );
       expect(match.fullPath, '/insights/connections');
+    });
+
+    test('observations live under Insights (#2381)', () {
+      final routes = router.configuration.routes;
+      expect(_findRouteByName(routes, 'insightsObservations'), isNotNull);
+      final match = router.configuration.findMatch(
+        Uri.parse('/insights/observations'),
+      );
+      expect(match.fullPath, '/insights/observations');
     });
 
     test('the cylinder passport nests under equipment detail', () {
@@ -356,6 +656,18 @@ void main() {
       expect(names, contains('appearanceCourses'));
     });
 
+    // The phone Appearance page pushes these routes; the settings pane opens
+    // the same pages inline by key, so a key without a matching route would
+    // work on a tablet or desktop and fail only on a phone (#3095).
+    test('every Appearance section key resolves to its own route', () {
+      for (final key in appearanceSectionKeys) {
+        final location = appearanceSectionRoute(key);
+        final match = router.configuration.findMatch(Uri.parse(location));
+        expect(match.isError, isFalse, reason: location);
+        expect(match.fullPath, location, reason: location);
+      }
+    });
+
     test('columnConfig route exists under appearance', () {
       final names = _collectRouteNames(router.configuration.routes);
       expect(names, contains('columnConfig'));
@@ -451,6 +763,22 @@ void main() {
       );
       final columnWidget = columnRoute!.builder!(context, columnState);
       expect(columnWidget, isA<ColumnConfigPage>());
+
+      // Metric colors route (issue #3012)
+      final colorsRoute = _findRouteByName(config.routes, 'metricColors');
+      expect(colorsRoute, isNotNull);
+      final colorsState = GoRouterState(
+        config,
+        uri: Uri.parse('/settings/metric-colors'),
+        matchedLocation: '/settings/metric-colors',
+        fullPath: '/settings/metric-colors',
+        pathParameters: const {},
+        pageKey: const ValueKey('/settings/metric-colors'),
+      );
+      expect(
+        colorsRoute!.builder!(context, colorsState),
+        isA<ProfileMetricColorsPage>(),
+      );
     });
   });
 
@@ -747,6 +1075,31 @@ void main() {
       expect(nestedNames, isNot(contains('noFly')));
     });
 
+    testWidgets('surfaceInterval route builds the SurfaceIntervalToolPage', (
+      tester,
+    ) async {
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+      final context = tester.element(find.byType(SizedBox));
+
+      final surfaceInterval = _findRouteByName(
+        router.configuration.routes,
+        'surfaceInterval',
+      );
+      expect(surfaceInterval, isNotNull);
+      final state = GoRouterState(
+        router.configuration,
+        uri: Uri.parse('/planning/surface-interval'),
+        matchedLocation: '/planning/surface-interval',
+        fullPath: '/planning/surface-interval',
+        pathParameters: const {},
+        pageKey: const ValueKey('/planning/surface-interval'),
+      );
+      expect(
+        surfaceInterval!.builder!(context, state),
+        isA<SurfaceIntervalToolPage>(),
+      );
+    });
+
     testWidgets('noFly route builds the NoFlyPage', (tester) async {
       await tester.pumpWidget(const MaterialApp(home: SizedBox()));
       final context = tester.element(find.byType(SizedBox));
@@ -762,6 +1115,23 @@ void main() {
         pageKey: const ValueKey('/planning/no-fly'),
       );
       expect(noFly!.builder!(context, state), isA<NoFlyPage>());
+    });
+
+    testWidgets('cnsOtu route builds the CnsOtuPage', (tester) async {
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+      final context = tester.element(find.byType(SizedBox));
+
+      final cnsOtu = _findRouteByName(router.configuration.routes, 'cnsOtu');
+      expect(cnsOtu, isNotNull);
+      final state = GoRouterState(
+        router.configuration,
+        uri: Uri.parse('/planning/cns-otu'),
+        matchedLocation: '/planning/cns-otu',
+        fullPath: '/planning/cns-otu',
+        pathParameters: const {},
+        pageKey: const ValueKey('/planning/cns-otu'),
+      );
+      expect(cnsOtu!.builder!(context, state), isA<CnsOtuPage>());
     });
 
     testWidgets(
@@ -800,6 +1170,118 @@ void main() {
     );
   });
 
+  group('planning disclaimer gate (issue #3120)', () {
+    // Regression: the gate used to live inside PlanningPage's and
+    // GasCalculatorsPage's own build() methods. A plain GoRoute only renders
+    // its own exact-match page, so a deep link straight to a leaf route below
+    // them (the deco calculator, a gas calculator detail page, ...) replaced
+    // those pages outright and never reached the gate. It now lives in a
+    // ShellRoute around the whole /planning subtree, so whichever leaf route
+    // matched is still wrapped.
+
+    // The MOST SPECIFIC (innermost) shell containing [routeName]: a nested
+    // ShellRoute's ancestor shells all transitively "contain" it too, and
+    // _collectShellRoutes lists an ancestor before the descendants nested
+    // inside it, so the last match is the innermost one -- the gate actually
+    // responsible for that route, not just some outer shell it happens to
+    // live under (e.g. the app-wide MainScaffold shell).
+    ShellRoute shellContaining(String routeName) {
+      final shells = _collectShellRoutes(router.configuration.routes);
+      return shells.lastWhere(
+        (shell) => _findRouteByName(shell.routes, routeName) != null,
+        orElse: () =>
+            throw StateError('$routeName is not inside any ShellRoute'),
+      );
+    }
+
+    // The gate's own shell: the one declaring the /planning hub as a DIRECT
+    // child. Membership checks must be made against this shell, not "any
+    // shell", since the app-wide MainScaffold shell contains every route and
+    // would pass them for a route declared outside the gate.
+    ShellRoute gatedShell() =>
+        _collectShellRoutes(router.configuration.routes).singleWhere(
+          (shell) =>
+              shell.routes.any((r) => r is GoRoute && r.name == 'planning'),
+        );
+
+    test('deco-calculator and the gas calculators share one gated shell', () {
+      final decoShell = shellContaining('decoCalculator');
+      final gasShell = shellContaining('gasCalculators');
+      expect(decoShell, same(gatedShell()));
+      expect(
+        decoShell,
+        same(gasShell),
+        reason:
+            'One shell must cover the whole /planning subtree, not a '
+            'separate one per route -- otherwise a route added later could '
+            'be declared outside it by mistake.',
+      );
+    });
+
+    testWidgets('the gated shell wraps whichever child route matched in '
+        'PlanningDisclaimerGate', (tester) async {
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+      final context = tester.element(find.byType(SizedBox));
+
+      final shell = shellContaining('decoCalculator');
+      final state = GoRouterState(
+        router.configuration,
+        uri: Uri.parse('/planning/deco-calculator'),
+        matchedLocation: '/planning/deco-calculator',
+        fullPath: '/planning/deco-calculator',
+        pathParameters: const {},
+        pageKey: const ValueKey('/planning/deco-calculator'),
+      );
+      const leaf = SizedBox(key: Key('leaf'));
+      // A NoTransitionPage, like every other top-level tab: a builder-only
+      // ShellRoute gets a platform MaterialPage/CupertinoPage in the
+      // MainScaffold navigator, so switching to Planning would animate.
+      final page = shell.pageBuilder!(context, state, leaf);
+
+      expect(page, isA<NoTransitionPage<void>>());
+      final wrapped = (page as NoTransitionPage<void>).child;
+      expect(wrapped, isA<PlanningDisclaimerGate>());
+      expect((wrapped as PlanningDisclaimerGate).child, same(leaf));
+    });
+
+    test('every tool under /planning is inside the gated shell', () {
+      // Each of these is reachable by a direct deep link that bypasses
+      // PlanningPage/GasCalculatorsPage entirely, so each needs its OWN
+      // membership checked rather than trusting that one being gated implies
+      // the rest are.
+      const names = [
+        'planning',
+        'divePlanner',
+        'editPlan',
+        'decoCalculator',
+        'gasCalculators',
+        'weightCalculator',
+        'surfaceInterval',
+        'noFly',
+        'cnsOtu',
+      ];
+      final gated = gatedShell();
+      for (final name in names) {
+        expect(
+          _findRouteByName(gated.routes, name),
+          isNotNull,
+          reason: '$name is reachable directly but not inside the gated shell',
+        );
+      }
+      // Each calculator id (mod, best-mix, ...) is a path under
+      // gas-calculators, not a name of its own; check it by path within the
+      // shell that gates the hub, rather than by name.
+      final gasCalculatorPaths = _collectRoutePaths(gated.routes);
+      for (final id in kGasCalculatorIds) {
+        expect(
+          gasCalculatorPaths,
+          contains(id),
+          reason: 'gas calculator "$id" is not inside the gated shell',
+        );
+      }
+    });
+  });
+
   // The GaugeStrip widget test navigates through a stub router, so a chip
   // pointing at a path that does not exist in the real app would still pass
   // there. These assert the destinations resolve against the real config.
@@ -813,6 +1295,13 @@ void main() {
       '/planning/no-fly',
       '/dives',
       '/certifications',
+      // Documents (issue #2613): list, filters, one document.
+      '/documents',
+      '/documents?type=insurance',
+      '/documents?filter=expiring',
+      '/documents/x',
+      '/documents/new',
+      '/documents/x/edit',
       '/trips',
       '/pre-dive-sessions/session-7',
       '/courses/c1',
@@ -1015,6 +1504,95 @@ void main() {
       expect(widget.runtimeType.toString(), 'EquipmentConditionSettingsPage');
     });
 
+    test('the Safety sub-pages live under the safety route', () {
+      expect(router.namedLocation('safetySettings'), '/settings/safety');
+      expect(
+        router.namedLocation('safetyReviewSettings'),
+        '/settings/safety/review',
+      );
+      expect(
+        router.namedLocation('decompressionSettings'),
+        '/settings/safety/decompression',
+      );
+    });
+
+    testWidgets('the Safety routes build the hub and its sub-pages', (
+      tester,
+    ) async {
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+
+      String built(String name, String location) {
+        final route = _findRouteByName(router.configuration.routes, name);
+        expect(route, isNotNull, reason: name);
+        final state = GoRouterState(
+          router.configuration,
+          uri: Uri.parse(location),
+          matchedLocation: location,
+          fullPath: location,
+          pathParameters: const {},
+          pageKey: ValueKey(location),
+        );
+        return route!.builder!(capturedContext, state).runtimeType.toString();
+      }
+
+      expect(built('safetySettings', '/settings/safety'), 'SafetyHubPage');
+      expect(
+        built('safetyReviewSettings', '/settings/safety/review'),
+        'SafetyReviewSettingsPage',
+      );
+      expect(
+        built('decompressionSettings', '/settings/safety/decompression'),
+        'DecompressionSettingsPage',
+      );
+    });
+
+    testWidgets('on a desktop window the old Decompression section link opens '
+        'in the Safety pane', (tester) async {
+      tester.view.physicalSize = const Size(1400, 900);
+      tester.view.devicePixelRatio = 1;
+      addTearDown(tester.view.reset);
+
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+
+      final route = _findRouteByName(
+        router.configuration.routes,
+        'settingsSection',
+      );
+      final target = await route!.redirect!(
+        capturedContext,
+        GoRouterState(
+          router.configuration,
+          uri: Uri.parse('/settings/section/decompression'),
+          matchedLocation: '/settings/section/decompression',
+          fullPath: '/settings/section/:sectionId',
+          pathParameters: const {'sectionId': 'decompression'},
+          pageKey: const ValueKey('/settings/section/decompression'),
+        ),
+      );
+
+      expect(target, '/settings?selected=safety&safetyPage=decompression');
+    });
+
     test('a section child route exists under /settings', () {
       final route = _findRouteByName(
         router.configuration.routes,
@@ -1050,7 +1628,7 @@ void main() {
         'own', (tester) async {
       // SettingsSectionDetailPage supplies a Scaffold and an AppBar, so a
       // deep link to /settings/section/safety would stack a second app bar
-      // on top of SafetySettingsPage's. Fixing only the list tile leaves the
+      // on top of SafetyHubPage's. Fixing only the list tile leaves the
       // URL reachable; the route itself has to normalize it.
       late BuildContext capturedContext;
       await tester.pumpWidget(
@@ -1090,6 +1668,11 @@ void main() {
 
       // Sections whose content is its own Scaffold with its own AppBar.
       expect(await redirectFor('safety'), '/settings/safety');
+      // Decompression moved under Safety (#3395); old links follow it.
+      expect(
+        await redirectFor('decompression'),
+        '/settings/safety/decompression',
+      );
       expect(await redirectFor('debug'), '/settings/debug-logs');
       expect(await redirectFor('profile'), '/settings/diver-profile');
       // Has a dedicated page too, so the route stays canonical.
@@ -1199,56 +1782,43 @@ void main() {
     });
   });
 
-  group('diveSearch route carries the calling section filter (#1079)', () {
-    // Insights keeps its own filter, so the advanced search form has to be
-    // told which filter it is editing. The section pushes its provider as the
-    // route `extra`; anything else (deep link, keyboard shortcut) falls back
-    // to the dive list's filter.
-    late BuildContext context;
-
-    DiveSearchPage buildWith(Object? extra) {
-      final route = _findRouteByName(router.configuration.routes, 'diveSearch');
-      expect(route, isNotNull);
-      final widget = route!.builder!(
-        context,
-        GoRouterState(
-          router.configuration,
-          uri: Uri.parse('/dives/search'),
-          matchedLocation: '/dives/search',
-          fullPath: '/dives/search',
-          pathParameters: const {},
-          pageKey: const ValueKey('/dives/search'),
-          extra: extra,
-        ),
-      );
-      expect(widget, isA<DiveSearchPage>());
-      return widget as DiveSearchPage;
+  // #2773: Advanced Search became the Refine panel; an old link or a
+  // bookmark lands on the dive list with its search row open, including on
+  // a cold start, when the redirect runs while the tree builds.
+  group('diveSearch route redirects to the dive list', () {
+    for (final (name, path, location) in [
+      ('diveSearch', 'search', '/dives/search'),
+      ('diveSearch', 'search', '/dives/search?section=query'),
+      ('explore', 'explore', '/dives/explore'),
+    ]) {
+      testWidgets('a cold start at $location opens the search row', (
+        tester,
+      ) async {
+        final route = _findRouteByName(router.configuration.routes, name)!;
+        expect(route.redirect, same(redirectRetiredDiveSearch));
+        final coldStart = GoRouter(
+          initialLocation: location,
+          routes: [
+            GoRoute(
+              path: '/dives',
+              builder: (context, _) => Consumer(
+                builder: (context, ref, _) =>
+                    Text('open=${ref.watch(diveSearchBarOpenProvider)}'),
+              ),
+              routes: [
+                GoRoute(path: path, redirect: redirectRetiredDiveSearch),
+              ],
+            ),
+          ],
+        );
+        addTearDown(coldStart.dispose);
+        await tester.pumpWidget(
+          ProviderScope(child: MaterialApp.router(routerConfig: coldStart)),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text('open=true'), findsOneWidget);
+      });
     }
-
-    testWidgets('a pushed filter provider reaches the page', (tester) async {
-      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
-      context = tester.element(find.byType(SizedBox));
-
-      expect(
-        buildWith(insightsFilterProvider).filterProvider,
-        same(insightsFilterProvider),
-      );
-    });
-
-    testWidgets('no extra falls back to the dive list filter', (tester) async {
-      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
-      context = tester.element(find.byType(SizedBox));
-
-      expect(buildWith(null).filterProvider, isNull);
-    });
-
-    testWidgets('an extra of another type falls back too', (tester) async {
-      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
-      context = tester.element(find.byType(SizedBox));
-
-      // A stale deep link or an unrelated caller must not crash the route.
-      expect(buildWith('not a provider').filterProvider, isNull);
-    });
   });
   group('species routes', () {
     test('the Species page is registered at /species', () {
@@ -1338,6 +1908,34 @@ void main() {
     });
   });
 
+  group('certification currency rules route', () {
+    test('resolves to the path the Manage tile pushes', () {
+      expect(
+        _locationOfRoute(router.configuration.routes, 'currencyRules'),
+        '/currency-rules',
+      );
+    });
+
+    testWidgets('builds the certification currency rules page', (tester) async {
+      await tester.pumpWidget(const MaterialApp(home: SizedBox()));
+      final context = tester.element(find.byType(SizedBox));
+      final config = router.configuration;
+      final route = _findRouteByName(config.routes, 'currencyRules');
+      expect(route, isNotNull);
+
+      const location = '/currency-rules';
+      final state = GoRouterState(
+        config,
+        uri: Uri.parse(location),
+        matchedLocation: location,
+        fullPath: location,
+        pathParameters: const {},
+        pageKey: const ValueKey(location),
+      );
+      expect(route!.builder!(context, state), isA<ManageCurrencyRulesPage>());
+    });
+  });
+
   group('site detail sections route', () {
     test('resolves to the path the Sites appearance row pushes', () {
       expect(
@@ -1363,6 +1961,121 @@ void main() {
         pageKey: const ValueKey(location),
       );
       expect(route!.builder!(context, state), isA<SiteDetailSectionsPage>());
+    });
+  });
+
+  group('dives route (#3292)', () {
+    testWidgets('hands a pushed list its return snapshot', (tester) async {
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      GoRouterState stateFor(Object? extra) => GoRouterState(
+        router.configuration,
+        uri: Uri.parse('/dives'),
+        matchedLocation: '/dives',
+        fullPath: '/dives',
+        pathParameters: const {},
+        extra: extra,
+        pageKey: const ValueKey('/dives'),
+      );
+      DiveListPage pageFor(Object? extra) {
+        final page = _findRouteByName(
+          router.configuration.routes,
+          'dives',
+        )!.pageBuilder!(capturedContext, stateFor(extra));
+        return (page as NoTransitionPage<void>).child as DiveListPage;
+      }
+
+      const ret = DiveListReturn(
+        filter: DiveFilterState(siteId: 's1'),
+        highlightedDiveId: 'd1',
+      );
+      expect(pageFor(ret).returnTo, same(ret));
+      expect(pageFor(null).returnTo, isNull);
+      expect(pageFor('unrelated').returnTo, isNull);
+    });
+  });
+
+  group('trips route (#3350)', () {
+    testWidgets('hands a pushed list its return snapshot', (tester) async {
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      GoRouterState stateFor(Object? extra) => GoRouterState(
+        router.configuration,
+        uri: Uri.parse('/trips'),
+        matchedLocation: '/trips',
+        fullPath: '/trips',
+        pathParameters: const {},
+        extra: extra,
+        pageKey: const ValueKey('/trips'),
+      );
+      TripListPage pageFor(Object? extra) {
+        final page = _findRouteByName(
+          router.configuration.routes,
+          'trips',
+        )!.pageBuilder!(capturedContext, stateFor(extra));
+        return (page as NoTransitionPage<void>).child as TripListPage;
+      }
+
+      const ret = TripListReturn(
+        filter: TripFilterState(equipmentId: 'e1'),
+        highlightedTripId: 't1',
+      );
+      expect(pageFor(ret).returnTo, same(ret));
+      expect(pageFor(null).returnTo, isNull);
+      expect(pageFor('unrelated').returnTo, isNull);
+    });
+  });
+
+  group('bulk edit route (#3292)', () {
+    testWidgets('return=pop tells the form to pop on save', (tester) async {
+      late BuildContext capturedContext;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Builder(
+            builder: (context) {
+              capturedContext = context;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      BulkDiveEditPage pageAt(String location) {
+        final state = GoRouterState(
+          router.configuration,
+          uri: Uri.parse(location),
+          matchedLocation: Uri.parse(location).path,
+          fullPath: '/dives/bulk-edit',
+          pathParameters: const {},
+          extra: const ['d1'],
+          pageKey: ValueKey(location),
+        );
+        return _findRouteByName(
+              router.configuration.routes,
+              'bulkEditDives',
+            )!.builder!(capturedContext, state)
+            as BulkDiveEditPage;
+      }
+
+      expect(pageAt('/dives/bulk-edit?return=pop').popOnSave, isTrue);
+      expect(pageAt('/dives/bulk-edit').popOnSave, isFalse);
     });
   });
 }

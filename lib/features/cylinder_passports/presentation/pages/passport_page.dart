@@ -12,6 +12,8 @@ import 'package:submersion/features/cylinder_passports/presentation/widgets/pass
 import 'package:submersion/features/cylinder_passports/presentation/widgets/passport_service_card.dart';
 import 'package:submersion/features/cylinder_passports/presentation/widgets/passport_spec_card.dart';
 import 'package:submersion/features/cylinder_passports/presentation/widgets/passport_tag_card.dart';
+import 'package:submersion/features/cylinder_passports/presentation/widgets/passport_trip_card.dart';
+import 'package:submersion/features/cylinder_passports/presentation/widgets/passport_usage_card.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/equipment/domain/constants/equipment_attribute_catalog.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_item.dart';
@@ -124,12 +126,22 @@ class _PassportPageState extends ConsumerState<PassportPage> {
                 ),
                 const SizedBox(height: 16),
                 PassportFillHistoryCard(equipmentId: equipment.id),
+                // The dives this cylinder was used on (issue #2650), with its
+                // own gap so a cylinder never used leaves none.
+                if (passportId != null)
+                  PassportUsageCard(
+                    passportId: passportId,
+                    title: PassportUsageTitle.own,
+                    topGap: 16,
+                  ),
                 const SizedBox(height: 16),
                 PassportTagCard(
                   equipment: equipment,
                   scannedTag: widget.scannedTag,
                   onPrintLabel: (button) => _printLabel(equipment.id, button),
                 ),
+                const SizedBox(height: 16),
+                PassportTripCard(equipmentId: equipment.id),
               ],
             ),
           );

@@ -7,6 +7,7 @@ import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
+import 'package:submersion/core/router/track_locations.dart';
 import 'package:submersion/core/utils/geo_math.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/features/bathymetry/application/bathymetry_providers.dart';
@@ -16,6 +17,8 @@ import 'package:submersion/features/bathymetry/presentation/depth_overlay_toggle
 import 'package:submersion/features/dive_log/presentation/providers/dive_providers.dart';
 import 'package:submersion/features/dive_sites/domain/entities/dive_site.dart';
 import 'package:submersion/features/dive_sites/presentation/providers/site_providers.dart';
+import 'package:submersion/features/maps/presentation/widgets/map_attribution.dart';
+import 'package:submersion/features/maps/presentation/widgets/map_corner_controls.dart';
 import 'package:submersion/features/maps/presentation/widgets/submersion_tile_layer.dart';
 import 'package:submersion/features/maps/presentation/widgets/trackpad_zoom_map.dart';
 import 'package:submersion/features/nav_track/domain/entities/nav_track.dart';
@@ -229,7 +232,7 @@ class _NavTrackAlignPageState extends ConsumerState<NavTrackAlignPage> {
   Future<void> _openIn3d(NavTrack route) async {
     await _persistCorrection(route);
     if (!mounted) return;
-    context.push('/nav-routes/${route.id}/3d');
+    context.push(underwaterTrackSeascapeLocation(route.id));
   }
 
   void _startPlacing(_Placing target) => setState(() => _placing = target);
@@ -279,12 +282,13 @@ class _NavTrackAlignPageState extends ConsumerState<NavTrackAlignPage> {
     return routeAsync.when(
       loading: () =>
           const Scaffold(body: Center(child: CircularProgressIndicator())),
-      error: (e, _) =>
-          Scaffold(body: Center(child: Text(l10n.navTrack_common_loadError))),
+      error: (e, _) => Scaffold(
+        body: Center(child: Text(l10n.navTrack_common_trackLoadError)),
+      ),
       data: (route) {
         if (route == null) {
           return Scaffold(
-            body: Center(child: Text(l10n.navTrack_common_notFound)),
+            body: Center(child: Text(l10n.navTrack_common_trackNotFound)),
           );
         }
         // The repository hands back an empty points list for a synced blob
@@ -292,7 +296,7 @@ class _NavTrackAlignPageState extends ConsumerState<NavTrackAlignPage> {
         if (route.points.length < 2) {
           return Scaffold(
             appBar: AppBar(title: Text(l10n.navTrack_align_title)),
-            body: Center(child: Text(l10n.navTrack_common_loadError)),
+            body: Center(child: Text(l10n.navTrack_common_trackLoadError)),
           );
         }
         _initFromRoute(route);
@@ -410,6 +414,7 @@ class _AlignPageBody extends ConsumerWidget {
                           keyValue: 'nav-track-align-end-marker',
                           onDrag: (d) => state._dragPoint(route, false, d),
                         ),
+                      const MapAttribution(),
                     ],
                   ),
                 ),
@@ -419,12 +424,21 @@ class _AlignPageBody extends ConsumerWidget {
                       child: Icon(Icons.add, size: 32, color: Colors.black87),
                     ),
                   ),
+                // Map style switcher and reset-to-north compass, with the
+                // depth overlay toggle below them once the track is anchored.
                 Positioned(
                   top: 8,
                   right: 8,
-                  child: anchor == null
-                      ? const SizedBox.shrink()
-                      : DepthOverlayToggleButton(siteLocation: anchor),
+                  child: Column(
+                    crossAxisAlignment: CrossAxisAlignment.end,
+                    children: [
+                      MapCornerControls(controller: state._mapController),
+                      if (anchor != null) ...[
+                        const SizedBox(height: 8),
+                        DepthOverlayToggleButton(siteLocation: anchor),
+                      ],
+                    ],
+                  ),
                 ),
                 if (state._placing != _Placing.none)
                   Positioned(

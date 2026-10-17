@@ -3,7 +3,6 @@ import 'package:go_router/go_router.dart';
 
 import 'package:submersion/core/services/pdf_templates/pdf_localization.dart';
 import 'package:submersion/core/providers/provider.dart';
-import 'package:submersion/core/services/export/shared/file_export_utils.dart';
 import 'package:submersion/core/utils/share_anchor.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
@@ -15,11 +14,8 @@ import 'package:submersion/features/dive_planner/presentation/widgets/plan_tank_
 import 'package:submersion/features/dive_planner/presentation/widgets/segment_list.dart';
 import 'package:submersion/features/dive_planner/presentation/widgets/simple_plan_dialog.dart';
 import 'package:submersion/features/planner/data/repositories/dive_plan_repository.dart';
-import 'package:submersion/features/planner/data/services/plan_file_codec.dart';
-import 'package:submersion/features/planner/data/services/plan_slate_pdf_service.dart';
 import 'package:submersion/features/planner/domain/entities/dive_plan.dart'
     as domain;
-import 'package:submersion/features/planner/domain/services/dive_plan_state_mapper.dart';
 import 'package:submersion/features/planner/domain/services/plan_name_generator.dart';
 import 'package:submersion/features/planner/presentation/chart/plan_profile_chart.dart';
 import 'package:submersion/features/planner/presentation/panes/plan_editor_pane.dart';
@@ -28,9 +24,12 @@ import 'package:submersion/features/planner/presentation/panes/plan_setup_accord
 import 'package:submersion/features/planner/presentation/providers/plan_canvas_providers.dart';
 import 'package:submersion/features/planner/presentation/providers/plan_repository_providers.dart';
 import 'package:submersion/features/planner/presentation/providers/planner_layout_providers.dart';
+import 'package:submersion/features/planner/presentation/widgets/chart_mode_toggle.dart';
 import 'package:submersion/features/planner/presentation/widgets/contingency_chips.dart';
 import 'package:submersion/features/planner/presentation/widgets/follow_dive_sheet.dart';
 import 'package:submersion/features/planner/presentation/widgets/plan_chart_readouts.dart';
+import 'package:submersion/features/planner/presentation/widgets/plan_export_actions.dart';
+import 'package:submersion/features/planner/presentation/widgets/plan_export_files.dart';
 import 'package:submersion/features/planner/presentation/widgets/plan_name_dialog.dart';
 import 'package:submersion/features/planner/presentation/widgets/plan_status_chips.dart';
 import 'package:submersion/features/planner/presentation/widgets/saved_plans_sheet.dart';
@@ -126,7 +125,9 @@ class _PlanCanvasPageState extends ConsumerState<PlanCanvasPage> {
 
     return Scaffold(
       appBar: AppBar(
-        leading: const BackButton(),
+        // Opened as a nav shortcut (#2936) the planner is the only page, and
+        // an inert back arrow reads as broken; AppBar makes the same test.
+        leading: Navigator.of(context).canPop() ? const BackButton() : null,
         title: Row(
           mainAxisSize: MainAxisSize.min,
           children: [
@@ -232,7 +233,7 @@ class _PlanCanvasPageState extends ConsumerState<PlanCanvasPage> {
                 ),
                 _menuItem(
                   'share',
-                  Icons.ios_share,
+                  Icons.upload_file,
                   context.l10n.plannerCanvas_share_menu,
                 ),
                 _menuItem(
@@ -312,9 +313,9 @@ class _PlanCanvasPageState extends ConsumerState<PlanCanvasPage> {
         );
       case 'share':
         logFailure(
-          _sharePlanFile(shareAnchor),
+          _exportPlanFile(shareAnchor),
           _PlanCanvasPageState,
-          'share plan file',
+          'export plan file',
         );
       case 'reset':
         _resetPlan();
@@ -431,7 +432,12 @@ class _PlanCanvasPageState extends ConsumerState<PlanCanvasPage> {
         ),
         const Padding(
           padding: EdgeInsets.fromLTRB(16, 6, 16, 8),
-          child: ContingencyChips(),
+          child: Wrap(
+            spacing: 6,
+            runSpacing: 6,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            children: [ContingencyChips(), ChartModeToggle()],
+          ),
         ),
       ],
     );
@@ -480,7 +486,23 @@ class _PlanCanvasPageState extends ConsumerState<PlanCanvasPage> {
                   bottom: 8,
                   child: Align(
                     alignment: Alignment.bottomLeft,
-                    child: ContingencyChips(overlay: true),
+                    // Both chip groups scroll together, not just
+                    // ContingencyChips' own inner scroll view: nested inside
+                    // a plain Row here, that inner view took its full
+                    // natural width instead of yielding to the Bailout/CCR
+                    // chips, overflowing this bar on a narrow phone (the
+                    // combined width of every chip no longer fits #3130).
+                    child: SingleChildScrollView(
+                      scrollDirection: Axis.horizontal,
+                      child: Row(
+                        mainAxisSize: MainAxisSize.min,
+                        children: [
+                          ContingencyChips(overlay: true),
+                          SizedBox(width: 6),
+                          ChartModeToggle(),
+                        ],
+                      ),
+                    ),
                   ),
                 ),
                 Positioned(
@@ -560,64 +582,31 @@ class _PlanCanvasPageState extends ConsumerState<PlanCanvasPage> {
 
   // --- Actions ---
 
-  Future<void> _sharePlanFile(Rect? shareAnchor) async {
-    final state = ref.read(divePlanNotifierProvider);
-    final json = planToSubplanJson(divePlanFromState(state));
-    final safeName = state.name
-        .replaceAll(RegExp(r'[^\w\s-]'), '')
-        .trim()
-        .replaceAll(RegExp(r'\s+'), '_');
-    await saveAndShareFile(
-      json,
-      '${safeName.isEmpty ? 'dive_plan' : safeName}.$subplanExtension',
-      'application/json',
-      sharePositionOrigin: shareAnchor,
+  Future<void> _exportPlanFile(Rect? shareAnchor) {
+    final l10n = context.l10n;
+    return deliverPlanExport(
+      context,
+      title: l10n.plannerCanvas_share_menu,
+      savedMessage: l10n.plannerCanvas_share_saved,
+      shareAnchor: shareAnchor,
+      build: () async => mounted ? planFileExport(ref) : null,
     );
   }
 
-  Future<void> _exportSlate(Rect? shareAnchor) async {
+  Future<void> _exportSlate(Rect? shareAnchor) {
     final l10n = context.l10n;
-    final state = ref.read(divePlanNotifierProvider);
-    final labels = PlanSlateLabels(
-      runtimeTable: l10n.divePlanner_label_decoSchedule,
-      gasPlan: l10n.divePlanner_label_gasConsumption,
-      contingencies: l10n.plannerCanvas_contingency_title,
-      lostGasLabel: l10n.plannerCanvas_contingency_lostGas,
-      rangeTable: l10n.plannerCanvas_range_title,
-      bailout: l10n.plannerCanvas_bailout_title,
-      duration: l10n.plannerCanvas_table_duration,
-      depth: l10n.plannerCanvas_table_depth,
-      runtime: l10n.plannerCanvas_table_runtime,
-      gas: l10n.plannerCanvas_table_gas,
-      turnAt: l10n.plannerCanvas_slate_turn,
-      minGas: l10n.plannerCanvas_slate_minGas,
-      base: l10n.plannerCanvas_range_base,
-      minutes: l10n.pdf_minutes,
-      maxPrefix: l10n.pdf_slateMax,
+    final labels = planSlateLabels(l10n);
+    final localization = PdfLocalization.forLanguageCode(
+      Localizations.localeOf(context).languageCode,
     );
-
-    final bytes = await const PlanSlatePdfService().buildSlate(
-      plan: divePlanFromState(state),
-      outcome: ref.read(planOutcomeProvider),
-      localization: PdfLocalization.forLanguageCode(
-        Localizations.localeOf(context).languageCode,
-      ),
-      deviations: ref.read(planDeviationsProvider),
-      lostGas: ref.read(planLostGasProvider),
-      rangeTable: ref.read(planRangeTableProvider),
-      bailout: ref.read(planBailoutProvider),
-      units: UnitFormatter(ref.read(settingsProvider)),
-      labels: labels,
-    );
-
-    final safeName = state.name
-        .replaceAll(RegExp(r'[^\w\s-]'), '')
-        .trim()
-        .replaceAll(RegExp(r'\s+'), '_');
-    await sharePdfBytes(
-      bytes,
-      '${safeName.isEmpty ? 'dive_plan' : safeName}_slate.pdf',
-      sharePositionOrigin: shareAnchor,
+    return deliverPlanExport(
+      context,
+      title: l10n.plannerCanvas_slate_menu,
+      savedMessage: l10n.plannerCanvas_slate_saved,
+      shareAnchor: shareAnchor,
+      build: () async => mounted
+          ? planSlateExport(ref, labels: labels, localization: localization)
+          : null,
     );
   }
 

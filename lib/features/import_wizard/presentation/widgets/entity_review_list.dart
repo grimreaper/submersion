@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 
+import 'package:submersion/core/domain/models/incoming_dive_data.dart';
+import 'package:submersion/features/dive_import/domain/services/dive_matcher.dart';
 import 'package:submersion/core/presentation/widgets/dive_sparkline.dart';
 import 'package:submersion/features/import_wizard/domain/models/duplicate_action.dart';
 import 'package:submersion/features/import_wizard/domain/models/entity_match_result.dart';
@@ -150,47 +152,57 @@ class _EntityReviewListState extends State<EntityReviewList> {
     return Column(
       crossAxisAlignment: CrossAxisAlignment.stretch,
       children: [
-        // Header row
+        // Header row. A Wrap, not a Row: on a phone the buttons left the
+        // count a sliver a few letters wide, so they move to a line of their
+        // own when the two do not fit side by side, and wrap among themselves
+        // at large text sizes (#3110).
         Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-          child: Row(
+          child: Wrap(
+            alignment: WrapAlignment.spaceBetween,
+            crossAxisAlignment: WrapCrossAlignment.center,
+            runSpacing: 4,
             children: [
-              Expanded(
-                child: Text(
-                  _itemCountText(
-                    l10n,
-                    nonDuplicateCount,
-                    duplicateCount,
-                    widget.selectedIndices.length,
-                  ),
-                  style: theme.textTheme.bodySmall?.copyWith(
-                    color: colorScheme.onSurfaceVariant,
-                  ),
+              Text(
+                _itemCountText(
+                  l10n,
+                  nonDuplicateCount,
+                  duplicateCount,
+                  widget.selectedIndices.length,
+                ),
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: colorScheme.onSurfaceVariant,
                 ),
               ),
-              if (widget.sortField != null && widget.onSortFieldChanged != null)
-                _SortMenuButton(
-                  sortField: widget.sortField!,
-                  sortAscending: widget.sortAscending,
-                  onSortFieldChanged: widget.onSortFieldChanged!,
-                ),
-              TextButton(
-                onPressed: widget.onSelectAll,
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(l10n.universalImport_action_selectAll),
-              ),
-              TextButton(
-                onPressed: widget.onDeselectAll,
-                style: TextButton.styleFrom(
-                  padding: const EdgeInsets.symmetric(horizontal: 8),
-                  minimumSize: Size.zero,
-                  tapTargetSize: MaterialTapTargetSize.shrinkWrap,
-                ),
-                child: Text(l10n.universalImport_action_deselectAll),
+              Wrap(
+                crossAxisAlignment: WrapCrossAlignment.center,
+                children: [
+                  if (widget.sortField != null &&
+                      widget.onSortFieldChanged != null)
+                    _SortMenuButton(
+                      sortField: widget.sortField!,
+                      sortAscending: widget.sortAscending,
+                      onSortFieldChanged: widget.onSortFieldChanged!,
+                    ),
+                  TextButton(
+                    onPressed: widget.onSelectAll,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(l10n.universalImport_action_selectAll),
+                  ),
+                  TextButton(
+                    onPressed: widget.onDeselectAll,
+                    style: TextButton.styleFrom(
+                      padding: const EdgeInsets.symmetric(horizontal: 8),
+                      minimumSize: Size.zero,
+                      tapTargetSize: MaterialTapTargetSize.shrinkWrap,
+                    ),
+                    child: Text(l10n.universalImport_action_deselectAll),
+                  ),
+                ],
               ),
             ],
           ),
@@ -363,8 +375,17 @@ class _EntityReviewListState extends State<EntityReviewList> {
         onChangeFillTarget: widget.onChangeFillTarget == null
             ? null
             : () => widget.onChangeFillTarget!(index),
+        inBatchPartner: _inBatchPartner(matchResult),
       ),
     );
+  }
+
+  /// The other copy's dive data when [match] is another row of this import.
+  IncomingDiveData? _inBatchPartner(DiveMatchResult match) {
+    final partner = match.inBatchIndex;
+    final items = widget.group.items;
+    if (partner == null || partner < 0 || partner >= items.length) return null;
+    return items[partner].diveData;
   }
 
   List<int> _nonDuplicateIndices() {

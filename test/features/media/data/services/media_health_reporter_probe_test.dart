@@ -5,6 +5,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:submersion/core/data/repositories/sync_repository.dart';
+import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/database/local_cache_database.dart';
 import 'package:submersion/core/services/database_service.dart';
@@ -20,7 +21,6 @@ import 'package:submersion/features/media/domain/entities/media_item.dart';
 import 'package:submersion/features/media/domain/entities/media_source_type.dart';
 import 'package:submersion/features/media/domain/services/media_source_resolver.dart';
 import 'package:submersion/features/media/domain/value_objects/media_source_data.dart';
-import 'package:submersion/features/media/domain/value_objects/media_source_metadata.dart';
 import 'package:submersion/features/media/domain/value_objects/verify_result.dart';
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
 
@@ -42,7 +42,9 @@ void main() {
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
     db = await setUpTestDatabase();
-    cacheDb = LocalCacheDatabase(NativeDatabase.memory());
+    cacheDb = LocalCacheDatabase(
+      NativeDatabase.memory(setup: registerAppSqlFunctions),
+    );
     LocalCacheDatabaseService.instance.setTestDatabase(cacheDb);
     bucket = InMemoryMediaObjectStore();
     nameLookups = 0;
@@ -202,7 +204,4 @@ class _StubResolver implements MediaSourceResolver {
     MediaItem item, {
     required Size target,
   }) => throw StateError('a report must never take the bytes path');
-
-  @override
-  Future<MediaSourceMetadata?> extractMetadata(MediaItem item) async => null;
 }

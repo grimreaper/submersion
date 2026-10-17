@@ -1,0 +1,378 @@
+import 'package:flutter_test/flutter_test.dart';
+import 'package:submersion/core/services/database_service.dart';
+import 'package:submersion/core/services/shared_library/crypto/library_cipher.dart';
+import 'package:submersion/core/services/shared_library/shared_library_models.dart';
+import 'package:submersion/core/services/shared_library/shared_library_store.dart';
+import 'package:submersion/core/services/sync/hlc.dart';
+import 'package:submersion/features/divers/data/repositories/diver_repository.dart';
+import 'package:submersion/features/divers/domain/entities/diver.dart';
+
+import '../../../helpers/test_database.dart';
+
+void main() {
+  late SharedLibraryStore store;
+
+  setUp(() async {
+    await setUpTestDatabase();
+    store = SharedLibraryStore();
+    await DiverRepository().createDiver(
+      Diver(
+        id: 'd1',
+        name: 'Ann',
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+      ),
+    );
+  });
+
+  tearDown(tearDownTestDatabase);
+
+  test('two first calls for a signing key agree on one', () async {
+    await store.upsertMembership(
+      const SharedLibraryMembership(
+        id: 'ms',
+        diverId: 'd1',
+        libraryId: 'L',
+        memberId: 'm1',
+        displayName: 'Ann',
+        libraryName: 'Reef Survey',
+        backendKind: 's3',
+      ),
+    );
+    final both = await Future.wait([
+      store.ensureSigningKey('d1'),
+      store.ensureSigningKey('d1'),
+    ]);
+    final stored = (await store.signingKeyForDiver('d1'))!;
+    expect(both[0].publicKey, stored.publicKey);
+    expect(both[1].publicKey, stored.publicKey);
+  });
+
+  test(
+    "the library's current key wins over another profile's stale one",
+    () async {
+      await DiverRepository().createDiver(
+        Diver(
+          id: 'd2',
+          name: 'Bo',
+          createdAt: DateTime(2026),
+          updatedAt: DateTime(2026),
+        ),
+      );
+      final stale = await LibraryCipher.generate();
+      final current = await LibraryCipher.generate();
+      await store.upsertLibrary(
+        SharedLibrary(
+          id: 'L',
+          name: 'Reef Survey',
+          connectedAccountId: 'acc',
+          prefix: 'site-sync',
+          encrypted: true,
+          keyId: current.keyId,
+        ),
+      );
+      for (final (id, diver) in [('ms1', 'd1'), ('ms2', 'd2')]) {
+        await store.upsertMembership(
+          SharedLibraryMembership(
+            id: id,
+            diverId: diver,
+            libraryId: 'L',
+            memberId: 'm-$diver',
+            displayName: diver,
+            libraryName: 'Reef Survey',
+            backendKind: 's3',
+          ),
+        );
+      }
+      // The first profile still holds the key from before a passphrase change.
+      await store.setLibraryKey(
+        diverId: 'd1',
+        libraryId: 'L',
+        keyId: stale.keyId,
+        key: await stale.exportKey(),
+      );
+      await store.setLibraryKey(
+        diverId: 'd2',
+        libraryId: 'L',
+        keyId: current.keyId,
+        key: await current.exportKey(),
+      );
+      expect((await store.libraryCipherFor('L'))!.keyId, current.keyId);
+    },
+  );
+
+  test('library round trip, status update and cascade delete', () async {
+    await store.upsertLibrary(
+      const SharedLibrary(
+        id: 'L',
+        name: 'Reef Survey',
+        connectedAccountId: 'acc',
+        prefix: 'site-sync/',
+      ),
+    );
+    await store.replaceMembers('L', [
+      SharedLibraryMember(
+        memberId: 'm1',
+        displayName: 'Ann',
+        joinedAt: DateTime.utc(2026),
+      ),
+    ]);
+    await store.setLibraryStatus(
+      'L',
+      lastError: 'boom',
+      roles: const SharedLibraryRoles(owners: {'m1'}),
+    );
+    final lib = (await store.getLibrary('L'))!;
+    expect(lib.lastError, 'boom');
+    expect(lib.prefix, 'site-sync/');
+    expect(lib.roles.roleOf('m1'), SharedLibraryRole.owner);
+    expect(await store.memberNames('L'), {'m1': 'Ann'});
+    await store.setLibraryStatus('L', clearError: true, readOnlyDetected: true);
+    final again = (await store.getLibrary('L'))!;
+    expect(again.lastError, isNull);
+    expect(again.readOnlyDetected, isTrue);
+    expect((await store.getLibraries()).map((l) => l.id), ['L']);
+    await store.deleteLibrary('L');
+    expect(await store.getMembers('L'), isEmpty);
+    expect(await store.getLibrary('L'), isNull);
+  });
+
+  test(
+    'upsertLibrary and setLibraryStatus round-trip the description',
+    () async {
+      await store.upsertLibrary(
+        const SharedLibrary(
+          id: 'L',
+          name: 'Reef Survey',
+          connectedAccountId: 'acc',
+          prefix: 'site-sync',
+          description: 'Group sites',
+        ),
+      );
+      expect((await store.getLibrary('L'))!.description, 'Group sites');
+      await store.setLibraryStatus('L', description: 'New');
+      expect((await store.getLibrary('L'))!.description, 'New');
+      await store.setLibraryStatus('L', lastError: 'x');
+      expect((await store.getLibrary('L'))!.description, 'New');
+      await store.setLibraryStatus('L', clearDescription: true);
+      expect((await store.getLibrary('L'))!.description, isNull);
+    },
+  );
+
+  test('memberIdForDiver is stable across libraries', () async {
+    final first = await store.memberIdForDiver('d1');
+    await store.upsertMembership(
+      SharedLibraryMembership(
+        id: 'ms1',
+        diverId: 'd1',
+        libraryId: 'L',
+        memberId: first,
+        displayName: 'Ann',
+        libraryName: 'Reef Survey',
+        backendKind: 's3',
+      ),
+    );
+    expect(await store.memberIdForDiver('d1'), first);
+    final rows = await store.membershipsForDiver('d1');
+    expect(rows.single.memberId, first);
+    expect((await store.membership(diverId: 'd1', libraryId: 'L'))?.id, 'ms1');
+    expect(await store.membership(diverId: 'd1', libraryId: 'X'), isNull);
+    expect((await store.membershipsForLibrary('L')).single.diverId, 'd1');
+    await store.deleteMembership('ms1');
+    expect(await store.membershipsForDiver('d1'), isEmpty);
+  });
+
+  test('upsertMembership stamps an hlc for personal sync', () async {
+    await store.upsertMembership(
+      const SharedLibraryMembership(
+        id: 'ms1',
+        diverId: 'd1',
+        libraryId: 'L',
+        memberId: 'm',
+        displayName: 'Ann',
+        libraryName: 'Reef Survey',
+        backendKind: 's3',
+      ),
+    );
+    final row = await DatabaseService.instance.database
+        .customSelect(
+          "SELECT hlc FROM shared_library_memberships WHERE id = 'ms1'",
+        )
+        .getSingle();
+    expect(row.read<String?>('hlc'), isNotNull);
+  });
+
+  test('site state keeps clocks, the dirty flag and deleted', () async {
+    const clock = FieldClock(hlc: Hlc(1, 0, 'm'), memberId: 'm');
+    const state = SharedSiteState(
+      siteId: 's',
+      libraryId: 'L',
+      clocks: {'name': clock},
+      dirty: true,
+    );
+    await store.putSiteState(state);
+    final read = (await store.getSiteState('s'))!;
+    expect(read.clocks['name'], clock);
+    expect(read.dirty, isTrue);
+    expect(read.deleted, isFalse);
+    expect((await store.dirtySites('L')).map((e) => e.siteId), ['s']);
+    expect((await store.siteStates('L')).keys, ['s']);
+    await store.putSiteState(read.copyWith(deleted: true, dirty: false));
+    final after = (await store.getSiteState('s'))!;
+    expect(after.deleted, isTrue);
+    expect(await store.dirtySites('L'), isEmpty);
+    await store.deleteSiteState('s');
+    expect(await store.getSiteState('s'), isNull);
+  });
+
+  test('suggestions filter by direction, status and site', () async {
+    await store.putSuggestion(
+      SharedSiteSuggestion(
+        id: 'g1',
+        libraryId: 'L',
+        siteId: 's',
+        memberId: 'm',
+        memberName: 'Ann',
+        fields: const {'notes': 'x'},
+        createdAt: DateTime.utc(2026),
+        direction: 'outgoing',
+        status: 'pending',
+      ),
+    );
+    expect(
+      await store.suggestions('L', direction: 'outgoing', status: 'pending'),
+      hasLength(1),
+    );
+    expect(await store.suggestions('L', direction: 'incoming'), isEmpty);
+    expect(await store.suggestions('L', siteId: 'other'), isEmpty);
+    final s = (await store.suggestions('L')).single;
+    expect(s.fields, {'notes': 'x'});
+    await store.putSuggestion(s.copyWith(status: 'uploaded'));
+    expect(await store.suggestions('L', status: 'pending'), isEmpty);
+    await store.deleteSuggestion('g1');
+    expect(await store.suggestions('L'), isEmpty);
+  });
+
+  test('deleting a library drops its site states and suggestions', () async {
+    await store.upsertLibrary(
+      const SharedLibrary(
+        id: 'L',
+        name: 'Reef Survey',
+        connectedAccountId: 'a',
+        prefix: 'p',
+      ),
+    );
+    await store.putSiteState(
+      const SharedSiteState(
+        siteId: 'gone',
+        libraryId: 'L',
+        deleted: true,
+        dirty: true,
+      ),
+    );
+    await store.putSuggestion(
+      SharedSiteSuggestion(
+        id: 'g',
+        libraryId: 'L',
+        siteId: 'gone',
+        memberId: 'm',
+        memberName: 'M',
+        createdAt: DateTime.utc(2026),
+        direction: SharedSiteSuggestion.incoming,
+      ),
+    );
+    await store.deleteLibrary('L');
+    expect(
+      await store.getSiteState('gone'),
+      isNull,
+      reason: 'a stale pending tombstone would delete the site on rejoin',
+    );
+    expect(await store.suggestions('L'), isEmpty);
+  });
+
+  test('a membership write stamps its clock for the personal sync', () async {
+    await store.upsertMembership(
+      const SharedLibraryMembership(
+        id: 'ms',
+        diverId: 'd1',
+        libraryId: 'L',
+        memberId: 'm',
+        displayName: 'Ann',
+        libraryName: 'Reef Survey',
+        backendKind: 's3',
+      ),
+    );
+    final rows = await DatabaseService.instance.database
+        .customSelect(
+          "SELECT hlc FROM shared_library_memberships WHERE id = 'ms'",
+        )
+        .get();
+    expect(rows.single.read<String?>('hlc'), isNotNull);
+  });
+
+  SharedLibraryMembership membershipOf(String id, String libraryId) =>
+      SharedLibraryMembership(
+        id: id,
+        diverId: 'd1',
+        libraryId: libraryId,
+        memberId: 'm1',
+        displayName: 'Ann',
+        libraryName: 'Library $libraryId',
+        backendKind: 's3',
+      );
+
+  test('a profile has one signing key across its memberships', () async {
+    final store = SharedLibraryStore();
+    await store.upsertMembership(membershipOf('ms-a', 'A'));
+    final key = await store.ensureSigningKey('d1');
+    await store.upsertMembership(membershipOf('ms-b', 'B'));
+    expect((await store.signingKeyForDiver('d1'))!.publicKey, key.publicKey);
+    final b = await store.membership(diverId: 'd1', libraryId: 'B');
+    expect(b!.signingKey!.publicKey, key.publicKey);
+    expect((await store.ensureSigningKey('d1')).publicKey, key.publicKey);
+  });
+
+  test('a keyless write never erases a key', () async {
+    final store = SharedLibraryStore();
+    await store.upsertMembership(membershipOf('ms-a', 'A'));
+    final key = await store.ensureSigningKey('d1');
+    await store.setLibraryKey(
+      diverId: 'd1',
+      libraryId: 'A',
+      keyId: 'k1',
+      key: 'secret',
+    );
+    await store.upsertMembership(membershipOf('ms-a', 'A'));
+    final a = (await store.membership(diverId: 'd1', libraryId: 'A'))!;
+    expect(a.signingKey!.privateKey, key.privateKey);
+    expect(a.libraryKeyId, 'k1');
+    expect(a.libraryKey, 'secret');
+    await store.setLibraryKey(diverId: 'd1', libraryId: 'A');
+    final cleared = (await store.membership(diverId: 'd1', libraryId: 'A'))!;
+    expect(cleared.libraryKey, isNull);
+    expect(cleared.signingKey, isNotNull);
+  });
+
+  test('member cards keep their key and verification', () async {
+    await store.upsertLibrary(
+      const SharedLibrary(
+        id: 'L',
+        name: 'Reef Survey',
+        connectedAccountId: 'a',
+        prefix: 'p',
+      ),
+    );
+    await store.replaceMembers('L', [
+      SharedLibraryMember(
+        memberId: 'm1',
+        displayName: 'Ann',
+        joinedAt: DateTime.utc(2026),
+        publicKey: 'pk',
+        cardVerified: true,
+      ),
+    ]);
+    final m = (await store.getMembers('L')).single;
+    expect(m.publicKey, 'pk');
+    expect(m.cardVerified, isTrue);
+  });
+}

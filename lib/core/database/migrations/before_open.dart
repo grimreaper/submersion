@@ -7,17 +7,47 @@ part of 'app_database_migrations.dart';
 /// asserted again here.
 extension BeforeOpenBackstops on AppDatabase {
   Future<void> _beforeOpen(OpeningDetails details) async {
+    // v261 backstop: drop diver_settings.default_ceiling_source from a
+    // database that reached 261 without the rung.
+    await _dropDefaultCeilingSourceColumn();
+
+    // v275 backstop: the REAL default start pressure.
+    await _retypeDefaultStartPressureColumn();
+
+    // v257 backstop: metadata-only profile revision history over existing
+    // dive_profile_series rows. Safe to re-run: INSERT OR IGNORE keeps
+    // existing revisions untouched and only fills missing pointer rows.
+    await _assertProfileSeriesHistorySchema();
+    await _backfillProfileSeriesHistoryRows();
+    // v283 backstop: dive_profile_series.activated_at, after the history it
+    // backfills from.
+    await _assertProfileSeriesActivatedAt();
+
+    // v252 backstop: nav_tracks.diver_id. Column only; the backfill stays
+    // in the rung.
+    await _assertNavTrackDiverIdColumn();
+
+    // v249 backstop: the trip fill forecast's columns.
+    await _assertTripFillForecastColumns();
+
     // v240 backstop: the events-by-dive index.
     await _assertProfileEventsDiveIdIndex();
+    // v260: dive_tanks.shared_computer_ids (#2560), and the inference for a
+    // consolidated dive that arrived since with nothing recorded.
+    await _assertTankSharedComputerIds();
 
-    // v237 backstop: the dive figure switch.
-    await _assertShowDiveFigureColumn();
+    // v263, v262 and v237 backstops: the distance unit, the synced view
+    // mode and device-preference columns, and the dive figure switch.
+    await _assertDiverSettingsDisplayColumns();
 
     // v229 backstop: the per-set diver figure switch.
     await _assertEquipmentSetShowFigureColumn();
 
-    // v227 backstop: the hidden built-in tank presets.
-    await _assertHiddenTankPresetIdsColumn();
+    // v227 and v269 backstops: hidden tank presets and built-in entries.
+    await _assertHiddenPickerEntryColumns();
+
+    // v274 backstop: the planning disclaimer confirmation column.
+    await _assertHasAcceptedPlanningDisclaimerColumn();
 
     // v222 backstop: the per-site vertical exaggeration overrides.
     await _assertSeascapeVerticalExaggerationOverridesColumn();
@@ -28,8 +58,22 @@ extension BeforeOpenBackstops on AppDatabase {
     // v217 and v219 backstop: the tag scope flags.
     await _assertTagScopeColumns();
 
-    // v211 backstop: re-assert diver_settings.auto_tag_imports.
+    // v211 and v264 backstops: diver_settings.auto_tag_imports and
+    // default_show_late_gas_switches.
     await _assertAutoTagImportsColumn();
+    await _assertLateGasSwitchSettingColumn();
+    // v276 backstop: diver_settings.icd_warnings_enabled.
+    await _assertIcdWarningsColumn();
+    // v278 backstop: the dives visibility range columns.
+    await _assertVisibilityRangeColumns();
+    // v281 backstop: diver_settings.trend_gap_collapse_months.
+    await _assertTrendGapCollapseColumn();
+    // v284 backstop: diver_settings.profile_color_*.
+    await _assertProfileMetricColorColumns();
+    // v286 backstop: diver_settings.equipment_default_statuses.
+    await _assertEquipmentDefaultStatusesColumn();
+    // v290 backstop: dive_plan_segments.split_at_configured_rate.
+    await _assertSegmentSplitAtRateColumn();
 
     // v210 backstop: the dive_tanks equipment link sets null on delete.
     // First, while foreign keys are still off: the rebuild it may do
@@ -115,17 +159,7 @@ extension BeforeOpenBackstops on AppDatabase {
 
     // v114 backstop: re-assert sync_peer_cursors.applied_hlc_high and the
     // deletion_log unique index.
-    final peerCursorCols = await customSelect(
-      "PRAGMA table_info('sync_peer_cursors')",
-    ).get();
-    final hasAppliedHlcHigh = peerCursorCols.any(
-      (c) => c.read<String>('name') == 'applied_hlc_high',
-    );
-    if (peerCursorCols.isNotEmpty && !hasAppliedHlcHigh) {
-      await customStatement(
-        'ALTER TABLE sync_peer_cursors ADD COLUMN applied_hlc_high TEXT',
-      );
-    }
+    await _addColumnIfMissing('sync_peer_cursors', 'applied_hlc_high', 'TEXT');
     await ensureDeletionLogIndex();
 
     // v120 backstop: re-assert planner Subsurface-parity columns.
@@ -140,56 +174,23 @@ extension BeforeOpenBackstops on AppDatabase {
     // version-collision self-heal; createTable is idempotent).
     await Migrator(this).createTable(siteFeatures);
 
-    // v217 backstop: site classification tables, seed and indexes
-    // (parallel-branch version-collision self-heal; all idempotent).
-    await _assertSiteClassificationSchema();
+    // v217 to v267 table backstops (before_open_table_backstops.dart).
+    await _tableBackstopsFromV217();
 
-    // v219 backstop: the equipment tag junction and its index
-    // (parallel-branch version-collision self-heal; all idempotent).
-    await _assertEquipmentTagSchema();
-
-    // v221 backstop: the rental gear notes table (parallel-branch
-    // version-collision self-heal; createTable is idempotent).
-    await _assertDiveCenterGearNotesSchema();
-
-    // v232 backstop: the trip cylinder tables and the dive_tanks link
-    // (parallel-branch version-collision self-heal; all idempotent).
-    await _assertTripCylindersSchema();
-
-    // v234 backstop: the equipment sharing tables and the share pair
-    // index (parallel-branch version-collision self-heal; all
-    // idempotent).
-    await _assertEquipmentSharingSchema();
-
-    // v235 backstop: connection_maps and idx_sightings_dive_id
-    // (parallel-branch version-collision self-heal; idempotent).
-    await _assertConnectionMapsSchema();
-
-    // v236 backstop: re-assert the dive_scenarios table and its index. A
-    // database that arrives by restore or sync-adopt never runs onUpgrade,
-    // and one already past 236 skips the v236 rung.
-    await _assertDiveScenariosSchema();
-
-    // v238 backstop: re-assert the saved_queries table. A database that
-    // arrives by restore or sync-adopt never runs onUpgrade, and one
-    // already at 239 or later skips the v238 rung.
-    await _assertSavedQueriesSchema();
-
-    // v242 backstop: the equipment service cache (local, idempotent).
-    await _assertEquipmentServiceStatusTable();
-
-    // v122 backstop: re-assert service ledger schema + built-in kinds.
-    // The legacy backfill is NOT here (onUpgrade only) -- re-running it
-    // would resurrect user-deleted schedules.
+    // v122 backstop: service ledger schema + built-in kinds. The legacy
+    // backfill is onUpgrade only: re-running it resurrects deleted schedules.
     await _assertServiceLedgerSchema();
 
+    // v271 backstop: currency tables and built-in rules, re-seeded (#2267).
+    await _assertCertificationCurrencySchema();
     // v123 backstop: re-assert safety review tables + settings columns
     // (parallel-branch collision self-heal).
     await _assertSafetyReviewSchema();
+    // v253 backstop: the review's inputs fingerprint, after the table above.
+    await _assertSafetyReviewInputsHashColumn();
 
-    // v124 backstop: re-assert the equipment_attributes table (schema
-    // only -- the legacy-column copy must NOT run here, it would
-    // resurrect attribute rows the user has cleared).
+    // v124 backstop: equipment_attributes schema only. The legacy copy must
+    // NOT run here: it would resurrect attribute rows the user cleared.
     await _assertEquipmentAttributesSchema();
 
     // v125 backstop: re-assert diver_settings.no_fly_preset.
@@ -364,10 +365,10 @@ extension BeforeOpenBackstops on AppDatabase {
     // parallel-branch version-collision self-heal).
     await _assertSiteSuggestionDismissedAtColumn();
 
-    // v164 backstop: re-assert media.manual_elapsed_seconds (issue
-    // #1090; same parallel-branch version-collision self-heal). The
-    // media row mapper reads it on every hydration.
-    await _assertMediaManualElapsedColumn();
+    // v164 and v266 backstops: re-assert media.manual_elapsed_seconds
+    // (#1090) and the site attachment columns (#1039). The media row
+    // mapper reads all three on every hydration.
+    await _assertMediaRowColumns();
     // v165 backstop: re-assert diver_settings.trim_tank_pressure_at_
     // surfacing (issue #1092; same parallel-branch collision self-heal).
     await _assertSurfacingPressureColumn();
@@ -429,6 +430,12 @@ extension BeforeOpenBackstops on AppDatabase {
     // arrives by restore or sync-adopt without them would throw on the
     // first read.
     await _assertBuddyProfileDiveLinkColumns();
+    // v256 backstop: re-assert dives.computer_tissue_json. Every dive
+    // read selects the whole row, so a database that arrives by restore
+    // or sync-adopt without it would throw on the first read.
+    await _assertComputerTissueColumn();
+    // v258 backstop: gas_switches.computer_id (#2582), backfill included.
+    await _assertGasSwitchComputerIdColumn();
     // v182 backstop: re-assert the packed profile series tables, then
     // pack any dive that still has legacy rows and no series row. A
     // schema-version collision with a parallel branch skips the rung on
@@ -511,6 +518,19 @@ extension BeforeOpenBackstops on AppDatabase {
       );
     }
 
+    // v241 backstop: re-assert tank_pressure_series.source_id
+    // (parallel-branch version-collision self-heal). Column only; the
+    // backfill stays in the rung. After the v182 backstop above, whose raw
+    // DDL predates the column: a series table it creates on this open
+    // gets the column on this open too.
+    await _assertTankSeriesSourceIdColumn();
+
+    // v251 backstop: re-assert dive_tanks.source_id (#2716; same
+    // parallel-branch version-collision self-heal). Column only; the
+    // backfill stays in the rung, and a tank with no source resolves to the
+    // dive's primary source, as before the column.
+    await _assertDiveTankSourceIdColumn();
+
     // v186 backstop: re-assert pre_dive_checklist_template_items.
     // equipment_id (same parallel-branch version-collision self-heal).
     // Safe to re-run on every open: the helper is column-only with no
@@ -558,11 +578,12 @@ extension BeforeOpenBackstops on AppDatabase {
     // only, so it cannot touch diver data.
     await _assertCcrPpO2LimitColumns();
 
-    // v194 backstop: re-assert dive_tanks.transmitter_serial. Every tank
-    // read selects the whole row, so a database that arrives by restore
-    // or sync-adopt without the rung would throw on the first read.
-    // Column only, no backfill, so it cannot touch diver data.
-    await _assertTankTransmitterSerialColumn();
+    // v194, v254, v259, v270 and v287 backstops: dive_tanks and weight columns
+    // every row read selects (before_open_child_columns.dart).
+    await _assertChildRowColumns();
+
+    // A restored backup's note table (before_open_backup_note.dart).
+    await _dropRestoredBackupNoteTable();
 
     // v145 backstop: re-assert the gps_tracks provenance and trim columns.
     await _assertGpsTrackColumns();
@@ -633,25 +654,10 @@ extension BeforeOpenBackstops on AppDatabase {
     // arrives by restore or sync-adopt never runs onUpgrade.
     await _assertDivePlanMissionSchema();
 
-    // v103 backstop: dive_roles table + built-in seed + dives.diver_role
-    // column (same collision disease; all DDL idempotent). The seed is
-    // guarded on the divers FK parent existing, which only matters for
-    // minimal test-fixture databases.
-    await Migrator(this).createTable(diveRoles);
-    final diversParent = await customSelect(
-      "SELECT name FROM sqlite_master "
-      "WHERE type='table' AND name='divers'",
-    ).get();
-    if (diversParent.isNotEmpty) {
-      await customStatement(kSeedBuiltInDiveRolesSql);
-    }
-    final divesCols = await customSelect("PRAGMA table_info('dives')").get();
-    final hasDiverRoleCol = divesCols.any(
-      (c) => c.read<String>('name') == 'diver_role',
-    );
-    if (divesCols.isNotEmpty && !hasDiverRoleCol) {
-      await customStatement('ALTER TABLE dives ADD COLUMN diver_role TEXT');
-    }
+    // v103 and v272 backstops: the dive role vocabulary and
+    // dives.diver_role, then the role junctions (issue #1221).
+    await _assertDiveRoleVocabularySchema();
+    await _assertDiveRoleLinkSchema();
 
     // v104 backstop: weight prediction tables + columns (same collision
     // disease; all DDL idempotent). Indexes for the new tables are in the
@@ -721,6 +727,7 @@ extension BeforeOpenBackstops on AppDatabase {
     // restore or sync-adopt never runs onUpgrade, and that is exactly the
     // second device the duplicate types came from.
     await assertDiveTypeUniqueness(this);
+    await _assertCourseLinks(); // v288 (#2515)
 
     // Data self-heal: backfill a primary dive_data_sources row for dives
     // that have profile samples but no source row (legacy file imports).
@@ -739,10 +746,25 @@ extension BeforeOpenBackstops on AppDatabase {
     // the backfill above.
     await _backfillDiveComputerIds();
 
+    // Data self-heal (issue #3106): store downloaded Shearwater serials in
+    // the hex the computer shows, before the #1288 pass below matches file
+    // imports against them. Local-only, no HLC bump.
+    await _healShearwaterDownloadSerials();
+
     // Data self-heal (issue #1288): register the computers that
     // file-imported dives name, so they reach the filter at all. AFTER
     // the #1064 heal above, which resolves the same column from the
     // stronger download-derived signal.
     await _backfillImportedDiveComputers();
+
+    // Data self-heal (issue #3106): give computers registered before
+    // connections existed the connections their data proves. AFTER the
+    // #1288 pass, so a computer it just registered gets its file
+    // connections too. Local-only, deterministic ids, no HLC bump.
+    await _seedDiveComputerConnections();
+
+    // Issue #3343: the v62 view_configs unique index, which a fresh install
+    // never got (before_open_view_configs.dart).
+    await _assertViewConfigsUniqueIndex();
   }
 }

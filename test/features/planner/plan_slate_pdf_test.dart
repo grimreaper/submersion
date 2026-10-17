@@ -12,6 +12,7 @@ import 'package:submersion/features/planner/domain/services/contingency_service.
 import 'package:submersion/features/planner/domain/services/plan_engine.dart';
 import 'package:submersion/features/planner/domain/services/range_table_service.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
+import '../../helpers/fake_hosts.dart';
 
 const _air = GasMix(o2: 21);
 const _ean50 = GasMix(o2: 50);
@@ -20,6 +21,10 @@ const _airTank = DiveTank(
   volume: 11.1,
   startPressure: 207.0,
   gasMix: _air,
+  // Diluent is now an explicit per-tank choice on a loop plan, honoured by
+  // TankRoleResolver and never inferred from being breathed -- needed for
+  // the CCR bailout-slate case below.
+  role: TankRole.diluent,
 );
 const _decoTank = DiveTank(
   id: 'tank-2',
@@ -105,6 +110,13 @@ Future<List<int>> _build(domain.DivePlan plan) {
 }
 
 void main() {
+  // PdfFonts downloads Roboto on first use. The font host answers as
+  // offline, so the PDF falls back to Helvetica, as it would on a device
+  // without a network, and its text stays readable for the assertions.
+  setUp(() {
+    serveFakeHost('fonts.gstatic.com');
+  });
+
   test('OC slate renders a parseable PDF with all sections', () async {
     final bytes = await _build(_plan());
     expect(bytes, isNotEmpty);

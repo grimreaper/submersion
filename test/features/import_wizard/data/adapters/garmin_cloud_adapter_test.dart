@@ -1,8 +1,10 @@
+import 'package:flutter/widgets.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/annotations.dart';
 import 'package:mockito/mockito.dart';
 import 'package:submersion/core/services/garmin_connect/garmin_connect_client.dart';
 import 'package:submersion/core/services/garmin_connect/garmin_dive_mapper.dart';
+import 'package:submersion/features/dive_computer/domain/entities/dive_computer_connection.dart';
 import 'package:submersion/features/dive_computer/data/services/dive_import_service.dart';
 import 'package:submersion/features/dive_computer/domain/entities/downloaded_dive.dart';
 import 'package:submersion/features/dive_import/domain/services/dive_matcher.dart';
@@ -15,6 +17,7 @@ import 'package:submersion/features/dive_log/domain/services/unreadable_series_e
 import 'package:submersion/features/import_wizard/data/adapters/garmin_cloud_adapter.dart';
 import 'package:submersion/features/import_wizard/domain/models/duplicate_action.dart';
 import 'package:submersion/features/import_wizard/domain/models/import_bundle.dart';
+import 'package:submersion/features/import_wizard/presentation/widgets/garmin_cloud_adapter_steps.dart';
 import 'package:submersion/features/import_wizard/domain/models/import_cancellation_token.dart';
 import 'package:submersion/features/import_wizard/domain/models/import_notice.dart';
 import 'package:submersion/features/import_wizard/domain/models/import_phase.dart';
@@ -25,6 +28,7 @@ import 'package:submersion/features/import_wizard/domain/models/import_phase.dar
   MockSpec<DiveRepository>(),
   MockSpec<DiveConsolidationService>(),
 ])
+import '../../../../helpers/fake_dive_computer_connections.dart';
 import 'garmin_cloud_adapter_test.mocks.dart';
 
 GarminParsedDive makeParsedDive({
@@ -138,6 +142,58 @@ void main() {
   });
 
   group('buildBundle()', () {
+    test('names the account and the devices found (#161)', () async {
+      adapter
+        ..setAccount('diver@example.com')
+        ..setParsedDives([
+          makeParsedDive(deviceModel: 'Descent Mk2', serialNumber: 'SN-1'),
+          makeParsedDive(deviceModel: 'Descent G1', serialNumber: 'SN-2'),
+          makeParsedDive(deviceModel: 'Descent Mk2', serialNumber: 'SN-1'),
+          makeParsedDive(deviceModel: '  ', serialNumber: 'SN-3'),
+        ]);
+
+      final details = (await adapter.buildBundle()).source.details;
+
+      expect(details.account, 'diver@example.com');
+      expect(details.deviceModels, ['Descent Mk2', 'Descent G1']);
+    });
+
+    testWidgets('the Sign In step hands its account to the adapter', (
+      tester,
+    ) async {
+      late BuildContext context;
+      await tester.pumpWidget(
+        Builder(
+          builder: (c) {
+            context = c;
+            return const SizedBox.shrink();
+          },
+        ),
+      );
+      final step =
+          adapter.acquisitionSteps.first.builder(context)
+              as GarminCloudSignInStep;
+
+      step.onAccountSignedIn!('diver@example.com');
+      adapter.setParsedDives([makeParsedDive()]);
+      final details = (await tester.runAsync(
+        adapter.buildBundle,
+      ))!.source.details;
+
+      expect(details.account, 'diver@example.com');
+    });
+
+    test('resetState forgets the account', () async {
+      adapter
+        ..setAccount('diver@example.com')
+        ..resetState()
+        ..setParsedDives([makeParsedDive()]);
+
+      final details = (await adapter.buildBundle()).source.details;
+
+      expect(details.account, isNull);
+    });
+
     test(
       'resolves a computer per dive and returns one entity per dive',
       () async {
@@ -391,6 +447,66 @@ void main() {
   });
 
   group('performImport()', () {
+    test(
+      'an import whose every dive is skipped still records the Garmin Connect '
+      'connection (#3106)',
+      () async {
+        final connections = FakeDiveComputerConnections();
+        final recording = GarminCloudAdapter(
+          importService: mockImportService,
+          computerRepository: mockComputerRepo,
+          diveRepository: mockDiveRepo,
+          consolidationService: mockConsolidationService,
+          diverId: diverId,
+          connectionRepository: connections,
+        );
+        recording.setParsedDives([makeParsedDive()]);
+        final bundle = await recording.buildBundle();
+
+        await recording.performImport(bundle, {
+          ImportEntityType.dives: <int>{},
+        }, {});
+
+        expect(connections.recorded.map((r) => (r.kind, r.detail)), [
+          (DiveComputerConnectionKind.cloud, 'garminConnect'),
+        ]);
+      },
+    );
+
+    test(
+      'records the Garmin Connect connection on the computer (#3106)',
+      () async {
+        final connections = FakeDiveComputerConnections();
+        final recording = GarminCloudAdapter(
+          importService: mockImportService,
+          computerRepository: mockComputerRepo,
+          diveRepository: mockDiveRepo,
+          consolidationService: mockConsolidationService,
+          diverId: diverId,
+          connectionRepository: connections,
+        );
+        recording.setParsedDives([makeParsedDive()]);
+        final bundle = await recording.buildBundle();
+        when(
+          mockImportService.importSingleDiveAsNew(
+            any,
+            computerId: anyNamed('computerId'),
+            diverId: anyNamed('diverId'),
+            descriptorVendor: anyNamed('descriptorVendor'),
+            descriptorProduct: anyNamed('descriptorProduct'),
+          ),
+        ).thenAnswer((_) async => 'new-dive-id');
+
+        await recording.performImport(bundle, {
+          ImportEntityType.dives: {0},
+        }, {});
+
+        expect(connections.recorded.map((r) => (r.kind, r.detail)), [
+          (DiveComputerConnectionKind.cloud, 'garminConnect'),
+        ]);
+      },
+    );
+
     test('imports selected dives against their resolved computer', () async {
       adapter.setParsedDives([makeParsedDive()]);
       final bundle = await adapter.buildBundle();

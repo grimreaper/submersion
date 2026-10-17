@@ -9,6 +9,8 @@ import 'package:submersion/features/courses/domain/entities/course.dart';
 import 'package:submersion/features/courses/domain/entities/course_progress.dart';
 import 'package:submersion/features/courses/domain/entities/course_requirement.dart';
 import 'package:submersion/features/courses/presentation/providers/course_requirement_providers.dart';
+import 'package:submersion/features/certifications/presentation/providers/certification_currency_providers.dart';
+import 'package:submersion/features/certifications/presentation/providers/certification_query_providers.dart';
 import 'package:submersion/features/dashboard/presentation/providers/gauge_providers.dart';
 import 'package:submersion/features/dashboard/presentation/widgets/gauge_strip.dart';
 import 'package:submersion/features/divers/domain/entities/diver.dart';
@@ -23,6 +25,8 @@ import 'package:submersion/features/safety/domain/services/no_fly_service.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/trips/domain/entities/trip.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
+import 'package:submersion/features/documents/domain/document_expiry.dart';
+import 'package:submersion/features/documents/domain/entities/document.dart';
 
 import '../../../../helpers/mock_providers.dart';
 
@@ -115,7 +119,17 @@ Future<NavSpy> pumpStrip(
         path: '/certifications',
         builder: (_, _) => stub('/certifications'),
       ),
-      GoRoute(path: '/trips', builder: (_, _) => stub('/trips')),
+      GoRoute(
+        path: '/trips',
+        builder: (_, _) => stub('/trips'),
+        routes: [
+          GoRoute(
+            path: ':tripId',
+            builder: (_, state) =>
+                stub('/trips/${state.pathParameters['tripId']}'),
+          ),
+        ],
+      ),
       GoRoute(path: '/courses', builder: (_, _) => stub('/courses')),
       GoRoute(
         path: '/courses/:courseId',
@@ -149,8 +163,17 @@ Future<NavSpy> pumpStrip(
         builder: (_, _) => stub('/dives/quality'),
       ),
       GoRoute(
-        path: '/settings/diver-profile/insurance',
-        builder: (_, _) => stub('/settings/diver-profile/insurance'),
+        // Insurance is a document now (issue #2613); the chip opens the
+        // insurance documents.
+        path: '/documents',
+        builder: (_, state) => stub(state.uri.toString()),
+        routes: [
+          GoRoute(
+            path: ':id',
+            builder: (_, state) =>
+                stub('/documents/${state.pathParameters['id']}'),
+          ),
+        ],
       ),
     ],
   );
@@ -275,7 +298,7 @@ ActiveCourseProgress _course(String name, int satisfied, int total) {
       id: 'c1',
       diverId: 'd1',
       name: name,
-      agency: CertificationAgency.padi,
+      agency: CertificationAgency.padi.name,
       startDate: _t0,
       createdAt: _t0,
       updatedAt: _t0,
@@ -545,10 +568,10 @@ void main() {
       final spy = await pumpStrip(tester, _emptyGauges);
       expect(find.text('No insurance on file'), findsOneWidget);
       await tapChip(tester, 'No insurance on file');
-      expect(spy.location, '/settings/diver-profile/insurance');
+      expect(spy.location, '/documents?type=insurance');
     });
 
-    // Expiry is optional on InsuranceEditPage, so a DAN policy recorded
+    // Expiry is optional on an insurance document, so a DAN policy recorded
     // without a renewal date is a complete record, not a missing one. The
     // chip must agree with DiverInsurance.isValid, which keys off provider.
     testWidgets('a provider with no expiry date reads as insured', (
@@ -597,7 +620,7 @@ void main() {
       );
       expect(find.text('Insurance expired'), findsOneWidget);
       await tapChip(tester, 'Insurance expired');
-      expect(spy.location, '/settings/diver-profile/insurance');
+      expect(spy.location, '/documents?type=insurance');
     });
 
     testWidgets('expiring-soon insurance chip navigates to the record', (
@@ -620,7 +643,7 @@ void main() {
       expect(chip, findsOneWidget);
       await tester.tap(find.ancestor(of: chip, matching: find.byType(InkWell)));
       await tester.pumpAndSettle();
-      expect(spy.location, '/settings/diver-profile/insurance');
+      expect(spy.location, '/documents?type=insurance');
     });
 
     testWidgets('valid insurance chip navigates to the insurance record', (
@@ -640,7 +663,101 @@ void main() {
       );
       expect(find.text('Insurance OK'), findsOneWidget);
       await tapChip(tester, 'Insurance OK');
-      expect(spy.location, '/settings/diver-profile/insurance');
+      expect(spy.location, '/documents?type=insurance');
+    });
+  });
+
+  group('documents chip (issue #2613)', () {
+    Document doc(String id, DocumentType type, String title) => Document(
+      id: id,
+      diverId: 'd1',
+      owner: const DocumentOwner.personal(),
+      type: type,
+      title: title,
+      expiryDate: DateTime(2030),
+      createdAt: _t0,
+      updatedAt: _t0,
+    );
+
+    DashboardGauges withDocs(List<(Document, DocumentExpiryStatus)> docs) =>
+        DashboardGauges(
+          hasGear: true,
+          insurance: null,
+          noFlyStatus: null,
+          daysSinceLastDive: null,
+          attentionDocuments: docs,
+        );
+
+    const due12 = DocumentExpiryStatus(DocumentExpiryKind.dueSoon, 12);
+    const expired = DocumentExpiryStatus(DocumentExpiryKind.expired, -2);
+
+    Future<MockSettingsNotifier> documentsHidden() async {
+      final notifier = MockSettingsNotifier();
+      await notifier.setHomeChipEnabled(HomeChipType.documents.name, false);
+      return notifier;
+    }
+
+    testWidgets('one due document names it and opens it', (tester) async {
+      final spy = await pumpStrip(
+        tester,
+        withDocs([(doc('p1', DocumentType.permit, 'Marine park'), due12)]),
+      );
+      final label = chipLabels(
+        tester,
+      ).singleWhere((l) => l.startsWith('Marine park expires'));
+      await tapChip(tester, label);
+      expect(spy.location, '/documents/p1');
+    });
+
+    testWidgets('several show a count and open the expiring list', (
+      tester,
+    ) async {
+      final spy = await pumpStrip(
+        tester,
+        withDocs([
+          (doc('m1', DocumentType.medicalClearance, 'Clearance'), expired),
+          (doc('p1', DocumentType.permit, 'Marine park'), due12),
+        ]),
+      );
+      expect(chipLabels(tester), contains('2 documents need attention'));
+      await tapChip(tester, '2 documents need attention');
+      expect(spy.location, '/documents?filter=expiring');
+    });
+
+    testWidgets('one expired document says expired', (tester) async {
+      await pumpStrip(
+        tester,
+        withDocs([(doc('p1', DocumentType.permit, 'Marine park'), expired)]),
+      );
+      expect(chipLabels(tester), contains('Marine park expired'));
+    });
+
+    testWidgets('hidden, an expired medical clearance still shows', (
+      tester,
+    ) async {
+      await pumpStrip(
+        tester,
+        withDocs([
+          (doc('m1', DocumentType.medicalClearance, 'Clearance'), expired),
+          (doc('p1', DocumentType.permit, 'Marine park'), due12),
+        ]),
+        settingsNotifier: await documentsHidden(),
+      );
+      final labels = chipLabels(tester);
+      expect(labels, contains('Clearance expired'));
+      expect(labels.where((l) => l.contains('Marine park')), isEmpty);
+    });
+
+    testWidgets('hidden, a due permit shows nothing', (tester) async {
+      await pumpStrip(
+        tester,
+        withDocs([(doc('p1', DocumentType.permit, 'Marine park'), due12)]),
+        settingsNotifier: await documentsHidden(),
+      );
+      expect(
+        chipLabels(tester).where((l) => l.contains('Marine park')),
+        isEmpty,
+      );
     });
   });
 
@@ -799,7 +916,17 @@ void main() {
 
     testWidgets('past the alert threshold', (tester) async {
       await pumpDays(tester, kCurrencyAlertDays + 1);
-      expect(find.text('Last dive 366d ago'), findsOneWidget);
+      expect(find.text('Last dive 1y 1d ago'), findsOneWidget);
+    });
+
+    testWidgets('just under a year still counts days', (tester) async {
+      await pumpDays(tester, 364);
+      expect(find.text('Last dive 364d ago'), findsOneWidget);
+    });
+
+    testWidgets('a long break reads in years and days', (tester) async {
+      await pumpDays(tester, 800);
+      expect(find.text('Last dive 2y 70d ago'), findsOneWidget);
     });
 
     testWidgets('opens the dive log', (tester) async {
@@ -826,23 +953,51 @@ void main() {
   });
 
   group('attention chips', () {
-    testWidgets('certifications chip navigates', (tester) async {
-      final spy = await pumpStrip(
+    testWidgets(
+      'the certifications chip counts collapsed groups and opens the scope',
+      (tester) async {
+        final spy = await pumpStrip(
+          tester,
+          const DashboardGauges(
+            hasGear: true,
+            insurance: null,
+            noFlyStatus: null,
+            daysSinceLastDive: null,
+            certCurrency: CurrencyAttention(
+              count: 2,
+              certificationIds: {'a', 'b'},
+            ),
+          ),
+        );
+        expect(find.text('2 certifications need attention'), findsOneWidget);
+        expect(chipTone(tester, '2 certifications need attention'), 'warn');
+        await tapChip(tester, '2 certifications need attention');
+        expect(spy.location, '/certifications');
+        expect(
+          spy.container.read(certificationAttentionFilterProvider),
+          isTrue,
+          reason: 'the list opens scoped to what the chip counted',
+        );
+      },
+    );
+
+    testWidgets('a lapse makes the certifications chip alert-toned', (
+      tester,
+    ) async {
+      await pumpStrip(
         tester,
         const DashboardGauges(
           hasGear: true,
           insurance: null,
           noFlyStatus: null,
           daysSinceLastDive: null,
-          expiringCertCount: 2,
+          certCurrency: CurrencyAttention(count: 1, anyLapsed: true),
         ),
       );
-      expect(find.text('2 certifications expiring'), findsOneWidget);
-      await tapChip(tester, '2 certifications expiring');
-      expect(spy.location, '/certifications');
+      expect(chipTone(tester, '1 certification needs attention'), 'alert');
     });
 
-    testWidgets('trip chip navigates', (tester) async {
+    testWidgets('trip chip opens the trip it names, over Home', (tester) async {
       final spy = await pumpStrip(
         tester,
         DashboardGauges(
@@ -862,7 +1017,10 @@ void main() {
             .map((e) => (e.widget as Text).data!)
             .first,
       );
-      expect(spy.location, '/trips');
+      // The chip names one trip, so it opens that trip, pushed so Back
+      // returns Home at every width (#3350).
+      expect(spy.location, '/trips/Bonaire');
+      expect(spy.router.canPop(), isTrue);
     });
 
     testWidgets('checklist chip opens the active session', (tester) async {
@@ -966,7 +1124,8 @@ void main() {
       tester,
     ) async {
       await pumpStrip(tester, _emptyGauges);
-      expect(find.textContaining('certifications expiring'), findsNothing);
+      expect(find.textContaining('need attention'), findsNothing);
+      expect(find.textContaining('needs attention'), findsNothing);
       expect(find.text('Checklist in progress'), findsNothing);
       expect(find.textContaining('uploads pending'), findsNothing);
       expect(find.textContaining('data issues'), findsNothing);
@@ -1164,7 +1323,7 @@ void main() {
           insurance: const DiverInsurance(provider: 'DAN'),
           noFlyStatus: null,
           daysSinceLastDive: 12,
-          expiringCertCount: 2,
+          certCurrency: const CurrencyAttention(count: 2),
           nextTrip: _trip('Bonaire', 12),
           activeChecklistId: 'session-7',
           firstCourse: _course('AN/DP', 7, 12),
@@ -1524,6 +1683,48 @@ void main() {
       expect(find.byType(Wrap), findsNothing);
     });
 
+    testWidgets('a lapse on an entered date renders through the hide', (
+      tester,
+    ) async {
+      await pumpStrip(
+        tester,
+        const DashboardGauges(
+          hasGear: true,
+          insurance: null,
+          noFlyStatus: null,
+          daysSinceLastDive: null,
+          certCurrency: CurrencyAttention(
+            count: 5,
+            anyLapsed: true,
+            anyHardened: true,
+            hardenedCount: 1,
+          ),
+        ),
+        settingsNotifier: await allHidden(),
+      );
+      // Through the hide the chip names only what the hide cannot silence,
+      // as the gear chip shows only overdue items.
+      expect(find.text('1 certification needs attention'), findsOneWidget);
+      expect(find.textContaining('5 certifications'), findsNothing);
+    });
+
+    testWidgets('an inferred certification lapse stays hideable', (
+      tester,
+    ) async {
+      await pumpStrip(
+        tester,
+        const DashboardGauges(
+          hasGear: true,
+          insurance: null,
+          noFlyStatus: null,
+          daysSinceLastDive: null,
+          certCurrency: CurrencyAttention(count: 1, anyLapsed: true),
+        ),
+        settingsNotifier: await allHidden(),
+      );
+      expect(find.byType(Wrap), findsNothing);
+    });
+
     testWidgets('red currency and backup chips stay hideable', (tester) async {
       // Both go alert-tone at these thresholds, and both are habit nags
       // rather than dive-safety gates, so hiding them must still work.
@@ -1602,4 +1803,23 @@ void main() {
       expect(find.text('No dives yet'), findsOneWidget);
     });
   });
+}
+
+/// The light-palette tone of the chip whose label contains [text]: 'alert',
+/// 'warn', 'ok', or 'neutral'.
+String chipTone(WidgetTester tester, String text) {
+  final container = tester.widget<Container>(
+    find
+        .ancestor(
+          of: find.textContaining(text),
+          matching: find.byType(Container),
+        )
+        .first,
+  );
+  final fill = (container.decoration! as BoxDecoration).color;
+  const colors = StatusColors.light;
+  if (fill == colors.alert.container) return 'alert';
+  if (fill == colors.warn.container) return 'warn';
+  if (fill == colors.ok.container) return 'ok';
+  return 'neutral';
 }

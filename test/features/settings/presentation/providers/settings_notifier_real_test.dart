@@ -1,6 +1,8 @@
 import 'package:flutter/material.dart' show ThemeMode;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
+import 'package:submersion/core/built_ins/built_in_catalog.dart';
+import 'package:submersion/core/constants/units.dart';
 import 'package:submersion/core/deco/entities/cns_calculation_method.dart';
 import 'package:submersion/core/presentation/startup_brightness.dart';
 import 'package:submersion/core/presentation/startup_theme.dart';
@@ -10,6 +12,7 @@ import 'package:submersion/features/divers/domain/entities/diver.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/dive_log/domain/entities/safety_finding.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_finding.dart';
+import 'package:submersion/features/insights/domain/observations/observation_rule_id.dart';
 import 'package:submersion/features/safety/domain/services/no_fly_service.dart';
 import 'package:submersion/features/settings/data/repositories/diver_settings_repository.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
@@ -50,8 +53,9 @@ class _InMemorySettingsRepository extends DiverSettingsRepository {
   @override
   Future<void> updateSettingsForDiver(
     String diverId,
-    AppSettings settings,
-  ) async {
+    AppSettings settings, {
+    AppSettings? previous,
+  }) async {
     _stored = settings;
   }
 }
@@ -154,6 +158,25 @@ void main() {
       expect(container.read(settingsProvider).hiddenTankPresetIds, isEmpty);
     });
 
+    test('setBuiltInHidden toggles one catalog at a time', () async {
+      container.read(settingsProvider.notifier);
+      await waitForInit();
+
+      final notifier = container.read(settingsProvider.notifier);
+      await notifier.setBuiltInHidden(BuiltInCatalog.diveRoles, 'solo', true);
+      await notifier.setBuiltInHidden(BuiltInCatalog.siteTypes, 'lake', true);
+      var settings = container.read(settingsProvider);
+      expect(settings.hiddenBuiltIns(BuiltInCatalog.diveRoles), {'solo'});
+      expect(settings.hiddenBuiltIns(BuiltInCatalog.siteTypes), {'lake'});
+
+      await notifier.setBuiltInHidden(BuiltInCatalog.diveRoles, 'solo', false);
+      settings = container.read(settingsProvider);
+      expect(settings.hiddenBuiltIns(BuiltInCatalog.diveRoles), isEmpty);
+      expect(settings.hiddenBuiltInIds, {
+        'siteTypes': {'lake'},
+      });
+    });
+
     test('setTankPresetHidden never hides the default preset', () async {
       container.read(settingsProvider.notifier);
       await waitForInit();
@@ -213,6 +236,54 @@ void main() {
       expect(container.read(settingsProvider).emergencyRegion, isNull);
     });
 
+    test('setAscentRateThresholds stores both rates', () async {
+      container.read(settingsProvider.notifier);
+      await waitForInit();
+
+      await container
+          .read(settingsProvider.notifier)
+          .setAscentRateThresholds(warning: 10, critical: 15);
+      final settings = container.read(settingsProvider);
+      expect(settings.ascentRateWarning, 10);
+      expect(settings.ascentRateCritical, 15);
+    });
+
+    test('setAscentRateThresholds clamps and keeps critical at or above '
+        'warning', () async {
+      container.read(settingsProvider.notifier);
+      await waitForInit();
+      final notifier = container.read(settingsProvider.notifier);
+
+      await notifier.setAscentRateThresholds(warning: 1, critical: 50);
+      expect(container.read(settingsProvider).ascentRateWarning, 3);
+      expect(container.read(settingsProvider).ascentRateCritical, 20);
+
+      await notifier.setAscentRateThresholds(warning: 15, critical: 8);
+      expect(container.read(settingsProvider).ascentRateWarning, 15);
+      expect(container.read(settingsProvider).ascentRateCritical, 15);
+    });
+
+    test(
+      'setDefaultStartPressure keeps a decimal and clamps the range',
+      () async {
+        container.read(settingsProvider.notifier);
+        await waitForInit();
+        final notifier = container.read(settingsProvider.notifier);
+
+        await notifier.setDefaultStartPressure(206.8428);
+        expect(container.read(settingsProvider).defaultStartPressure, 206.8428);
+
+        await notifier.setDefaultStartPressure(0);
+        expect(container.read(settingsProvider).defaultStartPressure, 1);
+
+        await notifier.setDefaultStartPressure(900);
+        expect(container.read(settingsProvider).defaultStartPressure, 400);
+
+        await notifier.setDefaultStartPressure(double.nan);
+        expect(container.read(settingsProvider).defaultStartPressure, 400);
+      },
+    );
+
     test('sets siteMatchSensitivity', () async {
       container.read(settingsProvider.notifier);
       await waitForInit();
@@ -245,6 +316,37 @@ void main() {
 
       // The derived provider the equipment pages read tracks the change.
       expect(container.read(defaultCurrencyProvider), 'EUR');
+    });
+
+    test('setDistanceUnit sets the distance unit (issue #2030)', () async {
+      container.read(settingsProvider.notifier);
+      await waitForInit();
+
+      expect(
+        container.read(settingsProvider).distanceUnit,
+        DistanceUnit.kilometers,
+      );
+      await container
+          .read(settingsProvider.notifier)
+          .setDistanceUnit(DistanceUnit.miles);
+      expect(container.read(settingsProvider).distanceUnit, DistanceUnit.miles);
+    });
+
+    test('setImperial and setMetric carry the distance unit', () async {
+      container.read(settingsProvider.notifier);
+      await waitForInit();
+      final notifier = container.read(settingsProvider.notifier);
+
+      await notifier.setImperial();
+      expect(container.read(settingsProvider).distanceUnit, DistanceUnit.miles);
+      expect(container.read(settingsProvider).unitPreset, UnitPreset.imperial);
+
+      await notifier.setMetric();
+      expect(
+        container.read(settingsProvider).distanceUnit,
+        DistanceUnit.kilometers,
+      );
+      expect(container.read(settingsProvider).unitPreset, UnitPreset.metric);
     });
 
     test('setDefaultCurrency accepts a code outside the presets', () async {
@@ -413,6 +515,23 @@ void main() {
       expect(container.read(settingsProvider).showDiveFigure, isFalse);
       await container.read(settingsProvider.notifier).setShowDiveFigure(true);
       expect(container.read(settingsProvider).showDiveFigure, isTrue);
+    });
+
+    test('acceptPlanningDisclaimer persists the confirmation', () async {
+      container.read(settingsProvider.notifier);
+      await waitForInit();
+
+      expect(
+        container.read(settingsProvider).hasAcceptedPlanningDisclaimer,
+        isFalse,
+      );
+      await container
+          .read(settingsProvider.notifier)
+          .acceptPlanningDisclaimer();
+      expect(
+        container.read(settingsProvider).hasAcceptedPlanningDisclaimer,
+        isTrue,
+      );
     });
 
     test('setShowDataSourceBadges toggles value', () async {
@@ -682,6 +801,19 @@ void main() {
       );
     });
 
+    test('the late gas switch overlay default saves and is exposed', () async {
+      final notifier = container.read(settingsProvider.notifier);
+      await waitForInit();
+
+      expect(container.read(defaultShowLateGasSwitchesProvider), isTrue);
+      await notifier.setDefaultShowLateGasSwitches(false);
+      expect(
+        container.read(settingsProvider).defaultShowLateGasSwitches,
+        isFalse,
+      );
+      expect(container.read(defaultShowLateGasSwitchesProvider), isFalse);
+    });
+
     test('condition engine toggles persist through the notifier', () async {
       final notifier = container.read(settingsProvider.notifier);
       await waitForInit();
@@ -705,6 +837,31 @@ void main() {
       );
       expect(container.read(settingsProvider).conditionDisabledRules, isEmpty);
     });
+
+    test(
+      'setObservationRuleMuted toggles one rule and keeps unknown ids',
+      () async {
+        final notifier = container.read(settingsProvider.notifier);
+        await waitForInit();
+
+        expect(
+          container.read(settingsProvider).insightsMutedObservationRules,
+          isEmpty,
+        );
+        await notifier.setObservationRuleMuted(ObservationRuleId.diveGap, true);
+        expect(container.read(settingsProvider).insightsMutedObservationRules, {
+          'diveGap',
+        });
+        await notifier.setObservationRuleMuted(
+          ObservationRuleId.diveGap,
+          false,
+        );
+        expect(
+          container.read(settingsProvider).insightsMutedObservationRules,
+          isEmpty,
+        );
+      },
+    );
   });
 
   group('Real SettingsNotifier perdix overlay settings', () {

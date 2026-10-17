@@ -121,13 +121,62 @@ void main() {
       expect(repo.navPrimaryIds, withLegacyNavIds(movableNavIds));
       expect(container.read(navPhoneOrderNotifierProvider), movableNavIds);
     });
+
+    test('loads stored shortcuts and resolves them for the bar', () async {
+      final repo = FakeAppSettingsRepository()
+        ..navPrimaryIds = ['shortcut:gas-blender', 'dives', 'sites'];
+      final container = _container(repo);
+      addTearDown(container.dispose);
+
+      await _loaded(container, navPhoneOrderNotifierProvider);
+      final primary = container.read(navPrimaryDestinationsProvider(3));
+
+      expect(primary.map((d) => d.id), [
+        'dashboard',
+        'shortcut:gas-blender',
+        'dives',
+        'sites',
+        'more',
+      ]);
+      expect(primary[1].route, '/shortcut/gas-blender');
+    });
+
+    test('the rail resolves a stored shortcut too', () async {
+      final repo = FakeAppSettingsRepository()
+        ..navRailIds = ['shortcut:insights-gas', 'dives'];
+      final container = _container(repo);
+      addTearDown(container.dispose);
+
+      await _loaded(container, navRailOrderNotifierProvider);
+      final rail = container.read(navRailDestinationsProvider);
+
+      expect(rail.take(3).map((d) => d.id), [
+        'dashboard',
+        'shortcut:insights-gas',
+        'dives',
+      ]);
+    });
+
+    test('resetToDefaults drops shortcuts', () async {
+      final repo = FakeAppSettingsRepository()
+        ..navRailIds = ['shortcut:insights-gas', 'dives'];
+      final container = _container(repo);
+      addTearDown(container.dispose);
+
+      await _loaded(container, navRailOrderNotifierProvider);
+      await container
+          .read(navRailOrderNotifierProvider.notifier)
+          .resetToDefaults();
+
+      expect(container.read(navRailOrderNotifierProvider), movableNavIds);
+    });
   });
 
   group('phone and rail orders are independent', () {
     test('each notifier loads from its own storage key', () async {
       final repo = FakeAppSettingsRepository()
         ..navPrimaryIds = ['equipment', 'buddies', 'insights']
-        ..navRailIds = ['gps-log', 'planning'];
+        ..navRailIds = ['tracks', 'planning'];
       final container = _container(repo);
       addTearDown(container.dispose);
 
@@ -135,7 +184,7 @@ void main() {
       final rail = await _loaded(container, navRailOrderNotifierProvider);
 
       expect(phone.take(3).toList(), ['equipment', 'buddies', 'insights']);
-      expect(rail.take(2).toList(), ['gps-log', 'planning']);
+      expect(rail.take(2).toList(), ['tracks', 'planning']);
     });
 
     test('writing the rail order leaves the phone order untouched', () async {
@@ -226,7 +275,7 @@ void main() {
       'navRailDestinationsProvider is pinned Home then the rail order',
       () async {
         final repo = FakeAppSettingsRepository()
-          ..navRailIds = ['insights', 'gps-log'];
+          ..navRailIds = ['insights', 'tracks'];
         final container = _container(repo);
         addTearDown(container.dispose);
 
@@ -237,7 +286,7 @@ void main() {
             .map((d) => d.id)
             .toList();
 
-        expect(rail.take(3).toList(), ['dashboard', 'insights', 'gps-log']);
+        expect(rail.take(3).toList(), ['dashboard', 'insights', 'tracks']);
         expect(rail.length, movableNavIds.length + 1);
         expect(rail, isNot(contains('more')));
       },

@@ -9,8 +9,10 @@ import 'package:submersion/features/certifications/presentation/providers/certif
 import 'package:submersion/features/courses/presentation/providers/course_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/gradient_preset_picker.dart';
+import 'package:submersion/features/settings/presentation/widgets/viewer_fullscreen_mode_tile.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 import 'package:submersion/shared/providers/table_details_pane_provider.dart';
+import 'package:submersion/shared/widgets/label_with_control.dart';
 
 /// Per-section metadata used to drive the appearance page layout.
 class _SectionConfig {
@@ -305,23 +307,25 @@ class SectionAppearancePage extends ConsumerWidget {
 
     return ListTile(
       leading: const Icon(Icons.view_list),
-      title: Text(_sectionListViewTitle(context, config.key)),
-      subtitle: Text(_sectionListViewSubtitle(context, config.key)),
-      trailing: DropdownButton<ListViewMode>(
-        value: currentMode,
-        underline: const SizedBox(),
-        onChanged: (value) {
-          if (value != null) {
-            _setViewMode(ref, config.key, value);
-          }
-        },
-        items: config.viewModes.map((mode) {
-          return DropdownMenuItem(
-            value: mode,
-            child: Text(_getViewModeDisplayName(context, mode)),
-          );
-        }).toList(),
+      title: LabelWithControl(
+        label: Text(_sectionListViewTitle(context, config.key)),
+        control: DropdownButton<ListViewMode>(
+          value: currentMode,
+          underline: const SizedBox(),
+          onChanged: (value) {
+            if (value != null) {
+              _setViewMode(ref, config.key, value);
+            }
+          },
+          items: config.viewModes.map((mode) {
+            return DropdownMenuItem(
+              value: mode,
+              child: Text(_getViewModeDisplayName(context, mode)),
+            );
+          }).toList(),
+        ),
       ),
+      subtitle: Text(_sectionListViewSubtitle(context, config.key)),
     );
   }
 
@@ -353,24 +357,28 @@ class SectionAppearancePage extends ConsumerWidget {
     return [
       ListTile(
         leading: const Icon(Icons.palette),
-        title: Text(context.l10n.settings_appearance_cardColorAttribute),
+        title: LabelWithControl(
+          label: Text(context.l10n.settings_appearance_cardColorAttribute),
+          control: DropdownButton<CardColorAttribute>(
+            value: settings.cardColorAttribute,
+            underline: const SizedBox(),
+            onChanged: (value) {
+              if (value != null) {
+                ref
+                    .read(settingsProvider.notifier)
+                    .setCardColorAttribute(value);
+              }
+            },
+            items: CardColorAttribute.values.map((attr) {
+              return DropdownMenuItem(
+                value: attr,
+                child: Text(_getAttributeDisplayName(context, attr)),
+              );
+            }).toList(),
+          ),
+        ),
         subtitle: Text(
           context.l10n.settings_appearance_cardColorAttribute_subtitle,
-        ),
-        trailing: DropdownButton<CardColorAttribute>(
-          value: settings.cardColorAttribute,
-          underline: const SizedBox(),
-          onChanged: (value) {
-            if (value != null) {
-              ref.read(settingsProvider.notifier).setCardColorAttribute(value);
-            }
-          },
-          items: CardColorAttribute.values.map((attr) {
-            return DropdownMenuItem(
-              value: attr,
-              child: Text(_getAttributeDisplayName(context, attr)),
-            );
-          }).toList(),
         ),
       ),
       if (settings.cardColorAttribute != CardColorAttribute.none)
@@ -498,26 +506,28 @@ class SectionAppearancePage extends ConsumerWidget {
     return [
       ListTile(
         leading: const Icon(Icons.show_chart),
-        title: Text(context.l10n.settings_appearance_rightYAxisMetric),
+        title: LabelWithControl(
+          label: Text(context.l10n.settings_appearance_rightYAxisMetric),
+          control: DropdownButton<ProfileRightAxisMetric>(
+            value: settings.defaultRightAxisMetric,
+            underline: const SizedBox(),
+            onChanged: (value) {
+              if (value != null) {
+                ref
+                    .read(settingsProvider.notifier)
+                    .setDefaultRightAxisMetric(value);
+              }
+            },
+            items: ProfileRightAxisMetric.values.map((metric) {
+              return DropdownMenuItem(
+                value: metric,
+                child: Text(_getMetricDisplayName(context, metric)),
+              );
+            }).toList(),
+          ),
+        ),
         subtitle: Text(
           context.l10n.settings_appearance_rightYAxisMetric_subtitle,
-        ),
-        trailing: DropdownButton<ProfileRightAxisMetric>(
-          value: settings.defaultRightAxisMetric,
-          underline: const SizedBox(),
-          onChanged: (value) {
-            if (value != null) {
-              ref
-                  .read(settingsProvider.notifier)
-                  .setDefaultRightAxisMetric(value);
-            }
-          },
-          items: ProfileRightAxisMetric.values.map((metric) {
-            return DropdownMenuItem(
-              value: metric,
-              child: Text(_getMetricDisplayName(context, metric)),
-            );
-          }).toList(),
         ),
       ),
       SwitchListTile(
@@ -573,6 +583,19 @@ class SectionAppearancePage extends ConsumerWidget {
         },
       ),
       SwitchListTile(
+        title: Text(context.l10n.settings_appearance_lateGasSwitches),
+        subtitle: Text(
+          context.l10n.settings_appearance_lateGasSwitches_subtitle,
+        ),
+        secondary: const Icon(Icons.timer_off_outlined),
+        value: settings.defaultShowLateGasSwitches,
+        onChanged: (value) {
+          ref
+              .read(settingsProvider.notifier)
+              .setDefaultShowLateGasSwitches(value);
+        },
+      ),
+      SwitchListTile(
         title: Text(context.l10n.settings_appearance_gasTimeline),
         subtitle: Text(context.l10n.settings_appearance_gasTimeline_subtitle),
         secondary: const Icon(Icons.timeline),
@@ -595,6 +618,22 @@ class SectionAppearancePage extends ConsumerWidget {
         trailing: const Icon(Icons.chevron_right),
         onTap: () => context.push('/settings/default-metrics'),
       ),
+      ListTile(
+        leading: const Icon(Icons.palette_outlined),
+        title: Text(context.l10n.settings_appearance_metricColors),
+        subtitle: Text(
+          settings.profileMetricColors.isEmpty
+              ? context.l10n.settings_appearance_metricColors_subtitleDefault
+              : context.l10n
+                    .settings_appearance_metricColors_subtitleCustomized(
+                      settings.profileMetricColors.count,
+                    ),
+        ),
+        trailing: const Icon(Icons.chevron_right),
+        onTap: () => context.push('/settings/metric-colors'),
+      ),
+      if (ViewerFullscreenModeTile.isSupported)
+        const ViewerFullscreenModeTile(),
     ];
   }
 
@@ -666,8 +705,8 @@ class SectionAppearancePage extends ConsumerWidget {
       'equipment' => ref.watch(settingsProvider).equipmentListViewMode,
       'buddies' => ref.watch(settingsProvider).buddyListViewMode,
       'diveCenters' => ref.watch(settingsProvider).diveCenterListViewMode,
-      'certifications' => ref.watch(certificationListViewModeProvider),
-      'courses' => ref.watch(courseListViewModeProvider),
+      'certifications' => ref.watch(settingsProvider).certificationListViewMode,
+      'courses' => ref.watch(settingsProvider).courseListViewMode,
       _ => ListViewMode.detailed,
     };
   }
@@ -693,10 +732,10 @@ class SectionAppearancePage extends ConsumerWidget {
         ref.read(settingsProvider.notifier).setDiveCenterListViewMode(mode);
         ref.read(diveCenterListViewModeProvider.notifier).state = mode;
       case 'certifications':
-        // Runtime-only, not persisted
+        ref.read(settingsProvider.notifier).setCertificationListViewMode(mode);
         ref.read(certificationListViewModeProvider.notifier).state = mode;
       case 'courses':
-        // Runtime-only, not persisted
+        ref.read(settingsProvider.notifier).setCourseListViewMode(mode);
         ref.read(courseListViewModeProvider.notifier).state = mode;
     }
   }

@@ -1,9 +1,12 @@
 import 'package:cached_network_image/cached_network_image.dart';
 import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
+import 'package:submersion/core/router/list_return_scope.dart';
+import 'package:submersion/core/router/pushed_route.dart';
+import 'package:submersion/core/router/section_navigation.dart';
+import 'package:submersion/features/dive_log/presentation/widgets/search/dive_search_action.dart';
 import 'package:submersion/core/constants/card_color.dart';
 import 'package:submersion/core/constants/dive_field.dart';
-import 'package:submersion/core/constants/dive_search.dart';
 import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/constants/list_view_mode.dart';
 import 'package:submersion/core/constants/map_style.dart';
@@ -15,12 +18,15 @@ import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_prefill.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/planned_dive_chip.dart';
+import 'package:submersion/features/dive_log/presentation/widgets/safety_finding_badge.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_summary.dart';
 import 'package:submersion/features/dive_log/presentation/formatters/dive_type_label_resolver.dart';
 import 'package:submersion/features/data_quality/presentation/providers/data_quality_providers.dart';
+import 'package:submersion/features/dive_log/presentation/navigation/open_dive_list.dart';
 import 'package:submersion/features/dive_log/presentation/pages/dive_detail_page.dart';
 import 'package:submersion/features/dive_log/presentation/pages/dive_edit_page.dart';
 import 'package:submersion/features/dive_sites/presentation/pages/site_edit_page.dart';
+import 'package:submersion/features/dive_log/presentation/providers/dive_list_count_providers.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_providers.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/weather/presentation/providers/weather_providers.dart';
@@ -28,8 +34,6 @@ import 'package:submersion/features/weather/presentation/widgets/fetch_all_condi
 import 'package:submersion/features/dive_log/presentation/providers/highlight_providers.dart';
 import 'package:submersion/features/dive_log/presentation/providers/view_config_providers.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/add_dive_bottom_sheet.dart';
-import 'package:submersion/features/dive_log/presentation/widgets/dive_filter_sheet.dart';
-import 'package:submersion/features/explore/presentation/providers/explore_gate_providers.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/dive_list_content.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/dive_map_content.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/dive_numbering_dialog.dart';
@@ -45,8 +49,8 @@ import 'package:submersion/features/tags/presentation/widgets/tag_input_widget.d
 import 'package:submersion/l10n/l10n_extension.dart';
 import 'package:submersion/shared/selection/selection_inset.dart';
 import 'package:submersion/shared/selection/selection_leading.dart';
+import 'package:submersion/shared/selection/table_selection_owner.dart';
 import 'package:submersion/shared/utils/ink_centered_text_style.dart';
-import 'package:submersion/shared/widgets/debounced_search_results.dart';
 import 'package:submersion/shared/widgets/list_view_mode_toggle.dart';
 import 'package:submersion/shared/widgets/master_detail/master_detail_scaffold.dart';
 import 'package:submersion/shared/widgets/master_detail/responsive_breakpoints.dart';
@@ -64,13 +68,18 @@ String _tileUrl(double lat, double lng, int zoom, MapStyle style) {
 /// On desktop (>=800px): Shows a split view with list on left, detail/summary on right.
 /// On narrower screens (<800px): Shows the list with navigation to detail pages.
 class DiveListPage extends ConsumerStatefulWidget {
-  const DiveListPage({super.key});
+  const DiveListPage({super.key, this.returnTo});
+
+  /// Set when this list was pushed by `openDiveList`: what to put back when
+  /// it goes away. Null for the Dives tab itself.
+  final DiveListReturn? returnTo;
 
   @override
   ConsumerState<DiveListPage> createState() => _DiveListPageState();
 }
 
-class _DiveListPageState extends ConsumerState<DiveListPage> {
+class _DiveListPageState extends ConsumerState<DiveListPage>
+    with TableSelectionOwner {
   /// Tracks the selected dive ID for mobile map view info card
   String? _mobileMapSelectedDiveId;
 
@@ -100,7 +109,7 @@ class _DiveListPageState extends ConsumerState<DiveListPage> {
         if (isDesktop && viewMode != ListViewMode.table) {
           final state = GoRouterState.of(context);
           final currentPath = state.uri.path;
-          context.go('$currentPath?mode=new');
+          context.goInPlace('$currentPath?mode=new');
         } else {
           context.push('/dives/new');
         }
@@ -123,7 +132,6 @@ class _DiveListPageState extends ConsumerState<DiveListPage> {
   }
 
   void _toggleMapView() {
-    final router = GoRouter.of(context);
     final state = GoRouterState.of(context);
     final currentPath = state.uri.path;
     final selectedId = state.uri.queryParameters['selected'];
@@ -131,22 +139,25 @@ class _DiveListPageState extends ConsumerState<DiveListPage> {
     if (_isMapView) {
       // Switch back to detail view
       if (selectedId != null) {
-        router.go('$currentPath?selected=$selectedId');
+        context.goInPlace('$currentPath?selected=$selectedId');
       } else {
-        router.go(currentPath);
+        context.goInPlace(currentPath);
       }
     } else {
       // Switch to map view
       if (selectedId != null) {
-        router.go('$currentPath?selected=$selectedId&view=map');
+        context.goInPlace('$currentPath?selected=$selectedId&view=map');
       } else {
-        router.go('$currentPath?view=map');
+        context.goInPlace('$currentPath?view=map');
       }
     }
   }
 
   @override
-  Widget build(BuildContext context) {
+  Widget build(BuildContext context) =>
+      ListReturnScope(returnTo: widget.returnTo, child: _buildPage(context));
+
+  Widget _buildPage(BuildContext context) {
     // Clear mobile map selection when filters change to avoid stale state
     ref.listen<DiveFilterState>(diveFilterProvider, (previous, next) {
       if (_mobileMapSelectedDiveId != null) {
@@ -164,6 +175,8 @@ class _DiveListPageState extends ConsumerState<DiveListPage> {
       label: Text(context.l10n.diveLog_listPage_fab_logDive),
     );
 
+    resetTableSelectionOffTable(diveListViewModeProvider);
+
     // Table mode: use shared TableModeLayout for full-width table with
     // optional detail pane, map, and profile panel.
     final viewMode = ref.watch(diveListViewModeProvider);
@@ -173,7 +186,14 @@ class _DiveListPageState extends ConsumerState<DiveListPage> {
       return TableModeLayout(
         sectionKey: 'dives',
         appBarTitle: context.l10n.nav_dives,
-        tableContent: const DiveListContent(showAppBar: false),
+        appBarSubtitle: diveCountSubtitle(
+          context,
+          ref.watch(diveTableCountProvider),
+        ),
+        tableContent: DiveListContent(
+          showAppBar: false,
+          selectionController: tableSelection,
+        ),
         detailBuilder: (context, id) {
           final state = GoRouterState.of(context);
           final rawSiteId = state.uri.queryParameters['site'];
@@ -185,19 +205,18 @@ class _DiveListPageState extends ConsumerState<DiveListPage> {
             embedded: true,
             embeddedSiteId: siteId,
             onCloseEmbeddedSite: () {
-              final router = GoRouter.of(context);
               final state = GoRouterState.of(context);
               final params = Map<String, String>.from(
                 state.uri.queryParameters,
               );
               params.remove('site');
-              router.go(
+              context.goInPlace(
                 Uri(path: state.uri.path, queryParameters: params).toString(),
               );
             },
             onDeleted: () {
               final state = GoRouterState.of(context);
-              context.go(state.uri.path);
+              context.goInPlace(state.uri.path);
             },
           );
         },
@@ -238,40 +257,11 @@ class _DiveListPageState extends ConsumerState<DiveListPage> {
           onPressed: () => showTableColumnPicker(context),
         ),
         appBarActions: [
-          // Only where an on-device model exists for the active locale.
-          if (ref.watch(exploreEnabledProvider))
-            IconButton(
-              icon: const Icon(Icons.auto_awesome, size: 20),
-              tooltip: context.l10n.diveLog_listPage_tooltip_explore,
-              onPressed: () => context.push('/dives/explore'),
-            ),
-          IconButton(
-            icon: const Icon(Icons.search, size: 20),
-            tooltip: context.l10n.diveLog_listPage_tooltip_searchDives,
-            onPressed: () {
-              showSearch(context: context, delegate: DiveSearchDelegate(ref));
-            },
-          ),
-          IconButton(
-            icon: Badge(
-              isLabelVisible: ref.watch(diveFilterProvider).hasActiveFilters,
-              child: const Icon(Icons.filter_list, size: 20),
-            ),
-            tooltip: context.l10n.diveLog_listPage_tooltip_filterDives,
-            onPressed: () {
-              showModalBottomSheet(
-                context: context,
-                isScrollControlled: true,
-                builder: (_) => DiveFilterSheet(ref: ref),
-              );
-            },
-          ),
+          const DiveSearchAction(iconSize: 20),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, size: 20),
             onSelected: (value) {
-              if (value == 'advanced_search') {
-                context.push('/dives/search');
-              } else if (value == 'match_sites') {
+              if (value == 'match_sites') {
                 context.push('/dives/match-sites');
               } else if (value == 'numbering') {
                 showDiveNumberingDialog(context);
@@ -293,6 +283,7 @@ class _DiveListPageState extends ConsumerState<DiveListPage> {
             itemBuilder: (context) {
               final currentMode = ref.read(diveListViewModeProvider);
               return [
+                ...tableSelectItemsEntries(context),
                 ...ListViewModeToggle.menuItems(
                   context,
                   currentMode: currentMode,
@@ -303,16 +294,6 @@ class _DiveListPageState extends ConsumerState<DiveListPage> {
                   ],
                 ),
                 const PopupMenuDivider(),
-                PopupMenuItem(
-                  value: 'advanced_search',
-                  child: Row(
-                    children: [
-                      const Icon(Icons.manage_search, size: 20),
-                      const SizedBox(width: 12),
-                      Text(context.l10n.diveLog_listPage_menuAdvancedSearch),
-                    ],
-                  ),
-                ),
                 PopupMenuItem(
                   value: 'numbering',
                   child: Row(
@@ -393,6 +374,7 @@ class _DiveListPageState extends ConsumerState<DiveListPage> {
           onItemSelected: onItemSelected,
           selectedId: selectedId,
           showAppBar: false,
+          showBackButton: isPushedRoute(context),
           isMapViewActive: _isMapView,
           onMapViewToggle: _toggleMapView,
         ),
@@ -407,21 +389,19 @@ class _DiveListPageState extends ConsumerState<DiveListPage> {
             embedded: true,
             embeddedSiteId: siteId,
             onCloseEmbeddedSite: () {
-              final router = GoRouter.of(context);
               final state = GoRouterState.of(context);
               final params = Map<String, String>.from(
                 state.uri.queryParameters,
               );
               params.remove('site');
-              router.go(
+              context.goInPlace(
                 Uri(path: state.uri.path, queryParameters: params).toString(),
               );
             },
             onDeleted: () {
               // Clear selection when dive is deleted
-              final router = GoRouter.of(context);
               final state = GoRouterState.of(context);
-              router.go(state.uri.path);
+              context.goInPlace(state.uri.path);
             },
           );
         },
@@ -433,7 +413,7 @@ class _DiveListPageState extends ConsumerState<DiveListPage> {
             // Exit map view and show detail pane for the selected dive
             final state = GoRouterState.of(context);
             final currentPath = state.uri.path;
-            context.go('$currentPath?selected=$diveId');
+            context.goInPlace('$currentPath?selected=$diveId');
           },
         ),
         editBuilder: (context, id, onSaved, onCancel) {
@@ -497,13 +477,18 @@ class _DiveListPageState extends ConsumerState<DiveListPage> {
 
     // Mobile: Check if map view is requested
     if (_isMapView) {
+      // A pushed map (a trip's "View on map") returns where it came from,
+      // labelled as a plain Back; the Dives tab's own map returns to its list.
+      final pushed = isPushedRoute(context);
       return Scaffold(
         appBar: AppBar(
           title: Text(context.l10n.diveLog_listPage_appBar_diveMap),
           leading: IconButton(
             icon: const Icon(Icons.arrow_back),
-            tooltip: context.l10n.diveLog_listPage_tooltip_backToDiveList,
-            onPressed: () => context.go('/dives'),
+            tooltip: pushed
+                ? MaterialLocalizations.of(context).backButtonTooltip
+                : context.l10n.diveLog_listPage_tooltip_backToDiveList,
+            onPressed: () => pushed ? context.pop() : context.go('/dives'),
           ),
           actions: [
             IconButton(
@@ -526,175 +511,6 @@ class _DiveListPageState extends ConsumerState<DiveListPage> {
 
     // Mobile: Use standalone list content with full scaffold and FAB
     return DiveListContent(showAppBar: true, floatingActionButton: fab);
-  }
-}
-
-/// Search delegate for diving through dive logs
-class DiveSearchDelegate extends SearchDelegate<String?> {
-  final WidgetRef ref;
-
-  DiveSearchDelegate(this.ref);
-
-  // TODO: l10n - needs context (SearchDelegate.searchFieldLabel has no BuildContext)
-  @override
-  String get searchFieldLabel => 'Search dives...';
-
-  @override
-  List<Widget> buildActions(BuildContext context) {
-    return [
-      if (query.isNotEmpty)
-        IconButton(
-          icon: const Icon(Icons.clear),
-          tooltip: context.l10n.diveLog_listPage_tooltip_clearSearch,
-          onPressed: () => query = '',
-        ),
-    ];
-  }
-
-  @override
-  Widget buildLeading(BuildContext context) {
-    return IconButton(
-      icon: const Icon(Icons.arrow_back),
-      tooltip: context.l10n.diveLog_listPage_tooltip_back,
-      onPressed: () => close(context, null),
-    );
-  }
-
-  @override
-  Widget buildResults(BuildContext context) {
-    return _buildSearchResults(context);
-  }
-
-  @override
-  Widget buildSuggestions(BuildContext context) {
-    if (query.isEmpty) {
-      return Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ExcludeSemantics(
-              child: Icon(
-                Icons.search,
-                size: 64,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              context.l10n.diveLog_listPage_searchSuggestion,
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      );
-    }
-    return _buildSearchResults(context);
-  }
-
-  Widget _buildSearchResults(BuildContext context) {
-    return DebouncedSearchResults<DiveSummary>(
-      query: query,
-      watchProvider: (ref, q) => ref.watch(diveSearchProvider(q)),
-      emptyBuilder: (context, q) => Center(
-        child: Column(
-          mainAxisAlignment: MainAxisAlignment.center,
-          children: [
-            ExcludeSemantics(
-              child: Icon(
-                Icons.search_off,
-                size: 64,
-                color: Theme.of(
-                  context,
-                ).colorScheme.onSurfaceVariant.withValues(alpha: 0.5),
-              ),
-            ),
-            const SizedBox(height: 16),
-            Text(
-              context.l10n.diveLog_listPage_searchNoResults(q),
-              style: Theme.of(context).textTheme.bodyLarge?.copyWith(
-                color: Theme.of(context).colorScheme.onSurfaceVariant,
-              ),
-            ),
-          ],
-        ),
-      ),
-      dataBuilder: (context, dives) {
-        // The provider over-fetches by one, so more than the display limit
-        // means results were actually truncated (an exact-limit result is
-        // not). Render only the first [kDiveSearchResultLimit] and append the
-        // notice when cut.
-        final truncated = dives.length > kDiveSearchResultLimit;
-        final visible = truncated
-            ? dives.take(kDiveSearchResultLimit).toList(growable: false)
-            : dives;
-
-        final colorAttribute = ref.read(settingsProvider).cardColorAttribute;
-        final colorValues = visible
-            .map((d) => getCardColorValue(d, colorAttribute))
-            .whereType<double>();
-        final minValue = colorValues.isNotEmpty
-            ? colorValues.reduce((a, b) => a < b ? a : b)
-            : null;
-        final maxValue = colorValues.isNotEmpty
-            ? colorValues.reduce((a, b) => a > b ? a : b)
-            : null;
-
-        return ListView.builder(
-          itemCount: visible.length + (truncated ? 1 : 0),
-          itemBuilder: (context, index) {
-            if (index >= visible.length) {
-              return Padding(
-                padding: const EdgeInsets.all(16),
-                child: Text(
-                  context.l10n.diveLog_listPage_searchLimitNotice(
-                    kDiveSearchResultLimit,
-                  ),
-                  textAlign: TextAlign.center,
-                  style: Theme.of(context).textTheme.bodySmall?.copyWith(
-                    color: Theme.of(context).colorScheme.onSurfaceVariant,
-                  ),
-                ),
-              );
-            }
-            final dive = visible[index];
-            return DiveListTile(
-              diveId: dive.id,
-              diveNumber: dive.diveNumber ?? index + 1,
-              isPlanned: dive.isPlanned,
-              dateTime: dive.dateTime,
-              siteName: dive.siteName,
-              siteLocation: dive.siteLocation,
-              maxDepth: dive.maxDepth,
-              duration: dive.bottomTime,
-              waterTemp: dive.waterTemp,
-              rating: dive.rating,
-              isFavorite: dive.isFavorite,
-              tags: dive.tags,
-              colorValue: getCardColorValue(dive, colorAttribute),
-              minValueInList: minValue,
-              maxValueInList: maxValue,
-              siteLatitude: dive.siteLatitude,
-              siteLongitude: dive.siteLongitude,
-              onTap: () {
-                close(context, dive.id);
-                // PUSH (not go): go() replaces the stack, leaving system back
-                // with nothing to pop -- it would close the app (#647).
-                context.push('/dives/${dive.id}');
-              },
-            );
-          },
-        );
-      },
-      errorBuilder: (context, error) => Center(
-        child: Text(
-          context.l10n.diveLog_listPage_errorLoading(error.toString()),
-        ),
-      ),
-    );
   }
 }
 
@@ -1067,18 +883,9 @@ class DiveListTile extends ConsumerWidget {
                               if ((summary?.safetyFindingCount ?? 0) > 0 &&
                                   ref.watch(safetyReviewEnabledProvider)) ...[
                                 const SizedBox(width: 6),
-                                Tooltip(
-                                  message: context.l10n
-                                      .safetyReview_findingCount(
-                                        summary!.safetyFindingCount,
-                                      ),
-                                  child: Icon(
-                                    Icons.circle,
-                                    size: 8,
-                                    color: Theme.of(
-                                      context,
-                                    ).colorScheme.onSurfaceVariant,
-                                  ),
+                                SafetyFindingBadge(
+                                  count: summary!.safetyFindingCount,
+                                  color: colorScheme.onSurfaceVariant,
                                 ),
                               ],
                               if (rating != null) ...[

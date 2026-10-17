@@ -11,6 +11,7 @@ import 'package:submersion/features/backup/data/repositories/backup_preferences.
 import 'package:submersion/features/backup/data/services/backup_encryption_key_store.dart';
 import 'package:submersion/features/backup/data/services/backup_encryption_service.dart';
 import 'package:submersion/features/backup/data/services/backup_service.dart';
+import 'package:submersion/features/backup/data/services/cloud_backup_history.dart';
 import 'package:submersion/features/backup/domain/entities/backup_record.dart';
 import 'package:submersion/core/services/sync/crypto/sync_encryption_service.dart'
     show WrongPassphraseException;
@@ -18,6 +19,7 @@ import 'package:submersion/features/backup/domain/exceptions/backup_encrypted_ex
 import 'package:submersion/features/backup/domain/entities/backup_settings.dart';
 import 'package:submersion/features/backup/domain/entities/restore_mode.dart';
 import 'package:submersion/features/backup/presentation/providers/post_restore_safety_review.dart';
+import 'package:submersion/features/dive_log/data/services/derived_metrics_scheduler.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/equipment/data/services/sensor_summary_scheduler.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
@@ -163,6 +165,25 @@ class BackupSettingsNotifier extends StateNotifier<BackupSettings> {
   void refresh() {
     state = _prefs.getSettings();
   }
+
+  /// Like [refresh], but first re-reads what the WorkManager isolate may
+  /// have written since this isolate cached its preferences.
+  Future<void> reloadFromDisk() async {
+    await _prefs.reload();
+    if (!mounted) return;
+    refresh();
+  }
+
+  /// Records a failed scheduled backup for Settings > Data health.
+  Future<void> recordScheduledFailure(String message) async {
+    final at = DateTime.now();
+    await _prefs.setLastScheduledFailure(at, message);
+    if (!mounted) return;
+    state = state.copyWith(
+      lastScheduledFailureAt: at,
+      lastScheduledFailureMessage: message,
+    );
+  }
 }
 
 final backupSettingsProvider =
@@ -307,8 +328,8 @@ class BackupOperationNotifier extends StateNotifier<BackupOperationState> {
     }
   }
 
-  /// Perform a manual backup
-  Future<void> performBackup() async {
+  /// Perform a manual backup, with the diver's optional [note].
+  Future<void> performBackup({String? note}) async {
     if (state.status == BackupOperationStatus.inProgress) return;
 
     state = BackupOperationState(
@@ -317,10 +338,19 @@ class BackupOperationNotifier extends StateNotifier<BackupOperationState> {
     );
 
     try {
-      final record = await _service.performBackup();
+      final record = await _service.performBackup(note: note);
+      // The cloud copy fails closed while sync encryption is locked on this
+      // device (issue #3089); say why it stayed local.
+      final withheldFromCloud =
+          record.location == BackupLocation.local &&
+          await _isCloudBackupBlockedByEncryptionLock();
       state = BackupOperationState(
         status: BackupOperationStatus.success,
-        message: _l10n.backup_operation_created(record.formattedSize),
+        message: withheldFromCloud
+            ? _l10n.backup_operation_createdLocalOnlyLocked(
+                record.formattedSize,
+              )
+            : _l10n.backup_operation_created(record.formattedSize),
         lastRecord: record,
       );
       _ref.read(backupSettingsProvider.notifier).refresh();
@@ -330,6 +360,22 @@ class BackupOperationNotifier extends StateNotifier<BackupOperationState> {
         status: BackupOperationStatus.error,
         message: _l10n.backup_operation_backupFailed('$e'),
       );
+    }
+  }
+
+  /// The lock check reads the keychain after the backup is already written,
+  /// so a keychain error must not turn that backup into a reported failure;
+  /// it only drops the explanatory message.
+  Future<bool> _isCloudBackupBlockedByEncryptionLock() async {
+    try {
+      return await _service.isCloudBackupBlockedByEncryptionLock();
+    } catch (e, st) {
+      _log.warning(
+        'Could not check the sync encryption lock after a backup',
+        error: e,
+        stackTrace: st,
+      );
+      return false;
     }
   }
 
@@ -360,6 +406,7 @@ class BackupOperationNotifier extends StateNotifier<BackupOperationState> {
       // way a stale sweep brings them up to this build. Runs in the
       // background so the restore barrier does not wait on it.
       SensorSummaryScheduler.instance.scheduleStaleSweep();
+      DerivedMetricsScheduler.instance.scheduleStaleSweep();
       state = const BackupOperationState(
         status: BackupOperationStatus.restoreComplete,
       );
@@ -415,8 +462,8 @@ class BackupOperationNotifier extends StateNotifier<BackupOperationState> {
     }
   }
 
-  /// Export backup to a user-chosen file path
-  Future<void> exportToPath(String destinationPath) async {
+  /// Export backup to a user-chosen file path, with an optional [note].
+  Future<void> exportToPath(String destinationPath, {String? note}) async {
     if (state.status == BackupOperationStatus.inProgress) return;
 
     state = BackupOperationState(
@@ -425,7 +472,10 @@ class BackupOperationNotifier extends StateNotifier<BackupOperationState> {
     );
 
     try {
-      final record = await _service.exportBackupToPath(destinationPath);
+      final record = await _service.exportBackupToPath(
+        destinationPath,
+        note: note,
+      );
       state = BackupOperationState(
         status: BackupOperationStatus.success,
         message: _l10n.backup_operation_exported(record.formattedSize),
@@ -441,8 +491,8 @@ class BackupOperationNotifier extends StateNotifier<BackupOperationState> {
     }
   }
 
-  /// Export backup to temp file for sharing
-  Future<File?> exportForSharing() async {
+  /// Export backup to temp file for sharing, with an optional [note].
+  Future<File?> exportForSharing({String? note}) async {
     if (state.status == BackupOperationStatus.inProgress) return null;
 
     state = BackupOperationState(
@@ -451,7 +501,7 @@ class BackupOperationNotifier extends StateNotifier<BackupOperationState> {
     );
 
     try {
-      final file = await _service.exportBackupToTemp();
+      final file = await _service.exportBackupToTemp(note: note);
       state = BackupOperationState(
         status: BackupOperationStatus.success,
         message: _l10n.backup_operation_shareReady,
@@ -475,9 +525,13 @@ class BackupOperationNotifier extends StateNotifier<BackupOperationState> {
   /// when backup encryption is on, exactly as every other export path does)
   /// and then streamed into the tree by the same platform channel the
   /// scheduled backup uses.
+  ///
+  /// [note] is stamped into the artifact, the only place it is kept for an
+  /// export that leaves no history record.
   Future<void> exportToSafTree({
     required String treeUri,
     required String fileName,
+    String? note,
   }) async {
     if (state.status == BackupOperationStatus.inProgress) return;
 
@@ -488,7 +542,7 @@ class BackupOperationNotifier extends StateNotifier<BackupOperationState> {
 
     File? temp;
     try {
-      temp = await _service.exportBackupToTemp();
+      temp = await _service.exportBackupToTemp(note: note);
       await SubmersionSaf.writeBackup(
         treeUri: treeUri,
         fileName: fileName,
@@ -561,6 +615,7 @@ class BackupOperationNotifier extends StateNotifier<BackupOperationState> {
       // way a stale sweep brings them up to this build. Runs in the
       // background so the restore barrier does not wait on it.
       SensorSummaryScheduler.instance.scheduleStaleSweep();
+      DerivedMetricsScheduler.instance.scheduleStaleSweep();
       state = const BackupOperationState(
         status: BackupOperationStatus.restoreComplete,
       );
@@ -613,6 +668,7 @@ class BackupOperationNotifier extends StateNotifier<BackupOperationState> {
       await _runPostRestoreSafetyReview();
       // See restoreFromBackup.
       SensorSummaryScheduler.instance.scheduleStaleSweep();
+      DerivedMetricsScheduler.instance.scheduleStaleSweep();
       state = const BackupOperationState(
         status: BackupOperationStatus.restoreComplete,
       );
@@ -666,8 +722,12 @@ class BackupOperationNotifier extends StateNotifier<BackupOperationState> {
       await _service.performBackup(isAutomatic: true);
       _ref.read(backupSettingsProvider.notifier).refresh();
       _ref.invalidate(backupHistoryProvider);
-    } catch (_) {
-      // Desktop automatic backup failure is silent — no notification system
+    } catch (e) {
+      // Desktop automatic backup failure has no notification system; it is
+      // recorded for Settings > Data health instead (#3394).
+      await _ref
+          .read(backupSettingsProvider.notifier)
+          .recordScheduledFailure(e.toString());
     }
   }
 
@@ -687,10 +747,26 @@ final backupOperationProvider =
 // History
 // =============================================================================
 
-/// Backup history sorted newest-first
-final backupHistoryProvider = FutureProvider<List<BackupRecord>>((ref) async {
+/// Backup history sorted newest-first, plus the backups in the connected
+/// cloud folder that the local history has no record of (issue #3214: after a
+/// fresh install the local history is empty, the cloud copies are not).
+///
+/// Auto-disposed so every visit to the backup page lists the cloud folder
+/// afresh. Signing in changes no provider state this could watch (Cloud Sync
+/// selects the provider before authenticating, and a re-sign-in to the same
+/// provider selects nothing), so a cached signed-out listing would otherwise
+/// hide the cloud backups until something else invalidated it.
+final backupHistoryProvider = FutureProvider.autoDispose<List<BackupRecord>>((
+  ref,
+) async {
   final service = ref.watch(backupServiceProvider);
-  return service.getValidatedBackupHistory();
+  // Started first so the listing overlaps the local read. Not joined with a
+  // record `.wait`, which would wrap a history failure in ParallelWaitError
+  // and hide the real message; getCloudBackups never throws, so leaving it
+  // unawaited on that path cannot surface an unhandled error.
+  final cloudFiles = service.getCloudBackups();
+  final history = await service.getValidatedBackupHistory();
+  return mergeCloudBackups(history, await cloudFiles);
 });
 
 // =============================================================================

@@ -1,6 +1,7 @@
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite3;
+import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/database.dart';
 
 import '../../helpers/legacy_profile_fixtures.dart';
@@ -57,6 +58,8 @@ const profileSeriesColumns = {
   'created_at',
   'updated_at',
   'hlc',
+  // v283 (issue #3189); the ladder these tests run ends at the current rung.
+  'activated_at',
 };
 
 const tankSeriesColumns = {
@@ -64,6 +67,8 @@ const tankSeriesColumns = {
   'dive_id',
   'tank_id',
   'computer_id',
+  // v241 (issue #2440); the ladder these tests run ends at the current rung.
+  'source_id',
   'sample_count',
   'start_timestamp',
   'end_timestamp',
@@ -110,7 +115,9 @@ void main() {
     );
 
     test('a fresh database has the tables with the same columns', () async {
-      final db = AppDatabase(NativeDatabase.memory());
+      final db = AppDatabase(
+        NativeDatabase.memory(setup: registerAppSqlFunctions),
+      );
       addTearDown(db.close);
       await db.customSelect('SELECT 1').get();
 

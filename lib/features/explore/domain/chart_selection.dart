@@ -1,4 +1,3 @@
-import 'package:submersion/features/explore/domain/dive_field_catalog.dart';
 import 'package:submersion/features/explore/domain/query_model.dart';
 
 enum ChartKind {
@@ -6,7 +5,18 @@ enum ChartKind {
   depthTrend,
   waterTempTrend,
   bottomTimeTrend,
+  sacTrend,
   entityCounts,
+
+  /// A non-dive subject's one chart: dives in the scope per result row.
+  subjectCounts;
+
+  /// Whether a clause on a field can ask for this chart. Exhaustive, so a
+  /// new kind must say which it is; trends draw in declaration order.
+  bool get isTrend => switch (this) {
+    divesOverTime || entityCounts || subjectCounts => false,
+    depthTrend || waterTempTrend || bottomTimeTrend || sacTrend => true,
+  };
 }
 
 class ChartRequest {
@@ -38,19 +48,17 @@ const Set<MentionKind> kRankedEntityKinds = {
   MentionKind.gear,
 };
 
-/// Rule-based chart choice: the model never picks charts.
+/// Rule-based chart choice: the model never picks charts. [trends] are the
+/// trend kinds of the clauses said (each field's `trend`), drawn once each
+/// in [ChartKind] order.
 List<ChartRequest> selectCharts({
-  required List<ExploreDiveField> numericFields,
+  required Iterable<ChartKind> trends,
   required Map<MentionKind, int> resolvedEntityCounts,
 }) {
   final out = <ChartRequest>[const ChartRequest(ChartKind.divesOverTime)];
-  const trends = {
-    ExploreDiveField.depth: ChartKind.depthTrend,
-    ExploreDiveField.waterTemp: ChartKind.waterTempTrend,
-    ExploreDiveField.bottomTime: ChartKind.bottomTimeTrend,
-  };
-  for (final entry in trends.entries) {
-    if (numericFields.contains(entry.key)) out.add(ChartRequest(entry.value));
+  final said = trends.toSet();
+  for (final kind in ChartKind.values) {
+    if (kind.isTrend && said.contains(kind)) out.add(ChartRequest(kind));
   }
   // Sites and places both draw dive counts per site: one chart, not two
   // identical ones under different titles.

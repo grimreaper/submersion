@@ -93,7 +93,7 @@ enum _SamplesOutcome {
 /// is rejected, or whose computer resolves to nothing, counts toward one
 /// aggregated [ImportWarning] pointing at MacDive's XML export - exactly the
 /// behaviour every unrecognised computer already had. See
-/// `docs/import-formats/macdive-zsamples.md`.
+/// `docs/developer/reference/formats/macdive-zsamples.md`.
 ///
 /// Not every dive has `ZRAWDATA` at all: presence tracks how the dive entered
 /// MacDive (a native download versus manual entry or a file import) rather
@@ -519,6 +519,19 @@ class MacDiveDiveMapper {
       map['waterTemp'] ??= ParsedDiveProfileMapper.minSampleTemperature(parsed);
       if (map['runtime'] == null && parsed.durationSeconds > 0) {
         map['runtime'] = Duration(seconds: parsed.durationSeconds);
+      }
+      // The raw download is the only column that records when the diver
+      // switched gas: `ZSAMPLES` carries no gas channel, and a `ZEVENT` row
+      // has no column naming a gas (#2608).
+      final gas = ParsedDiveProfileMapper.gasSwitches(
+        parsed,
+        (map['tanks'] as List<Map<String, dynamic>>?) ?? const [],
+        profile: map['profile'] as List<Map<String, dynamic>>,
+      );
+      if (gas.gasSwitches.isNotEmpty) {
+        map['tanks'] = gas.tanks;
+        map['gasSwitches'] = gas.gasSwitches;
+        map['profile'] = gas.profile;
       }
       return true;
     }
@@ -1054,8 +1067,10 @@ class MacDiveDiveMapper {
         if (startPressure != null) entry['startPressure'] = startPressure;
         final endPressure = c.pressureToBar(t.airEnd);
         if (endPressure != null) entry['endPressure'] = endPressure;
+        // ZDURATION is how long the tank was breathed, under the key
+        // _buildTanks reads (issue #1496). `runtime` is the dive's key.
         if (t.duration != null) {
-          entry['runtime'] = Duration(seconds: t.duration!.round());
+          entry['usageDuration'] = Duration(seconds: t.duration!.round());
         }
         if (t.supplyType != null) entry['supplyType'] = t.supplyType;
         // MacDive's ZGAS.ZOXYGEN/ZHELIUM store whole percent (32.0 for

@@ -7,7 +7,7 @@ import 'package:submersion/core/query/presentation/query_editor.dart';
 import 'package:submersion/core/query/presentation/query_editor_context.dart';
 import 'package:submersion/core/query/registry/query_entity.dart';
 import 'package:submersion/features/query/app_query_registry.dart';
-import 'package:submersion/features/query/data/query_name_index.dart';
+import 'package:submersion/core/query/names/name_index.dart';
 import 'package:submersion/features/query/presentation/app_query_labels.dart';
 import 'package:submersion/features/query/presentation/providers/query_name_index_provider.dart';
 import 'package:submersion/features/query/presentation/providers/query_unit_prefs_provider.dart';
@@ -62,18 +62,23 @@ class EntityQueryEditor extends ConsumerWidget {
     required this.value,
     required this.onChanged,
     this.onSave,
+    this.canSave,
+    this.initialTab = 0,
   });
 
   final QueryEntity root;
   final QueryNode? value;
   final ValueChanged<QueryNode?> onChanged;
   final VoidCallback? onSave;
+  final bool? canSave;
+
+  /// See [QueryEditor.initialTab].
+  final int initialTab;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
     final prefs = ref.watch(queryUnitPrefsProvider);
-    final names =
-        ref.watch(queryNameIndexProvider).value ?? QueryNameIndex.empty;
+    final names = ref.watch(queryNameIndexProvider).value ?? NameIndex.empty;
     final editorContext = QueryEditorContext(
       registry: appQueryRegistry,
       root: root,
@@ -88,7 +93,24 @@ class EntityQueryEditor extends ConsumerWidget {
       onChanged: onChanged,
       strings: queryEditorStringsOf(context.l10n),
       onSave: onSave,
+      canSave: canSave,
       describeError: (e) => describeQueryError(context.l10n, e),
+      initialTab: initialTab,
     );
   }
 }
+
+/// The editor context for [root], read once (for an action) rather than
+/// watched (#2984: the dive table's Add filter builds a rule with it).
+QueryEditorContext readQueryEditorContext(
+  BuildContext context,
+  WidgetRef ref,
+  QueryEntity root,
+) => QueryEditorContext(
+  registry: appQueryRegistry,
+  root: root,
+  prefs: ref.read(queryUnitPrefsProvider),
+  names: ref.read(queryNameIndexProvider).value ?? NameIndex.empty,
+  labels: AppQueryLabels(context),
+  now: DateTime.now,
+);

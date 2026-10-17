@@ -2,6 +2,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
 import 'package:http/testing.dart';
+import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/local_cache_database.dart';
 import 'package:submersion/core/tide/entities/tide_constituent.dart';
 import 'package:submersion/core/tide/tide_calculator.dart';
@@ -28,10 +29,12 @@ class _FakeFesService extends TideDataService {
   _FakeFesService(this.calculator);
 
   @override
-  Future<TideCalculator?> getCalculatorForLocation(
+  Future<FesModelData?> getModelForLocation(
     double latitude,
     double longitude,
-  ) async => calculator;
+  ) async => calculator == null
+      ? null
+      : FesModelData(calculator: calculator!, resolutionKm: 11.1);
 }
 
 void main() {
@@ -50,7 +53,9 @@ void main() {
   late NoaaStationCacheRepository cache;
 
   setUp(() {
-    db = LocalCacheDatabase(NativeDatabase.memory());
+    db = LocalCacheDatabase(
+      NativeDatabase.memory(setup: registerAppSqlFunctions),
+    );
     cache = NoaaStationCacheRepository(db);
   });
 
@@ -176,5 +181,14 @@ void main() {
     final client = MockClient((request) async => http.Response('x', 500));
     final r = resolver(idx: index, client: client, fes: null);
     expect(await r.resolve(-17.5, 177.5), isNull);
+  });
+
+  test('the model tier reports its grid resolution', () async {
+    final client = MockClient((request) async => http.Response('x', 500));
+    final r = resolver(client: client, fes: fesCalculator);
+
+    final resolved = await r.resolve(-17.5, 177.5); // no station index
+    expect(resolved!.source.kind, TideDataSourceKind.fesModel);
+    expect(resolved.source.resolutionKm, 11.1);
   });
 }

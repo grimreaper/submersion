@@ -27,6 +27,7 @@ void main() {
     weightType: WeightType.belt,
     amountKg: 6,
     notes: 'their belt',
+    label: 'Rental belt',
   );
   const trim = DiveWeight(
     id: 'w2',
@@ -91,6 +92,8 @@ void main() {
     expect(copies.first.weightType, WeightType.belt);
     expect(copies.first.amountKg, 6);
     expect(copies.first.notes, 'their belt');
+    expect(copies.first.label, 'Rental belt');
+    expect(copies.last.label, '');
     expect(copies.last.weightType, WeightType.trimWeights);
     // The source list is untouched.
     expect(last.weights.first.id, 'w1');
@@ -121,6 +124,19 @@ void main() {
     expect(copy.sourceTankIndex, isNull);
     expect(copy.regulatorEquipmentId, isNull);
     expect(copy.equipmentId, isNull);
+  });
+
+  test('tanksForNewDive drops the tagged cylinder (#2650)', () {
+    // The shop may hand over a different cylinder of the same size.
+    final last = LastDiveAtCenter.fromDive(
+      dive(tanks: [al80.copyWith(passportId: 'p-1')]),
+    );
+    final copies = last.tanksForNewDive(
+      newId: () => 'fresh',
+      startPressure: 210,
+      endPressure: 50,
+    );
+    expect(copies.single.passportId, isNull);
   });
 
   test('two reads of the same dive are equal', () {

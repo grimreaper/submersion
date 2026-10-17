@@ -9,20 +9,23 @@ import 'package:url_launcher/url_launcher.dart';
 import 'package:submersion/features/connections/domain/entities/connection_kind.dart';
 import 'package:submersion/features/connections/domain/entities/node_ref.dart';
 import 'package:submersion/features/connections/presentation/widgets/open_in_connections.dart';
-import 'package:submersion/core/constants/list_view_mode.dart';
+import 'package:submersion/core/router/pushed_route.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
-import 'package:submersion/features/maps/data/services/tile_cache_service.dart';
+import 'package:submersion/features/maps/presentation/widgets/locked_map_scroll_passthrough.dart';
 import 'package:submersion/shared/widgets/master_detail/detail_scroll_retainer.dart';
-import 'package:submersion/shared/widgets/master_detail/responsive_breakpoints.dart';
+import 'package:submersion/features/dive_log/presentation/navigation/open_dive_list.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_providers.dart';
 import 'package:submersion/features/dive_centers/domain/entities/dive_center.dart';
 import 'package:submersion/features/dive_centers/presentation/providers/dive_center_providers.dart';
 import 'package:submersion/features/dive_centers/presentation/widgets/rental_gear_section.dart';
 import 'package:submersion/features/dive_centers/presentation/widgets/dive_center_delete_usage.dart';
-import 'package:submersion/features/maps/presentation/providers/map_tile_providers.dart';
 import 'package:submersion/features/maps/presentation/widgets/map_attribution.dart';
+import 'package:submersion/features/maps/presentation/widgets/map_corner_controls.dart';
+import 'package:submersion/features/maps/presentation/widgets/submersion_tile_layer.dart';
 import 'package:submersion/features/maps/presentation/widgets/trackpad_zoom_map.dart';
+import 'package:submersion/features/documents/presentation/widgets/documents_section.dart';
+import 'package:submersion/features/documents/domain/entities/document.dart';
 
 class DiveCenterDetailPage extends ConsumerStatefulWidget {
   final String centerId;
@@ -46,20 +49,22 @@ class _DiveCenterDetailPageState extends ConsumerState<DiveCenterDetailPage> {
 
   @override
   Widget build(BuildContext context) {
-    // Desktop redirect: If accessed directly (not embedded), redirect to master-detail view.
-    // Skip in table mode -- table view has no master-detail split to redirect into.
-    if (!widget.embedded &&
-        !_hasRedirected &&
-        ResponsiveBreakpoints.isMasterDetail(context)) {
-      final viewMode = ref.read(diveCenterListViewModeProvider);
-      if (viewMode != ListViewMode.table) {
-        _hasRedirected = true;
-        WidgetsBinding.instance.addPostFrameCallback((_) {
-          if (mounted) {
-            context.go('/dive-centers?selected=${widget.centerId}');
-          }
-        });
-      }
+    // Desktop redirect: a root visit (deep link, sidebar) moves into the
+    // master-detail split. A pushed page, opened from a dive's details
+    // say, stays put: the redirect's go() would erase the page under it
+    // and its back arrow (#3292).
+    if (!_hasRedirected &&
+        shouldRedirectToMasterDetail(
+          context,
+          embedded: widget.embedded,
+          viewMode: ref.read(diveCenterListViewModeProvider),
+        )) {
+      _hasRedirected = true;
+      WidgetsBinding.instance.addPostFrameCallback((_) {
+        if (mounted) {
+          context.go('/dive-centers?selected=${widget.centerId}');
+        }
+      });
     }
 
     final centerAsync = ref.watch(diveCenterByIdProvider(widget.centerId));
@@ -110,6 +115,13 @@ class _DiveCenterDetailPageState extends ConsumerState<DiveCenterDetailPage> {
                 const Divider(height: 32),
                 _NotesSection(notes: center.notes),
               ],
+              const Divider(height: 32),
+              DocumentsSection(
+                owner: DocumentOwner(
+                  DocumentOwnerKind.diveCenter,
+                  widget.centerId,
+                ),
+              ),
               const Divider(height: 32),
               RentalGearSection(centerId: widget.centerId),
               const Divider(height: 32),
@@ -609,7 +621,6 @@ class _MapSection extends ConsumerStatefulWidget {
 }
 
 class _MapSectionState extends ConsumerState<_MapSection> {
-  final MapController _previewController = MapController();
   final MapController _fullController = MapController();
 
   @override
@@ -625,29 +636,24 @@ class _MapSectionState extends ConsumerState<_MapSection> {
         height: 200,
         child: Stack(
           children: [
-            TrackpadZoomMap(
-              controller: _previewController,
+            LockedMapScrollPassthrough(
               child: FlutterMap(
-                mapController: _previewController,
                 key: ValueKey('${center.latitude}_${center.longitude}'),
                 options: MapOptions(
                   initialCenter: centerLocation,
                   initialZoom: 14.0,
                   minZoom: 2.0,
                   maxZoom: 18.0,
+                  // Locked: the preview sits in the scrolling detail page, and
+                  // a map that takes gestures there catches the wheel or drag
+                  // as soon as it scrolls under the pointer (issue #3156). The
+                  // fullscreen button opens the interactive map.
                   interactionOptions: const InteractionOptions(
-                    flags: InteractiveFlag.all & ~InteractiveFlag.rotate,
+                    flags: InteractiveFlag.none,
                   ),
                 ),
                 children: [
-                  TileLayer(
-                    urlTemplate: ref.watch(mapTileUrlProvider),
-                    userAgentPackageName: 'app.submersion',
-                    maxZoom: ref.watch(mapTileMaxZoomProvider),
-                    tileProvider: TileCacheService.instance.tileProviderFor(
-                      urlTemplate: ref.watch(mapTileUrlProvider),
-                    ),
-                  ),
+                  submersionTileLayer(ref),
                   MarkerLayer(
                     markers: [
                       Marker(
@@ -710,6 +716,8 @@ class _MapSectionState extends ConsumerState<_MapSection> {
                 ),
               ),
             ),
+            // Map style switcher, below the fullscreen button.
+            const Positioned(right: 8, top: 48, child: MapCornerControls()),
           ],
         ),
       ),
@@ -739,13 +747,11 @@ class _MapSectionState extends ConsumerState<_MapSection> {
                 ),
               ),
               children: [
-                TileLayer(
-                  urlTemplate: ref.watch(mapTileUrlProvider),
-                  userAgentPackageName: 'app.submersion',
-                  maxZoom: ref.watch(mapTileMaxZoomProvider),
-                  tileProvider: TileCacheService.instance.tileProviderFor(
-                    urlTemplate: ref.watch(mapTileUrlProvider),
-                  ),
+                // Its own Consumer: this route is built from the detail
+                // page's ref, which would not rebuild the pushed route when
+                // the style switcher below changes the map style.
+                Consumer(
+                  builder: (context, ref, _) => submersionTileLayer(ref),
                 ),
                 MarkerLayer(
                   markers: [
@@ -781,6 +787,8 @@ class _MapSectionState extends ConsumerState<_MapSection> {
                   ],
                 ),
                 const MapAttribution(),
+                // No compass: this map does not rotate.
+                const Positioned(top: 8, right: 8, child: MapCornerControls()),
               ],
             ),
           ),
@@ -813,9 +821,11 @@ class _DivesSection extends ConsumerWidget {
                 onTap: diveCount > 0
                     ? () {
                         // Set the filter to this dive center and navigate to dive list
-                        ref.read(diveFilterProvider.notifier).state =
-                            DiveFilterState(diveCenterId: centerId);
-                        context.go('/dives');
+                        openDiveList(
+                          context,
+                          ref,
+                          DiveFilterState(diveCenterId: centerId),
+                        );
                       }
                     : null,
                 child: Padding(

@@ -2,6 +2,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:intl/date_symbol_data_local.dart';
+import 'package:submersion/features/dive_roles/domain/entities/dive_role.dart';
 import 'package:submersion/core/constants/pdf_templates.dart';
 import 'package:submersion/core/constants/units.dart';
 import 'package:submersion/core/services/export/pdf/pdf_export_service.dart';
@@ -19,6 +20,8 @@ import 'package:submersion/features/settings/presentation/providers/settings_pro
 import 'package:submersion/features/signatures/domain/entities/signature.dart';
 
 import '../../../../helpers/test_database.dart';
+import '../../../../helpers/fake_hosts.dart';
+import 'package:submersion/features/certification_agencies/domain/certification_catalog.dart';
 
 /// Records what the export service hands the template, then builds as usual.
 class _RecordingSimple extends PdfTemplateSimple {
@@ -35,12 +38,14 @@ class _RecordingSimple extends PdfTemplateSimple {
     String? title,
     Map<String, List<Signature>>? diveSignatures,
     List<Certification>? certifications,
+    CertificationCatalog? certificationCatalog,
     Diver? diver,
     Map<String, PdfProfileSeries>? profiles,
     Uint8List? diverPhoto,
     bool includeVerificationAreas = false,
     EquipmentArrangement gearArrangement = EquipmentArrangement.defaults,
     Map<String, DiveTypeEntity> diveTypesById = const {},
+    Map<String, DiveRole> diveRolesById = const {},
     Map<String, String> equipmentSetNamesById = const {},
     PdfLocalization? localization,
     DateTime? generatedAt,
@@ -63,6 +68,13 @@ class _RecordingSimple extends PdfTemplateSimple {
 /// #2252: the dive-list and single-dive exports receive the language picked
 /// in the export sheet through [PdfExportOptions.languageCode].
 void main() {
+  // PdfFonts downloads Roboto on first use. The font host answers as
+  // offline, so the PDF falls back to Helvetica, as it would on a device
+  // without a network, and its text stays readable for the assertions.
+  setUp(() {
+    serveFakeHost('fonts.gstatic.com');
+  });
+
   late _RecordingSimple template;
   late PdfExportService service;
 

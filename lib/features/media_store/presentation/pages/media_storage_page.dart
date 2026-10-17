@@ -18,11 +18,13 @@ import 'package:submersion/features/media_store/data/media_store_service.dart';
 import 'package:submersion/features/media_store/domain/media_upload_quality.dart';
 import 'package:submersion/features/media_store/presentation/providers/media_store_providers.dart';
 import 'package:submersion/features/media_store/presentation/widgets/media_transfer_summary_row.dart';
+import 'package:submersion/features/media_store/presentation/widgets/webdav_media_form.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/cloud_provider_authenticate.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 import 'package:submersion/core/utils/log_failure.dart';
+import 'package:submersion/shared/widgets/label_with_control.dart';
 
 /// Configuration page for the media store's S3 backend (design spec
 /// section 14). Sibling of the sync backend's S3ConfigPage: same field
@@ -547,6 +549,10 @@ class _MediaStoragePageState extends ConsumerState<MediaStoragePage> {
                     value: CloudProviderType.dropbox,
                     label: Text('Dropbox'),
                   ),
+                  ButtonSegment(
+                    value: CloudProviderType.webdav,
+                    label: Text(l10n.settings_mediaStorage_provider_webdav),
+                  ),
                   // Hidden where Google sign-in cannot run (a Windows/Linux
                   // build with no Desktop-app OAuth client compiled in);
                   // otherwise the connect flow offers an account it can
@@ -567,8 +573,11 @@ class _MediaStoragePageState extends ConsumerState<MediaStoragePage> {
                     setState(() => _selectedProvider = selection.single),
               ),
               const SizedBox(height: 16),
-              if (_selectedProvider != CloudProviderType.s3)
+              if (_selectedProvider != CloudProviderType.s3 &&
+                  _selectedProvider != CloudProviderType.webdav)
                 ..._managedConnectPanel(l10n),
+              if (_selectedProvider == CloudProviderType.webdav)
+                const WebDavMediaForm(),
             ],
             if (!connected && _selectedProvider == CloudProviderType.s3) ...[
               if (_isInsecureEndpoint)
@@ -778,37 +787,41 @@ class _MediaStoragePageState extends ConsumerState<MediaStoragePage> {
                   ),
                 ),
                 ListTile(
-                  title: Text(l10n.settings_mediaStorage_quality_photos),
-                  trailing: DropdownButton<MediaUploadQuality>(
-                    key: const Key('media-quality-photos'),
-                    value: photoQuality,
-                    underline: const SizedBox(),
-                    onChanged: (value) async {
-                      if (value == null) return;
-                      await _saveQuality(
-                        l10n,
-                        (policy) => policy.setPhotoUploadQuality(value),
-                        photoUploadQualityProvider,
-                      );
-                    },
-                    items: _qualityItems(l10n),
+                  title: LabelWithControl(
+                    label: Text(l10n.settings_mediaStorage_quality_photos),
+                    control: DropdownButton<MediaUploadQuality>(
+                      key: const Key('media-quality-photos'),
+                      value: photoQuality,
+                      underline: const SizedBox(),
+                      onChanged: (value) async {
+                        if (value == null) return;
+                        await _saveQuality(
+                          l10n,
+                          (policy) => policy.setPhotoUploadQuality(value),
+                          photoUploadQualityProvider,
+                        );
+                      },
+                      items: _qualityItems(l10n),
+                    ),
                   ),
                 ),
                 ListTile(
-                  title: Text(l10n.settings_mediaStorage_quality_video),
-                  trailing: DropdownButton<MediaUploadQuality>(
-                    key: const Key('media-quality-video'),
-                    value: videoQuality,
-                    underline: const SizedBox(),
-                    onChanged: (value) async {
-                      if (value == null) return;
-                      await _saveQuality(
-                        l10n,
-                        (policy) => policy.setVideoUploadQuality(value),
-                        videoUploadQualityProvider,
-                      );
-                    },
-                    items: _qualityItems(l10n),
+                  title: LabelWithControl(
+                    label: Text(l10n.settings_mediaStorage_quality_video),
+                    control: DropdownButton<MediaUploadQuality>(
+                      key: const Key('media-quality-video'),
+                      value: videoQuality,
+                      underline: const SizedBox(),
+                      onChanged: (value) async {
+                        if (value == null) return;
+                        await _saveQuality(
+                          l10n,
+                          (policy) => policy.setVideoUploadQuality(value),
+                          videoUploadQualityProvider,
+                        );
+                      },
+                      items: _qualityItems(l10n),
+                    ),
                   ),
                 ),
                 // A library-wide level can be set from a device that cannot

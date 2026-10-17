@@ -30,6 +30,7 @@ import 'package:submersion/features/tank_presets/presentation/providers/tank_pre
 import '../../../../helpers/mock_providers.dart';
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_database.dart';
+import '../../../../helpers/role_sheet.dart';
 
 /// Covers the bulk tri-state membership wiring in DiveEditPage: loading members
 /// for every reference collection, the add-affordance dialogs/sheets, and the
@@ -67,7 +68,7 @@ void main() {
             createdAt: DateTime(2026, 1, 1),
             updatedAt: DateTime(2026, 1, 1),
           ),
-          role: role ?? DiveRole.builtInBuddy(),
+          roles: [role ?? DiveRole.builtInBuddy()],
         );
 
     Future<void> seedTag(String id, String name) => db
@@ -172,7 +173,8 @@ void main() {
 
         await pump(tester, ['d1', 'd2']);
 
-        expect(find.byType(BulkMembershipEditor), findsNWidgets(4));
+        // Tags, dive types, training courses (#2515), equipment, buddies.
+        expect(find.byType(BulkMembershipEditor), findsNWidgets(5));
         expect(find.text('Nitrox'), findsOneWidget);
         expect(find.text('Alice'), findsOneWidget);
         expect(find.text('Regulator'), findsOneWidget);
@@ -442,8 +444,7 @@ void main() {
       await tester.tap(find.text('Alice'));
       await tester.pumpAndSettle();
       expect(find.text('Select Role for Alice'), findsOneWidget);
-      await tester.tap(find.text('Instructor'));
-      await tester.pumpAndSettle();
+      await pickOnlyRole(tester, 'Instructor');
 
       // Done (close the sheet) then Add (merge into the membership editor).
       await tester.tap(find.text('Done'));
@@ -525,8 +526,7 @@ void main() {
         ),
       );
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Instructor'));
-      await tester.pumpAndSettle();
+      await pickOnlyRole(tester, 'Instructor');
       await tester.tap(find.text('Done'));
       await tester.pumpAndSettle();
       await tester.tap(
@@ -571,6 +571,50 @@ void main() {
       await tester.tap(useSet);
       await tester.pumpAndSettle();
       expect(find.byType(EquipmentSetPickerSheet), findsOneWidget);
+    });
+
+    // Issue #2175: the picker is multi-select, so several items go on in one
+    // pass, and Cancel leaves the list as it was.
+    testWidgets('equipment add takes several items in one pass', (
+      tester,
+    ) async {
+      await EquipmentRepository().createEquipment(
+        const EquipmentItem(
+          id: 'e8',
+          name: 'Frameless',
+          type: EquipmentType.mask,
+        ),
+      );
+      await EquipmentRepository().createEquipment(
+        const EquipmentItem(id: 'e9', name: 'Jets', type: EquipmentType.fins),
+      );
+      await seedDive('d1');
+      await seedDive('d2');
+      await pump(tester, ['d1', 'd2']);
+
+      Finder inEditor(String name) => find.descendant(
+        of: editorFor('Equipment'),
+        matching: find.text(name),
+      );
+
+      await tapAdd(tester, 'Equipment');
+      await tester.tap(find.text('Frameless'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(TextButton, 'Cancel'));
+      await tester.pumpAndSettle();
+      expect(find.byType(EquipmentPickerSheet), findsNothing);
+      expect(inEditor('Frameless'), findsNothing);
+
+      await tapAdd(tester, 'Equipment');
+      await tester.tap(find.text('Frameless'));
+      await tester.tap(find.text('Jets'));
+      await tester.pumpAndSettle();
+      await tester.tap(find.widgetWithText(FilledButton, 'Add 2'));
+      await tester.pumpAndSettle();
+
+      expect(find.byType(EquipmentPickerSheet), findsNothing);
+      expect(inEditor('Frameless'), findsOneWidget);
+      expect(inEditor('Jets'), findsOneWidget);
     });
 
     // Issue #1754 (found in #1720): clearing the old gear and then applying a

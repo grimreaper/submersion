@@ -8,28 +8,26 @@ import 'package:submersion/core/constants/enums.dart';
 /// several at once -- e.g. an FFESSM Niveau 1 that is also a CMAS 1-star --
 /// with no primary among them.
 class CertificationCredential extends Equatable {
-  final CertificationAgency agency;
-  final CertificationLevel? level;
+  /// A built-in agency's enum name or a custom agency id (issue #690).
+  final String agency;
+
+  /// A built-in level's enum name or a custom level id.
+  final String? level;
 
   const CertificationCredential({required this.agency, this.level});
 
   Map<String, dynamic> toJson() => {
-    'agency': agency.name,
-    if (level != null) 'level': level!.name,
+    'agency': agency,
+    if (level != null) 'level': level,
   };
 
+  /// Ids are kept verbatim: an id this build does not know (a custom agency
+  /// not yet synced, a newer build's built-in) must survive a save, never
+  /// collapse to "Other" (issue #690). A missing agency is Other.
   factory CertificationCredential.fromJson(Map<String, dynamic> json) =>
       CertificationCredential(
-        agency: CertificationAgency.values.firstWhere(
-          (a) => a.name == json['agency'],
-          orElse: () => CertificationAgency.other,
-        ),
-        level: json['level'] == null
-            ? null
-            : CertificationLevel.values.firstWhere(
-                (l) => l.name == json['level'],
-                orElse: () => CertificationLevel.other,
-              ),
+        agency: (json['agency'] as String?) ?? CertificationAgency.other.name,
+        level: json['level'] as String?,
       );
 
   @override
@@ -46,8 +44,12 @@ class Certification extends Equatable {
   /// are allowed (legacy rows and the no-validated-diver fallback).
   final String? buddyId;
   final String name;
-  final CertificationAgency agency;
-  final CertificationLevel? level;
+
+  /// A built-in agency's enum name or a custom agency id (issue #690).
+  final String agency;
+
+  /// A built-in level's enum name or a custom level id.
+  final String? level;
 
   /// Extra recognitions the same card grants beyond [agency]/[level] (e.g. a
   /// CMAS 1-star equivalence on an FFESSM N1). Empty for a single-agency card.
@@ -61,6 +63,10 @@ class Certification extends Equatable {
   final String? instructorName;
   final String? instructorNumber;
   final String? instructorId;
+
+  /// The course this certification came from (issue #2515). Read-only here:
+  /// only CourseCertificationLinks writes `certifications.course_id`.
+  final String? courseId;
   final Uint8List? photoFront;
   final Uint8List? photoBack;
   final String notes;
@@ -81,6 +87,7 @@ class Certification extends Equatable {
     this.instructorName,
     this.instructorNumber,
     this.instructorId,
+    this.courseId,
     this.photoFront,
     this.photoBack,
     this.notes = '',
@@ -140,8 +147,8 @@ class Certification extends Equatable {
     String? diverId,
     String? buddyId,
     String? name,
-    CertificationAgency? agency,
-    CertificationLevel? level,
+    String? agency,
+    String? level,
     List<CertificationCredential>? additionalCredentials,
     String? cardNumber,
     DateTime? issueDate,
@@ -149,6 +156,7 @@ class Certification extends Equatable {
     String? instructorName,
     String? instructorNumber,
     String? instructorId,
+    String? courseId,
     Uint8List? photoFront,
     Uint8List? photoBack,
     String? notes,
@@ -170,6 +178,7 @@ class Certification extends Equatable {
       instructorName: instructorName ?? this.instructorName,
       instructorNumber: instructorNumber ?? this.instructorNumber,
       instructorId: instructorId ?? this.instructorId,
+      courseId: courseId ?? this.courseId,
       photoFront: photoFront ?? this.photoFront,
       photoBack: photoBack ?? this.photoBack,
       notes: notes ?? this.notes,
@@ -194,6 +203,7 @@ class Certification extends Equatable {
       instructorName: instructorName,
       instructorNumber: instructorNumber,
       instructorId: instructorId,
+      courseId: courseId,
       photoFront: clearFront ? null : photoFront,
       photoBack: clearBack ? null : photoBack,
       notes: notes,
@@ -208,7 +218,7 @@ class Certification extends Equatable {
     return Certification(
       id: '',
       name: '',
-      agency: CertificationAgency.padi,
+      agency: CertificationAgency.padi.name,
       createdAt: now,
       updatedAt: now,
     );
@@ -229,6 +239,7 @@ class Certification extends Equatable {
     instructorName,
     instructorNumber,
     instructorId,
+    courseId,
     photoFront,
     photoBack,
     notes,

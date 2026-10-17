@@ -1,14 +1,13 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
-import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
-import 'package:submersion/features/dive_log/presentation/widgets/environment_enum_display.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/trips/domain/entities/trip_story_day.dart';
+import 'package:submersion/features/trips/domain/services/trip_dive_days.dart';
 import 'package:submersion/features/trips/presentation/helpers/day_type_l10n.dart';
-import 'package:submersion/features/trips/presentation/helpers/weather_icon.dart';
-import 'package:submersion/l10n/arb/app_localizations.dart';
+import 'package:submersion/features/trips/presentation/widgets/day/day_weather_badge.dart';
+import 'package:submersion/features/trips/presentation/widgets/day/today_chip.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 
 /// A leading day-number badge plus two compact lines - "Wed, Jul 8" and the
@@ -19,6 +18,10 @@ import 'package:submersion/l10n/l10n_extension.dart';
 /// Days with logged or stored weather get a trailing badge: conditions icon
 /// plus air temperature in the diver's temperature unit. The header never
 /// fetches: it renders whatever weather it is handed.
+///
+/// Today's header steps out of that grey ladder: its band is primaryContainer,
+/// its text onPrimaryContainer, its badge primary, and it carries a Today
+/// chip, so the current day stands out while the trip is under way.
 ///
 /// Every day of the trip gets one of these, including surface days (which
 /// carry no card body at all and are nothing but this header). Presenting a
@@ -63,35 +66,50 @@ class TripStoryDayHeader extends ConsumerWidget {
     // either verbatim would render a doubled separator ("Dive Day -  - Site").
     // A surface day has no itinerary and no dives by definition, so it owns the
     // subtitle outright - it reads in the same slot where an itinerary day
-    // leads with its day type ("Dive Day", "Travel Day").
+    // leads with its day type ("Dive Day", "Travel Day"). A dive day planned
+    // at 0 dives reads the same way: its stored type contradicts the plan.
+    // A rest day with a dive logged reads as a dive day (#2875).
+    final surfaceLabel = day.isSurface || day.isPlannedRest;
     final subtitleParts = <String>[
-      if (day.isSurface) context.l10n.trips_story_surfaceDay,
-      if (itinerary != null) itinerary.dayType.localizedName(context),
+      if (surfaceLabel) context.l10n.trips_story_surfaceDay,
+      if (itinerary != null && !surfaceLabel)
+        shownDayType(
+          itinerary,
+          hasDives: day.dives.isNotEmpty,
+        ).localizedName(context),
       if (itinerary?.portName != null) itinerary!.portName!,
       ...day.siteNames,
     ].map((part) => part.trim()).where((part) => part.isNotEmpty).toList();
 
-    // Dive-logged weather wins: it is what the diver recorded, and a stored
-    // day summary is only ever a stand-in for days that logged none. It wins
-    // only when it can actually draw something, though: a dive whose weather
-    // lookup resolved nothing still carries Precipitation.none, and letting
-    // that mask a stored row would render the day blank.
-    final diveWeather = day.weather;
-    final weather = (diveWeather != null && diveWeather.isRenderable)
-        ? diveWeather
-        : (storedWeather ?? diveWeather);
+    final weather = TripStoryDayWeather.resolve(
+      logged: day.weather,
+      stored: storedWeather,
+    );
     final units = UnitFormatter(ref.watch(settingsProvider));
-    final weatherBadge = _weatherBadge(context, theme, units, weather);
+    final scheme = theme.colorScheme;
+    final isToday = day.kind == TripStoryDayKind.today;
+    // The compact form sits on a band that paints its own background, so only
+    // the full-width heading takes the tint.
+    final tinted = isToday && !compact;
+    final weatherBadge = DayWeatherBadge.rendersAnything(weather)
+        ? DayWeatherBadge(
+            weather: weather!,
+            units: units,
+            color: tinted ? scheme.onPrimaryContainer : null,
+          )
+        : null;
 
     return Material(
-      color: compact ? Colors.transparent : theme.colorScheme.surfaceContainer,
+      color: compact
+          ? Colors.transparent
+          : (tinted ? scheme.primaryContainer : scheme.surfaceContainer),
       child: ConstrainedBox(
         constraints: const BoxConstraints(minHeight: minHeight),
         child: Padding(
           padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 6),
           child: Row(
             children: [
-              _DayNumberBadge(dayNumber: day.dayNumber),
+              _DayNumberBadge(dayNumber: day.dayNumber, highlighted: tinted),
               const SizedBox(width: 10),
               Expanded(
                 child: Column(
@@ -104,6 +122,7 @@ class TripStoryDayHeader extends ConsumerWidget {
                       ).formatWeekdayMonthDay(day.date),
                       style: theme.textTheme.titleMedium?.copyWith(
                         fontWeight: FontWeight.bold,
+                        color: tinted ? scheme.onPrimaryContainer : null,
                       ),
                       maxLines: 1,
                       overflow: TextOverflow.ellipsis,
@@ -112,7 +131,9 @@ class TripStoryDayHeader extends ConsumerWidget {
                       Text(
                         subtitleParts.join(' - '),
                         style: theme.textTheme.bodySmall?.copyWith(
-                          color: theme.colorScheme.onSurfaceVariant,
+                          color: tinted
+                              ? scheme.onPrimaryContainer.withValues(alpha: 0.8)
+                              : scheme.onSurfaceVariant,
                         ),
                         maxLines: 1,
                         overflow: TextOverflow.ellipsis,
@@ -124,6 +145,7 @@ class TripStoryDayHeader extends ConsumerWidget {
                 const SizedBox(width: 8),
                 weatherBadge,
               ],
+              if (isToday) ...[const SizedBox(width: 8), const TodayChip()],
               if (!compact && day.kind == TripStoryDayKind.future)
                 Chip(
                   label: Text(context.l10n.trips_story_planned),
@@ -135,56 +157,6 @@ class TripStoryDayHeader extends ConsumerWidget {
       ),
     );
   }
-
-  /// Conditions icon plus air temperature, or null when the day's dives
-  /// logged nothing displayable (wind, humidity, and the free-text weather
-  /// description stay out of the compact band on purpose).
-  Widget? _weatherBadge(
-    BuildContext context,
-    ThemeData theme,
-    UnitFormatter units,
-    TripStoryDayWeather? weather,
-  ) {
-    if (weather == null) return null;
-
-    final icon = weatherIconFor(
-      cloudCover: weather.cloudCover,
-      precipitation: weather.precipitation,
-    );
-    final airTemp = weather.airTemp;
-    if (icon == null && airTemp == null) return null;
-
-    return Row(
-      mainAxisSize: MainAxisSize.min,
-      spacing: 4,
-      children: [
-        if (icon != null)
-          Icon(
-            icon,
-            size: 16,
-            color: theme.colorScheme.onSurfaceVariant,
-            semanticLabel: _conditionsLabel(context.l10n, weather),
-          ),
-        if (airTemp != null)
-          Text(
-            units.formatTemperature(airTemp),
-            style: theme.textTheme.bodySmall?.copyWith(
-              color: theme.colorScheme.onSurfaceVariant,
-            ),
-          ),
-      ],
-    );
-  }
-
-  /// Localized name of what the icon depicts, for screen readers. Mirrors
-  /// [weatherIconFor]: active precipitation first, then cloud cover.
-  String? _conditionsLabel(AppLocalizations l10n, TripStoryDayWeather weather) {
-    final precipitation = weather.precipitation;
-    if (precipitation != null && precipitation != Precipitation.none) {
-      return precipitation.localizedName(l10n);
-    }
-    return weather.cloudCover?.localizedName(l10n);
-  }
 }
 
 /// Round day-number chip leading the header, echoing the map's day pins so
@@ -193,7 +165,11 @@ class TripStoryDayHeader extends ConsumerWidget {
 class _DayNumberBadge extends StatelessWidget {
   final int dayNumber;
 
-  const _DayNumberBadge({required this.dayNumber});
+  /// On today's primaryContainer band the usual primaryContainer fill would
+  /// vanish, so the badge takes the stronger primary pair there.
+  final bool highlighted;
+
+  const _DayNumberBadge({required this.dayNumber, this.highlighted = false});
 
   @override
   Widget build(BuildContext context) {
@@ -213,14 +189,18 @@ class _DayNumberBadge extends StatelessWidget {
           constraints: const BoxConstraints(minWidth: 28, minHeight: 28),
           padding: const EdgeInsets.symmetric(horizontal: 6, vertical: 2),
           decoration: BoxDecoration(
-            color: theme.colorScheme.primaryContainer,
+            color: highlighted
+                ? theme.colorScheme.primary
+                : theme.colorScheme.primaryContainer,
             borderRadius: BorderRadius.circular(999),
           ),
           alignment: Alignment.center,
           child: Text(
             '$dayNumber',
             style: theme.textTheme.labelLarge?.copyWith(
-              color: theme.colorScheme.onPrimaryContainer,
+              color: highlighted
+                  ? theme.colorScheme.onPrimary
+                  : theme.colorScheme.onPrimaryContainer,
               fontWeight: FontWeight.bold,
             ),
           ),

@@ -12,14 +12,20 @@ import 'package:submersion/core/services/pdf_templates/pdf_date_formatter.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/shared/widgets/master_detail/detail_scroll_retainer.dart';
 import 'package:submersion/shared/widgets/master_detail/responsive_breakpoints.dart';
-import 'package:submersion/features/certifications/presentation/providers/certification_providers.dart';
+import 'package:submersion/features/certifications/domain/entities/certification.dart';
+import 'package:submersion/features/certifications/presentation/certification_title_l10n.dart';
 import 'package:submersion/features/courses/domain/entities/course.dart';
 import 'package:submersion/features/courses/presentation/course_status_colors.dart';
 import 'package:submersion/features/courses/presentation/providers/course_providers.dart';
+import 'package:submersion/features/courses/presentation/widgets/course_certification_thumbnail.dart';
 import 'package:submersion/features/courses/presentation/widgets/course_requirements_section.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
-import 'package:submersion/features/certifications/presentation/certification_agency_display.dart';
+import 'package:submersion/features/certification_agencies/presentation/certification_entry_display.dart';
+import 'package:submersion/features/certification_agencies/presentation/providers/certification_catalog_context.dart';
+import 'package:submersion/features/certification_agencies/presentation/providers/certification_catalog_providers.dart';
+import 'package:submersion/features/documents/presentation/widgets/documents_section.dart';
+import 'package:submersion/features/documents/domain/entities/document.dart';
 
 class CourseDetailPage extends ConsumerWidget {
   final String courseId;
@@ -35,6 +41,7 @@ class CourseDetailPage extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    ref.watch(certificationCatalogSyncProvider);
     final courseAsync = ref.watch(courseByIdProvider(courseId));
     final divesAsync = ref.watch(courseDivesProvider(courseId));
 
@@ -85,7 +92,9 @@ class CourseDetailPage extends ConsumerWidget {
                   _buildDetailRow(
                     context,
                     context.l10n.courses_label_agency,
-                    course.agency.localizedName(context.l10n),
+                    context.certificationCatalog
+                        .agency(course.agency)
+                        .localizedName(context.l10n),
                     Icons.business,
                   ),
                   _buildDetailRow(
@@ -148,9 +157,8 @@ class CourseDetailPage extends ConsumerWidget {
             const SizedBox(height: 16),
           ],
 
-          // Earned Certification
-          if (course.certificationId != null)
-            _buildCertificationSection(context, ref, course.certificationId!),
+          // Earned certifications, one row each (#2515)
+          _buildCertificationSection(context, ref, course.id),
 
           // Requirement tracker
           CourseRequirementsSection(courseId: course.id),
@@ -243,6 +251,10 @@ class CourseDetailPage extends ConsumerWidget {
             ),
             const SizedBox(height: 16),
           ],
+          DocumentsSection(
+            owner: DocumentOwner(DocumentOwnerKind.course, course.id),
+          ),
+          const SizedBox(height: 16),
 
           // Actions
           if (!course.isCompleted) ...[
@@ -417,9 +429,17 @@ class CourseDetailPage extends ConsumerWidget {
   Widget _buildCertificationSection(
     BuildContext context,
     WidgetRef ref,
-    String certificationId,
+    String courseId,
   ) {
-    final certAsync = ref.watch(certificationByIdProvider(certificationId));
+    final certsAsync = ref.watch(certificationsForCourseProvider(courseId));
+    // The retained value, so a reload after a link change keeps the rows on
+    // screen; nothing on the very first load, since an empty course shows no
+    // section at all.
+    final certs = certsAsync.value;
+    final failed = certs == null && certsAsync.hasError;
+    if (!failed && (certs == null || certs.isEmpty)) {
+      return const SizedBox.shrink();
+    }
     final colorScheme = Theme.of(context).colorScheme;
 
     return Column(
@@ -432,60 +452,18 @@ class CourseDetailPage extends ConsumerWidget {
               children: [
                 _buildSectionHeader(
                   context,
-                  context.l10n.courses_section_earnedCertification,
+                  context.l10n.courses_section_earnedCertifications,
                   Icons.card_membership,
                 ),
                 const SizedBox(height: 12),
-                certAsync.when(
-                  data: (cert) {
-                    if (cert == null) {
-                      return Text(
-                        context.l10n.courses_detail_certificationNotFound,
-                        style: Theme.of(context).textTheme.bodyMedium?.copyWith(
-                          color: colorScheme.onSurfaceVariant,
-                          fontStyle: FontStyle.italic,
-                        ),
-                      );
-                    }
-                    return ListTile(
-                      contentPadding: EdgeInsets.zero,
-                      leading: Container(
-                        width: 40,
-                        height: 40,
-                        decoration: BoxDecoration(
-                          color: colorScheme.primaryContainer,
-                          borderRadius: BorderRadius.circular(8),
-                        ),
-                        child: Center(
-                          child: Text(
-                            _abbreviateAgency(
-                              cert.agency.localizedName(context.l10n),
-                            ),
-                            style: TextStyle(
-                              color: colorScheme.onPrimaryContainer,
-                              fontWeight: FontWeight.bold,
-                              fontSize: 10,
-                            ),
-                          ),
-                        ),
-                      ),
-                      title: Text(cert.name),
-                      subtitle: Text(cert.agency.localizedName(context.l10n)),
-                      trailing: Icon(
-                        Icons.chevron_right,
-                        color: colorScheme.onSurfaceVariant,
-                      ),
-                      onTap: () => context.push('/certifications/${cert.id}'),
-                    );
-                  },
-                  loading: () => const Center(
-                    child: CircularProgressIndicator(strokeWidth: 2),
-                  ),
-                  error: (error, stack) => Text(
+                if (failed)
+                  Text(
                     context.l10n.courses_error_loadingCertification,
                     style: TextStyle(color: colorScheme.error),
-                  ),
-                ),
+                  )
+                else
+                  for (final cert in certs!)
+                    _buildCertificationRow(context, cert, colorScheme),
               ],
             ),
           ),
@@ -495,12 +473,39 @@ class CourseDetailPage extends ConsumerWidget {
     );
   }
 
-  /// Safely abbreviate agency name to at most 4 characters
-  String _abbreviateAgency(String displayName) {
-    if (displayName.length <= 4) {
-      return displayName;
-    }
-    return displayName.substring(0, 4);
+  Widget _buildCertificationRow(
+    BuildContext context,
+    Certification cert,
+    ColorScheme colorScheme,
+  ) {
+    final agency = context.certificationCatalog
+        .agency(cert.agency)
+        .localizedName(context.l10n);
+    final card = cert.cardNumber;
+    return ListTile(
+      // Keyed so a row is never reused for another certification: the card
+      // photo keeps its last frame while new bytes decode.
+      key: ValueKey(cert.id),
+      contentPadding: EdgeInsets.zero,
+      leading: CourseCertificationThumbnail(
+        certification: cert,
+        agencyName: agency,
+      ),
+      // Not cert.name: a certification with no custom title stores an empty
+      // name and is titled by its level (#3436).
+      title: Text(
+        certificationTitleL10n(
+          cert,
+          context.l10n,
+          catalog: context.certificationCatalog,
+        ),
+      ),
+      subtitle: Text(
+        card != null && card.isNotEmpty ? '$agency - $card' : agency,
+      ),
+      trailing: Icon(Icons.chevron_right, color: colorScheme.onSurfaceVariant),
+      onTap: () => context.push('/certifications/${cert.id}'),
+    );
   }
 
   Widget _buildEmbeddedHeader(
@@ -732,6 +737,7 @@ class CourseDetailPage extends ConsumerWidget {
         ),
         units: UnitFormatter(settings),
         localization: localization,
+        catalog: await ref.read(allCustomCertificationsCatalogProvider.future),
       );
 
       // Dismiss loading

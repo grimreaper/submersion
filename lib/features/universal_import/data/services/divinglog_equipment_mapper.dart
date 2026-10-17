@@ -2,6 +2,7 @@ import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/database/dive_computer_gear_identity.dart';
 import 'package:submersion/features/equipment/domain/constants/equipment_attribute_catalog.dart';
 import 'package:submersion/features/equipment/domain/services/equipment_type_from_name.dart';
+import 'package:submersion/features/universal_import/data/services/divemate_values.dart';
 import 'package:submersion/features/universal_import/data/services/divinglog_raw_types.dart';
 import 'package:submersion/features/universal_import/data/services/divinglog_row_values.dart';
 
@@ -21,10 +22,13 @@ class DivingLogEquipmentMapper {
     final computers = _computerNames(book);
     final out = <String, Map<String, dynamic>>{};
     for (final item in book.equipmentById.values) {
-      final name = item.object?.trim();
-      if (name == null || name.isEmpty) continue;
+      if (!_isImportable(item)) continue;
+      final name = _nameOf(item)!;
       final key = _uddfId(item.id);
-      final model = _modelFrom(name, item.manufacturer);
+      // DiveMate names the item and keeps the model in `Object`; Diving Log
+      // has only `Object`, so the model is read out of the name.
+      final diveMateModel = _diveMateModel(item);
+      final model = diveMateModel ?? _modelFrom(name, item.manufacturer);
       final isComputer = computers.any(
         (c) => computerNamesAgree(
           brandA: null,
@@ -33,7 +37,7 @@ class DivingLogEquipmentMapper {
           modelB: model,
         ),
       );
-      final read = isComputer ? null : typeFromName(name);
+      final read = isComputer ? null : _typeOf(item, name);
       final map = <String, dynamic>{
         'name': name,
         'uddfId': key,
@@ -41,7 +45,7 @@ class DivingLogEquipmentMapper {
             ? EquipmentType.computer.name
             : (read?.type ?? EquipmentType.other).name,
       };
-      if (isComputer) map['model'] = model;
+      if (isComputer || diveMateModel != null) map['model'] = model;
       if (read?.thickness != null) map['thickness'] = read!.thickness;
       if (item.manufacturer != null) map['brand'] = item.manufacturer;
       if (item.serial != null) map['serialNumber'] = item.serial;
@@ -51,17 +55,33 @@ class DivingLogEquipmentMapper {
       // A zero here is the format's "not recorded", and a dry weight of
       // zero is not harmless: it feeds the buoyancy maths as a real value.
       final weight = positiveOrNull(item.weightKg);
-      if (weight != null) {
-        map['attributes'] = <Map<String, dynamic>>[
+      final material = DiveMateValues.tankMaterial(item.materialCode);
+      final isCylinder = read?.type == EquipmentType.tank;
+      final attributes = <Map<String, dynamic>>[
+        if (item.purchaseShop != null)
+          {'key': EquipmentAttrKeys.retailer, 'valueText': item.purchaseShop},
+        if (weight != null)
           {'key': EquipmentAttrKeys.dryWeightKg, 'valueNum': weight},
-        ];
-      }
+        // DiveMate keeps a cylinder's size and material on the gear row.
+        if (isCylinder && item.volumeLiters != null)
+          {'key': EquipmentAttrKeys.volumeL, 'valueNum': item.volumeLiters},
+        if (isCylinder && material != null)
+          {'key': EquipmentAttrKeys.tankMaterial, 'valueText': material.name},
+      ];
+      if (attributes.isNotEmpty) map['attributes'] = attributes;
       // The importer reads `purchasePrice`; `price` is silently dropped. A
       // zero is this format's "not recorded", and a purchase price of zero
       // would import the item as free and skew any gear cost total.
       final price = positiveOrNull(item.price);
       if (price != null) map['purchasePrice'] = price;
       if (item.purchaseDate != null) map['purchaseDate'] = item.purchaseDate;
+      if (item.lastServiceDate != null) {
+        map['lastServiceDate'] = item.lastServiceDate;
+        final days = item.nextServiceDate
+            ?.difference(item.lastServiceDate!)
+            .inDays;
+        if (days != null && days > 0) map['serviceIntervalDays'] = days;
+      }
       // Diving Log's inactive gear is retired gear, and the importer reads
       // `status` and `isActive`, not `isRetired`. Both markers, as MacDive
       // sets them, or every retired item imports as active.
@@ -70,6 +90,12 @@ class DivingLogEquipmentMapper {
         map['isActive'] = false;
       }
       final notes = [
+        // With a last service date, the service record from
+        // [serviceRecords] carries the next one in its own field. Without
+        // one there is no record, and the notes are all that keep it.
+        if (item.nextServiceDate != null && item.lastServiceDate == null)
+          'Next service: '
+              '${item.nextServiceDate!.toIso8601String().substring(0, 10)}',
         if (item.o2ServiceDate != null)
           'O2 service: '
               '${item.o2ServiceDate!.toIso8601String().substring(0, 10)}',
@@ -80,6 +106,17 @@ class DivingLogEquipmentMapper {
     }
     return out;
   }
+
+  static List<Map<String, dynamic>> serviceRecords(DivingLogLogbook book) => [
+    for (final item in book.equipmentById.values)
+      if (_isImportable(item) && item.lastServiceDate != null)
+        {
+          'equipmentRef': _uddfId(item.id),
+          'serviceDate': item.lastServiceDate,
+          if (item.nextServiceDate != null)
+            'nextServiceDue': item.nextServiceDate,
+        },
+  ];
 
   /// Every distinct `Logbook.Computer` value, the names the import
   /// registers dive computers under.
@@ -109,18 +146,76 @@ class DivingLogEquipmentMapper {
     return rest.isEmpty ? name : rest;
   }
 
+  /// The item's display name: DiveMate's `Name`, else Diving Log's
+  /// `Object`. Null when both are blank.
+  static String? _nameOf(DivingLogRawEquipment item) {
+    for (final candidate in [item.name, item.object]) {
+      final trimmed = candidate?.trim();
+      if (trimmed != null && trimmed.isNotEmpty) return trimmed;
+    }
+    return null;
+  }
+
+  /// DiveMate's model: `Object` when the row also has a `Name` that differs
+  /// from it. Null for a Diving Log row, whose `Object` is the name.
+  static String? _diveMateModel(DivingLogRawEquipment item) {
+    final name = item.name?.trim();
+    final object = item.object?.trim();
+    if (name == null || name.isEmpty) return null;
+    if (object == null || object.isEmpty || object == name) return null;
+    return object;
+  }
+
+  /// The item's type, from the most certain signal down.
+  ///
+  /// DiveMate's `TypeID` fixes cylinders, weights and computers. A suit
+  /// category says only that the item is a suit, so its German name decides
+  /// which (`Trocki` is a drysuit). Then the name as for any Diving Log
+  /// item, then DiveMate's category, in German or English: an item called
+  /// "Ghost" filed under "Wing" (#3110).
+  static TypeFromName? _typeOf(DivingLogRawEquipment item, String name) {
+    final byName = typeFromName(name);
+    final fixed = DiveMateValues.equipmentTypeFromCode(item.typeId);
+    if (fixed != null) return (type: fixed, thickness: byName?.thickness);
+    if (DiveMateValues.isSuitCategory(item.category)) {
+      final suit = DiveMateValues.suitFromName(name);
+      if (suit != null) return (type: suit, thickness: byName?.thickness);
+    }
+    if (byName != null) return byName;
+    final category = item.category?.trim();
+    if (category == null || category.isEmpty) return null;
+    final byCategory = DiveMateValues.equipmentTypeFromCategory(category);
+    return byCategory != null
+        ? (type: byCategory, thickness: null)
+        : typeFromName(category);
+  }
+
   /// Whether [item] becomes an entity, which is also what decides whether a
   /// dive may reference it. [entities] drops a row with a blank name, so a
   /// ref to one would dangle: the importer skips it in silence and the
-  /// unresolved count never sees it.
+  /// unresolved count never sees it. A DiveMate set is not gear; a dive's
+  /// ref to one is expanded to its members by [_expand].
   static bool _isImportable(DivingLogRawEquipment item) =>
-      (item.object?.trim().isNotEmpty) ?? false;
+      item.setMemberIds == null && _nameOf(item) != null;
+
+  /// [dive]'s equipment ids with every DiveMate set replaced by its members,
+  /// in order, each id once.
+  static List<int> _expand(DivingLogLogbook book, DivingLogRawDive dive) {
+    final out = <int>[];
+    for (final id in dive.equipmentIds) {
+      final members = book.equipmentById[id]?.setMemberIds;
+      for (final member in members ?? [id]) {
+        if (!out.contains(member)) out.add(member);
+      }
+    }
+    return out;
+  }
 
   /// The `equipmentRefs` for [dive], in the order the source listed them.
   /// An id with no importable row is skipped and counted by
   /// [unresolvedCount].
   static List<String> refsFor(DivingLogLogbook book, DivingLogRawDive dive) => [
-    for (final id in dive.equipmentIds)
+    for (final id in _expand(book, dive))
       if (book.equipmentById[id] case final item? when _isImportable(item))
         _uddfId(id),
   ];
@@ -131,7 +226,7 @@ class DivingLogEquipmentMapper {
   /// by subtracting the number of refs: the two must agree, and a count
   /// derived from list lengths would also report deduplication as a gap.
   static int unresolvedCount(DivingLogLogbook book, DivingLogRawDive dive) =>
-      dive.equipmentIds.where((id) {
+      _expand(book, dive).where((id) {
         final item = book.equipmentById[id];
         return item == null || !_isImportable(item);
       }).length;

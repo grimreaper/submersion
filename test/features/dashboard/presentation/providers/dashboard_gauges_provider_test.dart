@@ -1,7 +1,10 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/features/backup/presentation/providers/backup_providers.dart';
+import 'package:submersion/features/certifications/presentation/providers/certification_currency_providers.dart';
 import 'package:submersion/features/certifications/presentation/providers/certification_providers.dart';
 import 'package:submersion/features/courses/domain/entities/course.dart';
 import 'package:submersion/features/courses/domain/entities/course_progress.dart';
@@ -27,6 +30,9 @@ import 'package:submersion/features/safety/presentation/providers/no_fly_provide
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/trips/domain/entities/trip.dart';
 import 'package:submersion/features/trips/presentation/providers/trip_providers.dart';
+import 'package:submersion/features/documents/domain/document_expiry.dart';
+import 'package:submersion/features/documents/domain/entities/document.dart';
+import 'package:submersion/features/documents/presentation/providers/document_providers.dart';
 
 final _t0 = DateTime(2026, 1, 1);
 
@@ -69,7 +75,7 @@ ActiveCourseProgress _course(String name, int total) => (
     id: 'c1',
     diverId: 'd1',
     name: name,
-    agency: CertificationAgency.padi,
+    agency: CertificationAgency.padi.name,
     startDate: _t0,
     createdAt: _t0,
     updatedAt: _t0,
@@ -98,7 +104,8 @@ ProviderContainer makeContainer({
   Diver? diver,
   NoFlyStatus? noFly,
   int? daysSinceLastDive,
-  int certCount = 0,
+  CurrencyAttention certCurrency = CurrencyAttention.none,
+  bool currencyFails = false,
   List<Trip> trips = const [],
   PreDiveSession? activeSession,
   List<ActiveCourseProgress> courses = const [],
@@ -108,6 +115,8 @@ ProviderContainer makeContainer({
   int syncPending = 0,
   int findings = 0,
   FlightWindowStatus? flightWindow,
+  Future<List<(Document, DocumentExpiryStatus)>> Function(Ref ref)?
+  attentionDocuments,
 }) {
   final container = ProviderContainer(
     overrides: [
@@ -115,7 +124,15 @@ ProviderContainer makeContainer({
       currentDiverProvider.overrideWith((ref) async => diver),
       noFlyStatusProvider.overrideWith((ref) async => noFly),
       daysSinceLastDiveProvider.overrideWith((ref) async => daysSinceLastDive),
-      expiringCertificationCountProvider.overrideWith((ref) async => certCount),
+      if (currencyFails) ...[
+        // The real attention provider over inputs that throw: the gauges
+        // must still resolve, with the currency chip empty.
+        allCertificationsProvider.overrideWith((ref) async => const []),
+        currencyRulesProvider.overrideWith(
+          (ref) async => throw StateError('corrupt catalog'),
+        ),
+      ] else
+        currencyAttentionProvider.overrideWith((ref) async => certCurrency),
       allTripsProvider.overrideWith((ref) async => trips),
       preDiveActiveSessionProvider.overrideWith((ref) async => activeSession),
       activeCoursesProgressProvider.overrideWith((ref) async => courses),
@@ -129,6 +146,11 @@ ProviderContainer makeContainer({
         (ref) => Stream.value(findings),
       ),
       activeTripFlightWindowProvider.overrideWith((ref) async => flightWindow),
+      // The documents chip's input (issue #2613) reaches a database these
+      // tests do not have.
+      attentionDocumentsProvider.overrideWith(
+        attentionDocuments ?? (ref) async => const [],
+      ),
     ],
   );
   addTearDown(container.dispose);
@@ -136,6 +158,14 @@ ProviderContainer makeContainer({
 }
 
 void main() {
+  test('a currency failure leaves the strip standing', () async {
+    final container = makeContainer(daysSinceLastDive: 12, currencyFails: true);
+    final gauges = await container.read(dashboardGaugesProvider.future);
+    expect(gauges.daysSinceLastDive, 12);
+    expect(gauges.hasGear, isFalse);
+    expect(gauges.certCurrency.count, 0);
+  });
+
   group('nextUpcomingTrip', () {
     final now = DateTime(2026, 7, 24);
 
@@ -158,6 +188,55 @@ void main() {
   });
 
   group('dashboardGaugesProvider', () {
+    test('keeps the documents chip while its list reloads', () async {
+      // The attention list refreshes on every document or page change; the
+      // chip must not blink out while the new query runs.
+      final permit = Document(
+        id: 'p1',
+        diverId: 'd1',
+        owner: const DocumentOwner.personal(),
+        type: DocumentType.permit,
+        expiryDate: _t0,
+        createdAt: _t0,
+        updatedAt: _t0,
+      );
+      final due = [
+        (permit, const DocumentExpiryStatus(DocumentExpiryKind.expired, -1)),
+      ];
+      final changes = StreamController<void>.broadcast();
+      addTearDown(changes.close);
+      final gate = Completer<void>();
+      var loads = 0;
+      final container = makeContainer(
+        attentionDocuments: (ref) async {
+          ref.invalidateSelfWhen(changes.stream);
+          if (++loads > 1) await gate.future;
+          return due;
+        },
+      );
+      container.listen(attentionDocumentsProvider, (_, _) {});
+      container.listen(dashboardGaugesProvider, (_, _) {});
+      await container.read(attentionDocumentsProvider.future);
+      expect(
+        (await container.read(
+          dashboardGaugesProvider.future,
+        )).attentionDocuments,
+        hasLength(1),
+      );
+
+      changes.add(null);
+      await Future<void>.delayed(Duration.zero);
+      expect(loads, 2);
+      expect(container.read(attentionDocumentsProvider).isLoading, isTrue);
+      expect(
+        (await container.read(
+          dashboardGaugesProvider.future,
+        )).attentionDocuments,
+        hasLength(1),
+      );
+      gate.complete();
+    });
+
     test('reports quiet defaults when nothing needs attention', () async {
       final container = makeContainer();
       final gauges = await container.read(dashboardGaugesProvider.future);
@@ -190,7 +269,7 @@ void main() {
           updatedAt: _t0,
         ),
         daysSinceLastDive: 12,
-        certCount: 2,
+        certCurrency: const CurrencyAttention(count: 2),
         trips: [_trip('Bonaire', DateTime.now().add(const Duration(days: 12)))],
         courses: [_course('AN/DP', 12)],
         uploads: 3,
@@ -217,7 +296,7 @@ void main() {
       expect(gauges.gearOverdue?.worst.itemName, 'Regulator');
       expect(gauges.insurance?.provider, 'DAN');
       expect(gauges.daysSinceLastDive, 12);
-      expect(gauges.expiringCertCount, 2);
+      expect(gauges.certCurrency.count, 2);
       expect(gauges.nextTrip?.name, 'Bonaire');
       expect(gauges.firstCourse?.course.name, 'AN/DP');
       expect(gauges.uploadsPending, 3);

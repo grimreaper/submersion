@@ -45,6 +45,14 @@ class DecoStatus extends Equatable {
   /// Surface pressure in bar used for surface-referenced metrics (SurfGF).
   final double surfacePressureBar;
 
+  /// Inspired N2 partial pressure in bar (alveolar, after water vapour) of the
+  /// gas being breathed at this instant, or null when unknown. On a rebreather
+  /// this is the loop's, not the diluent's at ambient.
+  final double? inspiredN2Bar;
+
+  /// Inspired He partial pressure in bar, as [inspiredN2Bar].
+  final double? inspiredHeBar;
+
   /// Deepest GF-low ceiling (meters) reached so far in the dive at this
   /// sample: the running anchor BuhlmannAlgorithm interpolates gradient
   /// factors from. Together with [compartments] it is the complete restorable
@@ -64,8 +72,43 @@ class DecoStatus extends Equatable {
     required this.currentDepthMeters,
     required this.ambientPressureBar,
     this.surfacePressureBar = 1.0,
+    this.inspiredN2Bar,
+    this.inspiredHeBar,
     this.gfLowCeilingAnchor,
   });
+
+  /// Rate noise floor, in bar/min, below which [isOffgassing]'s net rate is
+  /// treated as zero rather than a real on-gassing signal.
+  ///
+  /// A compartment projected toward equilibrium across many small time steps
+  /// (e.g. `TissueLiveService.surfaceIntervalTimeline`, which off-gasses a
+  /// surface interval in dozens of discrete segments) can land a few bits on
+  /// the wrong side of its exact equilibrium tension from accumulated
+  /// floating-point rounding, even though it approached that equilibrium
+  /// strictly from one side the whole time. Left at the literal `< 0`
+  /// boundary, that noise flips the badge to "on-gassing" for a compartment
+  /// that has, physically, simply finished off-gassing. This floor is far
+  /// above any such rounding noise (on the order of 1e-15) and far below any
+  /// real physiological rate, so it only ever absorbs noise, never a
+  /// genuine on-gassing signal.
+  static const double _netRateNoiseFloor = 1e-9;
+
+  /// Whether [compartment] is releasing inert gas at this instant, or null
+  /// when the inspired gas is unknown.
+  ///
+  /// Gas moves toward the inspired partial pressure, not toward ambient: a
+  /// tissue below ambient still off-gasses at a stop where the breathed inert
+  /// pressure is lower still. N2 and He each move at their own half-time rate,
+  /// so the direction is the sign of their combined Haldane rate.
+  bool? isOffgassing(TissueCompartment compartment) {
+    final pN2 = inspiredN2Bar;
+    final pHe = inspiredHeBar;
+    if (pN2 == null || pHe == null) return null;
+    final netRate =
+        (pN2 - compartment.currentPN2) / compartment.halfTimeN2 +
+        (pHe - compartment.currentPHe) / compartment.halfTimeHe;
+    return netRate < _netRateNoiseFloor;
+  }
 
   /// Whether the diver is currently in decompression obligation.
   ///
@@ -197,6 +240,8 @@ class DecoStatus extends Equatable {
     double? currentDepthMeters,
     double? ambientPressureBar,
     double? surfacePressureBar,
+    double? inspiredN2Bar,
+    double? inspiredHeBar,
     double? gfLowCeilingAnchor,
   }) {
     return DecoStatus(
@@ -211,6 +256,8 @@ class DecoStatus extends Equatable {
       currentDepthMeters: currentDepthMeters ?? this.currentDepthMeters,
       ambientPressureBar: ambientPressureBar ?? this.ambientPressureBar,
       surfacePressureBar: surfacePressureBar ?? this.surfacePressureBar,
+      inspiredN2Bar: inspiredN2Bar ?? this.inspiredN2Bar,
+      inspiredHeBar: inspiredHeBar ?? this.inspiredHeBar,
       gfLowCeilingAnchor: gfLowCeilingAnchor ?? this.gfLowCeilingAnchor,
     );
   }
@@ -228,6 +275,8 @@ class DecoStatus extends Equatable {
     currentDepthMeters,
     ambientPressureBar,
     surfacePressureBar,
+    inspiredN2Bar,
+    inspiredHeBar,
     gfLowCeilingAnchor,
   ];
 }

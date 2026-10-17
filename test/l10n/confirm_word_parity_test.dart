@@ -1,3 +1,4 @@
+// pre-push: scans lib/l10n/arb/
 import 'dart:convert';
 import 'dart:io';
 
@@ -24,6 +25,8 @@ void main() {
         'settings_storage_resetDialog_confirmHint',
     'settings_cloudSync_replaceLibrary_confirmWord':
         'settings_cloudSync_replaceLibrary_confirmHint',
+    'divers_detail_deleteDialogConfirmText':
+        'divers_detail_deleteDialogConfirmHint',
   };
 
   final arbs =

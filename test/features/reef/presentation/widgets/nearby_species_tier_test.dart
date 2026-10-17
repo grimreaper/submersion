@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/features/dive_sites/domain/entities/dive_site.dart';
+import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/reef/domain/entities/nearby_species.dart';
 import 'package:submersion/features/reef/domain/entities/reef_data_status.dart';
 import 'package:submersion/features/reef/domain/entities/reef_snapshot.dart';
@@ -43,6 +44,8 @@ class _RecordingSpeciesRepository extends Fake implements SpeciesRepository {
     required String siteId,
     required String speciesId,
     String notes = '',
+    bool stampLibrary = true,
+    String? actingDiverId,
   }) async {
     added.add(speciesId);
     return SiteSpeciesEntry(
@@ -63,6 +66,7 @@ Widget _harness(
   SpeciesRepository? repository,
 }) => ProviderScope(
   overrides: [
+    validatedCurrentDiverIdProvider.overrideWith((ref) async => null),
     reefSnapshotProvider(
       ReefSnapshotRequest(location: location),
     ).overrideWith((ref) async => snapshot),

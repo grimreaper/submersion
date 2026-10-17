@@ -2,6 +2,7 @@ import 'package:submersion/core/buoyancy/gear_feature.dart';
 import 'package:submersion/core/buoyancy/weight_observation.dart';
 import 'package:submersion/core/buoyancy/weight_prediction_engine.dart';
 import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/features/dive_log/data/repositories/dive_repository_impl.dart';
 import 'package:submersion/features/dive_planner/presentation/providers/dive_planner_providers.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
@@ -10,6 +11,8 @@ import 'package:submersion/features/equipment/domain/entities/equipment_item.dar
 import 'package:submersion/features/equipment/domain/services/gear_feature_mapper.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_providers.dart';
 import 'package:submersion/features/weight_planner/data/repositories/weight_history_repository.dart';
+
+const _log = LoggerService('WeightPlannerProviders');
 
 /// Converts an equipment item to an engine feature.
 ///
@@ -53,6 +56,9 @@ final weightObservationsProvider = FutureProvider<List<WeightObservation>>((
   // block's dry weight would otherwise leave carriedKg stale and refit the
   // calibration against the old ballast until some dive happened to change.
   ref.invalidateSelfWhen(repository.watchGearLeadChanges());
+  // A dive with no water type of its own is trained in its site's (#3196),
+  // so a site's water type edit refits the calibration too.
+  ref.invalidateSelfWhen(repository.watchSiteWaterTypeChanges());
 
   return repository.observationsForDiver(diverId);
 });
@@ -83,9 +89,12 @@ final weightCalibrationProvider = FutureProvider<FittedWeightModel>((
 
 /// Live prediction for the plan being edited (Gear & Weights section).
 ///
-/// Null while the calibration inputs are still loading. Water type is not
-/// part of the plan editing state, so plan predictions use the salt-water
-/// baseline; the standalone Weight Planner tool has an explicit control.
+/// Null while the calibration inputs are still loading, and when the
+/// prediction itself fails: the Gear & Weights card hides a null prediction,
+/// where a throw would replace the whole card with an error box (issue
+/// #2060). The water term follows the plan's environment like the buoyancy
+/// twin does (issue #3090): a custom salinity wins over the water type, and
+/// a plan with neither stays on the salt-water baseline.
 final planWeightPredictionProvider = Provider<WeightPrediction?>((ref) {
   final state = ref.watch(divePlanNotifierProvider);
   final model = ref.watch(weightCalibrationProvider).valueOrNull;
@@ -108,12 +117,18 @@ final planWeightPredictionProvider = Provider<WeightPrediction?>((ref) {
       ),
   ];
 
-  return model.predict(
-    RigSpec(
-      gear: gear,
-      tanks: tanks,
-      waterType: null,
-      bodyWeightKg: latestWeight?.weightKg,
-    ),
-  );
+  try {
+    return model.predict(
+      RigSpec(
+        gear: gear,
+        tanks: tanks,
+        waterType: state.waterType,
+        salinityPpt: state.salinityPpt,
+        bodyWeightKg: latestWeight?.weightKg,
+      ),
+    );
+  } catch (e, st) {
+    _log.error('Plan weight prediction failed', error: e, stackTrace: st);
+    return null;
+  }
 });

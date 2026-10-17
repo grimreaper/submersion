@@ -144,7 +144,7 @@ jobs:
           xcodebuild -version
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: ./.github/actions/setup-flutter
         id: setup-flutter
         with:
           flutter-version: ${{ steps.flutter-ver.outputs.version }}
@@ -424,7 +424,7 @@ jobs:
         run: echo "version=$(cat ${{ env.FLUTTER_VERSION_FILE }})" >> "$GITHUB_OUTPUT"
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: ./.github/actions/setup-flutter
         id: setup-flutter
         with:
           flutter-version: ${{ steps.flutter-ver.outputs.version }}
@@ -555,7 +555,7 @@ jobs:
       # required GLIBC_2.38, pinned by libsqlcipher.so and the two plugin
       # libraries rather than by the app, so building on an older host would
       # buy reach the project has never claimed at the cost of a container
-      # and its toolchain. See docs/guide/installation.md for the distro
+      # and its toolchain. See docs/user/installation.md for the distro
       # requirement this implies.
       #
       # binutils supplies readelf for scripts/linux_package_deps.py; the
@@ -571,7 +571,7 @@ jobs:
             libssl-dev binutils
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: ./.github/actions/setup-flutter
         id: setup-flutter
         with:
           flutter-version: ${{ steps.flutter-ver.outputs.version }}
@@ -711,19 +711,61 @@ jobs:
       - name: Install and run in clean containers
         run: |
           set -euo pipefail
+          # Images come from mirrors of the Docker Official Images (the same
+          # images Docker Hub serves), tried in order until one answers.
+          # Docker Hub limits anonymous pulls per IP, GitHub-hosted runners
+          # share IPs, and the limit failed this step before any package was
+          # tested (issue #3139). The repository has no registry token, and
+          # fork PRs could not read one anyway. ECR Public, tried first, has
+          # a per-second limit that the retry absorbs, but also a cap on the
+          # data an anonymous client pulls, which no retry recovers from
+          # (issue #3424). mirror.gcr.io, Google's cache of Docker Hub, comes
+          # next, and Docker Hub itself last.
+          REGISTRIES=(
+            public.ecr.aws/docker/library
+            mirror.gcr.io/library
+            docker.io/library
+          )
           UBUNTU_TAG="ubuntu:$(. /etc/os-release && echo "$VERSION_ID")"
           echo "runner is $UBUNTU_TAG"
+          # Sets PULLED to the first registry's reference that pulls. Each
+          # registry gets three tries with backoff (10s, 20s) so a transient
+          # error does not skip it.
+          pull() {
+            local registry attempt
+            PULLED=
+            for registry in "${REGISTRIES[@]}"; do
+              for attempt in 1 2 3; do
+                if docker pull --quiet "$registry/$1"; then
+                  PULLED="$registry/$1"
+                  return 0
+                fi
+                if [ "$attempt" -lt 3 ]; then
+                  echo "pull of $registry/$1 failed (attempt $attempt), retrying in $((10 << (attempt - 1)))s"
+                  sleep $((10 << (attempt - 1)))
+                fi
+              done
+              echo "giving up on $registry for $1"
+            done
+            return 1
+          }
           # Every image runs even when an earlier one fails, so one run says
           # whether the .deb, the .rpm, or both are broken. Testing the exit
-          # status with `if !` keeps the failure from tripping `set -e`.
+          # status with `if !` keeps the failure from tripping `set -e`. A
+          # pull failure is reported as such rather than as a broken package,
+          # and `--pull=never` keeps `docker run` from pulling a second time.
           failed=()
           for image in "$UBUNTU_TAG" fedora:latest; do
             echo "=== $image ==="
-            if ! docker run --rm \
+            if ! pull "$image"; then
+              failed+=("$image (no registry could serve it)")
+              continue
+            fi
+            if ! docker run --rm --pull=never \
               -v "$PWD/packages:/p" \
               -v "$PWD/scripts/release/verify_linux_package.sh:/verify.sh:ro" \
-              "$image" bash /verify.sh; then
-              failed+=("$image")
+              "$PULLED" bash /verify.sh; then
+              failed+=("$PULLED")
             fi
           done
           if [ "${#failed[@]}" -gt 0 ]; then
@@ -760,7 +802,7 @@ jobs:
           java-version: '21'
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: ./.github/actions/setup-flutter
         id: setup-flutter
         with:
           flutter-version: ${{ steps.flutter-ver.outputs.version }}
@@ -963,7 +1005,7 @@ jobs:
           fi
 
       - name: Setup Flutter
-        uses: subosito/flutter-action@v2
+        uses: ./.github/actions/setup-flutter
         id: setup-flutter
         with:
           flutter-version: ${{ steps.flutter-ver.outputs.version }}

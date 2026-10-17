@@ -3,7 +3,8 @@ import 'package:submersion/features/equipment/domain/entities/equipment_observat
 
 /// The tags a check-in offers for one equipment type, in display order,
 /// always ending with `other`. Mirrors the spec's table; near relatives
-/// (stages, hoses, wings, strobes, instruments, base layers, housings)
+/// (stages, hoses, wings, strobes, video lights, instruments, base layers,
+/// housings, ports)
 /// get their parent type's group so a diver who logs them separately still
 /// sees the right words. A type the spec does not name gets `other` only.
 List<ObservationTag> observationTagsFor(EquipmentType type) {
@@ -36,13 +37,17 @@ List<ObservationTag> observationTagsFor(EquipmentType type) {
     EquipmentType.undersuit ||
     EquipmentType.baselayer ||
     EquipmentType.rashGuard ||
+    EquipmentType.vest ||
     EquipmentType.hood ||
     EquipmentType.gloves ||
-    EquipmentType.boots => const [
+    EquipmentType.boots ||
+    EquipmentType.socks => const [
       ObservationTag.tear,
       ObservationTag.seamFailure,
     ],
-    EquipmentType.light || EquipmentType.strobe => const [
+    EquipmentType.light ||
+    EquipmentType.strobe ||
+    EquipmentType.videoLight => const [
       ObservationTag.dim,
       ObservationTag.died,
       ObservationTag.flooded,
@@ -81,7 +86,8 @@ List<ObservationTag> observationTagsFor(EquipmentType type) {
       ObservationTag.leak,
     ],
     EquipmentType.camera ||
-    EquipmentType.housing => const [ObservationTag.flooded],
+    EquipmentType.housing ||
+    EquipmentType.port => const [ObservationTag.flooded],
     _ => const <ObservationTag>[],
   };
   return [...specific, ObservationTag.other];

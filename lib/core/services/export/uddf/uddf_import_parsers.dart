@@ -1,6 +1,7 @@
 import 'package:xml/xml.dart';
 
 import 'package:submersion/core/constants/enums.dart' as enums;
+import 'package:submersion/core/services/export/uddf/uddf_service_clock_writers.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 
 /// Normalizes a raw UDDF `<tankvolume>` value to liters (#158).
@@ -156,7 +157,7 @@ class UddfImportParsers {
   ) {
     final profile = diveData['profile'];
     if (profile is! List<Map<String, dynamic>>) return;
-    if (!_writtenBySubmersion(diveElement)) return;
+    if (!writtenBySubmersion(diveElement)) return;
     if (_isInventedOutline(
       profile,
       maxDepth: diveData['maxDepth'] as double?,
@@ -166,8 +167,44 @@ class UddfImportParsers {
     }
   }
 
-  static bool _writtenBySubmersion(XmlElement diveElement) =>
-      diveElement.document?.rootElement
+  /// The `<tankdata>` id a `<gasswitch>`'s `<tankref>` names among [tanks].
+  ///
+  /// Submersion's full backup declares each cylinder as `tank_<id>` but has
+  /// always written the switch's `<tankref>` as the bare `<id>`, so every
+  /// recorded switch failed to resolve on restore and was dropped (issue
+  /// #1878). A ref that matches a declared tank as written is kept; a bare
+  /// one is mapped to its `tank_` form only when that tank is declared.
+  static String? resolveGasSwitchTankRef(
+    String? ref,
+    List<Map<String, dynamic>> tanks,
+  ) {
+    final trimmed = ref?.trim();
+    if (trimmed == null || trimmed.isEmpty) return ref;
+    bool declared(String id) => tanks.any((t) => t['uddfTankId'] == id);
+    if (declared(trimmed)) return trimmed;
+    final prefixed = 'tank_$trimmed';
+    return declared(prefixed) ? prefixed : trimmed;
+  }
+
+  /// Whether the document holding [element] declares any `<tankdata>`.
+  ///
+  /// Submersion's dives-only export wrote none before #1875, so in such a
+  /// file the starting-mix `<switchmix>` is the only record of a dive's
+  /// cylinder. Cached per document: a backup asks once for every dive.
+  static bool documentDeclaresTanks(XmlElement element) {
+    final document = element.document;
+    if (document == null) return false;
+    return _declaresTanks[document] ??= document
+        .findAllElements('tankdata')
+        .isNotEmpty;
+  }
+
+  static final _declaresTanks = Expando<bool>('declaresTanks');
+
+  /// Whether the document holding [element] was written by Submersion, the
+  /// only producer whose writer quirks the importer undoes.
+  static bool writtenBySubmersion(XmlElement element) =>
+      element.document?.rootElement
           .getElement('generator')
           ?.getElement('name')
           ?.innerText
@@ -810,16 +847,22 @@ class UddfImportParsers {
     course['location'] = getElementText(courseElement, 'location');
     course['notes'] = getElementText(courseElement, 'notes') ?? '';
 
-    // Parse link refs for certification and instructor buddy
+    // Parse link refs for the earned certifications (one link each since
+    // #2515) and the instructor buddy
+    final certRefs = <String>[];
     for (final linkElement in courseElement.findElements('link')) {
       final ref = linkElement.getAttribute('ref');
       if (ref != null) {
         if (ref.startsWith('cert_')) {
-          course['certificationRef'] = ref;
+          certRefs.add(ref);
         } else if (ref.startsWith('buddy_')) {
           course['instructorRef'] = ref;
         }
       }
+    }
+    if (certRefs.isNotEmpty) {
+      course['certificationRefs'] = certRefs;
+      course['certificationRef'] = certRefs.first;
     }
 
     return course;
@@ -904,18 +947,18 @@ class UddfImportParsers {
     final certElement = buddyElement.findElements('certification').firstOrNull;
     if (certElement != null) {
       final level = getElementText(certElement, 'level');
+      // A name that matches no built-in stays as text: the importer finds
+      // or creates the custom agency it names (issue #690).
       if (level != null) {
-        buddy['certificationLevel'] = parseEnumValue(
-          level,
-          enums.CertificationLevel.values,
-        );
+        buddy['certificationLevel'] =
+            parseEnumValue(level, enums.CertificationLevel.values) ??
+            _nonBlank(level);
       }
       final agency = getElementText(certElement, 'agency');
       if (agency != null) {
-        buddy['certificationAgency'] = parseEnumValue(
-          agency,
-          enums.CertificationAgency.values,
-        );
+        buddy['certificationAgency'] =
+            parseEnumValue(agency, enums.CertificationAgency.values) ??
+            _nonBlank(agency);
       }
     }
 
@@ -1028,6 +1071,15 @@ class UddfImportParsers {
     // Condition phase 3a: the parent link and the check-ins. Kept raw
     // (uddf ids and tag names) for the entity importer to resolve.
     item['parentRef'] = getElementText(itemElement, 'parentref');
+    // The item's tag identity (issue #2651); adopted by the entity
+    // importer only into an empty slot.
+    item['passportId'] = getElementText(itemElement, 'passportid');
+    // The item's service clocks (issue #2651), restored after the item.
+    // Absent in a file from before them, so the item keeps its defaults.
+    if (UddfServiceClockWriters.parseSchedules(itemElement)
+        case final schedules?) {
+      item['serviceSchedules'] = schedules;
+    }
     final observationsElement = itemElement
         .findElements('observations')
         .firstOrNull;
@@ -1071,16 +1123,19 @@ class UddfImportParsers {
     cert['name'] = getElementText(certElement, 'name');
 
     final agencyStr = getElementText(certElement, 'agency');
+    // Text that names no built-in is kept for the importer, which resolves
+    // it to a custom agency or level (issue #690).
     if (agencyStr != null) {
-      cert['agency'] = parseEnumValue(
-        agencyStr,
-        enums.CertificationAgency.values,
-      );
+      cert['agency'] =
+          parseEnumValue(agencyStr, enums.CertificationAgency.values) ??
+          _nonBlank(agencyStr);
     }
 
     final levelStr = getElementText(certElement, 'level');
     if (levelStr != null) {
-      cert['level'] = parseEnumValue(levelStr, enums.CertificationLevel.values);
+      cert['level'] =
+          parseEnumValue(levelStr, enums.CertificationLevel.values) ??
+          _nonBlank(levelStr);
     }
 
     cert['cardNumber'] = getElementText(certElement, 'cardnumber');
@@ -1168,6 +1223,7 @@ class UddfImportParsers {
       );
     }
 
+    spec['taxonomyClass'] = getElementText(specElement, 'taxonomyclass');
     spec['description'] = getElementText(specElement, 'description');
 
     return spec;
@@ -1181,6 +1237,8 @@ class UddfImportParsers {
     }
 
     record['equipmentRef'] = getElementText(recordElement, 'equipmentref');
+    // The service kind the record fulfils (issue #2651).
+    record['serviceKindRef'] = getElementText(recordElement, 'servicekind');
 
     // Files exported before v160 spell this 'servicetype'. UDDF files have no
     // version handshake and live on disk indefinitely, so both spellings are
@@ -1218,4 +1276,10 @@ class UddfImportParsers {
 
     return record;
   }
+}
+
+/// [text] trimmed, or null when it is blank.
+String? _nonBlank(String text) {
+  final trimmed = text.trim();
+  return trimmed.isEmpty ? null : trimmed;
 }

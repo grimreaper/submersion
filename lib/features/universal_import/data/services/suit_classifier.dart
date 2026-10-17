@@ -1,4 +1,5 @@
 import 'package:submersion/core/constants/enums.dart';
+import 'package:submersion/features/universal_import/data/services/macdive_value_mapper.dart';
 
 /// An exposure suit read from free text: its type, and the thickness
 /// designation when the text states exactly one (wetsuits only).
@@ -39,7 +40,10 @@ SuitClassification? classifySuit(String? text) {
 
   if (_notASuit.hasMatch(s)) return null;
 
-  final hasAccessory = _accessory.hasMatch(s);
+  // Every vest alias counts (#3108), not only the English word in
+  // [_accessory]: "7mm core warmer" and "7mm Eisweste" name the vest.
+  final hasAccessory =
+      _accessory.hasMatch(s) || MacDiveValueMapper.vestGarment.hasMatch(s);
   final thickness = hasAccessory ? null : _singleThickness(s);
 
   if (_semiDry.hasMatch(s)) {
@@ -60,6 +64,45 @@ SuitClassification? classifySuit(String? text) {
     return (type: EquipmentType.wetsuit, thickness: thickness);
   }
   return null;
+}
+
+/// Layers a suit name may claim through the free-text mapper. The field is
+/// known to hold a suit, so any other reading of the mapper (it sees fins in
+/// the "fin" of "Definition") is not trusted here.
+const Set<EquipmentType> _layerTypes = {
+  EquipmentType.undersuit,
+  EquipmentType.baselayer,
+  EquipmentType.rashGuard,
+  // A vest (#3108) worn with the suit, when the field names only the vest.
+  EquipmentType.vest,
+};
+
+/// The gear type an imported suit field names, or null when it names none.
+///
+/// A wetsuit or drysuit comes from [classifySuit], with its thickness; a
+/// layer that names itself (undersuit, base layer, rash guard, vest) takes
+/// that type from the free-text mapper (#1885). The CSV and Subsurface XML
+/// importers share this rule; what each does with a null differs (#633).
+SuitClassification? classifySuitGear(String? text) {
+  final classified = classifySuit(text);
+  if (classified != null) return classified;
+  final mapped = MacDiveValueMapper.equipmentType(text?.trim());
+  if (mapped == null || !_layerTypes.contains(mapped)) return null;
+  return (
+    type: mapped,
+    thickness: mapped == EquipmentType.vest ? vestThickness(text) : null,
+  );
+}
+
+/// The thickness a vest's name states (#3108), read the way a wetsuit's is:
+/// exactly one token, and none when the text also names another accessory
+/// ("Ice vest, 5mm gloves"), whose thickness it could be.
+String? vestThickness(String? text) {
+  final s = text?.trim().toLowerCase();
+  if (s == null || s.isEmpty) return null;
+  final rest = s.replaceAll(MacDiveValueMapper.vestGarment, ' ');
+  if (_accessory.hasMatch(rest)) return null;
+  return _singleThickness(s);
 }
 
 final RegExp _notASuit = RegExp(

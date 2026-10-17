@@ -1,8 +1,13 @@
 import 'package:clock/clock.dart';
 import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/core/services/export/models/currency_backup_data.dart';
 import 'package:submersion/core/services/export/excel/observations_excel_export_service.dart';
+import 'package:submersion/features/cylinder_passports/domain/entities/cylinder_fill.dart';
+import 'package:submersion/features/cylinder_passports/presentation/providers/cylinder_passport_providers.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_observation.dart';
 import 'package:submersion/features/equipment/domain/entities/equipment_item.dart';
+import 'package:submersion/features/equipment/domain/entities/service_kind.dart';
+import 'package:submersion/features/equipment/domain/entities/service_schedule.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_arrangement_provider.dart';
 import 'package:intl/intl.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_observation_providers.dart';
@@ -32,10 +37,12 @@ import 'package:submersion/features/dive_sites/presentation/providers/site_featu
 import 'package:submersion/features/dive_sites/presentation/providers/site_providers.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_component_providers.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_providers.dart';
+import 'package:submersion/features/equipment/presentation/providers/equipment_location_providers.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_tag_providers.dart';
 import 'package:submersion/features/equipment/data/repositories/equipment_set_repository_impl.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_set_providers.dart';
 import 'package:submersion/features/buddies/presentation/providers/buddy_providers.dart';
+import 'package:submersion/features/certifications/presentation/providers/certification_currency_providers.dart';
 import 'package:submersion/features/certifications/presentation/providers/certification_providers.dart';
 import 'package:submersion/features/dive_centers/presentation/providers/dive_center_providers.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
@@ -53,6 +60,7 @@ import 'package:submersion/features/dive_log/domain/entities/dive.dart'
 import 'package:submersion/features/pre_dive/presentation/providers/pre_dive_providers.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
+import 'package:submersion/features/certification_agencies/presentation/providers/certification_catalog_providers.dart';
 
 /// Export service provider
 final exportServiceProvider = Provider<ExportService>((ref) {
@@ -157,6 +165,18 @@ class ExportNotifier extends StateNotifier<ExportState> {
     return ComponentsIndex.fromRows(
       rows,
     ).namesByParent({for (final e in equipment) e.id: e});
+  }
+
+  /// Each item's current place name, for the equipment CSV's Location
+  /// column (v268). Items with no location are absent.
+  Future<Map<String, String>> _equipmentLocationNamesFor(
+    List<EquipmentItem> equipment,
+  ) async {
+    final current = await _ref.read(currentEquipmentLocationsProvider.future);
+    return {
+      for (final item in equipment)
+        if (current[item.id] case final place?) item.id: place.name,
+    };
   }
 
   /// Each exported item's tag names, by name, for the Tags column of the
@@ -314,6 +334,7 @@ class ExportNotifier extends StateNotifier<ExportState> {
         equipment,
         componentNames: await _componentNamesFor(equipment),
         tagNames: await _equipmentTagNamesFor(equipment),
+        locationNames: await _equipmentLocationNamesFor(equipment),
         units: _csvUnits(unitMode),
       );
       state = state.copyWith(
@@ -329,6 +350,17 @@ class ExportNotifier extends StateNotifier<ExportState> {
     }
   }
 
+  /// The certification currency rows a full backup of [certifications]
+  /// carries (issue #2267).
+  Future<CurrencyBackupData> _currencyBackup(
+    List<Certification> certifications,
+  ) async => CurrencyBackupData.forCertifications(
+    certifications,
+    rules: await _ref.read(currencyRulesProvider.future),
+    prefs: await _ref.read(currencyPrefsProvider.future),
+    events: await _ref.read(currencyEventsProvider.future),
+  );
+
   /// The active diver's gear check-ins. The export's equipment and dives
   /// are scoped to that diver, and a shared item can carry another diver's
   /// check-in, so an unscoped read would put it in this diver's file.
@@ -337,6 +369,52 @@ class ExportNotifier extends StateNotifier<ExportState> {
     return _ref
         .read(equipmentObservationRepositoryProvider)
         .getAll(diverId: diverId);
+  }
+
+  /// The fills the validated diver can see, for the full UDDF backup
+  /// (issue #2651): the fills CSV's scope (passports spec 10.8).
+  Future<List<CylinderFill>> _diverFills() async {
+    final diverId = await _ref.read(validatedCurrentDiverIdProvider.future);
+    if (diverId == null) return const [];
+    return _ref.read(cylinderFillRepositoryProvider).getAllVisibleTo(diverId);
+  }
+
+  /// Each exported item's service clocks and the custom service kinds the
+  /// full UDDF backup carries (issue #2651): the validated diver's own, and
+  /// any other custom kind an exported clock or record refers to, as a
+  /// shared item's clocks can use its owner's. Built-ins are fixed in every
+  /// database and never exported.
+  Future<
+    ({
+      List<ServiceKind> kinds,
+      Map<String, List<ServiceSchedule>> schedulesByItem,
+    })
+  >
+  _uddfServiceClocks(
+    List<EquipmentItem> equipment,
+    List<ServiceRecord> records,
+  ) async {
+    final diverId = await _ref.read(validatedCurrentDiverIdProvider.future);
+    final kindRepository = _ref.read(serviceKindRepositoryProvider);
+    final schedulesByItem = await _ref
+        .read(serviceScheduleRepositoryProvider)
+        .getSchedulesForEquipmentIds([for (final e in equipment) e.id]);
+    final visible = await kindRepository.getAllKinds(diverId: diverId);
+    final known = {for (final k in visible) k.id};
+    final kinds = [
+      for (final k in visible)
+        if (!k.isBuiltIn) k,
+    ];
+    final referenced = {
+      for (final list in schedulesByItem.values)
+        for (final s in list) s.serviceKindId,
+      for (final r in records) ?r.serviceKindId,
+    }.difference(known);
+    for (final id in referenced) {
+      final kind = await kindRepository.getKindById(id);
+      if (kind != null && !kind.isBuiltIn) kinds.add(kind);
+    }
+    return (kinds: kinds, schedulesByItem: schedulesByItem);
   }
 
   /// [_validatedDiverDives] with each dive's recorded profile, for the full
@@ -652,11 +730,18 @@ class ExportNotifier extends StateNotifier<ExportState> {
       title: localization.l10n.settings_export_pdfDocumentTitle,
       diveSignatures: diveSignatures.isNotEmpty ? diveSignatures : null,
       certifications: certifications,
+      certificationCatalog: await _ref.read(
+        allCustomCertificationsCatalogProvider.future,
+      ),
       diver: diver,
       profiles: profiles,
       diverPhoto: diverPhoto,
       includeVerificationAreas: exportOptions.includeVerificationAreas,
       diveTypesById: await _diveTypesById(),
+      // The diver's own roles print by name (#1221).
+      diveRolesById: await diveRoleMapOrEmpty(
+        _ref.read(diveRoleMapProvider.future),
+      ),
     );
   }
 
@@ -745,12 +830,18 @@ class ExportNotifier extends StateNotifier<ExportState> {
       final relations = await _uddfDiveRelations(dives);
 
       state = state.copyWith(message: _l10n.settings_export_progress_uddf);
+      final currency = await _currencyBackup(certifications);
+      final clocks = await _uddfServiceClocks(equipment, allServiceRecords);
       final path = await _exportService.exportAllDataToUddf(
         dives: dives,
         sites: sites,
         equipment: equipment,
         buddies: buddies,
         certifications: certifications,
+        currency: currency,
+        certificationCatalog: await _ref.read(
+          allCustomCertificationsCatalogProvider.future,
+        ),
         diveCenters: diveCenters,
         species: species,
         diveBuddies: relations.diveBuddies,
@@ -774,6 +865,9 @@ class ExportNotifier extends StateNotifier<ExportState> {
         components: components,
         serviceRecords: allServiceRecords,
         observations: await _diverObservations(),
+        fills: await _diverFills(),
+        serviceKinds: clocks.kinds,
+        serviceSchedulesByItem: clocks.schedulesByItem,
         courses: courses,
         diveWeights: relations.diveWeights,
         diveGasSwitches: relations.diveGasSwitches,
@@ -1270,6 +1364,7 @@ class ExportNotifier extends StateNotifier<ExportState> {
         equipment,
         componentNames: await _componentNamesFor(equipment),
         tagNames: await _equipmentTagNamesFor(equipment),
+        locationNames: await _equipmentLocationNamesFor(equipment),
         dialogTitle: _l10n.settings_export_saveEquipmentCsvDialogTitle,
         units: _csvUnits(unitMode),
       );
@@ -1285,6 +1380,111 @@ class ExportNotifier extends StateNotifier<ExportState> {
       state = state.copyWith(
         status: ExportStatus.success,
         message: _l10n.settings_export_saved_equipmentCsv,
+        filePath: path,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        status: ExportStatus.error,
+        message: _l10n.settings_export_saveFailed('$e'),
+      );
+    }
+  }
+
+  // ==================== CYLINDER FILLS CSV ====================
+
+  /// The active diver's fills and the cylinders they link to, for the
+  /// fills CSV (cylinder passports phase 5). Scoped through the validated
+  /// diver id like the check-ins: a shared cylinder's fills come along and
+  /// another diver's unlinked fills do not (spec section 10.8).
+  Future<({List<CylinderFill> fills, Map<String, EquipmentItem> equipmentById})>
+  _fillRows() async {
+    final diverId = await _ref.read(validatedCurrentDiverIdProvider.future);
+    if (diverId == null) {
+      return (
+        fills: const <CylinderFill>[],
+        equipmentById: const <String, EquipmentItem>{},
+      );
+    }
+    final fills = await _ref
+        .read(cylinderFillRepositoryProvider)
+        .getAllVisibleTo(diverId);
+    final equipment = await _ref.read(allEquipmentProvider.future);
+    return (fills: fills, equipmentById: {for (final e in equipment) e.id: e});
+  }
+
+  Future<void> exportFillsToCsv({
+    CsvUnitMode unitMode = CsvUnitMode.metric,
+  }) async {
+    state = state.copyWith(
+      status: ExportStatus.exporting,
+      message: _l10n.settings_export_progress_fillsCsv,
+    );
+    try {
+      final rows = await _fillRows();
+      if (rows.fills.isEmpty) {
+        state = state.copyWith(
+          status: ExportStatus.error,
+          message: _l10n.settings_export_empty_fills,
+        );
+        return;
+      }
+      final path = await _exportService.exportFillsToCsv(
+        rows.fills,
+        equipmentById: rows.equipmentById,
+        units: _csvUnits(unitMode),
+      );
+      state = state.copyWith(
+        status: ExportStatus.success,
+        message: _l10n.settings_export_success_fills,
+        filePath: path,
+      );
+    } catch (e) {
+      state = state.copyWith(
+        status: ExportStatus.error,
+        message: _l10n.settings_data_export_failed('$e'),
+      );
+    }
+  }
+
+  /// Save cylinder fills CSV to a user-selected location.
+  Future<void> saveFillsCsvToFile({
+    CsvUnitMode unitMode = CsvUnitMode.metric,
+  }) async {
+    state = state.copyWith(
+      status: ExportStatus.exporting,
+      message: _l10n.settings_export_progress_preparingFillsCsv,
+    );
+    try {
+      final rows = await _fillRows();
+      if (rows.fills.isEmpty) {
+        state = state.copyWith(
+          status: ExportStatus.error,
+          message: _l10n.settings_export_empty_fills,
+        );
+        return;
+      }
+
+      state = state.copyWith(
+        message: _l10n.settings_export_progress_chooseLocation,
+      );
+      final path = await _exportService.saveFillsCsvToFile(
+        rows.fills,
+        equipmentById: rows.equipmentById,
+        dialogTitle: _l10n.settings_export_saveFillsCsvDialogTitle,
+        units: _csvUnits(unitMode),
+      );
+
+      if (path == null) {
+        state = state.copyWith(
+          status: ExportStatus.idle,
+          message: _l10n.settings_export_cancelled_save,
+        );
+        return;
+      }
+
+      state = state.copyWith(
+        status: ExportStatus.success,
+        message: _l10n.settings_export_saved_fillsCsv,
         filePath: path,
       );
     } catch (e) {
@@ -1382,12 +1582,18 @@ class ExportNotifier extends StateNotifier<ExportState> {
       state = state.copyWith(
         message: _l10n.settings_export_progress_chooseLocation,
       );
+      final currency = await _currencyBackup(certifications);
+      final clocks = await _uddfServiceClocks(equipment, allServiceRecords);
       final path = await _exportService.saveAllDataToUddfFile(
         dives: dives,
         sites: sites,
         equipment: equipment,
         buddies: buddies,
         certifications: certifications,
+        currency: currency,
+        certificationCatalog: await _ref.read(
+          allCustomCertificationsCatalogProvider.future,
+        ),
         diveCenters: diveCenters,
         species: species,
         diveBuddies: relations.diveBuddies,
@@ -1411,6 +1617,9 @@ class ExportNotifier extends StateNotifier<ExportState> {
         components: components,
         serviceRecords: allServiceRecords,
         observations: await _diverObservations(),
+        fills: await _diverFills(),
+        serviceKinds: clocks.kinds,
+        serviceSchedulesByItem: clocks.schedulesByItem,
         courses: courses,
         diveWeights: relations.diveWeights,
         diveGasSwitches: relations.diveGasSwitches,

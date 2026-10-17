@@ -44,6 +44,15 @@ extension SiteFilterQuery on SiteFilterState {
         ),
       );
     }
+    if (libraryId != null) {
+      // Shared site library membership (issue #2567): a library's id, or the
+      // personal sentinel for sites in no library.
+      parts.add(
+        libraryId == SiteFilterState.personalLibrary
+            ? c('library', QueryOp.isEmpty, null)
+            : c('library', QueryOp.eq, StringValue(libraryId!)),
+      );
+    }
     if (hasDives != null) {
       // The list's dive count: dives neither planned nor excluded from
       // stats (DiveStatsScope), from every diver.
@@ -66,13 +75,16 @@ extension SiteFilterQuery on SiteFilterState {
   }
 }
 
-/// The one compile call every site path shares.
+/// The one compile call every site path shares. [diverId] reads a shared
+/// site's dives as that diver's alone.
 CompiledQuery compileSiteFilter(
   SiteFilterState filter, {
   String rootAlias = 'r0',
+  String? diverId,
 }) => compileQuery(
   filter.toQuery(),
   siteQueryEntity,
   appQueryRegistry,
   rootAlias: rootAlias,
+  diverId: diverId,
 );

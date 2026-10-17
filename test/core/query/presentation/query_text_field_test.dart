@@ -1,4 +1,6 @@
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
+import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/query/domain/query_error_code.dart';
 import 'package:submersion/core/query/domain/query_errors.dart';
@@ -109,6 +111,276 @@ void main() {
     });
   });
 
+  testWidgets('the hint uses the body font, typed text stays monospace', (
+    tester,
+  ) async {
+    // A monospace hint runs about 0.6 em a glyph, too wide for a phone's
+    // search row; the hint is prose, only the typed query is code.
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: QueryTextField(
+            context: context,
+            value: null,
+            onChanged: (_) {},
+            fieldKey: fieldKey,
+            hintText: 'Search, or try depth > 30m',
+          ),
+        ),
+      ),
+    );
+    final body = Theme.of(
+      tester.element(find.byKey(fieldKey)),
+    ).textTheme.bodyLarge!.fontFamily;
+    expect(body, isNot('monospace'));
+    final hint = tester.renderObject<RenderParagraph>(
+      find.text('Search, or try depth > 30m'),
+    );
+    expect(hint.text.style!.fontFamily, body);
+    final field = tester.widget<TextField>(find.byKey(fieldKey));
+    expect(field.style!.fontFamily, 'monospace');
+  });
+
+  testWidgets('reports when the text stops and starts parsing', (tester) async {
+    final validity = <bool>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: QueryTextField(
+            context: context,
+            value: null,
+            onChanged: (_) {},
+            onValidityChanged: validity.add,
+            fieldKey: fieldKey,
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byKey(fieldKey), 'manta');
+    await tester.enterText(find.byKey(fieldKey), 'manta depth >');
+    await tester.enterText(find.byKey(fieldKey), 'manta depth >=');
+    // The same committed value as before the error: still reported valid.
+    await tester.enterText(find.byKey(fieldKey), 'manta');
+    await tester.enterText(find.byKey(fieldKey), '');
+    expect(validity, [false, true]);
+  });
+
+  testWidgets('reports every edit of the raw text, parsed or not', (
+    tester,
+  ) async {
+    final texts = <String>[];
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: QueryTextField(
+            context: context,
+            value: null,
+            onChanged: (_) {},
+            onTextChanged: texts.add,
+            fieldKey: fieldKey,
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byKey(fieldKey), 'turtles, in bonaire');
+    expect(texts.last, 'turtles, in bonaire');
+  });
+
+  // Review: a name-index refresh re-parses the text; it is not an edit,
+  // and reporting it as one cancelled a running Ask.
+  testWidgets('a name-index refresh is not reported as an edit', (
+    tester,
+  ) async {
+    final texts = <String>[];
+    var editorContext = context;
+    late StateSetter setOuter;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (ctx, setState) {
+              setOuter = setState;
+              return QueryTextField(
+                context: editorContext,
+                value: null,
+                onChanged: (_) {},
+                onTextChanged: texts.add,
+                fieldKey: fieldKey,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byKey(fieldKey), 'depth >');
+    await tester.pump();
+    expect(texts, ['depth >']);
+    setOuter(
+      () => editorContext = QueryEditorContext(
+        registry: fixtureRegistry,
+        root: fixtureDives,
+        prefs: kMetricPrefs,
+        names: const MapNameResolver({
+          QuerySubject.sites: {'Salt Pier': 's1', 'Bari Reef': 's2'},
+        }),
+        labels: const MapQueryLabels(),
+        now: () => DateTime(2026, 9, 25),
+      ),
+    );
+    await tester.pump();
+    await tester.pump();
+    expect(texts, ['depth >']);
+  });
+
+  group('text override', () {
+    late StateSetter setOuter;
+    QueryNode? value;
+    QueryTextOverride? override;
+    var commits = 0;
+
+    Future<void> pumpField(WidgetTester tester) async {
+      value = TextNode(['reef']);
+      override = null;
+      commits = 0;
+      await tester.pumpWidget(
+        MaterialApp(
+          home: Scaffold(
+            body: StatefulBuilder(
+              builder: (ctx, setState) {
+                setOuter = setState;
+                return QueryTextField(
+                  context: context,
+                  value: value,
+                  onChanged: (n) {
+                    commits++;
+                    value = n;
+                  },
+                  textOverride: override,
+                  fieldKey: fieldKey,
+                );
+              },
+            ),
+          ),
+        ),
+      );
+    }
+
+    String textOf(WidgetTester tester) =>
+        tester.widget<TextField>(find.byKey(fieldKey)).controller!.text;
+
+    testWidgets('shows the text without committing it', (tester) async {
+      await pumpField(tester);
+      setOuter(() => override = QueryTextOverride('turtles below 20m'));
+      await tester.pump();
+      expect(textOf(tester), 'turtles below 20m');
+      expect(commits, 0);
+    });
+
+    testWidgets('is applied once, not over later edits', (tester) async {
+      await pumpField(tester);
+      setOuter(() => override = QueryTextOverride('turtles'));
+      await tester.pump();
+      await tester.enterText(find.byKey(fieldKey), 'manta');
+      setOuter(() {});
+      await tester.pump();
+      expect(textOf(tester), 'manta');
+    });
+
+    // Review Focus 5: Undo writes the old query and the sentence together.
+    testWidgets('wins over a new value in the same update', (tester) async {
+      await pumpField(tester);
+      setOuter(() {
+        value = TextNode(['wreck']);
+        override = QueryTextOverride('wrecks in malta');
+      });
+      await tester.pump();
+      expect(textOf(tester), 'wrecks in malta');
+      expect(commits, 0);
+    });
+  });
+
+  testWidgets('extra shortcuts fire while the field has focus', (tester) async {
+    var asked = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: QueryTextField(
+            context: context,
+            value: null,
+            onChanged: (_) {},
+            fieldKey: fieldKey,
+            shortcuts: {
+              const SingleActivator(
+                LogicalKeyboardKey.enter,
+                control: true,
+              ): () =>
+                  asked++,
+            },
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(fieldKey));
+    await tester.pump();
+    await tester.sendKeyDownEvent(LogicalKeyboardKey.controlLeft);
+    await tester.sendKeyEvent(LogicalKeyboardKey.enter);
+    await tester.sendKeyUpEvent(LogicalKeyboardKey.controlLeft);
+    expect(asked, 1);
+  });
+
+  testWidgets('Enter calls onSubmitted', (tester) async {
+    var submitted = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: QueryTextField(
+            context: context,
+            value: null,
+            onChanged: (_) {},
+            onSubmitted: () => submitted++,
+            fieldKey: fieldKey,
+          ),
+        ),
+      ),
+    );
+    await tester.enterText(find.byKey(fieldKey), 'manta');
+    await tester.testTextInput.receiveAction(TextInputAction.search);
+    expect(submitted, 1);
+  });
+
+  testWidgets('a committing override applies the text as if typed', (
+    tester,
+  ) async {
+    QueryNode? committed;
+    final texts = <String>[];
+    late StateSetter setOuter;
+    QueryTextOverride? override;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: StatefulBuilder(
+            builder: (ctx, setState) {
+              setOuter = setState;
+              return QueryTextField(
+                context: context,
+                value: null,
+                onChanged: (n) => committed = n,
+                onTextChanged: texts.add,
+                textOverride: override,
+                fieldKey: fieldKey,
+              );
+            },
+          ),
+        ),
+      ),
+    );
+    setOuter(() => override = QueryTextOverride('manta', commit: true));
+    await tester.pump();
+    await tester.pump();
+    expect(committed, TextNode(['manta']));
+    expect(texts, ['manta']);
+  });
+
   testWidgets('a valid query is committed', (tester) async {
     QueryNode? committed;
     await tester.pumpWidget(host(value: null, onChanged: (n) => committed = n));
@@ -212,6 +484,99 @@ void main() {
           .children,
       isNull,
     );
+  });
+
+  testWidgets('uses an outside focus node and leaves it undisposed', (
+    tester,
+  ) async {
+    final focus = FocusNode();
+    addTearDown(focus.dispose);
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: QueryTextField(
+            context: context,
+            value: null,
+            onChanged: (_) {},
+            fieldKey: fieldKey,
+            focusNode: focus,
+          ),
+        ),
+      ),
+    );
+    focus.requestFocus();
+    await tester.pump();
+    expect(
+      tester.widget<TextField>(find.byKey(fieldKey)).focusNode,
+      same(focus),
+    );
+    expect(focus.hasFocus, isTrue);
+    await tester.pumpWidget(const SizedBox());
+    // Still usable: the field did not dispose a node it does not own.
+    focus.addListener(() {});
+  });
+
+  testWidgets('Escape in the field calls onEscape', (tester) async {
+    var escaped = 0;
+    await tester.pumpWidget(
+      MaterialApp(
+        home: Scaffold(
+          body: QueryTextField(
+            context: context,
+            value: null,
+            onChanged: (_) {},
+            fieldKey: fieldKey,
+            onEscape: () => escaped++,
+          ),
+        ),
+      ),
+    );
+    await tester.tap(find.byKey(fieldKey));
+    await tester.pump();
+    await tester.sendKeyEvent(LogicalKeyboardKey.escape);
+    await tester.pump();
+    expect(escaped, 1);
+  });
+
+  testWidgets('a replaced outside focus node no longer drives the field', (
+    tester,
+  ) async {
+    final first = FocusNode();
+    final second = FocusNode();
+    addTearDown(first.dispose);
+    addTearDown(second.dispose);
+    // [first] moves to another widget after the swap; if the field kept
+    // listening to it, focusing it once the field is gone would call
+    // setState on a disposed state.
+    Widget host(FocusNode fieldNode, {bool field = true, bool other = false}) =>
+        MaterialApp(
+          home: Scaffold(
+            body: Column(
+              children: [
+                if (other) Focus(focusNode: first, child: const SizedBox()),
+                if (field)
+                  QueryTextField(
+                    context: context,
+                    value: null,
+                    onChanged: (_) {},
+                    fieldKey: fieldKey,
+                    focusNode: fieldNode,
+                  ),
+              ],
+            ),
+          ),
+        );
+    await tester.pumpWidget(host(first));
+    await tester.pumpWidget(host(second, other: true));
+    expect(
+      tester.widget<TextField>(find.byKey(fieldKey)).focusNode,
+      same(second),
+    );
+    await tester.pumpWidget(host(second, field: false, other: true));
+    first.requestFocus();
+    await tester.pump();
+    expect(tester.takeException(), isNull);
+    expect(first.hasFocus, isTrue);
   });
 }
 

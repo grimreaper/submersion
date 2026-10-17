@@ -16,6 +16,14 @@ void main() {
       CertificationLevel.bsacNationalInstructor,
       CertificationLevel.ffessmMf1,
       CertificationLevel.ffessmMf2,
+      CertificationLevel.tdiInstructor,
+      CertificationLevel.tdiInstructorTrainer,
+      CertificationLevel.acucOpenWaterInstructor,
+      CertificationLevel.acucAdvancedInstructor,
+      CertificationLevel.acucInstructorTrainer,
+      CertificationLevel.acucInstructorTrainerEvaluator,
+      CertificationLevel.danInstructor,
+      CertificationLevel.danInstructorTrainer,
     };
     for (final level in CertificationLevel.values) {
       expect(
@@ -28,6 +36,21 @@ void main() {
     expect(CertificationLevel.assistantInstructor.isInstructorLevel, isFalse);
     expect(
       CertificationLevel.cmas3StarDiverAssistantInstructor.isInstructorLevel,
+      isFalse,
+    );
+    // ACUC's teaching assistant and DAN's provider credentials do not
+    // certify divers (issue #690).
+    expect(CertificationLevel.acucTeachingAssistant.isInstructorLevel, isFalse);
+    expect(CertificationLevel.danDemp.isInstructorLevel, isFalse);
+    // TDI's Technical Divemaster does not independently certify students,
+    // and Non-Diving Specialty Instructor teaches classroom-only specialties
+    // rather than certifying open-water skills (issue #3072).
+    expect(
+      CertificationLevel.tdiTechnicalDivemaster.isInstructorLevel,
+      isFalse,
+    );
+    expect(
+      CertificationLevel.tdiNonDivingSpecialtyInstructor.isInstructorLevel,
       isFalse,
     );
   });

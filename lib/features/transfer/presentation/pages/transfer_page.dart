@@ -15,6 +15,7 @@ import 'package:submersion/shared/widgets/master_detail/master_detail_scaffold.d
 import 'package:submersion/shared/widgets/master_detail/responsive_breakpoints.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_computer.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_computer_providers.dart';
+import 'package:submersion/features/documents/presentation/helpers/document_export_flow.dart';
 import 'package:submersion/features/settings/presentation/providers/csv_unit_mode_provider.dart';
 import 'package:submersion/features/settings/presentation/providers/export_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
@@ -359,6 +360,16 @@ class _ExportSectionContent extends ConsumerWidget {
                   trailing: const Icon(Icons.chevron_right),
                   onTap: () => _handleCsvExport(context, ref),
                 ),
+                const Divider(height: 1),
+                ListTile(
+                  leading: const Icon(Icons.folder_zip_outlined),
+                  title: Text(context.l10n.transfer_export_documentsTitle),
+                  subtitle: Text(
+                    context.l10n.transfer_export_documentsSubtitle,
+                  ),
+                  trailing: const Icon(Icons.chevron_right),
+                  onTap: () => unawaited(exportAllDocuments(context, ref)),
+                ),
               ],
             ),
           ),
@@ -507,6 +518,14 @@ class _ExportSectionContent extends ConsumerWidget {
           title: context.l10n.transfer_csvExport_optionEquipmentTitle,
           shareAction: (_) => notifier.exportEquipmentToCsv(unitMode: mode),
           saveAction: (_) => notifier.saveEquipmentCsvToFile(unitMode: mode),
+        );
+      case CsvExportType.fills:
+        await _showExportOptions(
+          context,
+          ref,
+          title: context.l10n.transfer_csvExport_optionFillsTitle,
+          shareAction: (_) => notifier.exportFillsToCsv(unitMode: mode),
+          saveAction: (_) => notifier.saveFillsCsvToFile(unitMode: mode),
         );
       case CsvExportType.observations:
         await _showExportOptions(

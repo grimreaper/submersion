@@ -4,10 +4,11 @@ import 'package:go_router/go_router.dart';
 
 import 'package:submersion/core/constants/sort_options_display.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
+import 'package:submersion/shared/widgets/master_detail/keyboard_list_navigator.dart';
 import 'package:submersion/shared/selection/bulk_action.dart';
+import 'package:submersion/shared/selection/select_items_menu_entries.dart';
 import 'package:submersion/shared/selection/selectable_list_scope.dart';
 import 'package:submersion/shared/selection/selection_app_bar.dart';
-import 'package:submersion/shared/selection/selection_entry_bar.dart';
 import 'package:submersion/shared/selection/selection_controller.dart';
 import 'package:submersion/shared/selection/selection_state.dart';
 import 'package:submersion/core/constants/list_view_mode.dart';
@@ -17,6 +18,7 @@ import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/shared/widgets/entity_table/entity_table_view.dart';
 import 'package:submersion/shared/widgets/list_view_mode_toggle.dart';
+import 'package:submersion/shared/widgets/master_detail/master_detail_form_scope.dart';
 import 'package:submersion/shared/widgets/master_detail/responsive_breakpoints.dart';
 import 'package:submersion/shared/widgets/sort_bottom_sheet.dart';
 import 'package:submersion/features/courses/domain/constants/course_field.dart';
@@ -24,6 +26,18 @@ import 'package:submersion/features/courses/domain/entities/course.dart';
 import 'package:submersion/features/courses/presentation/providers/course_providers.dart';
 import 'package:submersion/features/courses/presentation/widgets/course_card.dart';
 import 'package:submersion/shared/widgets/feature_accent.dart';
+import 'package:submersion/shared/widgets/section_header_title.dart';
+import 'package:submersion/core/query/domain/query_node.dart';
+import 'package:submersion/core/query/domain/query_subject.dart';
+import 'package:submersion/features/courses/domain/models/course_filter_state.dart';
+import 'package:submersion/features/courses/presentation/providers/course_query_providers.dart';
+import 'package:submersion/features/courses/query/course_query_entity.dart';
+import 'package:submersion/features/query/presentation/widgets/query_chips_frame.dart';
+import 'package:submersion/features/query/presentation/providers/query_id_set_providers.dart';
+import 'package:submersion/features/query/presentation/widgets/query_filter_sheet.dart';
+import 'package:submersion/features/courses/presentation/providers/course_list_count_provider.dart';
+import 'package:submersion/features/certification_agencies/presentation/providers/certification_catalog_context.dart';
+import 'package:submersion/features/certification_agencies/presentation/providers/certification_catalog_providers.dart';
 
 /// Content widget for the course list
 class CourseListContent extends ConsumerStatefulWidget {
@@ -32,12 +46,24 @@ class CourseListContent extends ConsumerStatefulWidget {
   final bool showAppBar;
   final Widget? floatingActionButton;
 
+  /// Drives bulk selection from outside the list when set.
+  ///
+  /// In table mode the page's header carries the overflow menu, "Select
+  /// items" among it, so the page has to reach the same controller the rows
+  /// use. Left null, the list owns its own.
+  final SelectionController? selectionController;
+
+  /// Replaces the header's own title, as Training's tab switch does (#3437).
+  final SectionHeaderTitle? headerTitle;
+
   const CourseListContent({
     super.key,
     this.onItemSelected,
     this.selectedId,
     this.showAppBar = true,
     this.floatingActionButton,
+    this.selectionController,
+    this.headerTitle,
   });
 
   @override
@@ -45,19 +71,30 @@ class CourseListContent extends ConsumerStatefulWidget {
 }
 
 class _CourseListContentState extends ConsumerState<CourseListContent> {
-  /// Owns the bulk-selection state machine for this list.
-  final SelectionController _selection = SelectionController();
+  /// The bulk-selection state machine for this list: the page's when it
+  /// passes one, otherwise this list's own.
+  late final SelectionController _selection = _adoptSelection();
+
+  /// Only a controller this list created is this list's to dispose. Set in
+  /// the same step that picks the controller, so the two cannot disagree.
+  bool _ownsSelection = false;
+
+  SelectionController _adoptSelection() {
+    final external = widget.selectionController;
+    _ownsSelection = external == null;
+    return external ?? SelectionController();
+  }
 
   /// Convenience mirrors of the controller, so the widget tree reads clearly.
   bool get _isSelectionMode => _selection.value.isActive;
   Set<String> get _selectedIds => _selection.value.checkedIds;
 
   final ScrollController _scrollController = ScrollController();
-  String _filterStatus = 'all'; // 'all', 'in_progress', 'completed'
 
   @override
   void dispose() {
     _scrollController.dispose();
+    if (_ownsSelection) _selection.dispose();
     super.dispose();
   }
 
@@ -70,10 +107,34 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
     }
   }
 
+  void _setStatus(CourseStatusFilter status) {
+    final notifier = ref.read(courseFilterProvider.notifier);
+    notifier.state = notifier.state.copyWith(status: status);
+  }
+
+  void _setQuery(QueryNode? query) => setCourseQuery(ref, query);
+
+  void _openQueryFilter() => showQueryFilterSheet(
+    context,
+    subject: QuerySubject.courses,
+    root: courseQueryEntity,
+    initial: ref.read(courseFilterProvider).query,
+    onApply: setCourseQuery,
+  );
+
+  /// The list body with the query's chips above it (#2365).
+  Widget _withQueryChips(Widget child) => QueryChipsFrame(
+    root: courseQueryEntity,
+    query: ref.watch(courseFilterProvider).query,
+    onChanged: _setQuery,
+    child: child,
+  );
+
   @override
   Widget build(BuildContext context) {
+    ref.watch(certificationCatalogSyncProvider);
     final viewMode = ref.watch(courseListViewModeProvider);
-    final coursesAsync = ref.watch(courseListNotifierProvider);
+    final coursesAsync = ref.watch(filteredCoursesProvider);
 
     // Table mode uses a dedicated scaffold with column configuration support.
     if (viewMode == ListViewMode.table) {
@@ -82,9 +143,9 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
 
     final sort = ref.watch(courseSortProvider);
 
-    // List mode filters by status and sorts; the table path uses the raw
-    // list. selectableIds must follow whichever is rendering, or pruning
-    // fights the visible set.
+    // List mode sorts; the table keeps the provider's order. selectableIds
+    // follow whichever is rendering, and the prune below works on membership,
+    // so both modes prune to the same filtered courses.
     final visibleCourses = _visibleCourses(
       coursesAsync.value ?? const [],
       sort,
@@ -92,21 +153,28 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
     final visibleIds = visibleCourses.map((c) => c.id).toList();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _selection.pruneTo(visibleIds);
+      if (mounted) {
+        _selection.pruneToSettled(
+          coursesAsync,
+          (rows) => rows.map((c) => c.id),
+        );
+      }
     });
 
     // Built inside the selection listener below so rows re-render as checks
     // change; computing it here would leave the list frozen mid-selection.
     Widget buildContent() {
-      return coursesAsync.when(
-        data: (courses) {
-          final sorted = _visibleCourses(courses, sort);
-          return sorted.isEmpty
-              ? _buildEmptyState(context)
-              : _buildCourseList(context, sorted);
-        },
-        loading: () => const Center(child: CircularProgressIndicator()),
-        error: (error, stack) => _buildErrorState(context, error),
+      return _withQueryChips(
+        coursesAsync.when(
+          data: (courses) {
+            final sorted = _visibleCourses(courses, sort);
+            return sorted.isEmpty
+                ? _buildEmptyState(context)
+                : _buildCourseList(context, sorted);
+          },
+          loading: () => const Center(child: CircularProgressIndicator()),
+          error: (error, stack) => _buildErrorState(context, error),
+        ),
       );
     }
 
@@ -137,24 +205,17 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
         builder: (context, selection, _) => Scaffold(
           appBar: selection.isActive
               ? _buildSelectionBar(visibleCourses, SelectionBarShell.appBar)
-              : AppBar(
-                  title: FeatureAppBarTitle(
-                    featureId: 'courses',
-                    title: context.l10n.courses_title,
-                  ),
+              : _buildPhoneAppBar(
+                  context,
                   actions: [
                     IconButton(
                       icon: const Icon(Icons.sort),
                       tooltip: context.l10n.courses_action_sort,
                       onPressed: () => _showSortSheet(context),
                     ),
-                    // The only way into bulk actions: entry by long-press was removed,
-                    // so nothing but this control opens selection mode on touch.
-                    IconButton(
-                      key: const ValueKey('enter_selection'),
-                      icon: const Icon(Icons.checklist),
-                      tooltip: context.l10n.common_selection_enterTooltip,
-                      onPressed: _selection.enterExplicit,
+                    QueryFilterButton(
+                      active: ref.watch(courseFilterProvider).query != null,
+                      onPressed: _openQueryFilter,
                     ),
                     PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert),
@@ -172,6 +233,10 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
                           courseListViewModeProvider,
                         );
                         return [
+                          ...selectItemsMenuEntries(
+                            context,
+                            onSelect: _selection.enterExplicit,
+                          ),
                           ...ListViewModeToggle.menuItems(
                             context,
                             currentMode: currentMode,
@@ -199,25 +264,12 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
     );
   }
 
-  /// Build the full scaffold/layout for table mode.
-  ///
-  /// When embedded inside [TableModeLayout] (showAppBar: false), provides
-  /// only the compact app bar and the table content.
-  /// Courses visible under the active status filter, sorted.
-  ///
-  /// Shared by the list and by the pruning in [build] so the selection can
-  /// never hold a course the filter has hidden.
+  /// The filtered courses, sorted. Shared by the list and by the pruning in
+  /// [build] so the selection never holds a course the filter has hidden.
   List<Course> _visibleCourses(
     List<Course> courses,
     SortState<CourseSortField> sort,
-  ) {
-    final filtered = _filterStatus == 'all'
-        ? courses
-        : _filterStatus == 'in_progress'
-        ? courses.where((c) => c.isInProgress).toList()
-        : courses.where((c) => c.isCompleted).toList();
-    return applyCourseSorting(filtered, sort);
-  }
+  ) => applyCourseSorting(courses, sort, catalog: context.certificationCatalog);
 
   /// Course-specific extras. Select-all, deselect-all and delete come from
   /// SelectionAppBar.
@@ -269,7 +321,7 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
   Future<BulkActionOutcome> _markSelectedComplete() async {
     final ids = _selectedIds.toList();
     if (ids.isEmpty) return BulkActionOutcome.cancelled;
-    final courses = (ref.read(courseListNotifierProvider).value ?? const [])
+    final courses = (ref.read(filteredCoursesProvider).value ?? const [])
         .where((c) => ids.contains(c.id))
         .toList();
 
@@ -323,19 +375,27 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
     return BulkActionOutcome.completed;
   }
 
+  /// Build the full scaffold/layout for table mode.
+  ///
+  /// When embedded inside [TableModeLayout] (showAppBar: false), provides
+  /// only the compact app bar and the table content.
   Widget _buildTableModeScaffold(
     BuildContext context,
     AsyncValue<List<Course>> coursesAsync,
   ) {
-    // The table renders the raw list, not the status-filtered one the list
-    // modes render, so selectable ids come from the raw list here -- pruning
-    // must follow whichever path is on screen.
+    // The table renders the same filtered courses as the list modes (status
+    // chips and query), so pruning follows what is on screen.
     final visibleIds = (coursesAsync.value ?? const <Course>[])
         .map((c) => c.id)
         .toList();
 
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _selection.pruneTo(visibleIds);
+      if (mounted) {
+        _selection.pruneToSettled(
+          coursesAsync,
+          (rows) => rows.map((c) => c.id),
+        );
+      }
     });
 
     // The scope carries Escape, Ctrl/Cmd-A and the Android back handling, and
@@ -348,17 +408,20 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
         valueListenable: _selection,
         builder: (context, selection, _) {
           final courses = coursesAsync.value ?? const <Course>[];
-          // Table mode has no app bar of its own, so both bars live here:
-          // the contextual one while selecting, and the Select affordance
-          // while not. They share a slot and a height, so the table does not
-          // shift as the mode opens.
+          // Table mode has no app bar of its own: "Select items" sits in the
+          // page header's overflow menu, and the contextual bar opens above
+          // the table while selecting.
           return Column(
             children: [
               if (selection.isActive)
-                _buildSelectionBar(courses, SelectionBarShell.pane)
-              else
-                SelectionEntryBar(controller: _selection),
-              Expanded(child: _buildTableView(context, coursesAsync)),
+                _buildSelectionBar(courses, SelectionBarShell.pane),
+              // The status chips filter the table too (#2365), so they show
+              // here as well: a status set in list mode stays visible and
+              // resettable after switching to the table.
+              _buildFilterChips(context),
+              Expanded(
+                child: _withQueryChips(_buildTableView(context, coursesAsync)),
+              ),
             ],
           );
         },
@@ -386,11 +449,12 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
         return EntityTableView<Course, CourseField>(
           entities: courses,
           idExtractor: (c) => c.id,
-          adapter: CourseFieldAdapter.instance,
+          adapter: CourseFieldAdapter.withCatalog(context.certificationCatalog),
           config: config,
           units: units,
           onSortFieldChanged: notifier.setSortField,
           onResizeColumn: notifier.resizeColumn,
+          onHideColumn: notifier.hideColumn,
           onEntityTapDown: (id) {
             ref.read(highlightedCourseIdProvider.notifier).state = id;
           },
@@ -408,6 +472,34 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
     );
   }
 
+  /// The phone app bar: the plain title with its actions beside it, or a
+  /// [SectionHeaderTitle] with the actions on a row under it.
+  AppBar _buildPhoneAppBar(
+    BuildContext context, {
+    required List<Widget> actions,
+  }) {
+    final subtitle = courseListCountLabel(context, ref);
+    final header = widget.headerTitle;
+    if (header == null) {
+      return AppBar(
+        title: FeatureAppBarTitle(
+          featureId: 'courses',
+          title: context.l10n.courses_title,
+          subtitle: subtitle,
+        ),
+        actions: actions,
+      );
+    }
+    return AppBar(
+      // 8 here plus the switch's own 8px label padding puts the first name
+      // at the 16px every other app bar title sits at, as Equipment's does.
+      titleSpacing: 8,
+      toolbarHeight: header.appBarHeight(context, subtitle),
+      title: header.build(context, SectionHeaderSlot.appBar, subtitle),
+      bottom: sectionHeaderActionsRow(actions),
+    );
+  }
+
   Widget _buildCompactAppBar(BuildContext context) {
     final viewMode = ref.watch(courseListViewModeProvider);
 
@@ -422,34 +514,19 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
           ),
         ),
       ),
-      child: Row(
-        children: [
-          const SizedBox(width: 8),
-          // Expanded, and no Spacer: the title must be the row's only flexible
-          // child, or Spacer takes half the free space and the leftover half
-          // lands after the last icon (see trip_list_content for the detail).
-          Expanded(
-            child: FeatureAppBarTitle(
-              featureId: 'courses',
-              title: context.l10n.courses_title,
-              style: Theme.of(
-                context,
-              ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
-            ),
-          ),
+      child: _compactBarRow(
+        context,
+        icons: [
           if (viewMode != ListViewMode.table)
             IconButton(
               icon: const Icon(Icons.sort, size: 20),
               tooltip: context.l10n.courses_action_sort,
               onPressed: () => _showSortSheet(context),
             ),
-          // The only way into bulk actions: entry by long-press was removed,
-          // so nothing but this control opens selection mode on touch.
-          IconButton(
-            key: const ValueKey('enter_selection'),
-            icon: const Icon(Icons.checklist, size: 20),
-            tooltip: context.l10n.common_selection_enterTooltip,
-            onPressed: _selection.enterExplicit,
+          QueryFilterButton(
+            active: ref.watch(courseFilterProvider).query != null,
+            onPressed: _openQueryFilter,
+            compact: true,
           ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, size: 20),
@@ -464,6 +541,10 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
             itemBuilder: (context) {
               final currentMode = ref.read(courseListViewModeProvider);
               return [
+                ...selectItemsMenuEntries(
+                  context,
+                  onSelect: _selection.enterExplicit,
+                ),
                 ...ListViewModeToggle.menuItems(
                   context,
                   currentMode: currentMode,
@@ -477,8 +558,42 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
     );
   }
 
+  /// The pane bar's content: the plain title with [icons] beside it, or a
+  /// [SectionHeaderTitle] with [icons] on a row under it.
+  Widget _compactBarRow(BuildContext context, {required List<Widget> icons}) {
+    final subtitle = courseListCountLabel(context, ref);
+    final header = widget.headerTitle;
+    if (header != null) {
+      return SectionHeaderRows(
+        title: header.build(context, SectionHeaderSlot.pane, subtitle),
+        titleWidth: header.paneTitleWidth?.call(context),
+        actions: icons,
+      );
+    }
+    return Row(
+      children: [
+        const SizedBox(width: 8),
+        // Expanded, and no Spacer: the title must be the row's only flexible
+        // child, or Spacer takes half the free space and the leftover half
+        // lands after the last icon (see trip_list_content for the detail).
+        Expanded(
+          child: FeatureAppBarTitle(
+            featureId: 'courses',
+            title: context.l10n.courses_title,
+            subtitle: subtitle,
+            style: Theme.of(
+              context,
+            ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
+          ),
+        ),
+        ...icons,
+      ],
+    );
+  }
+
   Widget _buildFilterChips(BuildContext context) {
     final colorScheme = Theme.of(context).colorScheme;
+    final status = ref.watch(courseFilterProvider).status;
 
     return Padding(
       padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
@@ -488,9 +603,9 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
           children: [
             FilterChip(
               label: Text(context.l10n.courses_filter_all),
-              selected: _filterStatus == 'all',
+              selected: status == CourseStatusFilter.all,
               onSelected: (selected) {
-                if (selected) setState(() => _filterStatus = 'all');
+                if (selected) _setStatus(CourseStatusFilter.all);
               },
             ),
             const SizedBox(width: 8),
@@ -498,14 +613,14 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
               avatar: Icon(
                 Icons.pending_outlined,
                 size: 18,
-                color: _filterStatus == 'in_progress'
+                color: status == CourseStatusFilter.inProgress
                     ? colorScheme.onPrimaryContainer
                     : null,
               ),
               label: Text(context.l10n.courses_status_inProgress),
-              selected: _filterStatus == 'in_progress',
+              selected: status == CourseStatusFilter.inProgress,
               onSelected: (selected) {
-                if (selected) setState(() => _filterStatus = 'in_progress');
+                if (selected) _setStatus(CourseStatusFilter.inProgress);
               },
             ),
             const SizedBox(width: 8),
@@ -513,14 +628,14 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
               avatar: Icon(
                 Icons.check_circle_outline,
                 size: 18,
-                color: _filterStatus == 'completed'
+                color: status == CourseStatusFilter.completed
                     ? colorScheme.onPrimaryContainer
                     : null,
               ),
               label: Text(context.l10n.courses_status_completed),
-              selected: _filterStatus == 'completed',
+              selected: status == CourseStatusFilter.completed,
               onSelected: (selected) {
-                if (selected) setState(() => _filterStatus = 'completed');
+                if (selected) _setStatus(CourseStatusFilter.completed);
               },
             ),
           ],
@@ -534,37 +649,57 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
       onRefresh: () async {
         ref.read(courseListNotifierProvider.notifier).refresh();
       },
-      child: ListView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.symmetric(horizontal: 16, vertical: 8),
-        itemCount: courses.length,
-        itemBuilder: (context, index) {
-          final course = courses[index];
-          return Padding(
-            padding: const EdgeInsets.only(bottom: 8),
-            child: CourseCard(
-              course: course,
-              isSelected:
-                  widget.selectedId == course.id ||
-                  ref.watch(highlightedCourseIdProvider) == course.id,
-              onTap: () => _handleRowTap(course),
-              isSelectionMode: _isSelectionMode,
-              isChecked: _selectedIds.contains(course.id),
-              onCheckChanged: (_) => _selection.toggle(course.id),
-            ),
-          );
-        },
+      child: KeyboardListNavigator(
+        keys: [for (final c in courses) c.id],
+        currentKey: widget.selectedId ?? ref.watch(highlightedCourseIdProvider),
+        onMove: (id) => moveListCursor(
+          context,
+          canOpen: !_isSelectionMode && widget.onItemSelected != null,
+          open: () => _handleRowTap(courses.firstWhere((c) => c.id == id)),
+          highlight: () =>
+              ref.read(highlightedCourseIdProvider.notifier).state = id,
+        ),
+        onActivate: (id) =>
+            _handleRowTap(courses.firstWhere((c) => c.id == id)),
+        child: ListView.builder(
+          controller: _scrollController,
+          // CourseCard carries its own side margin, as the other sections'
+          // tiles do; the bottom padding keeps the last card clear of the FAB.
+          padding: const EdgeInsets.only(bottom: 80),
+          itemCount: courses.length,
+          itemBuilder: (context, index) {
+            final course = courses[index];
+            return KeyboardListItem(
+              navigationKey: course.id,
+              child: CourseCard(
+                course: course,
+                isSelected:
+                    widget.selectedId == course.id ||
+                    ref.watch(highlightedCourseIdProvider) == course.id,
+                onTap: () => _handleRowTap(course),
+                isSelectionMode: _isSelectionMode,
+                isChecked: _selectedIds.contains(course.id),
+                onCheckChanged: (_) => _selection.toggle(course.id),
+              ),
+            );
+          },
+        ),
       ),
     );
   }
 
   Widget _buildEmptyState(BuildContext context) {
+    final filter = ref.watch(courseFilterProvider);
+    // A query that hid every course is not "no courses yet".
+    if (filter.query != null) {
+      return QueryNoMatchState(onClear: () => _setQuery(null));
+    }
     final colorScheme = Theme.of(context).colorScheme;
-    final message = _filterStatus == 'in_progress'
-        ? context.l10n.courses_empty_noInProgress
-        : _filterStatus == 'completed'
-        ? context.l10n.courses_empty_noCompleted
-        : context.l10n.courses_empty_title;
+    final message = switch (filter.status) {
+      CourseStatusFilter.inProgress => context.l10n.courses_empty_noInProgress,
+      CourseStatusFilter.completed => context.l10n.courses_empty_noCompleted,
+      CourseStatusFilter.all => context.l10n.courses_empty_title,
+    };
 
     return Center(
       child: Column(
@@ -589,7 +724,10 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
               color: colorScheme.onSurfaceVariant.withValues(alpha: 0.7),
             ),
           ),
-          if (_filterStatus == 'all') ...[
+          // Hidden beside an open form: it reads as the form's submit button
+          // but only reopens the create form (issue #3192).
+          if (filter.status == CourseStatusFilter.all &&
+              !MasterDetailFormScope.isFormOpenOf(context)) ...[
             const SizedBox(height: 24),
             FilledButton.icon(
               onPressed: () {
@@ -624,6 +762,8 @@ class _CourseListContentState extends ConsumerState<CourseListContent> {
           const SizedBox(height: 16),
           FilledButton(
             onPressed: () {
+              // An id-set error shows here too: run the query again as well.
+              ref.invalidate(entityQueryIdsProvider);
               ref.read(courseListNotifierProvider.notifier).refresh();
             },
             child: Text(context.l10n.courses_action_retry),

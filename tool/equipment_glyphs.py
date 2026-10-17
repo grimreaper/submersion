@@ -349,6 +349,327 @@ add(
     ),
 )
 
+# Camera parts (issue #1997). Each is drawn doing its job, because the bare
+# parts are generic shapes: a lens is a barrel with grip ribs and a flared
+# front, a port is a dome on its collar, an arm shows the ball clamp that
+# joins two segments, and a float is the same arm drawn fat. A hole only
+# cancels one layer of winding, so every hole here sits on a single solid
+# contour: the clamp and the float body are one-contour capsules rather than
+# bar()'s quad-plus-circles, whose overlaps a hole cannot clear.
+def capsule(p1, p2, w, steps=10):
+    """A thick segment with round caps as one solid contour."""
+    (x1, y1), (x2, y2) = p1, p2
+    a = math.atan2(y2 - y1, x2 - x1)
+    r = w / 2
+    pts = []
+    for cx, cy, start in ((x2, y2, a - math.pi / 2), (x1, y1, a + math.pi / 2)):
+        for i in range(steps + 1):
+            t = start + math.pi * i / steps
+            pts.append((cx + r * math.cos(t), cy + r * math.sin(t)))
+    return poly(pts)
+
+
+def slot(p1, p2, w):
+    """A capless rectangular hole along p1-p2."""
+    (x1, y1), (x2, y2) = p1, p2
+    dx, dy = x2 - x1, y2 - y1
+    length = math.hypot(dx, dy) or 1e-6
+    ox, oy = -dy / length * w / 2, dx / length * w / 2
+    return poly(
+        [(x1 + ox, y1 + oy), (x2 + ox, y2 + oy), (x2 - ox, y2 - oy), (x1 - ox, y1 - oy)],
+        solid=False,
+    )
+
+
+add(
+    "lens",
+    "Lens",
+    "A lens barrel seen side-on: mount, ribbed grip and a flared front.",
+    g(
+        rrect(2.0, 8.0, 3.6, 8.0, 0.6),               # mount
+        rrect(5.0, 5.0, 10.6, 14.0, 1.2),             # barrel
+        poly([(15.0, 5.0), (21.6, 2.4), (21.6, 21.6), (15.0, 19.0)]),  # front
+        rrect(7.0, 7.0, 1.2, 10.0, 0.4, solid=False),  # grip rib
+        rrect(9.7, 7.0, 1.2, 10.0, 0.4, solid=False),  # grip rib
+        rrect(12.4, 7.0, 1.2, 10.0, 0.4, solid=False),  # grip rib
+    ),
+)
+
+add(
+    "port",
+    "Port",
+    "A dome port seen side-on: a half-dome on its mounting collar.",
+    g(
+        rrect(2.6, 4.0, 6.0, 16.0, 1.0),              # collar
+        "M8 3A9 9 0 0 1 8 21Z",                       # dome
+        rrect(4.6, 6.0, 1.2, 12.0, 0.4, solid=False),  # collar groove
+        poly(
+            [(11.4, 7.0), (13.4, 6.4), (15.4, 9.6), (14.0, 10.6)],
+            solid=False,
+        ),                                             # glint on the dome
+    ),
+)
+
+add(
+    "tray_handle",
+    "Tray / Handle",
+    "A camera tray with a handle rising at each end and a camera on it.",
+    g(
+        rrect(2.0, 16.4, 20.0, 3.6, 1.2),             # tray
+        rrect(2.0, 3.0, 3.8, 17.0, 1.8),              # left handle
+        rrect(18.2, 3.0, 3.8, 17.0, 1.8),             # right handle
+        rrect(7.8, 8.4, 8.4, 6.6, 1.2),               # camera
+        circle(12.0, 11.7, 1.8, solid=False),         # its lens
+    ),
+)
+
+add(
+    "arm_clamp",
+    "Arm / Clamp",
+    "Two arm segments with ball ends, joined by a ball clamp with its knob.",
+    g(
+        bar((4.6, 19.4), (10.0, 14.0), 2.4),          # lower segment
+        circle(4.6, 19.4, 2.3),                       # ball end
+        bar((14.0, 10.0), (19.4, 4.6), 2.4),          # upper segment
+        circle(19.4, 4.6, 2.3),                       # ball end
+        capsule((9.4, 14.6), (14.6, 9.4), 5.6),       # clamp
+        bar((12.0, 12.0), (16.4, 16.4), 1.8),         # knob screw
+        circle(17.4, 17.4, 2.2),                      # knob
+    ),
+)
+
+add(
+    "video_light",
+    "Video Light",
+    "A video light seen front-on: a square head round a wide LED, on a ball mount.",
+    g(
+        rrect(3.4, 1.6, 17.2, 15.2, 3.0),             # head
+        circle(12.0, 9.2, 5.0, solid=False),          # bezel
+        circle(12.0, 9.2, 3.0),                       # LED
+        rrect(10.4, 16.0, 3.2, 3.4, 0.6),             # stem
+        circle(12.0, 20.4, 2.4),                      # ball mount
+    ),
+)
+
+add(
+    "float_arm",
+    "Float Arm / Float",
+    "A fat foam float with a ball at each end, banded across.",
+    g(
+        bar((3.6, 20.4), (6.8, 17.2), 2.0),           # lower stub
+        circle(3.6, 20.4, 2.3),                       # ball end
+        bar((17.2, 6.8), (20.4, 3.6), 2.0),           # upper stub
+        circle(20.4, 3.6, 2.3),                       # ball end
+        capsule((8.0, 16.0), (16.0, 8.0), 8.4),       # foam body
+        slot((7.4, 11.4), (12.6, 16.6), 1.0),         # band
+        slot((11.4, 7.4), (16.6, 12.6), 1.0),         # band
+    ),
+)
+
+# The vest (#3108): the hooded ice vest worn over a wetsuit, or a core warmer
+# under one. It joins the wardrobe family without reading as a suit or a top
+# at 20px: no sleeves (the armholes cut in from the shoulders), a hood like
+# the drysuit's with its face opening, and a front zip. The zip and the face
+# opening each sit inside a single solid, so nonzero winding cuts them clean.
+add(
+    "vest",
+    "Vest",
+    "Sleeveless vest with an attached hood and a front zip.",
+    g(
+        circle(12.0, 5.6, 3.6),                        # attached hood
+        poly(
+            [
+                (8.8, 8.2),                            # left neck
+                (15.2, 8.2),                           # right neck
+                (19.2, 9.8),                           # right shoulder
+                (19.2, 10.8),
+                (17.0, 14.6),                          # right armpit
+                (17.0, 21.8),                          # right hem
+                (7.0, 21.8),                           # left hem
+                (7.0, 14.6),                           # left armpit
+                (4.8, 10.8),
+                (4.8, 9.8),                            # left shoulder
+            ]
+        ),
+        circle(12.0, 5.6, 1.8, solid=False),           # face opening
+        rrect(11.4, 10.2, 1.2, 10.4, 0.6, solid=False),  # front zip
+    ),
+)
+
+add(
+    "socks",
+    "Socks",
+    "A sock seen side-on: a ribbed cuff over the leg, turning into a rounded foot.",
+    g(
+        rrect(5.2, 2.0, 7.6, 3.0, 1.0),               # ribbed cuff
+        rrect(5.2, 6.0, 7.6, 11.0, 1.0),              # leg
+        capsule((9.0, 17.0), (18.6, 17.0), 7.6),      # foot, heel to toe
+        slot((15.4, 13.6), (15.4, 20.4), 0.9),        # toe seam
+    ),
+)
+
+# Tank roles (#2901). One glyph per way a cylinder is carried, so a diver can
+# read a dive's configuration from the icons alone: back-mounted, sidemount
+# left and right, slung (stage, deco, bailout), a pony beside the main tank,
+# and a rebreather's onboard cylinder (diluent, O2 supply). A domed shoulder
+# capped on top reads as a bottle, so the shoulders are flattened and the
+# valve's handwheel stands edge-on to one side. The cylinders are built as
+# point lists rather than from rrect() so the stage can be tilted as a whole.
+def _arc_pts(cx, cy, rx, ry, a0, a1, steps):
+    return [
+        (cx + rx * math.cos(a0 + (a1 - a0) * i / steps),
+         cy + ry * math.sin(a0 + (a1 - a0) * i / steps))
+        for i in range(steps + 1)
+    ]
+
+
+def _cylinder_pts(x, y, w, h):
+    """A cylinder whose shoulder top sits at y: flattened dome, rounded base."""
+    dome = w * 0.3
+    r = min(1.3, w * 0.18)
+    return (
+        _arc_pts(x + w / 2, y + dome, w / 2, dome, math.pi, 2 * math.pi, 10)
+        + _arc_pts(x + w - r, y + h - r, r, r, 0, math.pi / 2, 4)
+        + _arc_pts(x + r, y + h - r, r, r, math.pi / 2, math.pi, 4)
+    )
+
+
+def _rrect_pts(x, y, w, h, r):
+    r = min(r, w / 2, h / 2)
+    return (
+        _arc_pts(x + w - r, y + r, r, r, -math.pi / 2, 0, 3)
+        + _arc_pts(x + w - r, y + h - r, r, r, 0, math.pi / 2, 3)
+        + _arc_pts(x + r, y + h - r, r, r, math.pi / 2, math.pi, 3)
+        + _arc_pts(x + r, y + r, r, r, math.pi, 1.5 * math.pi, 3)
+    )
+
+
+def _valve_pts(cx, y, s, knob):
+    """Neck, valve body, stem and edge-on handwheel on a cylinder whose
+    shoulder top is y. knob is -1 for a handwheel on the left, +1 right."""
+    stem_x = cx + knob * 1.6 * s
+    wheel_x = cx + knob * 3.2 * s
+    return [
+        _rrect_pts(cx - 1.0 * s, y - 1.6 * s, 2.0 * s, 2.0 * s, 0.3 * s),
+        _rrect_pts(cx - 1.7 * s, y - 3.6 * s, 3.4 * s, 2.3 * s, 0.6 * s),
+        _rrect_pts(min(stem_x, stem_x + knob * 1.6 * s), y - 3.4 * s,
+                   1.6 * s, 1.9 * s, 0.4 * s),
+        _rrect_pts(wheel_x - 0.7 * s, y - 4.6 * s, 1.4 * s, 4.3 * s, 0.6 * s),
+    ]
+
+
+def _tank_pts(x, y, w, h, s=1.0, knob=-1):
+    return [_cylinder_pts(x, y, w, h)] + _valve_pts(x + w / 2, y, s, knob)
+
+
+def _rotated(pts, degrees, cx, cy):
+    a = math.radians(degrees)
+    c, s = math.cos(a), math.sin(a)
+    return [
+        (cx + (px - cx) * c - (py - cy) * s, cy + (px - cx) * s + (py - cy) * c)
+        for px, py in pts
+    ]
+
+
+def _polys(point_lists):
+    return "".join(poly(pts) for pts in point_lists)
+
+
+add(
+    "tank_back_gas",
+    "Back Gas",
+    "An upright cylinder with its valve and handwheel.",
+    _polys(_tank_pts(6.6, 6.4, 10.8, 16.2)),
+)
+
+# Sidemount is an equal pair; the side the cylinder is on is drawn solid and
+# the other hollow. The hollow sits inside a single solid contour so nonzero
+# winding cuts it clean.
+SIDEMOUNT_W, SIDEMOUNT_H, SIDEMOUNT_Y = 7.8, 14.4, 8.0
+
+
+def _sidemount(solid_left):
+    left_x, right_x = 2.4, 13.8
+    hollow_x = right_x if solid_left else left_x
+    st = 1.5
+    return g(
+        _polys(_tank_pts(left_x, SIDEMOUNT_Y, SIDEMOUNT_W, SIDEMOUNT_H, 0.8, -1)),
+        _polys(_tank_pts(right_x, SIDEMOUNT_Y, SIDEMOUNT_W, SIDEMOUNT_H, 0.8, 1)),
+        poly(
+            _cylinder_pts(hollow_x + st, SIDEMOUNT_Y + st,
+                          SIDEMOUNT_W - 2 * st, SIDEMOUNT_H - 2 * st),
+            solid=False,
+        ),
+    )
+
+
+add(
+    "tank_sidemount_left",
+    "Sidemount Left",
+    "A pair of cylinders, the left one solid.",
+    _sidemount(solid_left=True),
+)
+
+add(
+    "tank_sidemount_right",
+    "Sidemount Right",
+    "A pair of cylinders, the right one solid.",
+    _sidemount(solid_left=False),
+)
+
+# A leash standing off from the cylinder reads as a tank beside a wrench, so
+# it runs close along the side with a clamp at the neck and at the base, and
+# the whole rig is tilted the way a slung cylinder hangs.
+def _slung():
+    tilt, cx, cy = 26, 12.4, 12.6
+    leash_x = 6.6
+    turn = lambda pt: _rotated([pt], tilt, cx, cy)[0]
+    parts = _tank_pts(8.6, 6.4, 8.4, 14.6, 0.9, 1)
+    parts += [
+        _rrect_pts(leash_x, 8.6, 2.6, 1.3, 0.3),      # neck clamp
+        _rrect_pts(leash_x, 17.6, 2.6, 1.3, 0.3),     # base clamp
+    ]
+    out = _polys(_rotated(p, tilt, cx, cy) for p in parts)
+    out += bar(turn((leash_x, 5.4)), turn((leash_x, 20.2)), 1.2)  # leash
+    for end in (turn((leash_x, 3.6)), turn((leash_x, 21.8))):
+        out += circle(end[0], end[1], 1.8)            # bolt snap
+        out += circle(end[0], end[1], 0.8, solid=False)
+    return out
+
+
+add(
+    "tank_slung",
+    "Stage / Deco / Bailout",
+    "A tilted cylinder on a leash clamped at neck and base, a bolt snap at each end.",
+    _slung(),
+)
+
+add(
+    "tank_pony",
+    "Pony Bottle",
+    "A short bottle strapped beside a full-size cylinder.",
+    g(
+        _polys(_tank_pts(2.4, 6.4, 10.2, 16.2, 1.0, -1)),
+        _polys(_tank_pts(14.8, 13.0, 6.8, 9.6, 0.7, 1)),
+        rrect(11.8, 15.0, 3.8, 1.5, 0.4),             # strap
+        rrect(11.8, 19.0, 3.8, 1.5, 0.4),             # strap
+    ),
+)
+
+# A cylinder on its own carries no hint of a loop, and one hung valve-down
+# under a lid read as a bin. Beside the scrubber canister (rounded like the
+# rebreather glyph's pods) it reads as the unit's own small cylinder.
+add(
+    "tank_rebreather",
+    "Diluent / O2 Supply",
+    "A stubby cylinder beside a rebreather's scrubber canister and head.",
+    g(
+        _polys(_tank_pts(2.6, 9.4, 9.4, 13.2, 0.9, -1)),
+        rrect(14.2, 6.4, 6.8, 16.2, 3.0),             # scrubber canister
+        rrect(13.0, 3.0, 9.2, 2.8, 1.0),              # head unit
+    ),
+)
+
 # Private Use Area code points, assigned in declaration order and never
 # renumbered: they are baked into the committed font and into
 # lib/core/icons/submersion_icons.dart.

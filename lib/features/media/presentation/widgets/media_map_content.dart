@@ -9,10 +9,11 @@ import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/maps/presentation/widgets/map_attribution.dart';
 import 'package:submersion/features/maps/presentation/widgets/map_camera_animator.dart';
-import 'package:submersion/features/maps/presentation/widgets/map_compass_button.dart';
+import 'package:submersion/features/maps/presentation/widgets/map_corner_controls.dart';
 import 'package:submersion/features/maps/presentation/widgets/map_interaction_options.dart';
 import 'package:submersion/features/maps/presentation/widgets/submersion_tile_layer.dart';
 import 'package:submersion/features/maps/presentation/widgets/trackpad_zoom_map.dart';
+import 'package:submersion/features/maps/presentation/widgets/world_copies.dart';
 import 'package:submersion/features/media/domain/entities/media_map_point.dart';
 import 'package:submersion/features/media/presentation/pages/media_viewer_launcher.dart';
 import 'package:submersion/features/media/presentation/providers/media_library_providers.dart';
@@ -311,16 +312,11 @@ class _MediaMapContentState extends ConsumerState<MediaMapContent>
                   _fitIfPending(ref.read(mediaMapPointsProvider));
                 },
                 onTap: (_, _) => _closeStrip(),
-                cameraConstraint: CameraConstraint.contain(
-                  bounds: LatLngBounds(
-                    const LatLng(-90, -180),
-                    const LatLng(90, 180),
-                  ),
-                ),
+                cameraConstraint: worldMapCameraConstraint,
               ),
               children: [
                 submersionTileLayer(ref),
-                MarkerClusterLayerWidget(
+                WorldWrappedMarkerClusterLayer(
                   options: MarkerClusterLayerOptions(
                     maxClusterRadius: 80,
                     size: const Size(kMediaMapMarkerSize, kMediaMapMarkerSize),
@@ -403,7 +399,7 @@ class _MediaMapContentState extends ConsumerState<MediaMapContent>
         Positioned(
           top: 64,
           right: 8,
-          child: MapCompassButton(controller: _mapController),
+          child: MapCornerControls(controller: _mapController),
         ),
 
         if (state.points.isEmpty)

@@ -6,16 +6,21 @@ import 'package:submersion/core/query/domain/query_subject.dart';
 import 'package:submersion/core/query/presentation/query_labels.dart';
 import 'package:submersion/core/query/registry/query_field.dart';
 import 'package:submersion/core/query/registry/query_relation.dart';
+import 'package:submersion/features/dive_log/domain/entities/safety_finding.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/environment_enum_display.dart';
+import 'package:submersion/features/dive_log/presentation/widgets/safety_finding_text.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/tank_enum_display.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/weekday_filter_selector.dart';
 import 'package:submersion/features/dive_sites/domain/entities/dive_site.dart';
 import 'package:submersion/features/dive_sites/presentation/site_difficulty_display.dart';
 import 'package:submersion/features/equipment/presentation/utils/equipment_enum_display.dart';
+import 'package:submersion/features/marine_life/presentation/species_display.dart';
 import 'package:submersion/features/query/presentation/query_label_lookup.dart';
 import 'package:submersion/features/weight_planner/presentation/widgets/weight_enum_display.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
+import 'package:submersion/features/certification_agencies/presentation/certification_entry_display.dart';
+import 'package:submersion/features/certification_agencies/presentation/providers/certification_catalog_context.dart';
 
 /// [QueryLabels] over the app's ARB strings and enum display extensions.
 ///
@@ -88,10 +93,25 @@ class AppQueryLabels implements QueryLabels {
           TripType.dayTrip => _l10n.trips_type_dayTrip,
           null => value,
         };
+      case 'query_dives_sacTrend':
+      case 'query_dives_finalStop':
+        return queryLabelForKey(_l10n, '${field.labelKey}_$value');
+      case 'query_findings_rule':
+        final rule = SafetyRuleId.fromDbValue(value);
+        return rule == null ? value : safetyRuleLabel(rule, _l10n);
       case 'query_equipment_serviceDue':
         return queryLabelForKey(_l10n, 'query_equipment_serviceDue_$value');
       case 'query_sites_difficulty':
         return byName(SiteDifficulty.values)?.localizedName(_l10n) ?? value;
+      // Built-ins localize; a custom agency or level shows its name (issue
+      // #690).
+      case 'query_certifications_agency':
+      case 'query_courses_agency':
+        return _context.certificationCatalog.agency(value).localizedName(_l10n);
+      case 'query_species_category':
+        return byName(SpeciesCategory.values)?.localizedName(_l10n) ?? value;
+      case 'query_certifications_level':
+        return _context.certificationCatalog.level(value).localizedName(_l10n);
       default:
         return value;
     }

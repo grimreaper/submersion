@@ -4,10 +4,12 @@ import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/legacy.dart' show StateProvider;
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media/data/services/media_unlink_service.dart';
 import 'package:submersion/features/media/domain/entities/media_item.dart';
+import 'package:submersion/features/media/domain/entities/site_attachment_category.dart';
 import 'package:submersion/features/media/presentation/pages/site_media_viewer_page.dart';
 import 'package:submersion/features/media/presentation/providers/site_media_providers.dart';
 import 'package:submersion/features/media/presentation/widgets/media_grid.dart';
@@ -43,6 +45,21 @@ class _RecordingSiteMediaNotifier extends SiteMediaListNotifier {
   final List<List<String>> deleteCalls;
   final Object? failWith;
 
+  final List<(List<String>, SiteAttachmentCategory?)> categoryCalls = [];
+
+  /// Rows the fake reports as updated; null means every id passed.
+  int? updatedCount;
+
+  @override
+  Future<int> setSiteCategory(
+    List<String> ids,
+    SiteAttachmentCategory? category,
+  ) async {
+    categoryCalls.add((List<String>.of(ids), category));
+    if (failWith != null) throw failWith!;
+    return updatedCount ?? ids.length;
+  }
+
   @override
   Future<SiteUnlinkOutcome> unlinkMultipleMedia(List<String> ids) async {
     deleteCalls.add(List<String>.of(ids));
@@ -75,11 +92,13 @@ void main() {
     List<MediaItem> attachments = const [],
     Future<List<MediaItem>>? pendingAttachments,
     Object? attachmentsError,
+    FutureOr<List<MediaItem>> Function(Ref ref)? loadAttachments,
     List<Override> extraOverrides = const [],
   }) async {
     return mediaTestApp(
       overrides: [
         mediaForSiteProvider('site-1').overrideWith((ref) {
+          if (loadAttachments != null) return loadAttachments(ref);
           if (pendingAttachments != null) return pendingAttachments;
           if (attachmentsError != null) throw attachmentsError;
           return attachments;
@@ -255,6 +274,32 @@ void main() {
   // covered here directly: the Select affordance below, and select-all, exit
   // and unlink in the groups that follow.
   group('select affordance', () {
+    testWidgets('a reload holding its rows keeps the bar and its exit', (
+      tester,
+    ) async {
+      final reload = StateProvider<int>((ref) => 0);
+      await tester.pumpWidget(
+        await host(
+          loadAttachments: (ref) async {
+            ref.watch(reload);
+            return [photoA, photoB];
+          },
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('enter_selection')));
+      await tester.pumpAndSettle();
+
+      ProviderScope.containerOf(
+        tester.element(find.byType(SiteMediaSection)),
+      ).read(reload.notifier).state++;
+      // One frame inside the reload, before the attachments resolve again.
+      await tester.pump();
+      expect(find.byKey(const ValueKey('selection_exit')), findsOneWidget);
+      await tester.pumpAndSettle();
+      expect(find.byKey(const ValueKey('selection_exit')), findsOneWidget);
+    });
+
     testWidgets('a visible Select button enters selection mode', (
       tester,
     ) async {
@@ -559,6 +604,117 @@ void main() {
       expect(viewer.siteId, 'site-1');
       expect(viewer.initialMediaId, 'dp-1');
       expect(viewer.scope, SiteViewerScope.divePhotos);
+    });
+  });
+
+  // Issue #1039: categories, large cards and the new bulk actions.
+  group('categories', () {
+    testWidgets('categorized attachments render under headings', (
+      tester,
+    ) async {
+      await tester.pumpWidget(
+        await host(
+          attachments: [
+            photoA.copyWith(siteCategory: SiteAttachmentCategory.underwater),
+            photoB,
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      expect(find.text('Underwater (1)'), findsOneWidget);
+      expect(find.text('Uncategorized (1)'), findsOneWidget);
+    });
+
+    late _RecordingSiteMediaNotifier notifier;
+
+    Future<void> selectBoth(
+      WidgetTester tester, {
+      Object? failWith,
+      int? updatedCount,
+    }) async {
+      await tester.pumpWidget(
+        await host(
+          attachments: [photoA, photoB],
+          extraOverrides: [
+            siteMediaListNotifierProvider('site-1').overrideWith(
+              (ref) => notifier = _RecordingSiteMediaNotifier(
+                ref,
+                deleteCalls: [],
+                failWith: failWith,
+              )..updatedCount = updatedCount,
+            ),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('enter_selection')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.byKey(const ValueKey('selection_select_all')));
+      await tester.pumpAndSettle();
+    }
+
+    testWidgets('Set category applies the choice to every checked item', (
+      tester,
+    ) async {
+      await selectBoth(tester);
+      await tester.tap(
+        find.byKey(const ValueKey('selection_action_setCategory')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Underwater'));
+      await tester.pumpAndSettle();
+      expect(notifier.categoryCalls.single.$1.toSet(), {'m1', 'm2'});
+      expect(
+        notifier.categoryCalls.single.$2,
+        SiteAttachmentCategory.underwater,
+      );
+      expect(find.text('Updated 2 items'), findsOneWidget);
+      expect(find.byKey(const ValueKey('selection_exit')), findsNothing);
+    });
+
+    testWidgets('Set category reports only the rows actually updated', (
+      tester,
+    ) async {
+      // One of the two was unlinked on another device meanwhile.
+      await selectBoth(tester, updatedCount: 1);
+      await tester.tap(
+        find.byKey(const ValueKey('selection_action_setCategory')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Underwater'));
+      await tester.pumpAndSettle();
+      expect(find.text('Updated 1 item'), findsOneWidget);
+    });
+
+    testWidgets('a failing Set category reports it and keeps the selection', (
+      tester,
+    ) async {
+      await selectBoth(tester, failWith: Exception('row locked'));
+      await tester.tap(
+        find.byKey(const ValueKey('selection_action_setCategory')),
+      );
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Parking'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('Failed to set category'), findsOneWidget);
+      expect(find.text('2 selected'), findsOneWidget);
+    });
+
+    testWidgets('Edit details is enabled only for a single checked item', (
+      tester,
+    ) async {
+      await selectBoth(tester);
+      final edit = find.byKey(const ValueKey('selection_action_editDetails'));
+      expect(tester.widget<IconButton>(edit).onPressed, isNull);
+
+      await tester.tap(find.byType(MediaThumbnailTile).first);
+      await tester.pumpAndSettle();
+      expect(find.text('1 selected'), findsOneWidget);
+      expect(tester.widget<IconButton>(edit).onPressed, isNotNull);
+
+      await tester.tap(edit);
+      await tester.pumpAndSettle();
+      expect(find.text('Attachment details'), findsOneWidget);
     });
   });
 }

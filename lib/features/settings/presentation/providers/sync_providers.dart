@@ -28,6 +28,7 @@ import 'package:submersion/core/services/cloud_storage/icloud_native_service.dar
 import 'package:submersion/core/services/cloud_storage/s3/s3_config.dart';
 import 'package:submersion/core/services/cloud_storage/s3/s3_credentials_store.dart';
 import 'package:submersion/core/services/cloud_storage/s3_storage_provider.dart';
+import 'package:submersion/core/services/cloud_storage/webdav/webdav_credentials_store.dart';
 import 'package:submersion/core/services/sync/changeset_log/sync_temp_sweep.dart';
 import 'package:submersion/core/services/sync/crypto/crypto_errors.dart';
 import 'package:submersion/core/services/sync/crypto/encryption_key_store.dart';
@@ -42,24 +43,29 @@ import 'package:submersion/core/services/sync/sync_device_metadata.dart';
 import 'package:submersion/core/services/sync/library_moved.dart';
 import 'package:submersion/core/services/sync/library_moved_store.dart';
 import 'package:submersion/core/services/sync/post_restore_sync_store.dart';
+import 'package:submersion/core/services/sync/sync_failure_store.dart';
 import 'package:submersion/core/services/sync/sync_data_serializer.dart';
 import 'package:submersion/core/services/sync/sync_event_bus.dart';
 import 'package:submersion/core/services/sync/sync_initializer.dart';
 import 'package:submersion/core/services/sync/sync_preferences.dart';
 import 'package:submersion/core/services/sync/sync_cleanup_outcome.dart';
 import 'package:submersion/core/services/sync/sync_service.dart';
+import 'package:submersion/features/dive_log/data/services/derived_metrics_scheduler.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_repository_provider.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
+import 'package:submersion/features/documents/presentation/providers/equipment_file_conversion_provider.dart';
 import 'package:submersion/features/gps_log/presentation/providers/gps_log_providers.dart';
 import 'package:submersion/features/media/presentation/providers/gallery_cloud_id_backfill_provider.dart';
 import 'package:submersion/features/media/presentation/providers/gallery_origin_backfill_provider.dart';
-import 'package:submersion/features/nav_track/data/services/nav_track_service_providers.dart';
 import 'package:submersion/features/media/presentation/providers/resolved_asset_providers.dart';
+import 'package:submersion/features/settings/domain/data_health/sync_health.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/storage_providers.dart';
 import 'package:submersion/features/equipment/data/services/sensor_summary_scheduler.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
+import 'package:submersion/features/settings/presentation/providers/webdav_providers.dart';
+import 'package:submersion/core/services/sync/sync_coordinator.dart';
 
 /// Sync repository provider
 final syncRepositoryProvider = Provider<SyncRepository>((ref) {
@@ -189,6 +195,39 @@ final postRestoreSyncStoreProvider = Provider<PostRestoreSyncStore>((ref) {
   return PostRestoreSyncStore(ref.watch(sharedPreferencesProvider));
 });
 
+/// The last failed sync attempt, persisted for Settings > Data health.
+final syncFailureStoreProvider = Provider<SyncFailureStore>((ref) {
+  return SyncFailureStore(ref.watch(sharedPreferencesProvider));
+});
+
+/// Live view of [SyncFailureStore]: what the health model reads, updated
+/// by the sync notifier as each attempt ends (issues #3390, #3394).
+class SyncFailureNotifier extends StateNotifier<SyncFailureRecord?> {
+  SyncFailureNotifier(this._store) : super(_store.last);
+
+  final SyncFailureStore _store;
+
+  Future<void> record(SyncFailureRecord failure) async {
+    await _store.record(failure);
+    if (mounted) state = failure;
+  }
+
+  /// Forgets the stored failure once [providerId] syncs successfully. A
+  /// failure stored for another backend stays: switching back to it must
+  /// still show it.
+  Future<void> clearFor(String? providerId) async {
+    final stored = _store.last;
+    if (stored == null || stored.providerId != providerId) return;
+    await _store.clear();
+    if (mounted) state = null;
+  }
+}
+
+final syncFailureProvider =
+    StateNotifierProvider<SyncFailureNotifier, SyncFailureRecord?>((ref) {
+      return SyncFailureNotifier(ref.watch(syncFailureStoreProvider));
+    });
+
 /// Providers this install has successfully synced to (survives restore).
 final establishedProviderStoreProvider = Provider<EstablishedProviderStore>((
   ref,
@@ -313,13 +352,29 @@ Future<domain.ConnectedAccount> ensureAccountForProviderType(
   ConnectedAccountsRepository repo, {
   SyncRepository? syncRepository,
   S3CredentialsStore? s3Credentials,
+  WebDavCredentialsStore? webdavCredentials,
 }) async {
   final kind = AccountKind.fromCloudProviderType(type);
+  // A WebDAV account is its endpoint: after a server or folder edit the
+  // persisted account names the old one, and reusing it would mirror the
+  // new settings under the old id (and over a media account sharing it).
+  final webdavConfig = kind == AccountKind.webdav
+      ? await (webdavCredentials ?? WebDavCredentialsStore()).load()
+      : null;
   final persistedId = await (syncRepository ?? SyncRepository())
       .getSyncAccountId();
   if (persistedId != null) {
     final persisted = await repo.getById(persistedId);
-    if (persisted != null && persisted.kind == kind) return persisted;
+    final sameEndpoint =
+        webdavConfig == null ||
+        persisted?.id ==
+            accountIdFor(
+              kind: AccountKind.webdav,
+              naturalKey: webdavNaturalKey(webdavConfig),
+            );
+    if (persisted != null && persisted.kind == kind && sameEndpoint) {
+      return persisted;
+    }
   }
   if (kind == AccountKind.s3) {
     // S3 accounts are instances, so the endpoint identifies them. Read the
@@ -339,6 +394,22 @@ Future<domain.ConnectedAccount> ensureAccountForProviderType(
       kind: kind,
       naturalKey: s3NaturalKey(config),
       label: '${config.bucket} @ ${config.displayHost}',
+    );
+  }
+  if (kind == AccountKind.webdav) {
+    // An instance kind like S3: the endpoint in the legacy blob identifies
+    // the account, and without it a fresh row waits for the deduplicator.
+    final config = webdavConfig;
+    if (config == null) {
+      return repo.create(
+        kind: kind,
+        label: cloudProviderInstanceFor(type).providerName,
+      );
+    }
+    return repo.ensure(
+      kind: kind,
+      naturalKey: webdavNaturalKey(config),
+      label: config.displayLabel,
     );
   }
   return repo.ensure(
@@ -381,6 +452,7 @@ final selectedSyncAccountProvider = FutureProvider<domain.ConnectedAccount?>((
       repo,
       syncRepository: ref.read(syncRepositoryProvider),
       s3Credentials: ref.read(s3CredentialsStoreProvider),
+      webdavCredentials: ref.read(webdavCredentialsStoreProvider),
     );
     await ref
         .read(syncRepositoryProvider)
@@ -421,6 +493,7 @@ Future<void> _mirrorLegacyCredentials(
 ) async {
   final legacyKey = switch (account.kind) {
     AccountKind.s3 => S3CredentialsStore.storageKey,
+    AccountKind.webdav => WebDavCredentialsStore.storageKey,
     AccountKind.dropbox => DropboxAuthStore.storageKey,
     // Session-managed / not a sync kind: no keychain blob to mirror.
     AccountKind.googledrive ||
@@ -523,6 +596,23 @@ final peerDeviceNamesProvider = StreamProvider<Map<String, String>>((ref) {
   return out.stream;
 });
 
+/// This device's id and display name, for labelling the local side of a
+/// sync conflict. Same resolver the manifests use, so a peer sees this
+/// device under the same name.
+///
+/// Auto-disposed, and invalidated after Reset Sync State and after every
+/// sync, because both can mint a new device id: a cached id would stop
+/// recognising this device's own rows as its own (issue #3029).
+// no-tick: the one repository call is getDeviceId, which changes only when
+// SyncInitializer.adoptFreshIdentity runs, during Reset Sync State or a sync.
+// SyncNotifier invalidates this provider after both.
+final conflictLocalDeviceProvider =
+    FutureProvider.autoDispose<({String? id, String? name})>((ref) async {
+      final repo = ref.watch(syncRepositoryProvider);
+      final identity = await SyncDeviceMetadata(repo).resolve();
+      return (id: identity.id, name: identity.name);
+    });
+
 /// Sync service provider
 // no-tick: the value is a SERVICE, not a query result. Its one repository
 // call (applyResolutionHints) is a write made inside a callback at merge
@@ -561,6 +651,13 @@ class SyncState {
   /// newer-schema banner; cleared when a fresh sync starts. A null name means
   /// the peer published none, and the UI renders a short id instead.
   final List<({String? name, String shortId})> newerSchemaPeerLabels;
+
+  /// Peers whose own schema is below this build's compatibility floor during
+  /// the last pull, as (name, shortId) pairs: they hold this device's changes
+  /// until they update (issue #2619). Drives the older-device banner; cleared
+  /// when a fresh sync starts. Same null-name contract as
+  /// [newerSchemaPeerLabels].
+  final List<({String? name, String shortId})> olderSchemaPeerLabels;
 
   /// Peers held back by the library-epoch fence during the last pull, as
   /// (name, shortId) pairs. Drives the "needs to adopt" banner; cleared when a
@@ -616,6 +713,7 @@ class SyncState {
     this.pendingChanges = 0,
     this.conflicts = 0,
     this.newerSchemaPeerLabels = const [],
+    this.olderSchemaPeerLabels = const [],
     this.skippedPeerLabels = const [],
     this.readFailedPeerLabels = const [],
     this.isAuthenticated = false,
@@ -636,6 +734,7 @@ class SyncState {
     int? pendingChanges,
     int? conflicts,
     List<({String? name, String shortId})>? newerSchemaPeerLabels,
+    List<({String? name, String shortId})>? olderSchemaPeerLabels,
     List<({String? name, String shortId})>? skippedPeerLabels,
     List<({String? name, String shortId})>? readFailedPeerLabels,
     bool? isAuthenticated,
@@ -658,6 +757,8 @@ class SyncState {
       conflicts: conflicts ?? this.conflicts,
       newerSchemaPeerLabels:
           newerSchemaPeerLabels ?? this.newerSchemaPeerLabels,
+      olderSchemaPeerLabels:
+          olderSchemaPeerLabels ?? this.olderSchemaPeerLabels,
       skippedPeerLabels: skippedPeerLabels ?? this.skippedPeerLabels,
       readFailedPeerLabels: readFailedPeerLabels ?? this.readFailedPeerLabels,
       isAuthenticated: isAuthenticated ?? this.isAuthenticated,
@@ -720,6 +821,17 @@ class SyncNotifier extends StateNotifier<SyncState> {
   Timer? _pendingCountTimer;
   int _pendingCountGeneration = 0;
   bool _syncInFlight = false;
+
+  /// A sync requested while one was in flight, run once that flight ends
+  /// (issue #3265). Null when none is waiting; otherwise whether every
+  /// request folded into it was an auto sync, so one manual press among them
+  /// skips the auto-only first-contact deferral.
+  bool? _queuedSyncAuto;
+
+  /// How long a finished sync waits for the post-sync findings pass before
+  /// settling its count. Bounded: a large first pull can keep the sweep busy
+  /// for minutes, and requests queue rather than drop meanwhile.
+  static const _postSyncFindingsWait = Duration(seconds: 30);
 
   /// The cloud error that failed the last [libraryReplaceInfo] pre-check,
   /// held for the next [performSync] only. A revoked sign-in fails the
@@ -870,7 +982,14 @@ class SyncNotifier extends StateNotifier<SyncState> {
   void _scheduleAutoSync() {
     final settings = _ref.read(syncBehaviorProvider);
     if (!settings.autoSyncEnabled) return;
-    if (state.status == SyncStatus.syncing) return;
+    if (state.status == SyncStatus.syncing) {
+      // A change landing mid-sync may postdate the publish snapshot, so this
+      // sync might not carry it. Queue a run for after the flight instead of
+      // dropping the trigger. The apply path never fires the bus, so a sync
+      // cannot queue itself.
+      if (_syncInFlight) _queueSync(auto: true);
+      return;
+    }
 
     _autoSyncTimer?.cancel();
     _autoSyncTimer = Timer(const Duration(seconds: 5), () {
@@ -1032,8 +1151,8 @@ class SyncNotifier extends StateNotifier<SyncState> {
     SyncResult result,
   ) => heldPeerLabels(result.skippedPeerDeviceIds, result.skippedPeerNames);
 
-  /// (name, shortId) per held peer, shared by the epoch-fence and
-  /// newer-schema banners. Sorted so the banner text is stable across syncs
+  /// (name, shortId) per held peer, shared by the epoch-fence, newer-schema,
+  /// older-schema and read-failed banners. Sorted so the banner text is stable across syncs
   /// instead of reordering each pull.
   @visibleForTesting
   static List<({String? name, String shortId})> heldPeerLabels(
@@ -1272,227 +1391,352 @@ class SyncNotifier extends StateNotifier<SyncState> {
   /// manual, user-confirmed Sync Now instead of merging unannounced.
   Future<void> performSync({bool auto = false}) async {
     _log.debug('performSync() called');
-    if (_syncInFlight || state.status == SyncStatus.syncing) {
+    if (_syncInFlight) {
+      // One sync at a time, but a request is never lost: the flight runs it
+      // when it ends. Dropping it left the post-sync window (findings, GPS
+      // and gallery stamps, all made after the publish) deaf to Sync presses
+      // until the app restarted (issue #3265).
+      _log.debug('Sync in flight, queueing another run after it');
+      _queueSync(auto: auto);
+      return;
+    }
+    if (state.status == SyncStatus.syncing) {
       _log.debug('Already syncing, returning early');
       return;
     }
     _syncInFlight = true;
     try {
-      // Load any stored encryption key BEFORE resolving the sync service:
-      // the provider wrap watches the session, so a launch-triggered sync
-      // must not race the async key load and run unencrypted-eyed.
-      await _ref.read(encryptionKeyNotifierProvider.notifier).ensureLoaded();
-      if (!mounted) return;
-
-      if (auto) {
-        final info = await firstSyncMergeInfo();
-        if (info != null) {
-          _log.info(
-            'Deferring auto sync: first contact with existing cloud data '
-            'needs user confirmation',
-          );
-          state = state.copyWith(
-            firstSyncAwaitingConfirmation: true,
-            message: _l10n.settings_cloudSync_message_firstSyncNeedsConfirm,
-          );
-          return;
-        }
-      }
-
-      state = state.copyWith(
-        status: SyncStatus.syncing,
-        message: _l10n.settings_cloudSync_message_startingSync,
-        progress: 0.0,
-        newerSchemaPeerLabels: const [],
-        skippedPeerLabels: const [],
-        readFailedPeerLabels: const [],
-        firstSyncAwaitingConfirmation: false,
-        replaceAwaitingAdoption: false,
-        needsPassphrase: false,
-        replaceMarker: null,
-      );
-
-      // Set up progress callback on the current sync service
-      _setupProgressCallback();
-
-      _log.debug('Calling _syncService.performSync()...');
-      // Consumed here whatever the outcome, so a later, unrelated sign-in
-      // failure never replays it.
-      final preCheckCloudError = _preCheckCloudError;
-      _preCheckCloudError = null;
-      try {
-        var result = await _syncService.performSync();
-        if (result.status == SyncResultStatus.authError &&
-            preCheckCloudError != null) {
-          result = SyncResult(
-            status: result.status,
-            message: preCheckCloudError,
-          );
-        }
-        _log.debug('Result: ${result.status}, message: ${result.message}');
-        // This notifier can be disposed while a launch-triggered sync is in
-        // flight; never touch state after an await without re-checking.
-        if (!mounted) return;
-
-        if (result.status == SyncResultStatus.awaitingAdoption) {
-          final diveCount = await _ref
-              .read(diveRepositoryProvider)
-              .getDiveCount();
-          if (!mounted) return;
-          if (diveCount == 0) {
-            // Nothing local to lose: adopt silently, like an empty device
-            // joining sync, then run the normal sync to upload our file.
-            final adopt = await _syncService.adoptReplacedLibrary();
-            if (adopt.isSuccess) {
-              await realignActiveDiverAfterDataReplace(
-                _ref.read(sharedPreferencesProvider),
-              );
-              result = await _syncService.performSync();
-            } else {
-              result = adopt;
-            }
-            if (!mounted) return;
-          } else {
-            state = state.copyWith(
-              status: SyncStatus.idle,
-              replaceAwaitingAdoption: true,
-              replaceMarker: result.replaceMarker,
-              message: _l10n.settings_cloudSync_message_replacePaused,
-              progress: null,
-            );
-            return;
-          }
-        }
-
-        if (result.status == SyncResultStatus.awaitingPassphrase) {
-          state = state.copyWith(
-            status: SyncStatus.idle,
-            needsPassphrase: true,
-            message:
-                result.message ??
-                _l10n.settings_cloudSync_message_encryptedPaused,
-            progress: null,
-          );
-          return;
-        }
-
-        if (result.isSuccess) {
-          final defaultMessage = result.conflictsFound > 0
-              ? _l10n.settings_cloudSync_message_completedWithConflicts
-              : _l10n.settings_cloudSync_message_completedSuccessfully;
-          state = state.copyWith(
-            status: result.conflictsFound > 0
-                ? SyncStatus.hasConflicts
-                : SyncStatus.success,
-            message: result.message ?? defaultMessage,
-            lastSync: result.lastSyncTime,
-            conflicts: result.conflictsFound,
-            newerSchemaPeerLabels: heldPeerLabels(
-              result.newerSchemaPeerDeviceIds,
-              result.newerSchemaPeerNames,
-            ),
-            skippedPeerLabels: skippedPeerLabels(result),
-            readFailedPeerLabels: heldPeerLabels(
-              result.readFailedPeerDeviceIds,
-              result.readFailedPeerNames,
-            ),
-            progress: 1.0,
-          );
-          // Mark this provider established and consume any post-restore intent:
-          // a future restore that wipes the in-DB cursor must not make this
-          // device look like first-contact again, and the Merge restore's
-          // one-shot intent is now satisfied.
-          final syncedProvider = _ref.read(cloudStorageProviderProvider);
-          if (syncedProvider != null) {
-            await _ref
-                .read(establishedProviderStoreProvider)
-                .add(syncedProvider.providerId);
-          }
-          await _ref.read(postRestoreSyncStoreProvider).clear();
-          await _surfaceOldBackendCleanupOffer();
-          // Sensor summaries are device-local: dives this sync pulled in have
-          // none until the stale sweep builds them, and a first sync can land
-          // after the launch sweep ran. Single-flight, a no-op when current;
-          // the condition findings follow the batch it runs.
-          SensorSummaryScheduler.instance.scheduleStaleSweep();
-          // A straggler syncing into a backend another device moved away from
-          // learns of the move here -- the moment it is actively writing into
-          // the now-orphaned copy.
-          await checkLibraryMoved();
-          // A GPS track that just synced in may cover dives imported earlier
-          // on this device (phone-records/desktop-imports race): sweep
-          // GPS-less dives against the freshly merged tracks. Best-effort.
-          try {
-            await _ref.read(gpsTrackMatchServiceProvider).sweep();
-          } catch (e, stackTrace) {
-            // Matching is an enhancement; the sync itself succeeded. Log so
-            // "why didn't my dives get positioned?" is diagnosable.
-            _log.error(
-              'Post-sync GPS match sweep failed',
-              error: e,
-              stackTrace: stackTrace,
-            );
-          }
-          // An underwater route synced in from another device may cover a
-          // dive that already exists here (or vice versa): sweep unlinked
-          // routes against every dive now that the merge is complete.
-          // Best-effort, same reasoning as the GPS sweep above.
-          try {
-            await _ref.read(navTrackMatchServiceProvider).sweep();
-          } catch (e, stackTrace) {
-            _log.error(
-              'Post-sync nav track match sweep failed',
-              error: e,
-              stackTrace: stackTrace,
-            );
-          }
-          // Gallery rows linked before links recorded an origin learn it
-          // here (media sync program spec 6.1). After a sync, never at
-          // launch: a stamp bumps the row clock, so this device's copies
-          // should be as fresh as a pull makes them. Awaited, so it stays
-          // inside this sync's single flight: a stamp republishes the row,
-          // and a second sync merging or publishing mid-stamp would reopen
-          // the stale-copy window it waits here to avoid. Once per device
-          // (a flag read after that), and it contains its own failures.
-          await _ref.read(galleryOriginBackfillProvider)();
-          // The notifier can be disposed while the backfill runs, and the
-          // settle below reads state.
-          if (!mounted) return;
-          // Then the iCloud identifiers of this device's own gallery rows
-          // (spec 6.2), for the same reasons, once the origins it relies on
-          // are stamped. At most once a day, and contains its own failures.
-          await _ref.read(galleryCloudIdBackfillProvider)();
-          if (!mounted) return;
-        } else {
-          state = state.copyWith(
-            status: SyncStatus.error,
-            message:
-                result.message ?? _l10n.settings_cloudSync_message_syncFailed,
-            progress: null,
-          );
-        }
-      } catch (e) {
-        if (!mounted) return;
-        final l10n = _l10n;
-        final phase =
-            state.message ?? l10n.settings_cloudSync_message_phaseDefault;
-        state = state.copyWith(
-          status: SyncStatus.error,
-          message: l10n.settings_cloudSync_message_syncErrorDuring(phase, e),
-          progress: null,
+      var runAuto = auto;
+      var followUpAllowed = true;
+      while (true) {
+        // One merge into the database at a time, shared with the library
+        // library sync (issue #2567).
+        final succeeded = await SyncCoordinator.run(
+          () => _runSyncOnce(auto: runAuto),
         );
-      }
-
-      // Refresh state after a brief delay so status is readable.
-      if (state.status == SyncStatus.success ||
-          state.status == SyncStatus.hasConflicts) {
-        await Future.delayed(const Duration(seconds: 2));
         if (!mounted) return;
-        await refreshState();
+        final queued = _queuedSyncAuto;
+        _queuedSyncAuto = null;
+        if (queued != null) {
+          runAuto = queued;
+          continue;
+        }
+        // The post-sync work runs after the publish, so whatever it marked
+        // pending is still unsynced although the sync reported success. Send
+        // it now, so one press publishes everything. Once per flight: two
+        // devices whose post-sync work rewrites each other's rows would
+        // otherwise keep triggering each other's follow-ups.
+        if (succeeded && followUpAllowed && state.pendingChanges > 0) {
+          _log.info(
+            'Running a follow-up sync for ${state.pendingChanges} changes '
+            'made after the publish',
+          );
+          followUpAllowed = false;
+          continue;
+        }
+        return;
       }
     } finally {
       _syncInFlight = false;
     }
+  }
+
+  /// Waits, within [_postSyncFindingsWait], until the summary scheduler's
+  /// queue stops changing. One await is not enough: a findings pass that met
+  /// dives with no summary queues another batch, replacing the tail read
+  /// before it, and that batch can stamp rows too.
+  Future<void> _awaitPostSyncFindings() async {
+    final scheduler = SensorSummaryScheduler.instance;
+    final deadline = DateTime.now().add(_postSyncFindingsWait);
+    var tail = scheduler.idle;
+    while (true) {
+      final left = deadline.difference(DateTime.now());
+      if (left <= Duration.zero) return;
+      await tail.timeout(left, onTimeout: () {});
+      final next = scheduler.idle;
+      if (identical(next, tail)) return;
+      tail = next;
+    }
+  }
+
+  /// Folds a request into the one queued run (see [_queuedSyncAuto]).
+  void _queueSync({required bool auto}) {
+    _queuedSyncAuto = (_queuedSyncAuto ?? true) && auto;
+  }
+
+  /// Remembers a failed attempt against the active backend for Settings >
+  /// Data health, which must still show it after a restart.
+  Future<void> _recordSyncFailure(SyncFailureKind kind, String message) async {
+    final providerId = _ref.read(cloudStorageProviderProvider)?.providerId;
+    if (providerId == null) return;
+    await _ref
+        .read(syncFailureProvider.notifier)
+        .record(
+          SyncFailureRecord(
+            providerId: providerId,
+            at: DateTime.now(),
+            kind: kind,
+            message: message,
+          ),
+        );
+  }
+
+  /// One sync, run inside [performSync]'s single flight. True when it
+  /// completed successfully (with or without conflicts).
+  Future<bool> _runSyncOnce({required bool auto}) async {
+    // Entered from the coordinator's queue, so the notifier may have been
+    // disposed while another merge held the gate.
+    if (!mounted) return false;
+    var succeeded = false;
+    // An auto-sync armed before this run is covered by it: the publish reads
+    // every change made so far. Firing afterwards would only repeat it. A run
+    // that fails re-arms it below, keeping the retry that timer would have
+    // been.
+    final autoSyncWasArmed = _autoSyncTimer?.isActive ?? false;
+    _autoSyncTimer?.cancel();
+    // Load any stored encryption key BEFORE resolving the sync service:
+    // the provider wrap watches the session, so a launch-triggered sync
+    // must not race the async key load and run unencrypted-eyed.
+    await _ref.read(encryptionKeyNotifierProvider.notifier).ensureLoaded();
+    if (!mounted) return false;
+
+    if (auto) {
+      final info = await firstSyncMergeInfo();
+      if (info != null) {
+        _log.info(
+          'Deferring auto sync: first contact with existing cloud data '
+          'needs user confirmation',
+        );
+        state = state.copyWith(
+          firstSyncAwaitingConfirmation: true,
+          message: _l10n.settings_cloudSync_message_firstSyncNeedsConfirm,
+        );
+        return false;
+      }
+    }
+
+    state = state.copyWith(
+      status: SyncStatus.syncing,
+      message: _l10n.settings_cloudSync_message_startingSync,
+      progress: 0.0,
+      newerSchemaPeerLabels: const [],
+      olderSchemaPeerLabels: const [],
+      skippedPeerLabels: const [],
+      readFailedPeerLabels: const [],
+      firstSyncAwaitingConfirmation: false,
+      replaceAwaitingAdoption: false,
+      needsPassphrase: false,
+      replaceMarker: null,
+    );
+
+    // Set up progress callback on the current sync service
+    _setupProgressCallback();
+
+    _log.debug('Calling _syncService.performSync()...');
+    // Consumed here whatever the outcome, so a later, unrelated sign-in
+    // failure never replays it.
+    final preCheckCloudError = _preCheckCloudError;
+    _preCheckCloudError = null;
+    try {
+      var result = await _syncService.performSync();
+      if (result.status == SyncResultStatus.authError &&
+          preCheckCloudError != null) {
+        result = SyncResult(status: result.status, message: preCheckCloudError);
+      }
+      _log.debug('Result: ${result.status}, message: ${result.message}');
+      // This notifier can be disposed while a launch-triggered sync is in
+      // flight; never touch state after an await without re-checking.
+      if (!mounted) return false;
+      // A sync can adopt a fresh identity (a cloned twin, or our own id's
+      // files with no local library), so the conflict dialog's id is stale.
+      _ref.invalidate(conflictLocalDeviceProvider);
+
+      if (result.status == SyncResultStatus.awaitingAdoption) {
+        final diveCount = await _ref
+            .read(diveRepositoryProvider)
+            .getDiveCount();
+        if (!mounted) return false;
+        if (diveCount == 0) {
+          // Nothing local to lose: adopt silently, like an empty device
+          // joining sync, then run the normal sync to upload our file.
+          final adopt = await _syncService.adoptReplacedLibrary();
+          if (adopt.isSuccess) {
+            await realignActiveDiverAfterDataReplace(
+              _ref.read(sharedPreferencesProvider),
+            );
+            result = await _syncService.performSync();
+          } else {
+            result = adopt;
+          }
+          if (!mounted) return false;
+          _ref.invalidate(conflictLocalDeviceProvider);
+        } else {
+          state = state.copyWith(
+            status: SyncStatus.idle,
+            replaceAwaitingAdoption: true,
+            replaceMarker: result.replaceMarker,
+            message: _l10n.settings_cloudSync_message_replacePaused,
+            progress: null,
+          );
+          return false;
+        }
+      }
+
+      if (result.status == SyncResultStatus.awaitingPassphrase) {
+        state = state.copyWith(
+          status: SyncStatus.idle,
+          needsPassphrase: true,
+          message:
+              result.message ??
+              _l10n.settings_cloudSync_message_encryptedPaused,
+          progress: null,
+        );
+        return false;
+      }
+
+      if (result.isSuccess) {
+        succeeded = true;
+        await _ref
+            .read(syncFailureProvider.notifier)
+            .clearFor(_ref.read(cloudStorageProviderProvider)?.providerId);
+        if (!mounted) return false;
+        final defaultMessage = result.conflictsFound > 0
+            ? _l10n.settings_cloudSync_message_completedWithConflicts
+            : _l10n.settings_cloudSync_message_completedSuccessfully;
+        state = state.copyWith(
+          status: result.conflictsFound > 0
+              ? SyncStatus.hasConflicts
+              : SyncStatus.success,
+          message: result.message ?? defaultMessage,
+          lastSync: result.lastSyncTime,
+          conflicts: result.conflictsFound,
+          newerSchemaPeerLabels: heldPeerLabels(
+            result.newerSchemaPeerDeviceIds,
+            result.newerSchemaPeerNames,
+          ),
+          olderSchemaPeerLabels: heldPeerLabels(
+            result.olderSchemaPeerDeviceIds,
+            result.olderSchemaPeerNames,
+          ),
+          skippedPeerLabels: skippedPeerLabels(result),
+          readFailedPeerLabels: heldPeerLabels(
+            result.readFailedPeerDeviceIds,
+            result.readFailedPeerNames,
+          ),
+          progress: 1.0,
+        );
+        // Mark this provider established and consume any post-restore intent:
+        // a future restore that wipes the in-DB cursor must not make this
+        // device look like first-contact again, and the Merge restore's
+        // one-shot intent is now satisfied.
+        final syncedProvider = _ref.read(cloudStorageProviderProvider);
+        if (syncedProvider != null) {
+          await _ref
+              .read(establishedProviderStoreProvider)
+              .add(syncedProvider.providerId);
+        }
+        await _ref.read(postRestoreSyncStoreProvider).clear();
+        await _surfaceOldBackendCleanupOffer();
+        // Sensor summaries and derived metrics are device-local: dives this
+        // sync pulled in have none until the stale sweep builds them, and a
+        // first sync can land after the launch sweep ran. The sweep is also
+        // what rebuilds them for a dive whose profile or pressure series
+        // changed in this pull, since series never re-stamp their dive
+        // (#1769) and only the source stamp sees them. Single-flight, a
+        // no-op when current; the condition findings follow the batch it
+        // runs.
+        SensorSummaryScheduler.instance.scheduleStaleSweep();
+        DerivedMetricsScheduler.instance.scheduleStaleSweep();
+        // A straggler syncing into a backend another device moved away from
+        // learns of the move here -- the moment it is actively writing into
+        // the now-orphaned copy.
+        await checkLibraryMoved();
+        // A GPS track that just synced in may cover dives imported earlier
+        // on this device (phone-records/desktop-imports race): sweep
+        // GPS-less dives against the freshly merged tracks. Best-effort.
+        try {
+          await _ref.read(gpsTrackMatchServiceProvider).sweep();
+        } catch (e, stackTrace) {
+          // Matching is an enhancement; the sync itself succeeded. Log so
+          // "why didn't my dives get positioned?" is diagnosable.
+          _log.error(
+            'Post-sync GPS match sweep failed',
+            error: e,
+            stackTrace: stackTrace,
+          );
+        }
+        // No underwater-route sweep here: a sweep no longer links
+        // anything by itself (#2394: confirming a dive is always the
+        // diver's own choice), and the routes list's pending-choice hint
+        // already refreshes when synced routes land.
+        // Gallery rows linked before links recorded an origin learn it
+        // here (media sync program spec 6.1). After a sync, never at
+        // launch: a stamp bumps the row clock, so this device's copies
+        // should be as fresh as a pull makes them. Awaited, so it stays
+        // inside this sync's single flight: a stamp republishes the row,
+        // and a second sync merging or publishing mid-stamp would reopen
+        // the stale-copy window it waits here to avoid. Once per device
+        // (a flag read after that), and it contains its own failures.
+        await _ref.read(galleryOriginBackfillProvider)();
+        // The notifier can be disposed while the backfill runs, and the
+        // settle below reads state.
+        if (!mounted) return false;
+        // Then the iCloud identifiers of this device's own gallery rows
+        // (spec 6.2), for the same reasons, once the origins it relies on
+        // are stamped. At most once a day, and contains its own failures.
+        await _ref.read(galleryCloudIdBackfillProvider)();
+        if (!mounted) return false;
+        // Gear files a peer linked, or that only became readable here once
+        // this sync fetched their store copy, move into Documents (#3333).
+        // Outside the flight: it may download and copy files, and nothing
+        // in this sync waits on it. Contains its own failures.
+        unawaited(_ref.read(equipmentFileConversionProvider)());
+      } else {
+        final message =
+            result.message ?? _l10n.settings_cloudSync_message_syncFailed;
+        state = state.copyWith(
+          status: SyncStatus.error,
+          message: message,
+          progress: null,
+        );
+        await _recordSyncFailure(
+          result.status == SyncResultStatus.networkError
+              ? SyncFailureKind.network
+              : SyncFailureKind.other,
+          message,
+        );
+        if (!mounted) return false;
+      }
+    } catch (e) {
+      if (!mounted) return false;
+      final l10n = _l10n;
+      final phase =
+          state.message ?? l10n.settings_cloudSync_message_phaseDefault;
+      final message = l10n.settings_cloudSync_message_syncErrorDuring(phase, e);
+      state = state.copyWith(
+        status: SyncStatus.error,
+        message: message,
+        progress: null,
+      );
+      await _recordSyncFailure(SyncFailureKind.other, message);
+      if (!mounted) return false;
+    }
+
+    // Refresh state after a brief delay so status is readable.
+    if (state.status == SyncStatus.success ||
+        state.status == SyncStatus.hasConflicts) {
+      // The findings pass that follows the summary sweep is the post-sync
+      // work most likely to mark rows pending, and it runs unawaited. Give it
+      // a bounded wait, so the settled count below (and with it the
+      // follow-up decision in performSync) sees what it wrote.
+      await _awaitPostSyncFindings();
+      if (!mounted) return false;
+      await Future.delayed(const Duration(seconds: 2));
+      if (!mounted) return false;
+      await refreshState();
+    }
+    if (!succeeded && autoSyncWasArmed && mounted) _scheduleAutoSync();
+    return succeeded;
   }
 
   /// Resolve a conflict
@@ -1507,13 +1751,14 @@ class SyncNotifier extends StateNotifier<SyncState> {
 
   /// Sign out from the cloud provider
   ///
-  /// For S3 the credentials are hand-entered, so disconnecting only
+  /// For S3 and WebDAV the credentials are hand-entered, so disconnecting only
   /// deselects the provider; the stored configuration survives and the
   /// S3 settings page offers the explicit, destructive
   /// "Remove Configuration" instead.
   Future<void> signOut() async {
     final selected = _ref.read(selectedCloudProviderTypeProvider);
-    if (selected != CloudProviderType.s3) {
+    if (selected != CloudProviderType.s3 &&
+        selected != CloudProviderType.webdav) {
       await _syncService.signOut();
       // Account-first resolution means _syncService.signOut() cleared the
       // PER-ACCOUNT Dropbox blob (and revoked); also clear the legacy
@@ -1545,6 +1790,7 @@ class SyncNotifier extends StateNotifier<SyncState> {
     // The S3 tile watches this; a sign-out (or future config change) must
     // not leave it showing stale state.
     _ref.invalidate(s3ConfigProvider);
+    _ref.invalidate(webdavConfigProvider);
     state = const SyncState();
   }
 
@@ -1614,6 +1860,7 @@ class SyncNotifier extends StateNotifier<SyncState> {
     await _syncService.resetSyncState();
     final initializer = _ref.read(syncInitializerProvider);
     await initializer.adoptFreshIdentity();
+    _ref.invalidate(conflictLocalDeviceProvider);
     // The question is about the RETIRED id, which is no longer this device's,
     // so it is passed explicitly rather than inferred from the current one.
     final provider = _ref.read(cloudStorageProviderProvider);
@@ -1765,8 +2012,13 @@ final syncMessageProvider = Provider<String?>((ref) {
   return ref.watch(syncStateProvider).message;
 });
 
-/// Get conflicts provider
-final conflictsProvider = FutureProvider<List<SyncConflict>>((ref) async {
+/// The unresolved sync conflicts, read fresh each time the Resolve Conflicts
+/// dialog opens. Nothing invalidates this after a sync or a resolution, so a
+/// cached list outlived the conflicts it showed: a reopened dialog offered
+/// conflicts already resolved and hid ones raised since (#2943).
+final conflictsProvider = FutureProvider.autoDispose<List<SyncConflict>>((
+  ref,
+) async {
   final syncService = ref.watch(syncServiceProvider);
   return syncService.getConflicts();
 });

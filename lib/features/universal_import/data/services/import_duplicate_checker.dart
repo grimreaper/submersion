@@ -17,6 +17,8 @@ import 'package:submersion/features/tags/domain/entities/tag.dart';
 import 'package:submersion/features/trips/domain/entities/trip.dart';
 import 'package:submersion/features/universal_import/data/models/import_enums.dart';
 import 'package:submersion/features/universal_import/data/models/import_payload.dart';
+import 'package:submersion/features/universal_import/data/services/within_file_dive_duplicates.dart';
+import 'package:submersion/features/certification_agencies/domain/certification_catalog.dart';
 
 /// Result of duplicate checking across all entity types in an import payload.
 class ImportDuplicateResult {
@@ -99,8 +101,11 @@ class ImportDuplicateChecker {
     Map<String, String> existingSourceUuidByDiveId = const {},
     DiveMatcher matcher = const DiveMatcher(),
     bool checkIntraBatch = false,
+    bool checkWithinFile = false,
     UnitFormatter units = const UnitFormatter(AppSettings()),
+    CertificationCatalog? certificationCatalog,
   }) {
+    final catalog = certificationCatalog ?? CertificationCatalog.builtInOnly;
     final duplicates = <ImportEntityType, Set<int>>{};
     final entityMatches = <ImportEntityType, Map<int, EntityMatchResult>>{};
 
@@ -149,7 +154,8 @@ class ImportDuplicateChecker {
       entityMatches,
       ImportEntityType.certifications,
       payload,
-      (items) => _checkCertificationDuplicates(items, existingCertifications),
+      (items) =>
+          _checkCertificationDuplicates(items, existingCertifications, catalog),
     );
 
     _checkEntityIfPresent(
@@ -176,6 +182,7 @@ class ImportDuplicateChecker {
             existingSourceUuidByDiveId,
             matcher,
             checkIntraBatch: checkIntraBatch,
+            checkWithinFile: checkWithinFile,
           )
         : <int, DiveMatchResult>{};
 
@@ -591,11 +598,19 @@ class ImportDuplicateChecker {
   _EntityCheckResult _checkCertificationDuplicates(
     List<Map<String, dynamic>> importedCerts,
     List<Certification> existingCerts,
+    CertificationCatalog catalog,
   ) {
     final existingByKey = <String, Certification>{};
     for (final cert in existingCerts) {
-      existingByKey['${cert.name.toLowerCase()}|${cert.agency.name.toLowerCase()}'] =
-          cert;
+      final name = cert.name.toLowerCase();
+      existingByKey['$name|${cert.agency.toLowerCase()}'] = cert;
+      // An imported custom agency arrives as its name, not the stored id
+      // (issue #690), so the agency's name is a second key.
+      final agencyName = catalog.agency(cert.agency).interchangeName;
+      existingByKey.putIfAbsent(
+        '$name|${agencyName.toLowerCase()}',
+        () => cert,
+      );
     }
 
     final indices = <int>{};
@@ -619,7 +634,11 @@ class ImportDuplicateChecker {
       final existing = existingByKey[key];
       if (existing != null) {
         indices.add(i);
-        matches[i] = _buildCertificationMatch(importedCerts[i], existing);
+        matches[i] = _buildCertificationMatch(
+          importedCerts[i],
+          existing,
+          catalog,
+        );
       }
     }
 
@@ -629,6 +648,7 @@ class ImportDuplicateChecker {
   EntityMatchResult _buildCertificationMatch(
     Map<String, dynamic> incoming,
     Certification existing,
+    CertificationCatalog catalog,
   ) {
     final agencyValue = incoming['agency'];
     String? agencyStr;
@@ -646,7 +666,7 @@ class ImportDuplicateChecker {
       existingName: existing.name,
       existingFields: {
         'Name': existing.name,
-        'Agency': existing.agency.displayName,
+        'Agency': catalog.agency(existing.agency).interchangeName,
         'Date': existing.issueDate != null
             ? _dateFormatter.format(existing.issueDate!)
             : null,
@@ -709,10 +729,13 @@ class ImportDuplicateChecker {
     Map<String, String> existingSourceUuidByDiveId,
     DiveMatcher matcher, {
     bool checkIntraBatch = false,
+    bool checkWithinFile = false,
   }) {
     // The intra-batch pass must run even against an empty database — a
     // first-ever bulk import is exactly where cross-file duplicates appear.
-    if (existingDives.isEmpty && !checkIntraBatch) return {};
+    if (existingDives.isEmpty && !checkIntraBatch && !checkWithinFile) {
+      return {};
+    }
 
     final matches = <int, DiveMatchResult>{};
     final handled = <int>{};
@@ -787,6 +810,14 @@ class ImportDuplicateChecker {
           }
         }
       }
+    }
+
+    // Pass F (single files only): the same dive twice in one file (#3110).
+    // Stricter than Pass I, which matches across files that overlap.
+    if (checkWithinFile && !checkIntraBatch) {
+      final withinFile = WithinFileDiveDuplicates.find(importedDives, matcher);
+      matches.addAll(withinFile);
+      handled.addAll(withinFile.keys);
     }
 
     // Pass 0: exact match by source_uuid. When a user imports MacDive's

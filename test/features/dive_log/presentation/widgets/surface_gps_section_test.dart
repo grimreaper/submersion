@@ -1,3 +1,7 @@
+import 'dart:async';
+
+import 'package:flutter/foundation.dart';
+import 'package:flutter/gestures.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter/services.dart';
 import 'package:flutter_map/flutter_map.dart';
@@ -26,7 +30,44 @@ Dive _dive() => Dive(
   ),
 );
 
-Future<void> _pump(WidgetTester tester, {MapController? controller}) async {
+/// A dive whose fixes sit metres apart, so the inline map's camera fit
+/// saturates at its maxZoom of 16: three zoom levels past the zoom 13 the map
+/// mounts at.
+Dive _tightDive() => Dive(
+  id: 'tight',
+  diveNumber: 3,
+  dateTime: DateTime(2026, 5, 6, 18, 54),
+  maxDepth: 12.0,
+  entryLocation: const GeoPoint(12.046730, -68.268700),
+  exitLocation: const GeoPoint(12.046780, -68.268550),
+  site: const DiveSite(
+    id: 'site-2',
+    name: 'Red Beryl',
+    location: GeoPoint(12.046640, -68.268529),
+  ),
+);
+
+/// A dive whose only location is its site's coordinates: no GPS fixes.
+Dive _siteOnlyDive() => Dive(
+  id: 'site-only',
+  diveNumber: 2,
+  dateTime: DateTime(2026, 5, 22, 9, 14),
+  maxDepth: 30.0,
+  site: const DiveSite(
+    id: 'site-1',
+    name: 'Blue Hole',
+    location: GeoPoint(12.34000, 98.76000),
+  ),
+);
+
+Future<void> _pump(
+  WidgetTester tester, {
+  MapController? controller,
+  Dive? dive,
+  bool expanded = true,
+  ScrollController? scrollController,
+  Key? sectionKey,
+}) async {
   final overrides = await getBaseOverrides();
   await tester.binding.setSurfaceSize(const Size(600, 1200));
   addTearDown(() => tester.binding.setSurfaceSize(null));
@@ -39,14 +80,26 @@ Future<void> _pump(WidgetTester tester, {MapController? controller}) async {
     ProviderScope(
       overrides: [
         ...overrides,
-        surfaceGpsSectionExpandedProvider.overrideWithValue(true),
+        surfaceGpsSectionExpandedProvider.overrideWithValue(expanded),
       ],
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
         home: Scaffold(
           body: SingleChildScrollView(
-            child: SurfaceGpsSection(dive: _dive(), controller: controller),
+            controller: scrollController,
+            // Content taller than the viewport, so the page can scroll the way
+            // the dive detail pane does.
+            child: Column(
+              children: [
+                SurfaceGpsSection(
+                  key: sectionKey,
+                  dive: dive ?? _dive(),
+                  controller: controller,
+                ),
+                const SizedBox(height: 2000),
+              ],
+            ),
           ),
         ),
       ),
@@ -58,19 +111,82 @@ Future<void> _pump(WidgetTester tester, {MapController? controller}) async {
 }
 
 void main() {
-  testWidgets(
-    'renders an interactive map and entry/exit/site coordinate rows',
-    (tester) async {
-      await _pump(tester);
+  group('the inline map does not capture scrolling (#3156)', () {
+    testWidgets('a mouse wheel over the map scrolls the page, not the map', (
+      tester,
+    ) async {
+      final controller = MapController();
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await _pump(tester, controller: controller, scrollController: scroll);
+      final zoom = controller.camera.zoom;
 
-      expect(find.byType(FlutterMap), findsOneWidget);
-      // Rendered in the diver's coordinate notation, decimal degrees here.
-      expect(find.text('12.345670° N, 98.765430° E'), findsOneWidget); // entry
-      expect(find.text('12.346120° N, 98.764890° E'), findsOneWidget); // exit
-      expect(find.text('12.340000° N, 98.760000° E'), findsOneWidget); // site
-      expect(find.text('Open in Maps'), findsNothing);
-    },
-  );
+      final pointer = TestPointer(1, PointerDeviceKind.mouse);
+      final center = tester.getCenter(find.byType(FlutterMap));
+      await tester.sendEventToBinding(pointer.hover(center));
+      await tester.sendEventToBinding(pointer.scroll(const Offset(0, 100)));
+      await tester.pump();
+
+      expect(controller.camera.zoom, zoom);
+      expect(scroll.offset, greaterThan(0));
+    });
+
+    testWidgets('a trackpad two-finger scroll over the map scrolls the page', (
+      tester,
+    ) async {
+      final controller = MapController();
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await _pump(tester, controller: controller, scrollController: scroll);
+      final zoom = controller.camera.zoom;
+      final mapCenter = controller.camera.center;
+
+      final center = tester.getCenter(find.byType(FlutterMap));
+      final gesture = await tester.createGesture(
+        kind: PointerDeviceKind.trackpad,
+      );
+      await gesture.panZoomStart(center);
+      await tester.pump();
+      // Fingers moving up scroll the content forward, as on a touch screen.
+      await gesture.panZoomUpdate(center, pan: const Offset(0, -100));
+      await tester.pump();
+      await gesture.panZoomEnd();
+      await tester.pump();
+
+      expect(controller.camera.zoom, zoom);
+      expect(controller.camera.center, mapCenter);
+      expect(scroll.offset, greaterThan(0));
+    });
+
+    testWidgets('a touch drag starting on the map scrolls the page', (
+      tester,
+    ) async {
+      final controller = MapController();
+      final scroll = ScrollController();
+      addTearDown(scroll.dispose);
+      await _pump(tester, controller: controller, scrollController: scroll);
+      final mapCenter = controller.camera.center;
+
+      await tester.drag(find.byType(FlutterMap), const Offset(0, -150));
+      await tester.pump();
+
+      expect(controller.camera.center, mapCenter);
+      expect(scroll.offset, greaterThan(0));
+    });
+  });
+
+  testWidgets('renders a map and entry/exit/site coordinate rows', (
+    tester,
+  ) async {
+    await _pump(tester);
+
+    expect(find.byType(FlutterMap), findsOneWidget);
+    // Rendered in the diver's coordinate notation, decimal degrees here.
+    expect(find.text('12.345670° N, 98.765430° E'), findsOneWidget); // entry
+    expect(find.text('12.346120° N, 98.764890° E'), findsOneWidget); // exit
+    expect(find.text('12.340000° N, 98.760000° E'), findsOneWidget); // site
+    expect(find.text('Open in Maps'), findsNothing);
+  });
 
   testWidgets('copy icon copies the coordinate at full (6-dp) precision', (
     tester,
@@ -118,5 +234,139 @@ void main() {
     await tester.pumpAndSettle();
 
     expect(find.byType(DiveLocationsMapPage), findsOneWidget);
+  });
+
+  testWidgets('a GPS dive keeps the Surface GPS title', (tester) async {
+    await _pump(tester);
+
+    expect(find.text('Surface GPS'), findsOneWidget);
+    expect(find.text('Location'), findsNothing);
+  });
+
+  group('site-only dive', () {
+    testWidgets('is titled Location and maps the site alone', (tester) async {
+      await _pump(tester, dive: _siteOnlyDive());
+
+      expect(find.text('Location'), findsOneWidget);
+      expect(find.text('Surface GPS'), findsNothing);
+      expect(find.byType(FlutterMap), findsOneWidget);
+      expect(find.byKey(const ValueKey('gps-coord-site')), findsOneWidget);
+      expect(find.text('12.340000° N, 98.760000° E'), findsOneWidget);
+      expect(find.byKey(const ValueKey('gps-coord-entry')), findsNothing);
+      expect(find.byKey(const ValueKey('gps-coord-exit')), findsNothing);
+      expect(find.textContaining('Drift'), findsNothing);
+      expect(find.byKey(const ValueKey('gps-expand')), findsOneWidget);
+    });
+
+    testWidgets('shows the site name as the collapsed subtitle', (
+      tester,
+    ) async {
+      await _pump(tester, dive: _siteOnlyDive(), expanded: false);
+
+      expect(find.text('Location'), findsOneWidget);
+      expect(find.text('Blue Hole'), findsOneWidget);
+      expect(find.text('Entry point recorded'), findsNothing);
+      expect(find.text('Exit point recorded'), findsNothing);
+    });
+
+    testWidgets('the expand button opens the fullscreen map of the site', (
+      tester,
+    ) async {
+      await _pump(tester, dive: _siteOnlyDive());
+
+      await tester.tap(find.byKey(const ValueKey('gps-expand')));
+      await tester.pumpAndSettle();
+
+      final page = tester.widget<DiveLocationsMapPage>(
+        find.byType(DiveLocationsMapPage),
+      );
+      expect(page.site, const GeoPoint(12.34000, 98.76000));
+      expect(page.entry, isNull);
+      expect(page.exit, isNull);
+    });
+  });
+
+  // Selecting a dive mounts this card more than once (the Tide card arriving
+  // turns the layout into a pair), and a dive seen before is the same. Either
+  // way the second map finds its tiles already in the image cache, so they
+  // load synchronously. With instantaneous tile display flutter_map then
+  // prunes against the camera of its previous build, still at the pre-fit
+  // zoom 13, discards the zoom-16 tiles and never requests them again: the map
+  // stayed blank until a coordinate tap moved the camera (issue #3285).
+  testWidgets('tiles already in the image cache show after the camera fit', (
+    tester,
+  ) async {
+    final imageCache = PaintingBinding.instance.imageCache;
+    addTearDown(() {
+      imageCache
+        ..clear()
+        ..clearLiveImages();
+    });
+
+    // Made before any map mounts: real async work during runAsync would let
+    // flutter_map's tile cache reach the (absent) path_provider plugin.
+    final image = await tester.runAsync(
+      () => createTestImage(width: 256, height: 256),
+    );
+    // The cache holds clones; this handle is the test's own.
+    addTearDown(() => image?.dispose());
+
+    final controller = MapController();
+    await _pump(tester, dive: _tightDive(), controller: controller);
+    expect(controller.camera.zoom, 16.0);
+
+    // Seed the tiles an earlier mount of the card would have left in the
+    // cache: those the fitted zoom-16 camera shows and those of the zoom-13
+    // camera the map mounts at, each with a margin for the pan buffer. The
+    // zoom-13 tiles matter: flutter_map prunes only once every tile it holds
+    // has loaded. The first map goes first, because disposing it evicts its
+    // failed tiles' keys, which are these same URLs.
+    final layer = tester.widget<TileLayer>(find.byType(TileLayer));
+    final pixels = controller.camera.pixelBounds;
+    await tester.pumpWidget(const SizedBox.shrink());
+    imageCache.clear();
+    void seed(int zoom, int minX, int maxX, int minY, int maxY) {
+      for (var x = minX - 2; x <= maxX + 2; x++) {
+        for (var y = minY - 2; y <= maxY + 2; y++) {
+          final coordinates = TileCoordinates(x, y, zoom);
+          // Image keys compare by tile URL, so this provider's key is the one
+          // the remounted layer will look up.
+          final provider = layer.tileProvider.supportsCancelLoading
+              ? layer.tileProvider.getImageWithCancelLoadingSupport(
+                  coordinates,
+                  layer,
+                  Completer<void>().future,
+                )
+              : layer.tileProvider.getImage(coordinates, layer);
+          imageCache.putIfAbsent(
+            provider,
+            () => OneFrameImageStreamCompleter(
+              SynchronousFuture(ImageInfo(image: image!.clone())),
+            ),
+          );
+        }
+      }
+    }
+
+    final (minX, maxX) = (pixels.left ~/ 256, pixels.right ~/ 256);
+    final (minY, maxY) = (pixels.top ~/ 256, pixels.bottom ~/ 256);
+    seed(16, minX, maxX, minY, maxY);
+    // Three zoom levels up, a tile index is an eighth.
+    seed(13, minX >> 3, maxX >> 3, minY >> 3, maxY >> 3);
+
+    await _pump(
+      tester,
+      dive: _tightDive(),
+      sectionKey: const ValueKey('remounted'),
+    );
+
+    final tiles = tester.widgetList<RawImage>(
+      find.descendant(
+        of: find.byType(TileLayer),
+        matching: find.byType(RawImage),
+      ),
+    );
+    expect(tiles, isNotEmpty);
+    expect(tiles.where((t) => t.image == null), isEmpty);
   });
 }

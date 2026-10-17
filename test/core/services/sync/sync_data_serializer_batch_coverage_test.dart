@@ -112,6 +112,8 @@ void main() {
           (type: 'buddies', table: db.buddies.actualTableName),
           (type: 'diveBuddies', table: db.diveBuddies.actualTableName),
           (type: 'certifications', table: db.certifications.actualTableName),
+          (type: 'documents', table: db.documents.actualTableName),
+          (type: 'documentPages', table: db.documentPages.actualTableName),
           (type: 'courses', table: db.courses.actualTableName),
           (
             type: 'courseRequirements',
@@ -144,20 +146,48 @@ void main() {
           (type: 'tags', table: db.tags.actualTableName),
           (type: 'diveTags', table: db.diveTags.actualTableName),
           (type: 'diveDiveTypes', table: db.diveDiveTypes.actualTableName),
+          (type: 'diveCourses', table: db.diveCourses.actualTableName),
           (type: 'diveTypes', table: db.diveTypes.actualTableName),
           (type: 'siteTypes', table: db.siteTypes.actualTableName),
           (type: 'siteSiteTypes', table: db.siteSiteTypes.actualTableName),
           (type: 'siteTags', table: db.siteTags.actualTableName),
           (type: 'equipmentTags', table: db.equipmentTags.actualTableName),
           (type: 'equipmentShares', table: db.equipmentShares.actualTableName),
+          (type: 'tripEquipment', table: db.tripEquipment.actualTableName),
+          (type: 'tripHides', table: db.tripHides.actualTableName),
+          (type: 'siteHides', table: db.siteHides.actualTableName),
           (
             type: 'equipmentOwnershipEvents',
             table: db.equipmentOwnershipEvents.actualTableName,
           ),
+          (
+            type: 'equipmentLocations',
+            table: db.equipmentLocations.actualTableName,
+          ),
+          (
+            type: 'equipmentLocationMoves',
+            table: db.equipmentLocationMoves.actualTableName,
+          ),
           (type: 'tankPresets', table: db.tankPresets.actualTableName),
           (type: 'diveComputers', table: db.diveComputers.actualTableName),
+          (
+            type: 'diveComputerConnections',
+            table: db.diveComputerConnections.actualTableName,
+          ),
+          (
+            type: 'sharedLibraryMemberships',
+            table: db.sharedLibraryMemberships.actualTableName,
+          ),
+          (
+            type: 'librarySiteNotes',
+            table: db.librarySiteNotes.actualTableName,
+          ),
           (type: 'cylinderFills', table: db.cylinderFills.actualTableName),
           (type: 'savedQueries', table: db.savedQueries.actualTableName),
+          (
+            type: 'insightObservationDismissals',
+            table: db.insightObservationDismissals.actualTableName,
+          ),
           (
             type: 'mediaSmartAlbums',
             table: db.mediaSmartAlbums.actualTableName,
@@ -268,7 +298,22 @@ void main() {
         'manual',
       );
 
-      // source missing -> defaulted to 'imported' (the true branch).
+      // source missing on a row this device holds -> its own value stays
+      // (#2553).
+      await serializer.upsertRecords('diveProfileEvents', [
+        {...seeded}..remove('source'),
+      ]);
+      expect(
+        (await serializer.fetchRecord('diveProfileEvents', 'evt-1'))?['source'],
+        'manual',
+      );
+
+      // source missing on a row new here -> defaulted to 'imported' (the
+      // true branch).
+      await db.customStatement(
+        "DELETE FROM ${db.diveProfileEvents.actualTableName} "
+        "WHERE id = 'evt-1'",
+      );
       await serializer.upsertRecords('diveProfileEvents', [
         {...seeded}..remove('source'),
       ]);

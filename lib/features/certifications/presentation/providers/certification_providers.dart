@@ -3,10 +3,11 @@ import 'package:submersion/core/constants/sort_options.dart';
 import 'package:submersion/core/models/sort_state.dart';
 import 'package:submersion/core/providers/provider.dart';
 
-import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/features/buddies/presentation/providers/buddy_providers.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
+import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/certifications/data/repositories/certification_repository.dart';
+import 'package:submersion/features/certifications/presentation/certification_title_l10n.dart';
 import 'package:submersion/features/certifications/domain/constants/certification_field.dart';
 import 'package:submersion/features/certifications/domain/entities/certification.dart';
 import 'package:submersion/features/dive_log/presentation/providers/view_config_providers.dart';
@@ -14,6 +15,8 @@ import 'package:submersion/shared/models/entity_card_view_config.dart';
 import 'package:submersion/shared/models/entity_table_config.dart';
 import 'package:submersion/shared/providers/entity_table_config_providers.dart';
 import 'package:submersion/core/utils/log_failure.dart';
+import 'package:submersion/features/certification_agencies/domain/certification_catalog.dart';
+import 'package:submersion/l10n/arb/app_localizations.dart';
 
 /// Repository provider
 final certificationRepositoryProvider = Provider<CertificationRepository>((
@@ -73,9 +76,23 @@ final certificationSortProvider =
 /// Apply sorting to a list of certifications
 List<Certification> applyCertificationSorting(
   List<Certification> certifications,
-  SortState<CertificationSortField> sort,
-) {
+  SortState<CertificationSortField> sort, {
+  required AppLocalizations l10n,
+  CertificationCatalog? catalog,
+}) {
+  final cat = catalog ?? CertificationCatalog.builtInOnly;
   final sorted = List<Certification>.from(certifications);
+  // The title sort orders by what the list shows (the localized title), not
+  // the raw stored name, which is blank for a certification saved without a
+  // custom title and "PADI : ..." for legacy rows. Computed once per
+  // certification rather than on every comparison, in an identity map:
+  // Certification's value hashCode walks its photo bytes.
+  final titles = Map<Certification, String>.identity();
+  if (sort.field == CertificationSortField.name) {
+    for (final c in certifications) {
+      titles[c] = certificationTitleL10n(c, l10n, catalog: cat).toLowerCase();
+    }
+  }
 
   sorted.sort((a, b) {
     int comparison;
@@ -86,13 +103,16 @@ List<Certification> applyCertificationSorting(
 
     switch (sort.field) {
       case CertificationSortField.name:
-        comparison = a.name.toLowerCase().compareTo(b.name.toLowerCase());
+        comparison = titles[a]!.compareTo(titles[b]!);
       case CertificationSortField.dateIssued:
         comparison = (a.issueDate ?? DateTime(1900)).compareTo(
           b.issueDate ?? DateTime(1900),
         );
       case CertificationSortField.agency:
-        comparison = a.agency.displayName.compareTo(b.agency.displayName);
+        comparison = cat
+            .agency(a.agency)
+            .interchangeName
+            .compareTo(cat.agency(b.agency).interchangeName);
     }
 
     if (invertForText) {
@@ -155,12 +175,9 @@ final expiredCertificationsProvider = FutureProvider<List<Certification>>((
   return repository.getExpiredCertifications(diverId: validatedDiverId);
 });
 
-/// Certifications by agency provider
+/// Certifications by agency id (built-in enum name or custom id) provider
 final certificationsByAgencyProvider =
-    FutureProvider.family<List<Certification>, CertificationAgency>((
-      ref,
-      agency,
-    ) async {
+    FutureProvider.family<List<Certification>, String>((ref, agency) async {
       final repository = ref.watch(certificationRepositoryProvider);
       ref.invalidateSelfWhen(repository.watchCertificationsChanges());
       return repository.getCertificationsByAgency(agency);
@@ -284,21 +301,19 @@ final certificationListNotifierProvider =
       return CertificationListNotifier(repository, ref);
     });
 
-/// Count of expiring certifications (for badges/warnings)
-final expiringCertificationCountProvider = FutureProvider<int>((ref) async {
-  final expiring = await ref.watch(expiringCertificationsProvider(90).future);
-  final expired = await ref.watch(expiredCertificationsProvider.future);
-  return expiring.length + expired.length;
-});
-
 // ============================================================================
 // Certification List View Mode
 // ============================================================================
 
-/// In-memory view mode for the certification list. Defaults to detailed.
-/// Not persisted in AppSettings — resets to detailed on app restart.
+/// Runtime-scoped certification list view mode. Initialized from the saved
+/// setting (v262), and overridden by the list's menu without changing the
+/// saved default.
+///
+/// Uses `ref.read()` (not `ref.watch()`) for the same reason as
+/// [diveListViewModeProvider]: a write to any other setting must not reset
+/// the session override.
 final certificationListViewModeProvider = StateProvider<ListViewMode>((ref) {
-  return ListViewMode.detailed;
+  return ref.read(settingsProvider).certificationListViewMode;
 });
 
 // ============================================================================

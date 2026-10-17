@@ -15,26 +15,11 @@ import '../../../../helpers/mock_providers.dart';
 
 /// Records calls instead of touching a real database.
 class _RecordingNavTrackRepository extends NavTrackRepository {
-  String? linkedRouteId;
-  String? linkedDiveId;
-  NavTrackLinkMode? linkMode;
   String? unlinkedId;
   String? primaryId;
 
   @override
-  Future<bool> link(
-    String routeId,
-    String diveId, {
-    required NavTrackLinkMode linkMode,
-  }) async {
-    linkedRouteId = routeId;
-    linkedDiveId = diveId;
-    this.linkMode = linkMode;
-    return true;
-  }
-
-  @override
-  Future<void> unlink(String routeId) async {
+  Future<void> unlink(String routeId, {String? onlyFromDiveId}) async {
     unlinkedId = routeId;
   }
 
@@ -68,9 +53,9 @@ NavTrack _route({String? diveId, bool isPrimary = true}) => NavTrack(
 Future<_RecordingNavTrackRepository> _pump(
   WidgetTester tester, {
   required List<NavTrack> linkedRoutes,
-  List<NavTrack> unlinkedRoutes = const [],
   bool expanded = true,
   GoRouter? router,
+  List<Override> extraOverrides = const [],
 }) async {
   // Pinned so the English finders below pass regardless of the host's
   // platform locale: without this, a supported non-English translation can
@@ -90,8 +75,8 @@ Future<_RecordingNavTrackRepository> _pump(
     navTracksForDiveProvider(
       _dive.id,
     ).overrideWith((ref) async => linkedRoutes),
-    unlinkedNavTracksProvider.overrideWith((ref) async => unlinkedRoutes),
     navTrackRepositoryProvider.overrideWithValue(repository),
+    ...extraOverrides,
   ];
   if (router != null) {
     await tester.pumpWidget(
@@ -123,33 +108,10 @@ Future<_RecordingNavTrackRepository> _pump(
 }
 
 void main() {
-  testWidgets('empty state offers Link route and Import file', (tester) async {
-    await _pump(tester, linkedRoutes: const [], unlinkedRoutes: [_route()]);
-
-    expect(find.text('No route linked'), findsOneWidget);
-    expect(find.byKey(const ValueKey('nav-track-link-button')), findsOneWidget);
-    expect(
-      find.byKey(const ValueKey('nav-track-import-button')),
-      findsOneWidget,
-    );
-  });
-
-  testWidgets('empty state hides Link route when nothing is unlinked', (
-    tester,
-  ) async {
-    await _pump(tester, linkedRoutes: const [], unlinkedRoutes: const []);
-
-    expect(find.byKey(const ValueKey('nav-track-link-button')), findsNothing);
-    expect(
-      find.byKey(const ValueKey('nav-track-import-button')),
-      findsOneWidget,
-    );
-  });
-
   testWidgets('populated state shows one row per linked route', (tester) async {
     await _pump(tester, linkedRoutes: [_route(diveId: _dive.id)]);
 
-    expect(find.text('No route linked'), findsNothing);
+    expect(find.text('No track linked'), findsNothing);
     expect(find.byKey(const ValueKey('nav-track-row-r1')), findsOneWidget);
     expect(find.textContaining('primary'), findsOneWidget);
   });
@@ -175,25 +137,6 @@ void main() {
     );
 
     expect(find.byKey(const ValueKey('nav-track-row-r1')), findsNothing);
-  });
-
-  testWidgets('tapping "Link route" and choosing one links it to the dive', (
-    tester,
-  ) async {
-    final repository = await _pump(
-      tester,
-      linkedRoutes: const [],
-      unlinkedRoutes: [_route()],
-    );
-
-    await tester.tap(find.byKey(const ValueKey('nav-track-link-button')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('r1.csv'));
-    await tester.pumpAndSettle();
-
-    expect(repository.linkedRouteId, 'r1');
-    expect(repository.linkedDiveId, _dive.id);
-    expect(repository.linkMode, NavTrackLinkMode.manual);
   });
 
   group('row overflow menu', () {
@@ -238,7 +181,7 @@ void main() {
       expect(repository.unlinkedId, 'r1');
     });
 
-    testWidgets('"Open route" pushes the route detail page', (tester) async {
+    testWidgets('"Open track" pushes the route detail page', (tester) async {
       final router = GoRouter(
         initialLocation: '/',
         routes: [
@@ -248,7 +191,7 @@ void main() {
                 Scaffold(body: NavTrackSection(dive: _dive)),
           ),
           GoRoute(
-            path: '/nav-routes/:id',
+            path: '/tracks/underwater/:id',
             builder: (context, state) =>
                 const Scaffold(body: Text('ROUTE_DETAIL_PAGE')),
           ),
@@ -262,10 +205,36 @@ void main() {
 
       await tester.tap(find.byType(PopupMenuButton<String>));
       await tester.pumpAndSettle();
-      await tester.tap(find.text('Open route'));
+      await tester.tap(find.text('Open track'));
       await tester.pumpAndSettle();
 
       expect(find.text('ROUTE_DETAIL_PAGE'), findsOneWidget);
+    });
+
+    testWidgets('tapping the route row opens its detail page', (tester) async {
+      final router = GoRouter(
+        initialLocation: '/',
+        routes: [
+          GoRoute(
+            path: '/',
+            builder: (context, state) =>
+                Scaffold(body: NavTrackSection(dive: _dive)),
+          ),
+          GoRoute(
+            path: '/tracks/underwater/:id',
+            builder: (context, state) => Scaffold(
+              body: Text('ROUTE_DETAIL ${state.pathParameters['id']}'),
+            ),
+          ),
+        ],
+      );
+      final route = _route(diveId: _dive.id);
+      await _pump(tester, linkedRoutes: [route], router: router);
+
+      await tester.tap(find.byType(ListTile).first);
+      await tester.pumpAndSettle();
+
+      expect(find.text('ROUTE_DETAIL ${route.id}'), findsOneWidget);
     });
 
     testWidgets('"Open 3D seascape" pushes the route seascape page', (
@@ -280,7 +249,7 @@ void main() {
                 Scaffold(body: NavTrackSection(dive: _dive)),
           ),
           GoRoute(
-            path: '/nav-routes/:id/3d',
+            path: '/tracks/underwater/:id/3d',
             builder: (context, state) =>
                 const Scaffold(body: Text('ROUTE_3D_PAGE')),
           ),

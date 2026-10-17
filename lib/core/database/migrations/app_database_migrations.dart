@@ -9,36 +9,60 @@ library;
 import 'dart:convert';
 import 'dart:developer' as developer;
 
+import 'package:collection/collection.dart';
 import 'package:drift/drift.dart';
 
 import 'package:submersion/core/database/database.dart';
+import 'package:submersion/core/database/dive_computer_connection_seed.dart';
 import 'package:submersion/core/database/dive_computer_gear_backfill.dart';
+import 'package:submersion/core/database/dive_course_links_schema.dart';
+import 'package:submersion/core/database/dive_role_link_uniqueness.dart';
 import 'package:submersion/core/database/dive_type_uniqueness.dart';
 import 'package:submersion/core/database/imported_computer_backfill.dart';
+import 'package:submersion/core/database/shearwater_serial_heal.dart';
 import 'package:submersion/core/database/performance_indexes.dart';
 import 'package:submersion/core/database/profile_series_pack_coverage.dart';
 import 'package:submersion/core/database/profile_series_pack.dart';
+import 'package:submersion/core/database/profile_series_safety_stop_scrub.dart';
 import 'package:submersion/core/database/raw_dive_data_codec.dart';
 import 'package:submersion/core/database/site_classification_uniqueness.dart';
 import 'package:submersion/core/database/site_type_seed.dart';
 import 'package:submersion/core/database/equipment_share_uniqueness.dart';
 import 'package:submersion/core/database/tag_uniqueness.dart';
+import 'package:submersion/core/database/tank_shared_computer_backfill.dart';
 import 'package:submersion/core/constants/enums.dart';
+import 'package:submersion/core/services/sync/changeset_log/rebase_request.dart';
+import 'package:submersion/features/certifications/domain/entities/currency_scope.dart';
+import 'package:submersion/features/documents/domain/document_ids.dart';
+import 'package:submersion/features/documents/domain/entities/document_page.dart';
 
 part 'before_open.dart';
+part 'before_open_backup_note.dart';
+part 'before_open_child_columns.dart';
+part 'before_open_course_links.dart';
+part 'before_open_table_backstops.dart';
+part 'before_open_view_configs.dart';
 part 'helpers/buddy_migrations.dart';
+part 'helpers/certification_currency_migrations.dart';
 part 'helpers/connection_migrations.dart';
+part 'helpers/course_link_migrations.dart';
 part 'helpers/cylinder_migrations.dart';
 part 'helpers/data_source_migrations.dart';
+part 'helpers/derived_metrics_migrations.dart';
+part 'helpers/dive_computer_connection_migrations.dart';
 part 'helpers/dive_migrations.dart';
 part 'helpers/dive_plan_migrations.dart';
 part 'helpers/dive_profile_migrations.dart';
 part 'helpers/dive_lab_migrations.dart';
 part 'helpers/diver_migrations.dart';
+part 'helpers/document_migrations.dart';
 part 'helpers/equipment_migrations.dart';
 part 'helpers/equipment_condition_migrations.dart';
+part 'helpers/equipment_location_migrations.dart';
+part 'helpers/insight_migrations.dart';
 part 'helpers/media_migrations.dart';
 part 'helpers/pre_dive_migrations.dart';
+part 'helpers/profile_series_history_migrations.dart';
 part 'helpers/quality_migrations.dart';
 part 'helpers/query_migrations.dart';
 part 'helpers/safety_migrations.dart';
@@ -47,6 +71,8 @@ part 'helpers/site_migrations.dart';
 part 'helpers/support_migrations.dart';
 part 'helpers/sync_migrations.dart';
 part 'helpers/tag_migrations.dart';
+part 'helpers/tdi_certification_migrations.dart';
+part 'helpers/shared_library_migrations.dart';
 part 'helpers/track_migrations.dart';
 part 'helpers/trip_migrations.dart';
 part 'helpers/weight_migrations.dart';
@@ -81,6 +107,8 @@ const List<String> _hlcTables = [
   'equipment_components',
   'dive_types',
   'dive_roles',
+  'custom_certification_agencies',
+  'custom_certification_levels',
   'tank_presets',
   'weight_presets',
   'transmitters',

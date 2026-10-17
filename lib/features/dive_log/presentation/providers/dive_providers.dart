@@ -1,5 +1,6 @@
 import 'dart:async';
 
+import 'package:submersion/core/utils/local_day_changes.dart';
 import 'package:submersion/core/constants/dive_search.dart';
 import 'package:submersion/core/constants/list_view_mode.dart';
 import 'package:submersion/core/constants/sort_options.dart';
@@ -22,9 +23,11 @@ import 'package:submersion/features/dive_log/domain/entities/dive.dart'
 import 'package:submersion/features/dive_log/domain/entities/dive_data_source.dart';
 import 'package:submersion/features/dive_log/domain/entities/source_profile.dart'
     as domain;
+import 'package:submersion/features/dive_log/domain/entities/profile_series_revision.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_summary.dart';
 import 'package:submersion/features/dive_log/domain/models/dive_filter_state.dart';
 import 'package:submersion/features/dive_log/query/dive_filter_query.dart';
+import 'package:submersion/features/dive_log/query/dive_query_entity.dart';
 import 'package:submersion/features/equipment/presentation/providers/equipment_service_status_providers.dart';
 import 'package:submersion/features/dive_log/presentation/providers/filter_aware_tick.dart';
 import 'package:submersion/features/dive_log/presentation/providers/narrow_dives.dart';
@@ -32,6 +35,9 @@ import 'package:submersion/features/dive_centers/presentation/providers/dive_cen
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/trips/presentation/providers/trip_providers.dart';
+import 'package:submersion/features/documents/data/repositories/document_repository.dart';
+import 'package:submersion/features/documents/domain/entities/document.dart';
+import 'package:submersion/features/documents/presentation/providers/document_providers.dart';
 
 // Re-export DiveFilterState so existing imports continue to work
 export 'package:submersion/features/dive_log/domain/models/dive_filter_state.dart';
@@ -311,6 +317,17 @@ final sourceProfilesProvider =
       return repository.getProfilesByDataSource(diveId);
     });
 
+/// Metadata-only profile revision history for one dive, newest first.
+final profileSeriesHistoryProvider =
+    FutureProvider.family<List<ProfileSeriesRevision>, String>((
+      ref,
+      diveId,
+    ) async {
+      final repository = ref.watch(diveRepositoryProvider);
+      ref.invalidateSelfWhen(repository.watchAnalysisInputChanges());
+      return repository.getProfileHistory(diveId);
+    });
+
 /// Batch profile cache for mini charts in the dive list.
 ///
 /// Stores downsampled (~20 points) profiles keyed by dive ID. Populated in
@@ -331,7 +348,13 @@ final batchProfileCacheProvider =
 final diveStatisticsProvider = FutureProvider<DiveStatistics>((ref) async {
   final repository = ref.watch(diveRepositoryProvider);
   final currentDiverId = ref.watch(currentDiverIdProvider);
-  ref.invalidateSelfWhen(repository.watchDivesChanges());
+  // Every table the query reads, so a site rename refreshes Most Visited
+  // Sites without waiting for a dive write.
+  ref.invalidateSelfWhen(
+    repository.watchTables(DiveRepository.statisticsTickTables),
+  );
+  // divesThisYear reads the clock once per build (#2600).
+  ref.invalidateSelfWhen(localDayChanges());
   return repository.getStatistics(diverId: currentDiverId);
 });
 
@@ -398,7 +421,11 @@ final tripDiveCountsProvider = FutureProvider<Map<String, int>>((ref) async {
 final diveRecordsProvider = FutureProvider<DiveRecords>((ref) async {
   final repository = ref.watch(diveRepositoryProvider);
   final currentDiverId = ref.watch(currentDiverIdProvider);
-  ref.invalidateSelfWhen(repository.watchDivesChanges());
+  // Every table the query reads, so a site rename refreshes each record's
+  // site name without waiting for a dive write.
+  ref.invalidateSelfWhen(
+    repository.watchTables(DiveRepository.statisticsTickTables),
+  );
   return repository.getRecords(diverId: currentDiverId);
 });
 
@@ -431,7 +458,15 @@ final diveSearchProvider = FutureProvider.family<List<DiveSummary>, String>((
     validatedCurrentDiverIdProvider.future,
   );
   final repository = ref.watch(diveRepositoryProvider);
-  ref.invalidateSelfWhen(repository.watchDivesChanges());
+  // The summary row's tables plus every table the text search reads, so a
+  // rename of a dive type, tag, buddy, site or center re-runs an open search
+  // rather than waiting for an unrelated dive write (#2884).
+  ref.invalidateSelfWhen(
+    repository.watchTables({
+      ...DiveRepository.diveListTickTables,
+      ...diveQueryEntity.textSearchTables,
+    }),
+  );
   return repository.searchDiveSummaries(
     query,
     diverId: validatedDiverId,
@@ -443,6 +478,10 @@ final diveSearchProvider = FutureProvider.family<List<DiveSummary>, String>((
 /// Dive list notifier for mutations
 class DiveListNotifier extends StateNotifier<AsyncValue<List<domain.Dive>>> {
   final DiveRepository _repository;
+
+  /// The documents of the last bulk-deleted dives, for [restoreDives] to
+  /// put back on undo (issue #2613).
+  List<DocumentSnapshotEntry> _deletedDocuments = const [];
   final Ref _ref;
   String? _currentDiverId;
 
@@ -595,6 +634,10 @@ class DiveListNotifier extends StateNotifier<AsyncValue<List<domain.Dive>>> {
   Future<List<domain.Dive>> bulkDeleteDives(List<String> ids) async {
     // Get the dives before deleting for undo capability
     final divesToDelete = await _repository.getDivesByIds(ids);
+    _deletedDocuments = await DocumentRepository().captureForOwners(
+      DocumentOwnerKind.dive,
+      ids,
+    );
     await _repository.bulkDeleteDives(ids);
     await _loadDives();
     _ref.invalidate(diveStatisticsProvider);
@@ -611,6 +654,12 @@ class DiveListNotifier extends StateNotifier<AsyncValue<List<domain.Dive>>> {
     for (final dive in dives) {
       await _repository.createDive(dive);
     }
+    final restoredIds = {for (final dive in dives) dive.id};
+    await _ref.read(documentMutationsProvider).restoreSnapshot([
+      for (final entry in _deletedDocuments)
+        if (restoredIds.contains(entry.document.owner.id)) entry,
+    ]);
+    _deletedDocuments = const [];
     await _loadDives();
     _ref.invalidate(diveStatisticsProvider);
     _ref.invalidate(diveNumberingInfoProvider);
@@ -689,6 +738,10 @@ final diveListNotifierProvider =
 class PaginatedDiveListNotifier
     extends StateNotifier<AsyncValue<PaginatedDiveListState>> {
   final DiveRepository _repository;
+
+  /// The documents of the last bulk-deleted dives, for [restoreDives] to
+  /// put back on undo (issue #2613).
+  List<DocumentSnapshotEntry> _deletedDocuments = const [];
   final Ref _ref;
   String? _currentDiverId;
 
@@ -707,6 +760,10 @@ class PaginatedDiveListNotifier
   /// a time means each reads a snapshot that is still current when it writes.
   Future<void> _pagingQueue = Future<void>.value();
 
+  /// Counts filter changes, so only the newest queued first-page load for
+  /// them runs; each reads the filter when it runs, so the others repeat it.
+  int _filterLoads = 0;
+
   PaginatedDiveListNotifier(this._repository, this._ref)
     : super(const AsyncValue.loading()) {
     _currentDiverId = _ref.read(currentDiverIdProvider);
@@ -720,7 +777,23 @@ class PaginatedDiveListNotifier
     _ref.listen<DiveFilterState>(diveFilterProvider, (previous, next) {
       if (previous != next) {
         _followFilterTicks(next);
-        loadFirstPage();
+        // The search row re-runs the list on every typing pause (#2773):
+        // keep the rows on screen until the new ones arrive.
+        final searchOnly =
+            previous != null &&
+            previous.copyWith(
+                  query: next.query,
+                  clearQuery: next.query == null,
+                  axesSuspended: next.axesSuspended,
+                ) ==
+                next;
+        final load = ++_filterLoads;
+        _enqueuePaging(() async {
+          // A later change is queued too: it runs the same latest filter,
+          // so this one would only repeat the query.
+          if (load != _filterLoads) return;
+          await _loadFirstPage(quiet: searchOnly);
+        });
       }
     });
     _followFilterTicks(_ref.read(diveFilterProvider));
@@ -790,6 +863,16 @@ class PaginatedDiveListNotifier
 
   Future<void> loadFirstPage() => _enqueuePaging(_loadFirstPage);
 
+  /// Whether the loaded rows came from a filtered query. An add or an edit
+  /// can then move a dive into or out of the filter, which only the query can
+  /// tell, so those reload the loaded pages rather than patch them (#2669).
+  bool get _loadedUnderFilter =>
+      state.valueOrNull?.unfilteredTotalCount != null;
+
+  /// An optimistic change to [PaginatedDiveListState.unfilteredTotalCount],
+  /// which stays null for rows loaded with no filter active.
+  static int? _shifted(int? count, int by) => count == null ? null : count + by;
+
   /// A filter naming gear.serviceDue reads the service cache: each load waits
   /// for it to mirror the engine, so no page shows an empty cache or the
   /// previous diver's verdicts (#2365).
@@ -800,12 +883,14 @@ class PaginatedDiveListNotifier
         hold: false,
       );
 
-  Future<void> _loadFirstPage() async {
+  /// A [quiet] load keeps the current rows until the new first page lands,
+  /// instead of showing a spinner.
+  Future<void> _loadFirstPage({bool quiet = false}) async {
     // Queued work can reach its turn after the notifier is gone: this provider
     // is invalidated from half a dozen places (imports, merges, renumbering),
     // and writing state on a disposed StateNotifier throws.
     if (!mounted) return;
-    state = const AsyncValue.loading();
+    if (!quiet || !state.hasValue) state = const AsyncValue.loading();
     _currentOffset = 0;
     try {
       final filter = _ref.read(diveFilterProvider);
@@ -821,9 +906,14 @@ class PaginatedDiveListNotifier
           disabledSafetyRules: _ref.read(safetyReviewDisabledRulesProvider),
         ),
         _repository.getDiveCount(diverId: _currentDiverId, filter: filter),
+        if (filter.hasActiveFilters)
+          _repository.getDiveCount(diverId: _currentDiverId),
       ]);
       final dives = results[0] as List<DiveSummary>;
       final totalCount = results[1] as int;
+      final unfilteredTotalCount = filter.hasActiveFilters
+          ? results[2] as int
+          : null;
       _currentOffset = dives.length;
 
       if (!mounted) return;
@@ -833,6 +923,7 @@ class PaginatedDiveListNotifier
           hasMore: dives.length >= _pageSize,
           nextCursor: _isDateSort ? _cursorFromLastDive(dives) : null,
           totalCount: totalCount,
+          unfilteredTotalCount: unfilteredTotalCount,
         ),
       );
       // Pre-load downsampled profiles for mini charts (fire and forget)
@@ -991,9 +1082,14 @@ class PaginatedDiveListNotifier
           disabledSafetyRules: _ref.read(safetyReviewDisabledRulesProvider),
         ),
         _repository.getDiveCount(diverId: _currentDiverId, filter: filter),
+        if (filter.hasActiveFilters)
+          _repository.getDiveCount(diverId: _currentDiverId),
       ]);
       final fetched = results[0] as List<DiveSummary>;
       final totalCount = results[1] as int;
+      final unfilteredTotalCount = filter.hasActiveFilters
+          ? results[2] as int
+          : null;
       final hasMore = fetched.length > limit;
       final dives = hasMore ? fetched.sublist(0, limit) : fetched;
       _currentOffset = dives.length;
@@ -1018,6 +1114,7 @@ class PaginatedDiveListNotifier
           hasMore: hasMore,
           nextCursor: _isDateSort ? _cursorFromLastDive(dives) : null,
           totalCount: totalCount,
+          unfilteredTotalCount: unfilteredTotalCount,
           isLoadingMore: flags?.isLoadingMore ?? false,
           loadMoreFailed: flags?.loadMoreFailed ?? false,
         ),
@@ -1098,9 +1195,14 @@ class PaginatedDiveListNotifier
     // of the diver this call started for: after a switch the loaded rows are
     // another diver's (or the same diver's, reloaded, after a switch back), so
     // reload rather than prepend a dive that does not belong or is already in.
+    //
+    // Under a filter the new dive may not match it, so the rows and both
+    // counts come from the query instead, without a spinner (#2669).
     final current = state.valueOrNull;
     if (_diverSwitches != diverSwitches) {
       await loadFirstPage();
+    } else if (_loadedUnderFilter) {
+      await _silentReloadLoadedPages();
     } else if (current != null) {
       final summary = DiveSummary.fromDive(newDive);
       state = AsyncValue.data(
@@ -1123,9 +1225,12 @@ class PaginatedDiveListNotifier
     final oldDive = await _repository.getDiveById(dive.id);
     await _repository.updateDive(dive);
 
-    // Optimistic: replace the item in the list by ID
+    // Optimistic: replace the item in the list by ID, unless a filter decides
+    // whether the edited dive still belongs in it.
     final current = state.valueOrNull;
-    if (current != null) {
+    if (_loadedUnderFilter) {
+      await _silentReloadLoadedPages();
+    } else if (current != null) {
       final summary = DiveSummary.fromDive(dive);
       final updated = current.dives.map((d) {
         return d.id == dive.id ? summary : d;
@@ -1153,6 +1258,7 @@ class PaginatedDiveListNotifier
         current.copyWith(
           dives: current.dives.where((d) => d.id != id).toList(),
           totalCount: current.totalCount - 1,
+          unfilteredTotalCount: _shifted(current.unfilteredTotalCount, -1),
         ),
       );
     } else {
@@ -1167,6 +1273,10 @@ class PaginatedDiveListNotifier
 
   Future<List<domain.Dive>> bulkDeleteDives(List<String> ids) async {
     final divesToDelete = await _repository.getDivesByIds(ids);
+    _deletedDocuments = await DocumentRepository().captureForOwners(
+      DocumentOwnerKind.dive,
+      ids,
+    );
     await _repository.bulkDeleteDives(ids);
 
     // Optimistic: remove items by IDs
@@ -1177,6 +1287,10 @@ class PaginatedDiveListNotifier
         current.copyWith(
           dives: current.dives.where((d) => !idSet.contains(d.id)).toList(),
           totalCount: current.totalCount - ids.length,
+          unfilteredTotalCount: _shifted(
+            current.unfilteredTotalCount,
+            -ids.length,
+          ),
         ),
       );
     } else {
@@ -1196,6 +1310,12 @@ class PaginatedDiveListNotifier
     for (final dive in dives) {
       await _repository.createDive(dive);
     }
+    final restoredIds = {for (final dive in dives) dive.id};
+    await _ref.read(documentMutationsProvider).restoreSnapshot([
+      for (final entry in _deletedDocuments)
+        if (restoredIds.contains(entry.document.owner.id)) entry,
+    ]);
+    _deletedDocuments = const [];
     // Restore is complex (ordering), reload first page
     await loadFirstPage();
     _invalidateStatistics();
@@ -1217,6 +1337,7 @@ class PaginatedDiveListNotifier
     }
 
     await _repository.toggleFavorite(diveId);
+    if (_loadedUnderFilter) await _silentReloadLoadedPages();
     _ref.invalidate(diveProvider(diveId));
     _invalidateOldProvider();
   }
@@ -1232,6 +1353,7 @@ class PaginatedDiveListNotifier
     }
 
     await _repository.setFavorite(diveId, isFavorite);
+    if (_loadedUnderFilter) await _silentReloadLoadedPages();
     _ref.invalidate(diveProvider(diveId));
     _invalidateOldProvider();
   }
@@ -1285,32 +1407,19 @@ final allDivesForTableProvider = Provider<AsyncValue<List<domain.Dive>>>((ref) {
   return ref.watch(sortedFilteredDivesProvider);
 });
 
-/// Pre-computed surface intervals for the table view.
-///
-/// Sorts dives chronologically and computes the gap between consecutive
-/// dives (previous exit -> current entry). The first dive in the list
-/// gets a null interval.
-final surfaceIntervalsProvider = Provider<Map<String, Duration?>>((ref) {
-  final divesAsync = ref.watch(allDivesForTableProvider);
-  return divesAsync.whenOrNull(
-        data: (dives) {
-          final sorted = [...dives]
-            ..sort((a, b) => a.dateTime.compareTo(b.dateTime));
-          final intervals = <String, Duration?>{};
-          for (var i = 0; i < sorted.length; i++) {
-            if (i == 0) {
-              intervals[sorted[i].id] = null;
-            } else {
-              final prevExit = sorted[i - 1].exitTime ?? sorted[i - 1].dateTime;
-              final thisEntry = sorted[i].entryTime ?? sorted[i].dateTime;
-              intervals[sorted[i].id] = thisEntry.difference(prevExit);
-            }
-          }
-          return intervals;
-        },
-      ) ??
-      {};
-});
+/// Every dive's surface interval for the table (#2984), over the whole log
+/// so a filter never changes the dive a gap is measured from. Reloaded on
+/// writes to `dives` (entry, exit, runtime) and to `dive_profile_series`,
+/// whose span stands in for a missing runtime, and nothing else.
+/// Auto-disposed, so nothing re-queries the whole log once the table closes.
+final diveSurfaceIntervalsProvider =
+    FutureProvider.autoDispose<Map<String, Duration?>>((ref) async {
+      final repository = ref.watch(diveRepositoryProvider);
+      ref.invalidateSelfWhen(
+        repository.watchTables({'dives', 'dive_profile_series'}),
+      );
+      return repository.getSurfaceIntervals();
+    });
 
 /// Provider for getting the surface interval to the previous dive
 final surfaceIntervalProvider = FutureProvider.family<Duration?, String>((

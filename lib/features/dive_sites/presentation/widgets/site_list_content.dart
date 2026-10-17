@@ -4,29 +4,41 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:submersion/core/constants/list_view_mode.dart';
+import 'package:submersion/core/data/visibility/shared_item_policy.dart';
+import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/constants/sort_options.dart';
 import 'package:submersion/core/constants/sort_options_display.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
+import 'package:submersion/features/shared_library/presentation/widgets/library_error_text.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 import 'package:submersion/shared/selection/bulk_action.dart';
+import 'package:submersion/shared/selection/select_items_menu_entries.dart';
 import 'package:submersion/shared/selection/selectable_list_scope.dart';
 import 'package:submersion/shared/selection/selection_app_bar.dart';
-import 'package:submersion/shared/selection/selection_entry_bar.dart';
 import 'package:submersion/shared/selection/selection_controller.dart';
 import 'package:submersion/shared/selection/selection_state.dart';
 import 'package:submersion/core/models/sort_state.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/shared/widgets/entity_table/entity_table_view.dart';
 import 'package:submersion/shared/widgets/list_view_mode_toggle.dart';
+import 'package:submersion/shared/widgets/master_detail/keyboard_list_navigator.dart';
+import 'package:submersion/shared/widgets/master_detail/keyboard_nav_stops.dart';
 import 'package:submersion/shared/widgets/master_detail/map_view_toggle_button.dart';
+import 'package:submersion/shared/widgets/master_detail/master_detail_form_scope.dart';
 import 'package:submersion/shared/widgets/master_detail/responsive_breakpoints.dart';
+import 'package:submersion/shared/widgets/shared_items/shared_item_dialogs.dart';
 import 'package:submersion/shared/widgets/sort_bottom_sheet.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/dive_sites/data/repositories/site_repository_impl.dart';
 import 'package:submersion/features/dive_sites/domain/constants/site_field.dart';
 import 'package:submersion/features/dive_sites/domain/entities/dive_site.dart';
+import 'package:submersion/features/dive_sites/domain/utils/site_grouping.dart';
+import 'package:submersion/features/dive_sites/presentation/providers/site_grouping_providers.dart';
 import 'package:submersion/features/dive_sites/presentation/providers/site_providers.dart';
+import 'package:submersion/features/dive_sites/presentation/utils/site_group_by_display.dart';
+import 'package:submersion/features/dive_sites/presentation/widgets/site_group_by_selector.dart';
+import 'package:submersion/features/dive_sites/presentation/widgets/site_picker/grouped_site_list_view.dart';
 import 'package:submersion/features/dive_sites/presentation/widgets/site_active_filters_bar.dart';
 import 'package:submersion/features/dive_sites/presentation/widgets/compact_site_list_tile.dart';
 import 'package:submersion/features/dive_sites/presentation/widgets/dense_site_list_tile.dart';
@@ -37,8 +49,13 @@ import 'package:submersion/features/dive_sites/domain/services/site_location_bac
 import 'package:submersion/features/dive_sites/presentation/widgets/site_location_backfill_dialog.dart';
 import 'package:submersion/shared/widgets/debounced_search_results.dart';
 import 'package:submersion/shared/widgets/feature_accent.dart';
+import 'package:submersion/features/dive_sites/presentation/providers/site_list_count_provider.dart';
+import 'package:submersion/features/shared_library/presentation/providers/shared_library_providers.dart';
+import 'package:submersion/features/shared_library/presentation/widgets/library_picker_dialog.dart';
 
 /// Content widget for the site list, used in master-detail layout.
+final _log = LoggerService.forClass(SiteListContent);
+
 class SiteListContent extends ConsumerStatefulWidget {
   final void Function(String?)? onItemSelected;
   final String? selectedId;
@@ -62,6 +79,13 @@ class SiteListContent extends ConsumerStatefulWidget {
   /// If null, the map icon will navigate to the map page (mobile behavior).
   final VoidCallback? onMapViewToggle;
 
+  /// Drives bulk selection from outside the list when set.
+  ///
+  /// In table mode the page's header carries the overflow menu, "Select
+  /// items" among it, so the page has to reach the same controller the rows
+  /// use. Left null, the list owns its own.
+  final SelectionController? selectionController;
+
   const SiteListContent({
     super.key,
     this.onItemSelected,
@@ -72,6 +96,7 @@ class SiteListContent extends ConsumerStatefulWidget {
     this.isMapMode = false,
     this.isMapViewActive = false,
     this.onMapViewToggle,
+    this.selectionController,
   });
 
   @override
@@ -83,14 +108,60 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
   String? _lastScrolledToId;
   bool _selectionFromList = false;
 
-  /// Owns the bulk-selection state machine for this list.
-  final SelectionController _selection = SelectionController();
+  /// The bulk-selection state machine for this list: the page's when it
+  /// passes one, otherwise this list's own.
+  late final SelectionController _selection = _adoptSelection();
+
+  /// Only a controller this list created is this list's to dispose. Set in
+  /// the same step that picks the controller, so the two cannot disagree.
+  bool _ownsSelection = false;
+
+  SelectionController _adoptSelection() {
+    final external = widget.selectionController;
+    _ownsSelection = external == null;
+    return external ?? SelectionController();
+  }
 
   /// Convenience mirrors of the controller, so the widget tree reads clearly.
   bool get _isSelectionMode => _selection.value.isActive;
   Set<String> get _selectedIds => _selection.value.checkedIds;
   ({List<DiveSite> sites, SiteLinks links})? _deletedSites;
+
+  /// Another profile's shared sites the last bulk delete hid instead of
+  /// deleting (issue #2594), for its Undo.
+  List<String> _hiddenSiteIds = const [];
   MergeSnapshot? _mergeSnapshot;
+
+  /// Groups closed by hand while a filter is active; reset when the filter
+  /// changes, since a new filter opens every match again.
+  Set<String> _filterCollapsed = const {};
+
+  /// The grouping of the last site list seen under the last grouping mode
+  /// seen, reused while both are the same, so a rebuild that changes only
+  /// checks or expansion (each selection tap) does not re-fold every site.
+  /// One field rather than one per cache-key part, so the sites, mode and
+  /// groups it holds can never drift out of step with each other.
+  ({
+    List<SiteWithDiveCount> sites,
+    SiteGroupBy mode,
+    List<SiteOuterGroup<SiteWithDiveCount>> groups,
+  })?
+  _groupCache;
+
+  List<SiteOuterGroup<SiteWithDiveCount>> _groupsFor(
+    List<SiteWithDiveCount> sites,
+    SiteGroupBy groupBy,
+  ) {
+    final cached = _groupCache;
+    if (cached != null &&
+        identical(cached.sites, sites) &&
+        cached.mode == groupBy) {
+      return cached.groups;
+    }
+    final groups = groupSitesFor(groupBy, sites, (s) => s.site);
+    _groupCache = (sites: sites, mode: groupBy, groups: groups);
+    return groups;
+  }
 
   @override
   void initState() {
@@ -105,7 +176,7 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
   @override
   void dispose() {
     _scrollController.dispose();
-    _selection.dispose();
+    if (_ownsSelection) _selection.dispose();
     super.dispose();
   }
 
@@ -129,7 +200,38 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
 
     final sitesAsync = ref.read(sortedSitesWithCountsProvider);
     sitesAsync.whenData((sites) {
-      final index = sites.indexWhere((s) => s.site.id == widget.selectedId);
+      // A site selected from outside the list (map, a new site, a deep link)
+      // can sit in a group the diver collapsed. Open it first, after this
+      // frame since a provider cannot change mid-build, then scroll once the
+      // list has rebuilt with it open.
+      final hiddenGroups = _collapsedGroupsOfSelected(sites);
+      if (hiddenGroups != null) {
+        WidgetsBinding.instance.addPostFrameCallback((_) {
+          if (!mounted) return;
+          final stored = ref.read(siteListExpandedGroupsProvider);
+          if (stored != null) {
+            ref.read(siteListExpandedGroupsProvider.notifier).state = {
+              ...stored,
+              ...hiddenGroups,
+            };
+          }
+          WidgetsBinding.instance.addPostFrameCallback((_) {
+            if (mounted) _scrollToSelectedItem();
+          });
+        });
+        return;
+      }
+      // Grouped, the selected site's offset is its row among the visible
+      // headers and sites, not its position in the flat list.
+      final rows = _groupedView(sites, listen: false)?.rows;
+      final index = rows == null
+          ? sites.indexWhere((s) => s.site.id == widget.selectedId)
+          : rows.indexWhere(
+              (row) =>
+                  row is SiteRow<SiteWithDiveCount> &&
+                  row.item.site.id == widget.selectedId,
+            );
+      final rowCount = rows?.length ?? sites.length;
       if (index >= 0 && _scrollController.hasClients) {
         WidgetsBinding.instance.addPostFrameCallback((_) {
           if (!_scrollController.hasClients || sites.isEmpty) return;
@@ -137,7 +239,7 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
           final maxScroll = _scrollController.position.maxScrollExtent;
           final viewportHeight = _scrollController.position.viewportDimension;
           final totalContentHeight = maxScroll + viewportHeight - 80;
-          final avgItemHeight = totalContentHeight / sites.length;
+          final avgItemHeight = totalContentHeight / rowCount;
           final targetOffset = (index * avgItemHeight) - (viewportHeight / 3);
           final clampedOffset = targetOffset.clamp(0.0, maxScroll);
 
@@ -249,11 +351,60 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
     _handleItemTap(sites[index].site);
   }
 
+  /// The checked sites with their owners, read before a merge or bulk
+  /// delete decides what it may do to each (issue #2594). A failed read
+  /// logs, tells the diver to try again and returns null, so the action
+  /// stops before its dialog rather than failing unseen.
+  Future<List<DiveSite>?> _readSelectedSites(List<String> ids) async {
+    try {
+      return await ref.read(siteRepositoryProvider).getSitesByIds(ids);
+    } catch (e, stackTrace) {
+      _log.error(
+        'Could not read the selected sites',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(context.l10n.common_error_tryAgain)),
+        );
+      }
+      return null;
+    }
+  }
+
   Future<BulkActionOutcome> _startMerge() async {
     final selectedCount = _selectedIds.length;
+    // A merge destroys every site but the first (issue #2594): another
+    // profile's shared site may only be the survivor, so at most one fits.
+    final sharing = await readSharingContext(ref, context);
+    if (sharing == null) return BulkActionOutcome.failed;
+    final selected = await _readSelectedSites(_selectedIds.toList());
+    if (selected == null) return BulkActionOutcome.failed;
+    final notOwned = [
+      for (final s in selected)
+        if (!canDestroySharedItem(
+          ownerId: s.diverId,
+          activeDiverId: sharing.activeDiverId,
+          isLibrarySite: s.isLibrarySite,
+        ))
+          s.id,
+    ];
+    if (!mounted) return BulkActionOutcome.cancelled;
+    if (notOwned.length > 1) {
+      ScaffoldMessenger.of(context).showSnackBar(
+        SnackBar(content: Text(context.l10n.sharedItems_mergeTooManyShared)),
+      );
+      return BulkActionOutcome.cancelled;
+    }
+    final orderedIds = [
+      ...notOwned,
+      for (final id in _selectedIds)
+        if (!notOwned.contains(id)) id,
+    ];
     final result = await context.push<SiteMergeResult>(
       '/sites/merge',
-      extra: _selectedIds.toList(),
+      extra: orderedIds,
     );
 
     if (result == null) return BulkActionOutcome.cancelled;
@@ -310,19 +461,58 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
     // while the usage is read, and the delete must remove exactly the sites
     // the dialog described.
     final idsToDelete = _selectedIds.toList();
-    final count = idsToDelete.length;
-    final usage = await readSiteDeleteUsage(ref, idsToDelete);
-    if (!mounted) return BulkActionOutcome.cancelled;
+    // Another profile's shared sites are hidden, not deleted, and the
+    // owner's shared ones are named as going for everyone (issue #2594).
+    final sharing = await readSharingContext(ref, context);
+    if (sharing == null) return BulkActionOutcome.failed;
+    final selectedSites = await _readSelectedSites(idsToDelete);
+    if (selectedSites == null) return BulkActionOutcome.failed;
+    final split = splitForBulkDelete(
+      selectedSites,
+      ownerOf: (s) => s.diverId,
+      isSharedOf: (s) => s.isShared,
+      isLibraryOf: (s) => s.isLibrarySite,
+      activeDiverId: sharing.activeDiverId,
+    );
+    final destroyIds = [for (final s in split.destroy) s.id];
+    final hideIds = [for (final s in split.hide) s.id];
+    final deleteCount = destroyIds.length;
+    final hideCount = hideIds.length;
+    final sharedDeleteCount = sharing.diverCount >= 2
+        ? split.destroy.where((s) => s.isShared).length
+        : 0;
+    final usage = deleteCount > 0
+        ? await readSiteDeleteUsage(ref, destroyIds)
+        : const SiteUsage();
+    if (!mounted || deleteCount + hideCount == 0) {
+      return BulkActionOutcome.cancelled;
+    }
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (context) => AlertDialog(
-        title: Text(context.l10n.diveSites_list_bulkDelete_title),
+        title: Text(
+          deleteCount > 0
+              ? context.l10n.diveSites_list_bulkDelete_title
+              : context.l10n.sharedItems_bulkRemoveTitle(hideCount),
+        ),
         content: Text(
-          withSiteDeleteUsage(
-            context.l10n,
-            context.l10n.diveSites_list_bulkDelete_content(count),
-            usage,
-          ),
+          [
+            ...bulkDeleteLines(
+              context.l10n,
+              SharedItemKind.site,
+              deleteCount: deleteCount,
+              hideCount: hideCount,
+              sharedDeleteCount: sharedDeleteCount,
+              // The site list's own line below states it, with its Undo.
+              includeDeleteCount: false,
+            ),
+            if (deleteCount > 0)
+              withSiteDeleteUsage(
+                context.l10n,
+                context.l10n.diveSites_list_bulkDelete_content(deleteCount),
+                usage,
+              ),
+          ].join('\n\n'),
         ),
         actions: [
           TextButton(
@@ -331,10 +521,16 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
           ),
           FilledButton(
             onPressed: () => Navigator.of(context).pop(true),
-            style: FilledButton.styleFrom(
-              backgroundColor: Theme.of(context).colorScheme.error,
+            style: deleteCount > 0
+                ? FilledButton.styleFrom(
+                    backgroundColor: Theme.of(context).colorScheme.error,
+                  )
+                : null,
+            child: Text(
+              deleteCount > 0
+                  ? context.l10n.diveSites_list_bulkDelete_confirm
+                  : context.l10n.common_action_remove,
             ),
-            child: Text(context.l10n.diveSites_list_bulkDelete_confirm),
           ),
         ],
       ),
@@ -342,46 +538,100 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
 
     if (confirmed == true && mounted) {
       final scaffoldMessenger = ScaffoldMessenger.of(context);
+      final l10n = context.l10n;
+      final notifier = ref.read(siteListNotifierProvider.notifier);
       _exitSelectionMode();
 
-      final deleted = await ref
-          .read(siteListNotifierProvider.notifier)
-          .bulkDeleteSites(idsToDelete);
+      final deleted = deleteCount > 0
+          ? await notifier.bulkDeleteSites(destroyIds)
+          : null;
+      // Null when the hide failed: the summary says so beside the deletes.
+      final hidden = hideCount > 0
+          ? await tryHideChange(() => notifier.hideSites(hideIds))
+          : 0;
 
       _deletedSites = deleted;
+      // Even after a failed hide: it may have been written before the
+      // refresh failed, and an unhide of one not hidden does nothing.
+      _hiddenSiteIds = hideIds;
 
-      if (mounted) {
+      final summary = [
+        if (deleted != null && deleted.sites.isNotEmpty)
+          l10n.diveSites_list_bulkDelete_snackbar(deleted.sites.length),
+        if (hidden case final n? when n > 0)
+          l10n.sharedItems_bulkHiddenSnackbar(n),
+        if (hidden == null) l10n.common_error_tryAgain,
+      ];
+      // Only a failed hide to report: nothing for Undo to take back.
+      if (hidden == null && (deleted?.sites.isEmpty ?? true)) {
+        scaffoldMessenger.clearSnackBars();
+        scaffoldMessenger.showSnackBar(
+          SnackBar(content: Text(l10n.common_error_tryAgain)),
+        );
+        return BulkActionOutcome.completed;
+      }
+      // Takes back what the bulk delete did, clearing each half once it is
+      // back. Anything left says so, even once the list has closed, and
+      // offers Undo again for the rest (issue #2677).
+      Future<void> undo() async {
+        final toRestore = _deletedSites;
+        if (toRestore == null || toRestore.sites.isEmpty) {
+          _deletedSites = null;
+        } else {
+          try {
+            await notifier.restoreSites(
+              toRestore.sites,
+              links: toRestore.links,
+            );
+            _deletedSites = null;
+          } catch (e, stackTrace) {
+            _log.error(
+              'Could not restore the deleted sites',
+              error: e,
+              stackTrace: stackTrace,
+            );
+          }
+        }
+        final toUnhide = _hiddenSiteIds;
+        if (toUnhide.isEmpty ||
+            await tryHideChange(
+                  () => notifier.unhideSites(toUnhide).then((_) => true),
+                ) ==
+                true) {
+          _hiddenSiteIds = const [];
+        }
+        if (_deletedSites != null || _hiddenSiteIds.isNotEmpty) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text(l10n.common_error_tryAgain),
+              action: SnackBarAction(
+                label: l10n.diveSites_list_bulkDelete_undo,
+                onPressed: undo,
+              ),
+            ),
+          );
+        } else if (mounted) {
+          scaffoldMessenger.showSnackBar(
+            SnackBar(
+              content: Text(l10n.diveSites_list_bulkDelete_restored),
+              duration: const Duration(seconds: 2),
+            ),
+          );
+        }
+      }
+
+      // Nothing done (every action refused): no empty snackbar. A failure
+      // says so even once the list has closed.
+      if ((mounted || hidden == null) && summary.isNotEmpty) {
         scaffoldMessenger.clearSnackBars();
         scaffoldMessenger.showSnackBar(
           SnackBar(
-            content: Text(
-              context.l10n.diveSites_list_bulkDelete_snackbar(
-                deleted.sites.length,
-              ),
-            ),
+            content: Text(summary.join(' · ')),
             duration: const Duration(seconds: 5),
             showCloseIcon: true,
             action: SnackBarAction(
-              label: context.l10n.diveSites_list_bulkDelete_undo,
-              onPressed: () async {
-                final toRestore = _deletedSites;
-                if (toRestore != null && toRestore.sites.isNotEmpty) {
-                  await ref
-                      .read(siteListNotifierProvider.notifier)
-                      .restoreSites(toRestore.sites, links: toRestore.links);
-                  _deletedSites = null;
-                  if (mounted) {
-                    scaffoldMessenger.showSnackBar(
-                      SnackBar(
-                        content: Text(
-                          context.l10n.diveSites_list_bulkDelete_restored,
-                        ),
-                        duration: const Duration(seconds: 2),
-                      ),
-                    );
-                  }
-                }
-              },
+              label: l10n.diveSites_list_bulkDelete_undo,
+              onPressed: undo,
             ),
           ),
         );
@@ -408,6 +658,123 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
           direction: direction,
         );
       },
+      // Table mode keeps a flat grid; headers would cut across its columns.
+      footer: ref.read(siteListViewModeProvider) == ListViewMode.table
+          ? null
+          : const SiteGroupBySelector(),
+    );
+  }
+
+  /// The grouped list for [sites], or null when the list is not grouped.
+  /// [listen] is false outside build, where watching is not allowed.
+  _GroupedSites? _groupedView(
+    List<SiteWithDiveCount> sites, {
+    bool listen = true,
+  }) {
+    final groupBy = listen
+        ? ref.watch(siteGroupByProvider)
+        : ref.read(siteGroupByProvider);
+    if (groupBy == SiteGroupBy.none) return null;
+    final groups = _groupsFor(sites, groupBy);
+    final expanded = _groupedExpansion(groups, sites, groupBy, listen: listen);
+    return (
+      groups: groups,
+      expanded: expanded,
+      rows: flattenSiteGroups(groups, expanded: expanded),
+    );
+  }
+
+  /// The open groups for [groups]: everything while a filter narrows the
+  /// list, else the diver's own choice -- outer groups and subgroups share
+  /// one stored set, seeded with the detail pane's site.
+  Set<String> _groupedExpansion(
+    List<SiteOuterGroup<SiteWithDiveCount>> groups,
+    List<SiteWithDiveCount> sites,
+    SiteGroupBy groupBy, {
+    bool listen = true,
+  }) {
+    final filter = listen
+        ? ref.watch(siteFilterProvider)
+        : ref.read(siteFilterProvider);
+    if (filter.hasActiveFilters) {
+      return allGroupKeys(
+        groups,
+      ).union(allSubGroupKeys(groups)).difference(_filterCollapsed);
+    }
+    final stored = listen
+        ? ref.watch(siteListExpandedGroupsProvider)
+        : ref.read(siteListExpandedGroupsProvider);
+    if (stored != null) return stored;
+    final selected = sites
+        .where((s) => s.site.id == widget.selectedId)
+        .firstOrNull;
+    return initialExpandedGroups(
+      groups,
+      outerKeyOf: outerKeyOfMode(groupBy),
+      innerKeyOf: innerKeyOfMode(groupBy),
+      bundlesInner: bundlesUnlabeledInner(groupBy),
+      selected: selected?.site,
+    );
+  }
+
+  /// The group keys of the selected site -- its outer group and, if the mode
+  /// nests a subgroup under it, that subgroup too -- that the grouped list
+  /// keeps collapsed in the diver's stored expansion, else null. Before the
+  /// first toggle there is no stored set and the initial expansion already
+  /// opens the selected site's groups; a filter opens every group by itself.
+  ///
+  /// Delegates to [initialExpandedGroups] for the same site rather than
+  /// re-deriving its outer/subgroup keys by hand, so this can never drift
+  /// from what "freshly opening this list" would already have opened.
+  Set<String>? _collapsedGroupsOfSelected(List<SiteWithDiveCount> sites) {
+    final groupBy = ref.read(siteGroupByProvider);
+    if (groupBy == SiteGroupBy.none) return null;
+    if (ref.read(siteFilterProvider).hasActiveFilters) return null;
+    final stored = ref.read(siteListExpandedGroupsProvider);
+    if (stored == null) return null;
+    final selected = sites
+        .where((s) => s.site.id == widget.selectedId)
+        .firstOrNull;
+    if (selected == null) return null;
+    final required = initialExpandedGroups(
+      _groupsFor(sites, groupBy),
+      outerKeyOf: outerKeyOfMode(groupBy),
+      innerKeyOf: innerKeyOfMode(groupBy),
+      bundlesInner: bundlesUnlabeledInner(groupBy),
+      selected: selected.site,
+    );
+    final missing = required.difference(stored);
+    return missing.isEmpty ? null : missing;
+  }
+
+  /// Reopens every group collapsed only because a filter narrowed the list,
+  /// so a new filter (or a grouping mode switch, which the filter's own
+  /// collapse keys cannot survive either) starts from every match open.
+  void _resetFilterCollapsed() {
+    if (_filterCollapsed.isNotEmpty) {
+      setState(() => _filterCollapsed = const {});
+    }
+  }
+
+  /// Toggling [key] while a filter narrows the list never touches persistent
+  /// expansion state -- it only hides [key] for this filter session, via
+  /// [_filterCollapsed], so clearing the filter always starts from every
+  /// match open again. Returns whether it handled the toggle.
+  bool _toggleWhileFiltering(String key, Set<String> current) {
+    if (!ref.read(siteFilterProvider).hasActiveFilters) return false;
+    final next = toggleGroupKey(current, key);
+    final keys = current.union(_filterCollapsed);
+    setState(() => _filterCollapsed = keys.difference(next));
+    return true;
+  }
+
+  /// Opens or closes the group [key] -- a tap of an outer or a subgroup
+  /// header; both share one stored set (see [siteListExpandedGroupsProvider]).
+  void _toggleGroup(String key, Set<String> current) {
+    if (_toggleWhileFiltering(key, current)) return;
+    ref.read(siteListExpandedGroupsProvider.notifier).state = toggleGroupKey(
+      current,
+      key,
     );
   }
 
@@ -416,6 +783,13 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
     final sitesAsync = ref.watch(sortedSitesWithCountsProvider);
     final filter = ref.watch(siteFilterProvider);
     final viewMode = ref.watch(siteListViewModeProvider);
+    ref.listen(siteFilterProvider, (_, _) => _resetFilterCollapsed());
+    // The stored expansion resets itself on a mode switch (it watches
+    // siteGroupByProvider); the filter's local collapse keys need the same.
+    ref.listen(siteGroupByProvider, (previous, next) {
+      if (previous == null || previous == next) return;
+      _resetFilterCollapsed();
+    });
 
     // Table mode uses a dedicated scaffold with column configuration support.
     if (viewMode == ListViewMode.table) {
@@ -444,14 +818,19 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
           : listContent;
     }
 
-    final loadedSites = sitesAsync.valueOrNull ?? const <SiteWithDiveCount>[];
+    final loadedSites = sitesAsync.value ?? const <SiteWithDiveCount>[];
     final visibleIds = loadedSites.map((s) => s.site.id).toList();
 
     // Drop checked sites that fell out of the filtered list, so the count
-    // always matches what is on screen. pruneTo is a no-op when nothing
+    // always matches what is on screen. pruneToSettled is a no-op when nothing
     // changed, which keeps this off a rebuild loop.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _selection.pruneTo(visibleIds);
+      if (mounted) {
+        _selection.pruneToSettled(
+          sitesAsync,
+          (rows) => rows.map((s) => s.site.id),
+        );
+      }
     });
 
     if (!widget.showAppBar) {
@@ -484,6 +863,7 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
                   title: FeatureAppBarTitle(
                     featureId: 'sites',
                     title: context.l10n.diveSites_list_appBar_title,
+                    subtitle: siteListCountLabel(context, ref),
                   ),
                   actions: [
                     IconButton(
@@ -520,20 +900,10 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
                       tooltip: context.l10n.diveSites_list_tooltip_sort,
                       onPressed: () => _showSortSheet(context),
                     ),
-                    // The only way into bulk actions: entry by long-press was removed,
-                    // so nothing but this control opens selection mode on touch.
-                    IconButton(
-                      key: const ValueKey('enter_selection'),
-                      icon: const Icon(Icons.checklist),
-                      tooltip: context.l10n.common_selection_enterTooltip,
-                      onPressed: _selection.enterExplicit,
-                    ),
                     PopupMenuButton<String>(
                       icon: const Icon(Icons.more_vert),
                       onSelected: (value) {
-                        if (value == 'select') {
-                          _selection.enterExplicit();
-                        } else if (value == 'import') {
+                        if (value == 'import') {
                           context.push('/sites/import');
                         } else if (value == 'fill_location_details') {
                           unawaited(
@@ -562,6 +932,10 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
                       itemBuilder: (context) {
                         final currentMode = ref.read(siteListViewModeProvider);
                         return [
+                          ...selectItemsMenuEntries(
+                            context,
+                            onSelect: _selection.enterExplicit,
+                          ),
                           ...ListViewModeToggle.menuItems(
                             context,
                             currentMode: currentMode,
@@ -572,16 +946,6 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
                             ],
                           ),
                           const PopupMenuDivider(),
-                          PopupMenuItem(
-                            value: 'select',
-                            child: ListTile(
-                              leading: const Icon(Icons.checklist),
-                              title: Text(
-                                context.l10n.diveSites_list_menu_select,
-                              ),
-                              contentPadding: EdgeInsets.zero,
-                            ),
-                          ),
                           PopupMenuItem(
                             value: 'import',
                             child: ListTile(
@@ -640,13 +1004,18 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
     AsyncValue<List<SiteWithDiveCount>> sitesAsync,
     SiteFilterState filter,
   ) {
-    final loadedSites = sitesAsync.valueOrNull ?? const <SiteWithDiveCount>[];
+    final loadedSites = sitesAsync.value ?? const <SiteWithDiveCount>[];
     final visibleIds = loadedSites.map((s) => s.site.id).toList();
 
     // Same pruning the list path does: drop checked sites that fell out of
     // the visible list, so the count always matches what is on screen.
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      if (mounted) _selection.pruneTo(visibleIds);
+      if (mounted) {
+        _selection.pruneToSettled(
+          sitesAsync,
+          (rows) => rows.map((s) => s.site.id),
+        );
+      }
     });
 
     // The scope carries Escape, Ctrl/Cmd-A and the Android back handling, and
@@ -660,15 +1029,13 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
         builder: (context, selection, _) {
           final tableContent = _buildTableView(context, sitesAsync, filter);
 
-          // Table mode has no app bar of its own, so the Select affordance
-          // lives in the same slot the contextual bar takes, at the same
-          // height -- the table does not shift as the mode opens.
+          // Table mode has no app bar of its own: "Select items" sits in the
+          // page header's overflow menu, and the contextual bar opens above
+          // the table while selecting.
           return Column(
             children: [
               if (selection.isActive)
-                _buildCompactSelectionAppBar(context, loadedSites)
-              else
-                SelectionEntryBar(controller: _selection),
+                _buildCompactSelectionAppBar(context, loadedSites),
               Expanded(child: tableContent),
             ],
           );
@@ -707,6 +1074,7 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
                 units: units,
                 onSortFieldChanged: notifier.setSortField,
                 onResizeColumn: notifier.resizeColumn,
+                onHideColumn: notifier.hideColumn,
                 onEntityTapDown: (id) {
                   // Rows carry a double-tap, so onEntityTap only resolves
                   // after the double-tap timer -- long after this fires. A
@@ -773,6 +1141,7 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
             child: FeatureAppBarTitle(
               featureId: 'sites',
               title: context.l10n.diveSites_list_appBar_title,
+              subtitle: siteListCountLabel(context, ref),
               style: Theme.of(
                 context,
               ).textTheme.titleMedium?.copyWith(fontWeight: FontWeight.w600),
@@ -817,18 +1186,10 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
             tooltip: context.l10n.diveSites_list_tooltip_sort,
             onPressed: () => _showSortSheet(context),
           ),
-          IconButton(
-            key: const ValueKey('enter_selection'),
-            icon: const Icon(Icons.checklist, size: 20),
-            tooltip: context.l10n.common_selection_enterTooltip,
-            onPressed: _selection.enterExplicit,
-          ),
           PopupMenuButton<String>(
             icon: const Icon(Icons.more_vert, size: 20),
             onSelected: (value) {
-              if (value == 'select') {
-                _selection.enterExplicit();
-              } else if (value == 'import') {
+              if (value == 'import') {
                 context.push('/sites/import');
               } else if (value == 'fill_location_details') {
                 unawaited(
@@ -856,6 +1217,10 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
             itemBuilder: (context) {
               final currentMode = ref.read(siteListViewModeProvider);
               return [
+                ...selectItemsMenuEntries(
+                  context,
+                  onSelect: _selection.enterExplicit,
+                ),
                 ...ListViewModeToggle.menuItems(
                   context,
                   currentMode: currentMode,
@@ -867,12 +1232,12 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
                 ),
                 const PopupMenuDivider(),
                 PopupMenuItem(
-                  value: 'select',
-                  child: Text(context.l10n.diveSites_list_menu_select),
-                ),
-                PopupMenuItem(
                   value: 'import',
-                  child: Text(context.l10n.diveSites_list_menu_import),
+                  child: ListTile(
+                    leading: const Icon(Icons.download),
+                    title: Text(context.l10n.diveSites_list_menu_import),
+                    contentPadding: EdgeInsets.zero,
+                  ),
                 ),
                 PopupMenuItem(
                   value: 'fill_location_details',
@@ -906,6 +1271,7 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
   /// SelectionAppBar, so they are deliberately absent here. Computed once and
   /// shared by both shells so the pane cannot drift from the full-width bar.
   List<BulkAction> _bulkActions(List<SiteWithDiveCount> sites) {
+    final byId = {for (final s in sites) s.site.id: s.site};
     return [
       BulkAction(
         id: 'merge',
@@ -914,7 +1280,95 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
         minCount: 2,
         onInvoke: _startMerge,
       ),
+      // Personal sites into a shared site library (issue #2567); a library site
+      // already belongs to one.
+      BulkAction(
+        id: 'addToLibrary',
+        icon: Icons.groups_outlined,
+        label: context.l10n.sharedLibrary_bulk_addToLibrary,
+        minCount: 1,
+        isEnabled: (ids) => ids.every((id) => _mayPushToLibrary(byId[id])),
+        onInvoke: _addToLibrary,
+      ),
     ];
+  }
+
+  /// The library group header shows the library's name; the group key and
+  /// label are its id, which the domain grouper does not resolve.
+  String _outerGroupLabel(
+    SiteGroupBy groupBy,
+    String noGroupLabel,
+    SiteOuterGroup<SiteWithDiveCount> group,
+  ) {
+    final label = siteOuterGroupLabel(noGroupLabel, group);
+    if (groupBy != SiteGroupBy.library || group.isUngroupedKey) return label;
+    final libraries = ref.watch(sharedLibrariesProvider).valueOrNull;
+    for (final l in libraries ?? const []) {
+      if (l.id == group.label) return l.name;
+    }
+    return label;
+  }
+
+  /// A personal site this profile may destroy: pushing takes it from every
+  /// other profile, so another profile's shared site never qualifies.
+  bool _mayPushToLibrary(DiveSite? site) =>
+      site != null &&
+      !site.isLibrarySite &&
+      canDestroySharedItemOnceKnown(
+            ref.read(validatedCurrentDiverIdProvider),
+            ownerId: site.diverId,
+          ) ==
+          true;
+
+  Future<BulkActionOutcome> _addToLibrary() async {
+    final selected = await _readSelectedSites(_selectedIds.toList());
+    if (selected == null) return BulkActionOutcome.failed;
+    final personal = [
+      for (final s in selected)
+        if (_mayPushToLibrary(s)) s.id,
+    ];
+    if (personal.isEmpty || !mounted) return BulkActionOutcome.cancelled;
+    // The picker explains an empty choice itself; null is also a cancel.
+    final library = await pickLibraryToAddTo(
+      context,
+      ref,
+      siteCount: personal.length,
+      siteName: personal.length == 1
+          ? selected.firstWhere((s) => s.id == personal.single).name
+          : null,
+    );
+    if (library == null) return BulkActionOutcome.cancelled;
+    final libraryId = library.id;
+    final diverId = await ref.read(validatedCurrentDiverIdProvider.future);
+    if (diverId == null) return BulkActionOutcome.failed;
+    final publisher = ref.read(sharedSitePublisherProvider);
+    try {
+      for (final id in personal) {
+        await publisher.push(
+          siteId: id,
+          libraryId: libraryId,
+          diverId: diverId,
+        );
+      }
+    } catch (e) {
+      ref.invalidate(sitesProvider);
+      ref.invalidate(sitesWithCountsProvider);
+      if (mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(content: Text(libraryErrorText(context.l10n, e))),
+        );
+      }
+      return BulkActionOutcome.failed;
+    }
+    ref.invalidate(sitesProvider);
+    ref.invalidate(sitesWithCountsProvider);
+    if (!mounted) return BulkActionOutcome.completed;
+    ScaffoldMessenger.of(context).showSnackBar(
+      SnackBar(
+        content: Text(context.l10n.sharedLibrary_site_added(library.name)),
+      ),
+    );
+    return BulkActionOutcome.completed;
   }
 
   /// Contextual bar for the master pane, which is too narrow for every icon.
@@ -951,59 +1405,192 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
     final diversCount = ref
         .watch(allDiversProvider)
         .when(data: (d) => d.length, loading: () => 0, error: (_, _) => 0);
+    final groupBy = ref.watch(siteGroupByProvider);
+    final noGroupLabel = groupBy.noGroupLabel(context.l10n);
+
+    final grouped = _groupedView(sites);
+    final rows = grouped?.rows;
+    final expanded = grouped?.expanded ?? const <String>{};
+    // Range selection follows what the diver sees: grouped, it walks only
+    // the sites on screen, so a shift-click across a collapsed country never
+    // checks the sites hidden inside it.
+    final orderedSites = grouped == null
+        ? sites
+        : [
+            for (final row in grouped.rows)
+              if (row is SiteRow<SiteWithDiveCount>) row.item,
+          ];
+
+    // The keyboard cursor walks the same rows: each outer header, each
+    // subgroup header nested inside an open one, then the sites of whichever
+    // is innermost and open (#3065, #3270).
+    final navStops = KeyboardNavStops();
+    if (rows == null) {
+      for (final site in sites) {
+        navStops.addRow(site.site.id);
+      }
+    } else {
+      String? header;
+      for (final row in rows) {
+        switch (row) {
+          case OuterHeaderRow(:final group):
+            header = _groupNavKey(group.key);
+            navStops.addHeader(header, group.key);
+          case SubHeaderRow(:final outerKey, :final expansionKey):
+            header = _groupNavKey(expansionKey);
+            navStops.addHeader(
+              header,
+              expansionKey,
+              parent: _groupNavKey(outerKey),
+            );
+          case SiteRow(:final item):
+            navStops.addRow(item.site.id, header: header);
+        }
+      }
+    }
 
     return RefreshIndicator(
       onRefresh: () async {
         ref.invalidate(sortedSitesWithCountsProvider);
       },
-      child: ListView.builder(
-        controller: _scrollController,
-        padding: const EdgeInsets.only(bottom: 80),
-        itemCount: sites.length,
-        itemBuilder: (context, index) {
-          final siteData = sites[index];
-          final site = siteData.site;
-          final isSelected =
-              widget.selectedId == site.id ||
-              ref.watch(highlightedSiteIdProvider) == site.id;
-          final isChecked = _selectedIds.contains(site.id);
-          final showSharedBadge = site.isShared && diversCount >= 2;
-
-          final viewMode = ref.watch(siteListViewModeProvider);
-          final locationString = site.locationString.isNotEmpty
-              ? site.locationString
-              : null;
-          return switch (viewMode) {
-            ListViewMode.detailed => SiteListTile(
-              entry: siteData,
-              isSelectionMode: _isSelectionMode,
-              isSelected: isSelected,
-              isChecked: isChecked,
-              showSharedBadge: showSharedBadge,
-              onTap: () => _handleRowTap(site.id, sites),
-            ),
-            ListViewMode.compact => CompactSiteListTile(
-              entry: siteData,
-              isSelectionMode: _isSelectionMode,
-              isSelected: isChecked,
-              isHighlighted: !_isSelectionMode && isSelected,
-              showSharedBadge: showSharedBadge,
-              onTap: () => _handleRowTap(site.id, sites),
-            ),
-            ListViewMode.dense || ListViewMode.table => DenseSiteListTile(
-              name: site.name,
-              location: locationString,
-              diveCount: siteData.diveCount,
-              isSelectionMode: _isSelectionMode,
-              isSelected: isChecked,
-              isHighlighted: !_isSelectionMode && isSelected,
-              showSharedBadge: showSharedBadge,
-              onTap: () => _handleRowTap(site.id, sites),
-            ),
-          };
+      child: KeyboardListNavigator(
+        keys: navStops.keys,
+        currentKey: widget.selectedId ?? ref.watch(highlightedSiteIdProvider),
+        onMove: (key) {
+          if (navStops.groupOfHeader(key) != null) return;
+          moveListCursor(
+            context,
+            canOpen: !_isSelectionMode && widget.onItemSelected != null,
+            open: () => _handleRowTap(key, orderedSites),
+            highlight: () =>
+                ref.read(highlightedSiteIdProvider.notifier).state = key,
+          );
         },
+        onActivate: (key) {
+          final groupKey = navStops.groupOfHeader(key);
+          if (groupKey != null) {
+            _toggleGroup(groupKey, expanded);
+          } else {
+            _handleRowTap(key, orderedSites);
+          }
+        },
+        onExpand: (key) {
+          final groupKey = navStops.groupOfHeader(key);
+          if (groupKey != null && !expanded.contains(groupKey)) {
+            _toggleGroup(groupKey, expanded);
+          }
+        },
+        onCollapse: (key) {
+          final header = navStops.headerFor(key);
+          if (header == null) return null;
+          final groupKey = navStops.groupOfHeader(header)!;
+          if (expanded.contains(groupKey)) {
+            _toggleGroup(groupKey, expanded);
+            return header;
+          }
+          // Already folded: Left climbs from a subgroup header to the outer
+          // group it sits in, as a tree view does.
+          return navStops.parentHeaderOf(header) ?? header;
+        },
+        child: ListView.builder(
+          controller: _scrollController,
+          padding: const EdgeInsets.only(bottom: 80),
+          itemCount: rows?.length ?? sites.length,
+          itemBuilder: (context, index) {
+            if (rows == null) {
+              return _buildSiteTile(sites[index], orderedSites, diversCount);
+            }
+            return switch (rows[index]) {
+              OuterHeaderRow(:final group, :final isExpanded) =>
+                KeyboardListItem(
+                  navigationKey: _groupNavKey(group.key),
+                  child: SiteGroupHeader(
+                    label: _outerGroupLabel(groupBy, noGroupLabel, group),
+                    siteCount: group.siteCount,
+                    isExpanded: isExpanded,
+                    onTap: () => _toggleGroup(group.key, expanded),
+                  ),
+                ),
+              SubHeaderRow(
+                :final expansionKey,
+                :final subgroup,
+                :final isExpanded,
+              ) =>
+                KeyboardListItem(
+                  navigationKey: _groupNavKey(expansionKey),
+                  child: SiteGroupHeader(
+                    label: siteSubGroupLabel(
+                      groupBy.innerNoGroupLabel(context.l10n) ?? '',
+                      subgroup,
+                    ),
+                    siteCount: subgroup.items.length,
+                    isExpanded: isExpanded,
+                    indent: 40,
+                    onTap: () => _toggleGroup(expansionKey, expanded),
+                  ),
+                ),
+              SiteRow(:final item) => _buildSiteTile(
+                item,
+                orderedSites,
+                diversCount,
+              ),
+            };
+          },
+        ),
       ),
     );
+  }
+
+  /// The keyboard stop for the header of the group [groupKey]: an outer
+  /// group's key, or a subgroup's [subGroupExpansionKey].
+  static String _groupNavKey(String groupKey) => 'group:$groupKey';
+
+  Widget _buildSiteTile(
+    SiteWithDiveCount siteData,
+    List<SiteWithDiveCount> orderedSites,
+    int diversCount,
+  ) {
+    final site = siteData.site;
+    final isSelected =
+        widget.selectedId == site.id ||
+        ref.watch(highlightedSiteIdProvider) == site.id;
+    final isChecked = _selectedIds.contains(site.id);
+    final showSharedBadge = site.isShared && diversCount >= 2;
+
+    final viewMode = ref.watch(siteListViewModeProvider);
+    final locationString = site.locationString.isNotEmpty
+        ? site.locationString
+        : null;
+    final tile = switch (viewMode) {
+      ListViewMode.detailed => SiteListTile(
+        entry: siteData,
+        isSelectionMode: _isSelectionMode,
+        isSelected: isSelected,
+        isChecked: isChecked,
+        showSharedBadge: showSharedBadge,
+        onTap: () => _handleRowTap(site.id, orderedSites),
+      ),
+      ListViewMode.compact => CompactSiteListTile(
+        entry: siteData,
+        isSelectionMode: _isSelectionMode,
+        isSelected: isChecked,
+        isHighlighted: !_isSelectionMode && isSelected,
+        showSharedBadge: showSharedBadge,
+        onTap: () => _handleRowTap(site.id, orderedSites),
+      ),
+      ListViewMode.dense || ListViewMode.table => DenseSiteListTile(
+        name: site.name,
+        site: site,
+        location: locationString,
+        diveCount: siteData.diveCount,
+        isSelectionMode: _isSelectionMode,
+        isSelected: isChecked,
+        isHighlighted: !_isSelectionMode && isSelected,
+        showSharedBadge: showSharedBadge,
+        onTap: () => _handleRowTap(site.id, orderedSites),
+      ),
+    };
+    return KeyboardListItem(navigationKey: site.id, child: tile);
   }
 
   Widget _buildEmptyState(BuildContext context, bool hasActiveFilters) {
@@ -1067,19 +1654,23 @@ class _SiteListContentState extends ConsumerState<SiteListContent> {
             ),
           ),
           const SizedBox(height: 24),
-          FilledButton.icon(
-            onPressed: () {
-              if (ResponsiveBreakpoints.isMasterDetail(context)) {
-                final routerState = GoRouterState.of(context);
-                context.go('${routerState.uri.path}?mode=new');
-              } else {
-                context.push('/sites/new');
-              }
-            },
-            icon: const Icon(Icons.add_location),
-            label: Text(context.l10n.diveSites_list_empty_addFirstSite),
-          ),
-          const SizedBox(height: 12),
+          // Hidden beside an open form: it reads as the form's submit button
+          // but only reopens the create form (issue #3192).
+          if (!MasterDetailFormScope.isFormOpenOf(context)) ...[
+            FilledButton.icon(
+              onPressed: () {
+                if (ResponsiveBreakpoints.isMasterDetail(context)) {
+                  final routerState = GoRouterState.of(context);
+                  context.go('${routerState.uri.path}?mode=new');
+                } else {
+                  context.push('/sites/new');
+                }
+              },
+              icon: const Icon(Icons.add_location),
+              label: Text(context.l10n.diveSites_list_empty_addFirstSite),
+            ),
+            const SizedBox(height: 12),
+          ],
           OutlinedButton.icon(
             onPressed: () => context.push('/sites/import'),
             icon: const Icon(Icons.download),
@@ -1175,20 +1766,19 @@ class SiteSearchDelegate extends SearchDelegate<DiveSite?> {
   }
 
   Widget _buildSearchResults(BuildContext context) {
-    return DebouncedSearchResults<DiveSite>(
+    return DebouncedSearchResults<SiteWithDiveCount>(
       query: query,
-      watchProvider: (ref, q) => ref.watch(siteSearchProvider(q)),
-      dataBuilder: (context, sites) {
+      watchProvider: (ref, q) => ref.watch(siteSearchWithDiveCountProvider(q)),
+      dataBuilder: (context, entries) {
         return ListView.builder(
-          itemCount: sites.length,
+          itemCount: entries.length,
           itemBuilder: (context, index) {
-            final site = sites[index];
+            final entry = entries[index];
             return SiteListTile(
-              entry: SiteWithDiveCount(site: site, diveCount: 0),
-              onTap: () {
-                close(context, site);
-                context.push('/sites/${site.id}');
-              },
+              entry: entry,
+              // Opened over the search rather than in place of it, so back
+              // from the site returns to these results (#3377).
+              onTap: () => context.push('/sites/${entry.site.id}'),
             );
           },
         );
@@ -1226,3 +1816,11 @@ class SiteSearchDelegate extends SearchDelegate<DiveSite?> {
     );
   }
 }
+
+/// The grouped Dive Sites list for one build: its groups, the groups open,
+/// and the flattened rows those give.
+typedef _GroupedSites = ({
+  List<SiteOuterGroup<SiteWithDiveCount>> groups,
+  Set<String> expanded,
+  List<SiteListRow<SiteWithDiveCount>> rows,
+});

@@ -2,7 +2,7 @@ import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/providers/provider.dart';
 
 import 'package:submersion/features/backup/presentation/providers/backup_providers.dart';
-import 'package:submersion/features/certifications/presentation/providers/certification_providers.dart';
+import 'package:submersion/features/certifications/presentation/providers/certification_currency_providers.dart';
 import 'package:submersion/features/courses/presentation/providers/course_requirement_providers.dart';
 import 'package:submersion/features/dashboard/presentation/providers/dashboard_providers.dart';
 import 'package:submersion/features/data_quality/presentation/providers/data_quality_providers.dart';
@@ -18,6 +18,9 @@ import 'package:submersion/features/safety/presentation/providers/no_fly_provide
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/trips/domain/entities/trip.dart';
 import 'package:submersion/features/trips/presentation/providers/trip_providers.dart';
+import 'package:submersion/features/documents/domain/document_expiry.dart';
+import 'package:submersion/features/documents/domain/entities/document.dart';
+import 'package:submersion/features/documents/presentation/providers/document_providers.dart';
 
 /// Every chip type the gauge strip can show. [name] is the stable id
 /// stored in AppSettings.hiddenHomeChips; all types are visible by
@@ -36,6 +39,10 @@ enum HomeChipType {
   sync,
   dataQuality,
   flightWindow,
+
+  /// Expiring and expired documents other than insurance (issue #2613).
+  /// Appended so stored hide keys never shift.
+  documents,
 }
 
 /// The worst service clock for one equipment type, shown as one chip.
@@ -85,8 +92,10 @@ class DashboardGauges {
   final NoFlyStatus? noFlyStatus;
   final int? daysSinceLastDive;
 
-  /// Certifications expiring within 90 days plus already-expired ones.
-  final int expiringCertCount;
+  /// Certification currency needing attention (issue #2267): collapsed
+  /// groups that are lapsed or due soon, and not muted. Subsumes the old
+  /// expiring-certifications count; card expiry is one of its date clocks.
+  final CurrencyAttention certCurrency;
 
   /// Next trip whose start date is in the future, if any.
   final Trip? nextTrip;
@@ -115,6 +124,9 @@ class DashboardGauges {
   /// Dive window before the active trip's return flight, if one is set.
   final FlightWindowStatus? flightWindow;
 
+  /// Non-insurance documents that are expired or due, expired first.
+  final List<(Document, DocumentExpiryStatus)> attentionDocuments;
+
   const DashboardGauges({
     this.gearOverdue,
     this.gearDueSoon,
@@ -122,7 +134,7 @@ class DashboardGauges {
     required this.insurance,
     required this.noFlyStatus,
     required this.daysSinceLastDive,
-    this.expiringCertCount = 0,
+    this.certCurrency = CurrencyAttention.none,
     this.nextTrip,
     this.activeChecklistId,
     this.firstCourse,
@@ -132,6 +144,7 @@ class DashboardGauges {
     this.syncPending = 0,
     this.dataQualityFindings = 0,
     this.flightWindow,
+    this.attentionDocuments = const [],
   });
 }
 
@@ -238,7 +251,9 @@ final dashboardGaugesProvider = FutureProvider<DashboardGauges>((ref) async {
   final noFly = await ref.watch(noFlyStatusProvider.future);
   final flightWindow = await ref.watch(activeTripFlightWindowProvider.future);
   final daysSince = await ref.watch(daysSinceLastDiveProvider.future);
-  final certCount = await ref.watch(expiringCertificationCountProvider.future);
+  // Never throws: the currency provider catches its own failures, so a
+  // currency bug costs only the certifications chip.
+  final certCurrency = await ref.watch(currencyAttentionProvider.future);
   final trips = await ref.watch(allTripsProvider.future);
   final activeSession = await ref.watch(preDiveActiveSessionProvider.future);
   final courses = await ref.watch(activeCoursesProgressProvider.future);
@@ -248,6 +263,11 @@ final dashboardGaugesProvider = FutureProvider<DashboardGauges>((ref) async {
   final syncEnabled = ref.watch(isSyncEnabledProvider);
   final syncPending = ref.watch(pendingChangesCountProvider);
   final findings = ref.watch(openQualityFindingsCountProvider).valueOrNull ?? 0;
+  // Read like the uploads count, not awaited: the strip never waits on the
+  // documents chip, and a documents failure costs only that chip.
+  final documents =
+      ref.watch(attentionDocumentsProvider).valueOrNull ??
+      const <(Document, DocumentExpiryStatus)>[];
 
   final firstCourse = courses
       .where((c) => c.progress.totalCount > 0)
@@ -262,7 +282,7 @@ final dashboardGaugesProvider = FutureProvider<DashboardGauges>((ref) async {
     insurance: diver?.insurance,
     noFlyStatus: noFly,
     daysSinceLastDive: daysSince,
-    expiringCertCount: certCount,
+    certCurrency: certCurrency,
     nextTrip: nextUpcomingTrip(trips, DateTime.now()),
     activeChecklistId: activeSession?.id,
     firstCourse: firstCourse,
@@ -272,5 +292,6 @@ final dashboardGaugesProvider = FutureProvider<DashboardGauges>((ref) async {
     syncPending: syncPending,
     dataQualityFindings: findings,
     flightWindow: flightWindow,
+    attentionDocuments: documents,
   );
 });

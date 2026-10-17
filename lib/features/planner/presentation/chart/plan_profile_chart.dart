@@ -31,6 +31,17 @@ class PlanProfileChart extends ConsumerStatefulWidget {
 class _PlanProfileChartState extends ConsumerState<PlanProfileChart> {
   final _focusNode = FocusNode();
   int? _dragVertex;
+
+  /// The segment under the drag, so a plan edited mid-drag (a segment
+  /// removed before it, or the plan replaced) never redirects the drag to
+  /// whichever waypoint now sits at the old index.
+  String? _dragSegmentId;
+
+  /// Axis extents captured when a waypoint drag starts and held until it
+  /// ends. Mapping the pointer through axes that rescale as the plan grows
+  /// turned each small move into a large jump in dive time (issue #3113),
+  /// so both display and input use these until release, then refit.
+  ({double time, double depth})? _frozenAxes;
   int? _hoverVertex;
   Offset? _downPosition;
   bool _moved = false;
@@ -61,19 +72,30 @@ class _PlanProfileChartState extends ConsumerState<PlanProfileChart> {
   void _clearScrub() => ref.read(scrubTimeProvider.notifier).state = null;
 
   void _applyDrag(PlanChartGeometry geometry, Offset local) {
-    final vertexIndex = _dragVertex;
-    if (vertexIndex == null) return;
+    final dragId = _dragSegmentId;
+    if (dragId == null) return;
     final ordered = _orderedSegments;
-    if (vertexIndex >= ordered.length) return;
+    final vertexIndex = ordered.indexWhere((s) => s.id == dragId);
+    if (vertexIndex < 0) {
+      // The dragged waypoint is gone: end the drag instead of editing
+      // another one.
+      _dragVertex = null;
+      _dragSegmentId = null;
+      return;
+    }
+    _dragVertex = vertexIndex;
     final result = dragVertex(
       ordered: ordered,
       vertexIndex: vertexIndex,
-      newDepthMeters: geometry.depthAtDy(local.dy),
-      newTimeSeconds: geometry.timeAtDx(local.dx),
+      newDepthMeters: geometry.dragDepthAtDy(local.dy),
+      newTimeSeconds: geometry.dragTimeAtDx(local.dx),
       depthUnitScale: geometry.depthUnitScale,
     );
     final notifier = ref.read(divePlanNotifierProvider.notifier);
     for (final (id, segment) in result.updates) {
+      // Most pointer moves snap to the waypoint it already has; publishing
+      // it anyway would re-run the whole deco schedule for nothing.
+      if (segment == ordered[vertexIndex]) continue;
       notifier.updateSegment(id, segment);
     }
     ref.read(selectedSegmentIdProvider.notifier).state =
@@ -152,6 +174,7 @@ class _PlanProfileChartState extends ConsumerState<PlanProfileChart> {
     if (event is! KeyDownEvent && event is! KeyRepeatEvent) {
       return KeyEventResult.ignored;
     }
+    if (_readOnly) return KeyEventResult.ignored;
     final selectedId = ref.read(selectedSegmentIdProvider);
     if (selectedId == null) return KeyEventResult.ignored;
     final ordered = _orderedSegments;
@@ -202,6 +225,11 @@ class _PlanProfileChartState extends ConsumerState<PlanProfileChart> {
     return KeyEventResult.ignored;
   }
 
+  /// A DPV mission generates the profile from its route, so the chart only
+  /// scrubs it: an edit here would disagree with the route and be replaced
+  /// by the next mission edit.
+  bool get _readOnly => ref.read(divePlanNotifierProvider).mission != null;
+
   static double _endTimeOf(List<PlanSegment> ordered, int index) {
     var t = 0.0;
     for (var i = 0; i <= index; i++) {
@@ -220,7 +248,15 @@ class _PlanProfileChartState extends ConsumerState<PlanProfileChart> {
     final units = UnitFormatter(settings);
     final palette = PlanChartPalette.of(theme);
 
-    if (series.isEmpty) return _EmptyState(theme: theme);
+    if (series.isEmpty) {
+      // The Listener goes with the chart, so a drag in progress never sees
+      // its pointer-up; drop it rather than freeze the next plan's axes.
+      _dragVertex = null;
+      _dragSegmentId = null;
+      _hoverVertex = null;
+      _frozenAxes = null;
+      return _EmptyState(theme: theme);
+    }
 
     // Axes stretch to cover every drawn series: plan, ghost and the source
     // dive's actual profile.
@@ -252,7 +288,17 @@ class _PlanProfileChartState extends ConsumerState<PlanProfileChart> {
     );
 
     final selectedId = ref.watch(selectedSegmentIdProvider);
-    final vertices = planVertices(ref.watch(divePlanNotifierProvider).segments);
+    final plan = ref.watch(divePlanNotifierProvider);
+    // No vertices on a mission profile: no handles, no drag, no gas menu.
+    final vertices = plan.mission == null
+        ? planVertices(plan.segments)
+        : const <PlanVertex>[];
+
+    final frozen = _frozenAxes;
+    if (frozen != null) {
+      maxTime = frozen.time;
+      maxDepth = frozen.depth;
+    }
 
     return LayoutBuilder(
       builder: (context, constraints) {
@@ -277,7 +323,10 @@ class _PlanProfileChartState extends ConsumerState<PlanProfileChart> {
           if (idx >= 0) selectedHandleIndex = idx;
         }
         int? draggableHandleFor(int? vertexIndex) {
-          if (vertexIndex == null) return null;
+          // The plan can change under a stale drag or hover index.
+          if (vertexIndex == null || vertexIndex >= vertices.length) {
+            return null;
+          }
           final id = vertices[vertexIndex].segmentId;
           final idx = draggable.indexWhere((v) => v.segmentId == id);
           return idx >= 0 ? idx : null;
@@ -288,7 +337,7 @@ class _PlanProfileChartState extends ConsumerState<PlanProfileChart> {
         // soup of tap + double-tap + pan recognizers swallows single taps.
         void onPointerDown(PointerDownEvent event) {
           _focusNode.requestFocus();
-          if (event.buttons & kSecondaryButton != 0) {
+          if (event.buttons & kSecondaryButton != 0 && !_readOnly) {
             _showGasMenu(
               context,
               geometry,
@@ -305,7 +354,19 @@ class _PlanProfileChartState extends ConsumerState<PlanProfileChart> {
             geometry: geometry,
             position: event.localPosition,
           );
-          if (_dragVertex == null) _scrubTo(geometry, event.localPosition);
+          final hit = _dragVertex;
+          _dragSegmentId = hit == null ? null : vertices[hit].segmentId;
+          if (hit == null) {
+            _scrubTo(geometry, event.localPosition);
+          } else {
+            _frozenAxes = (time: maxTime, depth: maxDepth);
+          }
+        }
+
+        void endDrag() {
+          _dragVertex = null;
+          _dragSegmentId = null;
+          if (_frozenAxes != null) setState(() => _frozenAxes = null);
         }
 
         void onPointerMove(PointerMoveEvent event) {
@@ -322,9 +383,9 @@ class _PlanProfileChartState extends ConsumerState<PlanProfileChart> {
 
         void onPointerUp(PointerUpEvent event) {
           final wasDrag = _dragVertex != null;
-          _dragVertex = null;
+          endDrag();
           _clearScrub();
-          if (wasDrag || _moved) {
+          if (wasDrag || _moved || _readOnly) {
             _downPosition = null;
             return;
           }
@@ -375,6 +436,14 @@ class _PlanProfileChartState extends ConsumerState<PlanProfileChart> {
               onPointerDown: onPointerDown,
               onPointerMove: onPointerMove,
               onPointerUp: onPointerUp,
+              onPointerCancel: (_) {
+                endDrag();
+                _clearScrub();
+                _downPosition = null;
+                // A cancelled sequence must not pair with the next tap.
+                _lastTapAt = null;
+                _lastTapPosition = null;
+              },
               onPointerHover: onPointerHover,
               child: DecoratedBox(
                 decoration: BoxDecoration(
@@ -403,19 +472,27 @@ class _PlanProfileChartState extends ConsumerState<PlanProfileChart> {
                     ),
                     Positioned.fill(
                       child: RepaintBoundary(
-                        child: CustomPaint(
-                          key: const Key('planChartSeries'),
-                          painter: PlanChartSeriesPainter(
-                            geometry: geometry,
-                            palette: palette,
-                            series: series,
-                            ghost: ghost,
-                            sourceDive: sourceDive,
-                            stopTagLabels: stopTagLabels,
-                            meanDepthLabel: meanDepthLabel,
-                            labelStyle: labelStyle,
-                            tagStyle: tagStyle,
-                            textDirection: direction,
+                        // While the axes are frozen the plan can outgrow
+                        // them; keep it inside the plot until they refit.
+                        child: ClipRect(
+                          clipper: _PlotClipper(geometry.plotRect),
+                          clipBehavior: frozen == null
+                              ? Clip.none
+                              : Clip.hardEdge,
+                          child: CustomPaint(
+                            key: const Key('planChartSeries'),
+                            painter: PlanChartSeriesPainter(
+                              geometry: geometry,
+                              palette: palette,
+                              series: series,
+                              ghost: ghost,
+                              sourceDive: sourceDive,
+                              stopTagLabels: stopTagLabels,
+                              meanDepthLabel: meanDepthLabel,
+                              labelStyle: labelStyle,
+                              tagStyle: tagStyle,
+                              textDirection: direction,
+                            ),
                           ),
                         ),
                       ),
@@ -427,19 +504,32 @@ class _PlanProfileChartState extends ConsumerState<PlanProfileChart> {
                           return Stack(
                             children: [
                               Positioned.fill(
-                                child: CustomPaint(
-                                  key: const Key('planChartOverlay'),
-                                  painter: PlanChartOverlayPainter(
-                                    geometry: geometry,
-                                    palette: palette,
-                                    scrubX: scrubTime == null
-                                        ? null
-                                        : geometry.xFor(scrubTime),
-                                    handles: handleOffsets,
-                                    activeHandle: draggableHandleFor(
-                                      _dragVertex ?? _hoverVertex,
+                                // A handle dragged past the frozen axes
+                                // must not paint over the axis labels or
+                                // neighbouring panels. The margin keeps a
+                                // handle on the plot edge (a surface
+                                // waypoint) whole.
+                                child: ClipRect(
+                                  clipper: _PlotClipper(
+                                    geometry.plotRect.inflate(8),
+                                  ),
+                                  clipBehavior: frozen == null
+                                      ? Clip.none
+                                      : Clip.hardEdge,
+                                  child: CustomPaint(
+                                    key: const Key('planChartOverlay'),
+                                    painter: PlanChartOverlayPainter(
+                                      geometry: geometry,
+                                      palette: palette,
+                                      scrubX: scrubTime == null
+                                          ? null
+                                          : geometry.xFor(scrubTime),
+                                      handles: handleOffsets,
+                                      activeHandle: draggableHandleFor(
+                                        _dragVertex ?? _hoverVertex,
+                                      ),
+                                      selectedHandle: selectedHandleIndex,
                                     ),
-                                    selectedHandle: selectedHandleIndex,
                                   ),
                                 ),
                               ),
@@ -468,6 +558,18 @@ class _PlanProfileChartState extends ConsumerState<PlanProfileChart> {
       },
     );
   }
+}
+
+class _PlotClipper extends CustomClipper<Rect> {
+  const _PlotClipper(this.plot);
+
+  final Rect plot;
+
+  @override
+  Rect getClip(Size size) => plot;
+
+  @override
+  bool shouldReclip(_PlotClipper oldClipper) => oldClipper.plot != plot;
 }
 
 /// Scrub cursor + waypoint handles layer; repaints per pointer event without
@@ -535,6 +637,12 @@ class _EmptyState extends ConsumerWidget {
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
+    // A mission builds its profile from the route, whose card says what is
+    // missing; segments and a quick plan (which would end the mission) are
+    // not what it needs.
+    final missionOn = ref.watch(
+      divePlanNotifierProvider.select((s) => s.mission != null),
+    );
     // Scrollable so the fixed-height content survives the phone layout's
     // 160 px chart floor instead of overflowing on short viewports.
     return Center(
@@ -548,22 +656,24 @@ class _EmptyState extends ConsumerWidget {
               context.l10n.divePlanner_message_noProfile,
               style: theme.textTheme.titleMedium,
             ),
-            const SizedBox(height: 8),
-            Text(
-              context.l10n.divePlanner_message_addSegmentsForProfile,
-              style: theme.textTheme.bodySmall?.copyWith(
-                color: theme.colorScheme.outline,
+            if (!missionOn) ...[
+              const SizedBox(height: 8),
+              Text(
+                context.l10n.divePlanner_message_addSegmentsForProfile,
+                style: theme.textTheme.bodySmall?.copyWith(
+                  color: theme.colorScheme.outline,
+                ),
               ),
-            ),
-            const SizedBox(height: 16),
-            FilledButton.tonalIcon(
-              onPressed: () => showDialog<void>(
-                context: context,
-                builder: (_) => const SimplePlanDialog(),
+              const SizedBox(height: 16),
+              FilledButton.tonalIcon(
+                onPressed: () => showDialog<void>(
+                  context: context,
+                  builder: (_) => const SimplePlanDialog(),
+                ),
+                icon: const Icon(Icons.auto_awesome),
+                label: Text(context.l10n.divePlanner_action_quickPlan),
               ),
-              icon: const Icon(Icons.auto_awesome),
-              label: Text(context.l10n.divePlanner_action_quickPlan),
-            ),
+            ],
           ],
         ),
       ),
@@ -588,17 +698,22 @@ class _ScrubReadout extends ConsumerWidget {
   Widget build(BuildContext context, WidgetRef ref) {
     final theme = Theme.of(context);
     final minutes = (runtimeSeconds / 60).round();
-    final bailout = ref.watch(planBailoutProvider);
+    final outcome = ref.watch(planOutcomeProvider);
     var text = context.l10n.plannerCanvas_scrub_readout(
       minutes.toString(),
       units.formatDepth(depthMeters, decimals: 0),
     );
-    if (bailout != null) {
-      final point = bailout.nearest(runtimeSeconds);
-      text +=
-          ' · '
-          '${context.l10n.plannerCanvas_scrub_bailout('${(point.ttsSeconds / 60).ceil()}')}';
-    }
+    // The plan's own remaining time, not a bailout TTS: the schedule the
+    // diver is actually following is already fully computed, so the time
+    // left is just the plan's total runtime minus how far the scrub point
+    // already is into it.
+    final remainingSeconds = (outcome.runtimeSeconds - runtimeSeconds).clamp(
+      0,
+      outcome.runtimeSeconds,
+    );
+    text +=
+        ' · '
+        '${context.l10n.plannerCanvas_scrub_tts('${(remainingSeconds / 60).ceil()}')}';
     return Container(
       padding: const EdgeInsets.symmetric(horizontal: 10, vertical: 6),
       decoration: BoxDecoration(

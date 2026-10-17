@@ -138,6 +138,46 @@ library while it generates code. The same test that guards the table
 libraries enforces this, and keeps every file under `tables/` and
 `migrations/` under 800 lines.
 
+### Migration Principles
+
+- **Never lose data.** A rung transforms or backfills; it never drops a
+  column or table that still holds user data without first copying it.
+- **Forward only.** There are no down migrations. Opening a database whose
+  stored schema is newer than the running app supports throws
+  `DatabaseVersionMismatchException`
+  (`lib/core/database/database_version_exception.dart`, raised in
+  `lib/core/services/database_service.dart`) instead of opening it, so an
+  older app cannot run stale rungs or lower the version stamp. A headless
+  isolate (the background task) that finds an older database throws
+  `SchemaUpgradePendingException` from the same file and leaves the
+  upgrade to the next foreground launch.
+- **Back up first.** Before a pending ladder runs, the startup page takes a
+  full copy of the database with `PreMigrationBackupService`
+  (`lib/features/backup/data/services/pre_migration_backup_service.dart`),
+  keeping the last few copies, so a failed upgrade can be recovered.
+
+### Testing Migrations
+
+A rung that changes the schema or rewrites data should have a test under
+`test/core/database/` (older rungs are not all covered), named `migration_v<N>_test.dart` or
+`migration_v<N>_<topic>_test.dart`. The test opens an in-memory
+`NativeDatabase` whose `setup` sets `PRAGMA user_version` to the version
+before the rung and creates the affected tables in their old shape with
+sample rows, then wraps it in `AppDatabase`, forces the ladder to run with
+a trivial query, and asserts the new columns and the migrated values.
+`migration_v86_test.dart` is a compact example.
+`pre_migration_backup_integration_test.dart` covers the backup.
+
+### New Migration Checklist
+
+1. Follow the numbered steps in [Schema Version](#schema-version).
+2. Write the `migration_v<N>` test first and watch it fail.
+3. If the rung rewrites user data, assert values before and after, not
+   only that the column exists.
+4. If a restored or synced database must satisfy the change too, add the
+   backstop to `before_open.dart`.
+5. Run `flutter test test/core/database` before pushing.
+
 ## Core Tables
 
 ### Divers
@@ -971,6 +1011,13 @@ CREATE TABLE settings (
 );
 ```
 
+**Sync:** every key syncs, and each key merges on its own clock, except the
+keys in `deviceLocalSettingsKeys` in
+`lib/core/services/sync/device_local_fields.dart` (today `active_diver_id`,
+`nav_primary_ids`, `nav_rail_ids` and `nav_always_hide_labels`). Those are
+filtered on export, skipped on import, kept through a replace-adopt, and never
+queued for sync when written. A new key syncs unless you add it there.
+
 ### DiverSettings
 
 Per-diver settings with unit preferences, decompression parameters, and UI configuration:
@@ -1013,7 +1060,6 @@ CREATE TABLE diver_settings (
   end_limit REAL DEFAULT 30.0,
   use_dive_computer_cns_data INTEGER DEFAULT 0,
   default_ndl_source INTEGER DEFAULT 1,
-  default_ceiling_source INTEGER DEFAULT 1,
   default_tts_source INTEGER DEFAULT 1,
   default_cns_source INTEGER DEFAULT 1,
   -- Profile display settings
@@ -1058,6 +1104,22 @@ CREATE TABLE diver_settings (
   updated_at INTEGER NOT NULL
 );
 ```
+
+**Sync:** the table syncs as a whole row, and the row with the later clock
+wins, so a new column syncs unless it is listed in `deviceLocalSyncColumns` in
+`lib/core/services/sync/device_local_fields.dart`. Today that lists
+`notifications_enabled`, `service_reminder_days`, `reminder_time`,
+`trip_service_lead_days` and `theme_mode` (issue #2947). A listed column is
+left out of every export, refilled from this device on import (or from the
+snapshot a replace-adopt takes before clearing the table), and a save that
+changes only listed columns stamps no clock and queues nothing. A per-device
+setting with no reason to be per diver can live in SharedPreferences instead
+(see `settings_providers.dart`).
+
+When a change moves a setting between synced and device-local, in this table,
+the `settings` table, or SharedPreferences, update the
+[What Syncs Between Devices](../user/multi-device-sync.md#what-syncs-between-devices) section of the Multi-Device Sync page of the user
+guide in the same PR.
 
 ## Sync Tables
 

@@ -67,6 +67,7 @@ void main() {
       expect(stored!.depthUnit, DepthUnit.feet);
       expect(stored.pressureUnit, PressureUnit.psi);
       expect(stored.weightUnit, WeightUnit.pounds);
+      expect(stored.distanceUnit, DistanceUnit.miles);
 
       // Current diver persisted to prefs.
       expect(prefs.getString(currentDiverIdKey), divers.single.id);
@@ -77,6 +78,43 @@ void main() {
       expect(backup.frequency, BackupFrequency.daily);
     },
   );
+
+  // Issue #3111. The app language defaults to the device's, but place names
+  // defaulted to English, so a German install stored "Germany" and "Spain".
+  group('applyFirstRun place name language', () {
+    const draft = SetupWizardDraft(
+      mode: SetupWizardMode.firstRun,
+      path: SetupPath.fresh,
+      name: 'Eric',
+    );
+
+    Future<String> storedPlaceNameLanguage() async {
+      final diver = (await DiverRepository().getAllDivers()).single;
+      final stored = await DiverSettingsRepository().getSettingsForDiver(
+        diver.id,
+      );
+      return stored!.placeNameLanguage;
+    }
+
+    test('follows the first supported device language', () async {
+      final service = makeContainer().read(setupApplyServiceProvider);
+
+      await service.applyFirstRun(
+        draft,
+        deviceLanguageCodes: const ['pl', 'de'],
+      );
+
+      expect(await storedPlaceNameLanguage(), 'de');
+    });
+
+    test('stays English when no device language is supported', () async {
+      final service = makeContainer().read(setupApplyServiceProvider);
+
+      await service.applyFirstRun(draft, deviceLanguageCodes: const ['pl']);
+
+      expect(await storedPlaceNameLanguage(), 'en');
+    });
+  });
 
   // Issue #2298. On a fresh database the app is already running with a live
   // SettingsNotifier and CurrentDiverIdNotifier. Creating the wizard's diver
@@ -170,6 +208,7 @@ void main() {
       );
       expect(stored!.depthUnit, DepthUnit.feet);
       expect(stored.volumeUnit, VolumeUnit.cubicFeet);
+      expect(stored.distanceUnit, DistanceUnit.miles);
     },
   );
 

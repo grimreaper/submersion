@@ -31,9 +31,9 @@ abstract final class DivingLogPlaceValues {
   /// read as beginner. Anything else is left for the caller to keep as text.
   static SiteDifficulty? difficulty(String? label) =>
       switch (label?.trim().toLowerCase()) {
-        'beginner' || 'easy' || 'novice' => SiteDifficulty.beginner,
-        'intermediate' => SiteDifficulty.intermediate,
-        'advanced' => SiteDifficulty.advanced,
+        'beginner' || 'easy' || 'novice' || 'leicht' => SiteDifficulty.beginner,
+        'intermediate' || 'mäßig' || 'maessig' => SiteDifficulty.intermediate,
+        'advanced' || 'fortgeschritten' => SiteDifficulty.advanced,
         'technical' => SiteDifficulty.technical,
         _ => null,
       };

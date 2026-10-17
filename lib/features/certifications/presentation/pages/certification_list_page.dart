@@ -9,6 +9,7 @@ import 'package:submersion/core/models/sort_state.dart';
 import 'package:submersion/features/certifications/domain/constants/certification_field.dart';
 import 'package:submersion/features/certifications/presentation/providers/certification_providers.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
+import 'package:submersion/shared/selection/table_selection_owner.dart';
 import 'package:submersion/shared/widgets/entity_table/entity_table_column_picker.dart';
 import 'package:submersion/shared/widgets/list_view_mode_toggle.dart';
 import 'package:submersion/shared/widgets/master_detail/master_detail_scaffold.dart';
@@ -19,12 +20,33 @@ import 'package:submersion/features/certifications/presentation/widgets/certific
 import 'package:submersion/features/certifications/presentation/widgets/certification_summary_widget.dart';
 import 'package:submersion/features/certifications/presentation/pages/certification_detail_page.dart';
 import 'package:submersion/features/certifications/presentation/pages/certification_edit_page.dart';
+import 'package:submersion/core/query/domain/query_subject.dart';
+import 'package:submersion/features/certifications/presentation/providers/certification_query_providers.dart';
+import 'package:submersion/features/certifications/query/certification_query_entity.dart';
+import 'package:submersion/features/query/presentation/widgets/query_filter_sheet.dart';
+import 'package:submersion/features/certifications/presentation/widgets/certification_search_delegate.dart';
+import 'package:submersion/features/certifications/presentation/providers/certification_list_count_provider.dart';
+import 'package:submersion/features/certification_agencies/presentation/providers/certification_catalog_context.dart';
+import 'package:submersion/features/certification_agencies/presentation/providers/certification_catalog_providers.dart';
+import 'package:submersion/shared/widgets/section_header_title.dart';
 
-class CertificationListPage extends ConsumerWidget {
-  const CertificationListPage({super.key});
+class CertificationListPage extends ConsumerStatefulWidget {
+  const CertificationListPage({super.key, this.headerTitle});
+
+  /// Replaces every layout's header title, as Training's tab switch does
+  /// (#3437).
+  final SectionHeaderTitle? headerTitle;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<CertificationListPage> createState() =>
+      _CertificationListPageState();
+}
+
+class _CertificationListPageState extends ConsumerState<CertificationListPage>
+    with TableSelectionOwner {
+  @override
+  Widget build(BuildContext context) {
+    ref.watch(certificationCatalogSyncProvider);
     final fab = FloatingActionButton.extended(
       onPressed: () {
         final isDesktop = ResponsiveBreakpoints.isMasterDetail(context);
@@ -42,15 +64,31 @@ class CertificationListPage extends ConsumerWidget {
       label: Text(context.l10n.certifications_list_fab_addCertification),
     );
 
+    resetTableSelectionOffTable(certificationListViewModeProvider);
+
     // Table mode: use shared TableModeLayout for full-width table with
     // optional detail pane.
     final viewMode = ref.watch(certificationListViewModeProvider);
     if (viewMode == ListViewMode.table) {
+      final countLabel = certificationListCountLabel(context, ref);
       return FocusTraversalGroup(
         child: TableModeLayout(
           sectionKey: 'certifications',
           appBarTitle: context.l10n.nav_certifications,
-          tableContent: const CertificationListContent(showAppBar: false),
+          appBarSubtitle: countLabel,
+          appBarTitleWidget: widget.headerTitle?.build(
+            context,
+            SectionHeaderSlot.table,
+            countLabel,
+          ),
+          appBarToolbarHeight: widget.headerTitle?.appBarHeight(
+            context,
+            countLabel,
+          ),
+          tableContent: CertificationListContent(
+            showAppBar: false,
+            selectionController: tableSelection,
+          ),
           detailBuilder: (context, certificationId) => CertificationDetailPage(
             certificationId: certificationId,
             embedded: true,
@@ -82,7 +120,9 @@ class CertificationListPage extends ConsumerWidget {
             onPressed: () => showEntityTableColumnPicker<CertificationField>(
               context,
               configProvider: certificationTableConfigProvider,
-              adapter: CertificationFieldAdapter.instance,
+              adapter: CertificationFieldAdapter.withCatalog(
+                context.certificationCatalog,
+              ),
             ),
           ),
           appBarActions: [
@@ -97,9 +137,15 @@ class CertificationListPage extends ConsumerWidget {
               onPressed: () {
                 showSearch(
                   context: context,
-                  delegate: CertificationSearchDelegate(ref),
+                  delegate: CertificationSearchDelegate(),
                 );
               },
+            ),
+            QueryFilterAction(
+              provider: certificationQueryProvider,
+              subject: QuerySubject.certifications,
+              root: certificationQueryEntity,
+              compact: true,
             ),
             IconButton(
               icon: const Icon(Icons.sort, size: 20),
@@ -136,6 +182,7 @@ class CertificationListPage extends ConsumerWidget {
               itemBuilder: (context) {
                 final currentMode = ref.read(certificationListViewModeProvider);
                 return [
+                  ...tableSelectItemsEntries(context),
                   ...ListViewModeToggle.menuItems(
                     context,
                     currentMode: currentMode,
@@ -159,6 +206,7 @@ class CertificationListPage extends ConsumerWidget {
               onItemSelected: onItemSelected,
               selectedId: selectedId,
               showAppBar: false,
+              headerTitle: widget.headerTitle,
             ),
         detailBuilder: (context, certificationId) => CertificationDetailPage(
           certificationId: certificationId,
@@ -189,6 +237,7 @@ class CertificationListPage extends ConsumerWidget {
     return FocusTraversalGroup(
       child: CertificationListContent(
         showAppBar: true,
+        headerTitle: widget.headerTitle,
         floatingActionButton: fab,
       ),
     );

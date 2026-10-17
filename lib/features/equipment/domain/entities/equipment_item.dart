@@ -133,10 +133,40 @@ class EquipmentItem extends Equatable {
   /// Still in service: active, and not carrying a terminal status. Older
   /// rows can be retired or sold with isActive left true, and the
   /// repository's own active-gear queries treat both statuses as gone.
+  /// Wanted gear (#2025) is not owned yet, so it is never fitted either,
+  /// even on a row whose isActive was left true.
   bool get isFitted =>
       isActive &&
       status != EquipmentStatus.retired &&
-      status != EquipmentStatus.sold;
+      status != EquipmentStatus.sold &&
+      status != EquipmentStatus.wanted;
+
+  /// On the diver's wishlist rather than in the kit (#2025).
+  bool get isWanted => status == EquipmentStatus.wanted;
+
+  /// Owned once, out of the active list now: retired, sold, or lost and
+  /// marked inactive (`departedStatusOf` names which). Still worth offering
+  /// on a past dive's pickers, since it was really used there (#3210).
+  /// Wishlist gear never joined the kit, so it has not left it.
+  bool get hasLeftKit => !isFitted && !isWanted;
+
+  /// The status the diver reads: the stored one, except a legacy row
+  /// retired by is_active alone, whose stored status still says Active or
+  /// the like, which reads Retired as the repository counts it (#636).
+  /// Agrees with `departedStatusOf` wherever that names a status, so the
+  /// picker filters by the same status it labels (#3210).
+  EquipmentStatus get effectiveStatus =>
+      !isActive && !_ownInactiveStatuses.contains(status)
+      ? EquipmentStatus.retired
+      : status;
+
+  /// The statuses an inactive row keeps rather than reading Retired.
+  static const _ownInactiveStatuses = {
+    EquipmentStatus.retired,
+    EquipmentStatus.sold,
+    EquipmentStatus.lost,
+    EquipmentStatus.wanted,
+  };
 
   /// Wing/BCD rated lift capacity in kg (curated attribute; see the BCD entry
   /// in [EquipmentAttributeCatalog]). Feeds the buoyancy twin's peak-lift

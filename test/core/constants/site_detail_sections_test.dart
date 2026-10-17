@@ -10,24 +10,28 @@ List<SiteDetailSectionId> _ids(List<SiteDetailSectionConfig> list) => [
 
 void main() {
   group('SiteDetailSectionId', () {
-    test('declares the order the site page shipped with', () {
+    test('declares the planning-first default order (issue #3387)', () {
+      // What the site is and whether it suits me, then how to get in and
+      // when, then what is down there, then my own history and records.
       expect(SiteDetailSectionId.values, const [
-        SiteDetailSectionId.diveStatistics,
         SiteDetailSectionId.description,
-        SiteDetailSectionId.location,
         SiteDetailSectionId.depth,
-        SiteDetailSectionId.altitude,
-        SiteDetailSectionId.features,
-        SiteDetailSectionId.tide,
-        SiteDetailSectionId.reefHealth,
-        SiteDetailSectionId.marineLife,
-        SiteDetailSectionId.media,
-        SiteDetailSectionId.tags,
         SiteDetailSectionId.difficulty,
         SiteDetailSectionId.rating,
         SiteDetailSectionId.hazards,
         SiteDetailSectionId.access,
+        SiteDetailSectionId.location,
+        SiteDetailSectionId.tide,
+        SiteDetailSectionId.seascape,
+        SiteDetailSectionId.features,
+        SiteDetailSectionId.marineLife,
+        SiteDetailSectionId.reefHealth,
+        SiteDetailSectionId.media,
+        SiteDetailSectionId.diveStatistics,
         SiteDetailSectionId.notes,
+        SiteDetailSectionId.tags,
+        SiteDetailSectionId.altitude,
+        SiteDetailSectionId.documents,
       ]);
     });
 
@@ -42,6 +46,7 @@ void main() {
           SiteDetailSectionId.diveStatistics: 'Dives at this Site',
           SiteDetailSectionId.description: 'Description',
           SiteDetailSectionId.location: 'Location',
+          SiteDetailSectionId.seascape: 'Site Seascape',
           SiteDetailSectionId.depth: 'Depth Range',
           SiteDetailSectionId.altitude: 'Altitude',
           SiteDetailSectionId.features: 'Features',
@@ -55,6 +60,7 @@ void main() {
           SiteDetailSectionId.hazards: 'Hazards & Safety',
           SiteDetailSectionId.access: 'Access & Logistics',
           SiteDetailSectionId.notes: 'Notes',
+          SiteDetailSectionId.documents: 'Documents',
         },
       );
     });
@@ -172,7 +178,7 @@ void main() {
     });
 
     test('a card missing from a saved order lands after its neighbour', () {
-      // A saved order without Altitude, which belongs right after Depth.
+      // A saved order without Altitude, which belongs right after Tags.
       final saved = [
         for (final id in SiteDetailSectionId.values.reversed)
           if (id != SiteDetailSectionId.altitude)
@@ -185,8 +191,47 @@ void main() {
       );
       expect(
         ids.indexOf(SiteDetailSectionId.altitude),
-        ids.indexOf(SiteDetailSectionId.depth) + 1,
+        ids.indexOf(SiteDetailSectionId.tags) + 1,
       );
+    });
+
+    test('an order saved before the seascape card existed gains it, '
+        'visible, right after Tides', () {
+      // Every card a v1.8.1 diver could have saved, rearranged, with Tides
+      // moved to the top and Notes hidden. Seascape follows Tides in the
+      // default order, so that is where it joins the saved one.
+      final saved = [
+        const SiteDetailSectionConfig(
+          id: SiteDetailSectionId.tide,
+          visible: true,
+        ),
+        for (final id in SiteDetailSectionId.values.reversed)
+          if (id != SiteDetailSectionId.tide &&
+              id != SiteDetailSectionId.seascape)
+            SiteDetailSectionConfig(
+              id: id,
+              visible: id != SiteDetailSectionId.notes,
+            ),
+      ];
+      final result = SiteDetailSectionConfig.sectionsFromJson(
+        SiteDetailSectionConfig.sectionsToJson(saved),
+      );
+      final ids = _ids(result);
+
+      expect(ids.take(2), [
+        SiteDetailSectionId.tide,
+        SiteDetailSectionId.seascape,
+      ]);
+      expect(
+        result.firstWhere((s) => s.id == SiteDetailSectionId.seascape).visible,
+        isTrue,
+      );
+      // The diver's own choices survive the insertion.
+      expect(
+        result.firstWhere((s) => s.id == SiteDetailSectionId.notes).visible,
+        isFalse,
+      );
+      expect(ids.last, SiteDetailSectionId.description);
     });
 
     test('moveRenderedSection leaves unrendered cards in place', () {
@@ -203,10 +248,17 @@ void main() {
           0,
         ),
       );
-      expect(ids.first, SiteDetailSectionId.diveStatistics);
+      expect(ids.first, SiteDetailSectionId.notes);
       expect(
         ids.indexOf(SiteDetailSectionId.notes),
         ids.indexOf(SiteDetailSectionId.description) - 1,
+      );
+      // Every other card, rendered or not, keeps its default place.
+      expect(
+        ids.where((id) => id != SiteDetailSectionId.notes),
+        SiteDetailSectionId.values.where(
+          (id) => id != SiteDetailSectionId.notes,
+        ),
       );
     });
 

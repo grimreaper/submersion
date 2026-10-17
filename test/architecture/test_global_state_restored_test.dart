@@ -1,3 +1,4 @@
+// pre-push: scans test/
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -24,7 +25,7 @@ import 'global_state_scanner.dart';
 ///   back in `tearDown` or `addTearDown`. Reading the value without assigning
 ///   it back does not count.
 /// * `QualityScanScheduler.enabled`, `SensorSummaryScheduler.enabled`,
-///   `debugCanShareFiles` or `GoogleFonts.config.allowRuntimeFetching`: call
+///   `DerivedMetricsScheduler.enabled`, `debugCanShareFiles` or `GoogleFonts.config.allowRuntimeFetching`: call
 ///   `applyGlobalTestDefaults()` from
 ///   `test/helpers/global_test_defaults.dart` in `tearDown`.
 /// * A mock on the path provider or share channel: call

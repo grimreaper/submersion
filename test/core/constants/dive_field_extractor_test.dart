@@ -19,7 +19,7 @@ BuddyWithRole _person(String name, String roleId) => BuddyWithRole(
     createdAt: DateTime(2024, 1, 1),
     updatedAt: DateTime(2024, 1, 1),
   ),
-  role: DiveRole.synthetic(roleId),
+  roles: [DiveRole.synthetic(roleId)],
 );
 
 /// A minimal dive carrying junction [buddies] plus optional legacy scalars.
@@ -104,6 +104,10 @@ void main() {
     precipitation: Precipitation.none,
     humidity: 65.0,
     weatherDescription: 'Clear skies',
+    diveOperator: 'Buddy Dive',
+    boatName: 'Bonaire Breeze',
+    boatCaptain: 'Rik',
+    surfaceConditions: 'Calm',
     buddy: 'John Doe',
     diveMaster: 'Jane Smith',
     diveComputerModel: 'Shearwater Perdix',
@@ -262,6 +266,13 @@ void main() {
 
     test('humidity returns humidity', () {
       expect(DiveField.humidity.extractFromDive(testDive), 65.0);
+    });
+
+    test('boat fields and surface conditions extract their text', () {
+      expect(DiveField.diveOperator.extractFromDive(testDive), 'Buddy Dive');
+      expect(DiveField.boatName.extractFromDive(testDive), 'Bonaire Breeze');
+      expect(DiveField.boatCaptain.extractFromDive(testDive), 'Rik');
+      expect(DiveField.surfaceConditions.extractFromDive(testDive), 'Calm');
     });
 
     test('weatherDescription returns weather description', () {

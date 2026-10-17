@@ -4,6 +4,7 @@ import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/constants/gas_model.dart';
 import 'package:submersion/core/deco/constants/buhlmann_coefficients.dart';
 import 'package:submersion/core/deco/max_operating_depth.dart';
+import 'package:submersion/core/domain/visibility/visibility_range.dart';
 import 'package:submersion/core/utils/gas_compressibility.dart';
 import 'package:submersion/features/buddies/domain/entities/buddy.dart';
 import 'package:submersion/features/dive_centers/domain/entities/dive_center.dart';
@@ -14,9 +15,11 @@ import 'package:submersion/features/equipment/domain/entities/gear_link.dart';
 import 'package:submersion/features/equipment/domain/entities/gear_provenance.dart';
 import 'package:submersion/features/tags/domain/entities/tag.dart';
 import 'package:submersion/features/trips/domain/entities/trip.dart';
+import 'package:submersion/features/dive_log/domain/entities/computer_tissue_snapshot.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_custom_field.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_weight.dart';
 import 'package:submersion/features/dive_log/domain/services/bottom_time_calculator.dart';
+import 'package:submersion/features/dive_log/domain/services/multi_cylinder_consumption.dart';
 
 /// Core dive log entry entity
 class Dive extends Equatable {
@@ -70,11 +73,25 @@ class Dive extends Equatable {
   /// calibration, so this stores only what was actually observed.
   final double? visibilityMeters;
 
+  /// Low end of a visibility range in meters, inclusive (v278, issue #3226).
+  /// Set when the diver picked a band rather than measuring. Never set
+  /// together with [visibilityMeters].
+  final double? visibilityMinMeters;
+
+  /// High end of a visibility range in meters, exclusive.
+  final double? visibilityMaxMeters;
+
   /// References dive_types table (>= 1; first is the representative).
   final List<String> diveTypeIds;
   final DiveTypeEntity? diveType; // Loaded dive type entity (for display)
   final String? buddy;
   final String? diveMaster;
+
+  /// Who ran the dive, the boat it left from and that boat's captain, as
+  /// the diver wrote them (#3229). MacDive and UDDF imports fill these too.
+  final String? diveOperator;
+  final String? boatName;
+  final String? boatCaptain;
 
   /// Buddies and dive guides recorded on this dive via the many-to-many
   /// `dive_buddies` junction (#553), each paired with their [DiveRole].
@@ -85,13 +102,19 @@ class Dive extends Equatable {
   /// path, in which case the [buddy] / [diveMaster] text fields are the source.
   final List<BuddyWithRole> buddies;
 
-  /// The active diver's own role on this dive (dive_roles id, #547).
-  final String? diverRoleId;
+  /// The active diver's own roles on this dive, in DiveRoleSet order (issue
+  /// #1221); empty when none. The first is the primary role
+  /// `dives.diver_role` holds for older app versions (#547).
+  final List<String> diverRoleIds;
   final int? rating; // 1-5 stars
   // Conditions fields
   final CurrentDirection? currentDirection;
   final CurrentStrength? currentStrength;
   final double? swellHeight; // meters
+
+  /// The sea state at the surface in the diver's words, such as "Calm" or
+  /// "Choppy" (#3229).
+  final String? surfaceConditions;
   final EntryMethod? entryMethod;
   final EntryMethod? exitMethod;
   final WaterType? waterType;
@@ -107,6 +130,9 @@ class Dive extends Equatable {
   // Decompression algorithm and conservatism
   final String? decoAlgorithm; // "buhlmann", "vpm", "rgbm", "dciem"
   final int? decoConservatism; // Personal adjustment (0=neutral)
+  // Tissue state the dive computer itself reported, as imported. Never
+  // computed by the app; null when the source carried none.
+  final ComputerTissueSnapshot? computerTissue;
   // Dive computer that logged this dive
   final String? diveComputerModel;
   final String? diveComputerSerial;
@@ -179,8 +205,9 @@ class Dive extends Equatable {
   /// Null for a dive that was never mirrored.
   final String? outingId;
 
-  // Training course (v1.5)
-  final String? courseId; // FK to training course
+  // Training courses (issue #2515). The representative (the
+  // `dives.course_id` column) comes first; see [courseId].
+  final List<String> courseIds;
 
   // Import source tracking
   final String? importSource; // 'appleWatch', 'garmin', 'suunto'
@@ -232,16 +259,22 @@ class Dive extends Equatable {
     this.airTemp,
     this.visibility,
     this.visibilityMeters,
+    this.visibilityMinMeters,
+    this.visibilityMaxMeters,
     this.diveTypeIds = const ['recreational'],
     this.diveType,
     this.buddy,
     this.diveMaster,
+    this.diveOperator,
+    this.boatName,
+    this.boatCaptain,
     this.buddies = const [],
-    this.diverRoleId,
+    this.diverRoleIds = const [],
     this.rating,
     this.currentDirection,
     this.currentStrength,
     this.swellHeight,
+    this.surfaceConditions,
     this.entryMethod,
     this.exitMethod,
     this.waterType,
@@ -252,6 +285,7 @@ class Dive extends Equatable {
     this.gradientFactorHigh,
     this.decoAlgorithm,
     this.decoConservatism,
+    this.computerTissue,
     this.diveComputerModel,
     this.diveComputerSerial,
     this.diveComputerFirmware,
@@ -284,8 +318,8 @@ class Dive extends Equatable {
     // Dive planner (v1.5)
     this.isPlanned = false,
     this.outingId,
-    // Training course (v1.5)
-    this.courseId,
+    // Training courses (issue #2515)
+    this.courseIds = const [],
     // Import source tracking
     this.importSource,
     this.importId,
@@ -336,6 +370,10 @@ class Dive extends Equatable {
   /// only its own value.
   EntryMethod? get effectiveEntryMethod => entryMethod ?? site?.entryMethod;
 
+  /// The stored visibility range, or null when the dive has none.
+  VisibilityRange? get visibilityRange =>
+      VisibilityRange.fromColumns(visibilityMinMeters, visibilityMaxMeters);
+
   /// User-defined name, normalized for display: trimmed, with empty or
   /// whitespace-only values treated as unset (null). In-app writes never
   /// store such values, but synced rows from other writers can; display
@@ -344,6 +382,9 @@ class Dive extends Equatable {
     final trimmed = name?.trim();
     return (trimmed == null || trimmed.isEmpty) ? null : trimmed;
   }
+
+  /// The representative training course, or null when the dive is in none.
+  String? get courseId => courseIds.isEmpty ? null : courseIds.first;
 
   /// Display name for the representative (first) dive type.
   String get diveTypeName => diveType?.name ?? diveTypeDisplayName(diveTypeId);
@@ -435,11 +476,13 @@ class Dive extends Equatable {
 
   /// RMV: respiratory minute volume in L/min at the surface under [model],
   /// summing gas consumed across every tank that has pressures and a volume.
+  /// A cylinder with no volume borrows its matched partner's, a sidemount
+  /// pair or back-gas doubles on one gas (#3109).
   ///
   /// This is the diver's property (how much gas their lungs move), so every
-  /// cylinder counts. Its pressure-lane sibling [sac] reads one reference
-  /// cylinder instead, because a pressure drop is a property of that
-  /// cylinder's size (discussions #354, #803).
+  /// cylinder counts. Its pressure-lane sibling [sac] is expressed in bar of
+  /// one reference cylinder instead, because a pressure drop is a property
+  /// of that cylinder's size (discussions #354, #803).
   ///
   /// Takes the model as a parameter rather than reading a provider so the
   /// entity stays free of container dependencies. Callers source it from
@@ -462,9 +505,10 @@ class Dive extends Equatable {
     int tanksWithData = 0;
 
     for (final tank in tanks) {
+      final volume = consumptionVolume(tank, tanks);
       if (tank.startPressure == null ||
           tank.endPressure == null ||
-          tank.volume == null) {
+          volume == null) {
         continue;
       }
 
@@ -472,14 +516,14 @@ class Dive extends Equatable {
       if (pressureUsed <= 0) continue;
 
       final startVolume = gasVolume(
-        tankSizeLiters: tank.volume!,
+        tankSizeLiters: volume,
         pressureBar: tank.startPressure!,
         o2Percent: tank.gasMix.o2,
         hePercent: tank.gasMix.he,
         model: model,
       );
       final endVolume = gasVolume(
-        tankSizeLiters: tank.volume!,
+        tankSizeLiters: volume,
         pressureBar: tank.endPressure!,
         o2Percent: tank.gasMix.o2,
         hePercent: tank.gasMix.he,
@@ -498,25 +542,33 @@ class Dive extends Equatable {
     return totalGasLiters / minutes / avgPressureBar;
   }
 
-  /// The cylinder the pressure lane ([sac]) reads, and the one whose
-  /// volume converts an unattributed SAC segment to L/min: on a multi-tank
-  /// dive the back gas, else the first cylinder; the only cylinder on a
-  /// single-tank dive whatever its role. Null when the dive has no cylinders.
-  DiveTank? get sacReferenceTank {
-    if (tanks.isEmpty) return null;
-    if (tanks.length == 1) return tanks.first;
-    return tanks.firstWhere(
-      (t) => t.role == TankRole.backGas,
-      orElse: () => tanks.first,
-    );
+  /// The cylinder whose bar the pressure lane ([sac]) is expressed in, and
+  /// the one whose volume converts an unattributed SAC segment to L/min:
+  /// on a multi-tank dive the back gas, else the first cylinder; the only
+  /// cylinder on a single-tank dive whatever its role. Null when the dive
+  /// has no cylinders.
+  DiveTank? get sacReferenceTank => sacReferenceTankOf(tanks);
+
+  /// The volume of [sacReferenceTank], its own or its matched partner's
+  /// (issue #3109): what turns a SAC in bar of that cylinder into L/min.
+  /// Never another cylinder's: a stage's size says nothing about the back
+  /// gas. Null when neither is known.
+  double? get sacReferenceVolume {
+    final reference = sacReferenceTank;
+    return reference == null ? null : consumptionVolume(reference, tanks);
   }
 
   /// SAC: surface air consumption as a tank-pressure drop rate, in bar/min
-  /// at the surface, read from [sacReferenceTank] only.
+  /// at the surface, in bar of [sacReferenceTank]. Every other breathed
+  /// cylinder adds its drop converted to that cylinder's size (issue #3109,
+  /// see [referencePressureDrop]); a rebreather dive reads the reference
+  /// cylinder alone.
   ///
   /// Needs no cylinder volume, so it exists for every dive-computer download
   /// that carries pressure. Not a unit conversion of [rmvFor] on multi-tank
-  /// dives: bar/min from a 12 L back gas and a 7 L stage cannot be averaged.
+  /// dives: bar/min from a 12 L back gas and a 7 L stage cannot be averaged,
+  /// only converted by volume. A cylinder of unknown size is left out
+  /// unless it pairs with the reference (see [isMatchedPair]).
   double? get sac {
     if (tanks.isEmpty || effectiveRuntime == null || avgDepth == null) {
       return null;
@@ -527,16 +579,12 @@ class Dive extends Equatable {
 
     final avgPressureAtm = (avgDepth! / 10) + 1; // Convert depth to ATM
 
-    final referenceTank = sacReferenceTank!;
-
-    if (referenceTank.startPressure == null ||
-        referenceTank.endPressure == null) {
-      return null;
-    }
-
-    final pressureUsed =
-        referenceTank.startPressure! - referenceTank.endPressure!;
-    if (pressureUsed <= 0) return null;
+    final pressureUsed = referencePressureDrop(
+      reference: sacReferenceTank!,
+      tanks: tanks,
+      referenceOnly: isRebreather,
+    );
+    if (pressureUsed == null) return null;
 
     // SAC in bar/min at surface
     return pressureUsed / minutes / avgPressureAtm;
@@ -638,16 +686,22 @@ class Dive extends Equatable {
     double? airTemp,
     Visibility? visibility,
     double? visibilityMeters,
+    double? visibilityMinMeters,
+    double? visibilityMaxMeters,
     List<String>? diveTypeIds,
     DiveTypeEntity? diveType,
     String? buddy,
     String? diveMaster,
+    String? diveOperator,
+    String? boatName,
+    String? boatCaptain,
     List<BuddyWithRole>? buddies,
-    String? diverRoleId,
+    List<String>? diverRoleIds,
     int? rating,
     CurrentDirection? currentDirection,
     CurrentStrength? currentStrength,
     double? swellHeight,
+    String? surfaceConditions,
     EntryMethod? entryMethod,
     EntryMethod? exitMethod,
     WaterType? waterType,
@@ -658,6 +712,7 @@ class Dive extends Equatable {
     int? gradientFactorHigh,
     String? decoAlgorithm,
     int? decoConservatism,
+    ComputerTissueSnapshot? computerTissue,
     String? diveComputerModel,
     String? diveComputerSerial,
     String? diveComputerFirmware,
@@ -691,8 +746,8 @@ class Dive extends Equatable {
     bool? isPlanned,
     String? outingId,
     bool clearOutingId = false,
-    // Training course
-    String? courseId,
+    // Training courses
+    List<String>? courseIds,
     // Import source tracking
     String? importSource,
     String? importId,
@@ -737,16 +792,22 @@ class Dive extends Equatable {
       airTemp: airTemp ?? this.airTemp,
       visibility: visibility ?? this.visibility,
       visibilityMeters: visibilityMeters ?? this.visibilityMeters,
+      visibilityMinMeters: visibilityMinMeters ?? this.visibilityMinMeters,
+      visibilityMaxMeters: visibilityMaxMeters ?? this.visibilityMaxMeters,
       diveTypeIds: diveTypeIds ?? this.diveTypeIds,
       diveType: diveType ?? this.diveType,
       buddy: buddy ?? this.buddy,
       diveMaster: diveMaster ?? this.diveMaster,
+      diveOperator: diveOperator ?? this.diveOperator,
+      boatName: boatName ?? this.boatName,
+      boatCaptain: boatCaptain ?? this.boatCaptain,
       buddies: buddies ?? this.buddies,
-      diverRoleId: diverRoleId ?? this.diverRoleId,
+      diverRoleIds: diverRoleIds ?? this.diverRoleIds,
       rating: rating ?? this.rating,
       currentDirection: currentDirection ?? this.currentDirection,
       currentStrength: currentStrength ?? this.currentStrength,
       swellHeight: swellHeight ?? this.swellHeight,
+      surfaceConditions: surfaceConditions ?? this.surfaceConditions,
       entryMethod: entryMethod ?? this.entryMethod,
       exitMethod: exitMethod ?? this.exitMethod,
       waterType: waterType ?? this.waterType,
@@ -757,6 +818,7 @@ class Dive extends Equatable {
       gradientFactorHigh: gradientFactorHigh ?? this.gradientFactorHigh,
       decoAlgorithm: decoAlgorithm ?? this.decoAlgorithm,
       decoConservatism: decoConservatism ?? this.decoConservatism,
+      computerTissue: computerTissue ?? this.computerTissue,
       diveComputerModel: diveComputerModel ?? this.diveComputerModel,
       diveComputerSerial: diveComputerSerial ?? this.diveComputerSerial,
       diveComputerFirmware: diveComputerFirmware ?? this.diveComputerFirmware,
@@ -789,8 +851,8 @@ class Dive extends Equatable {
       // Dive planner
       isPlanned: isPlanned ?? this.isPlanned,
       outingId: clearOutingId ? null : (outingId ?? this.outingId),
-      // Training course
-      courseId: courseId ?? this.courseId,
+      // Training courses
+      courseIds: courseIds ?? this.courseIds,
       // Import source tracking
       importSource: importSource ?? this.importSource,
       importId: importId ?? this.importId,
@@ -838,16 +900,22 @@ class Dive extends Equatable {
     airTemp,
     visibility,
     visibilityMeters,
+    visibilityMinMeters,
+    visibilityMaxMeters,
     diveTypeIds,
     diveType,
     buddy,
     diveMaster,
+    diveOperator,
+    boatName,
+    boatCaptain,
     buddies,
-    diverRoleId,
+    diverRoleIds,
     rating,
     currentDirection,
     currentStrength,
     swellHeight,
+    surfaceConditions,
     entryMethod,
     exitMethod,
     waterType,
@@ -858,6 +926,7 @@ class Dive extends Equatable {
     gradientFactorHigh,
     decoAlgorithm,
     decoConservatism,
+    computerTissue,
     diveComputerModel,
     diveComputerSerial,
     diveComputerFirmware,
@@ -890,8 +959,8 @@ class Dive extends Equatable {
     // Dive planner
     isPlanned,
     outingId,
-    // Training course
-    courseId,
+    // Training courses
+    courseIds,
     // Import source tracking
     importSource,
     importId,
@@ -945,6 +1014,10 @@ class DiveProfilePoint extends Equatable {
   final int? rbt; // Remaining Bottom Time in seconds
   final int? decoType; // 0=NDL, 1=safety stop, 2=deco stop, 3=deep stop
   final int? tts; // Time To Surface in seconds
+  // Computer-reported tissue loading, both whole percents; null when the
+  // source carried none. Never computed by the app.
+  final int? gf99; // Computer-reported GF99, percent
+  final int? n2Load; // Computer-reported aggregate N2 tissue loading, percent
 
   const DiveProfilePoint({
     required this.timestamp,
@@ -974,6 +1047,8 @@ class DiveProfilePoint extends Equatable {
     this.rbt,
     this.decoType,
     this.tts,
+    this.gf99,
+    this.n2Load,
   });
 
   DiveProfilePoint copyWith({
@@ -1004,6 +1079,8 @@ class DiveProfilePoint extends Equatable {
     int? rbt,
     int? decoType,
     int? tts,
+    int? gf99,
+    int? n2Load,
   }) {
     return DiveProfilePoint(
       timestamp: timestamp ?? this.timestamp,
@@ -1033,6 +1110,8 @@ class DiveProfilePoint extends Equatable {
       rbt: rbt ?? this.rbt,
       decoType: decoType ?? this.decoType,
       tts: tts ?? this.tts,
+      gf99: gf99 ?? this.gf99,
+      n2Load: n2Load ?? this.n2Load,
     );
   }
 
@@ -1065,6 +1144,8 @@ class DiveProfilePoint extends Equatable {
     rbt,
     decoType,
     tts,
+    gf99,
+    n2Load,
   ];
 }
 
@@ -1096,6 +1177,13 @@ class DiveTank extends Equatable {
   final double? endPressure; // bar
   final GasMix gasMix;
   final TankRole role; // back gas, stage, deco, bailout, etc.
+
+  /// Where [role] came from when no person chose it (issue #2595): a role
+  /// the computer read off the transmitter's name is unconfirmed, and the
+  /// transmitter registry may replace it. Null once the diver or the
+  /// registry set the role. Downloads, re-parses and the registry write it;
+  /// [DiveRepository.updateDive] clears it when the role changes.
+  final TankRoleSource? roleSource;
   final TankMaterial? material; // aluminum, steel, carbon fiber
   final int order; // for multi-tank ordering
   final String? presetName; // name of preset used (e.g., 'al80', 'hp100')
@@ -1114,12 +1202,27 @@ class DiveTank extends Equatable {
   /// transmitter, whatever gas mix each computer had programmed.
   final String? transmitterSerial;
 
+  /// The data source this tank row came from (v251, issue #2716), so two
+  /// consolidated sources that name no computer keep their copies of one
+  /// cylinder apart. Null means the dive's primary source. Read-only
+  /// projection, like [computerId]: the import, download and source-moving
+  /// paths write it, and edit flows never do.
+  final String? sourceId;
+
   /// Parsed tank index this row's computer-owned data comes from (v200). Null
   /// on rows from before v200 means "same as order"; -1 (kNoSourceTankIndex
   /// in tank_source_index.dart) means the row takes no parsed tank.
   /// Computer-owned identity, like [computerId] and [transmitterSerial]:
   /// user edits never rewrite it.
   final int? sourceTankIndex;
+
+  /// The other computers on a consolidated dive that logged this same
+  /// cylinder (v260): consolidation keeps one row per physical cylinder,
+  /// attributed to [computerId], and lists here the computers merged into
+  /// it. Empty when that was recorded and found nobody; null when it was
+  /// never recorded (tank_shared_computers.dart). Computer-owned identity,
+  /// like [computerId]: user edits never rewrite it.
+  final List<String>? sharedComputerIds;
 
   /// The regulator this cylinder was breathed through (v202), so high-O2
   /// contact reaches the regulator's service clocks. User-authored: the
@@ -1132,12 +1235,26 @@ class DiveTank extends Equatable {
   /// it when the dive moves.
   final String? tripCylinderId;
 
+  /// The passport id of the tagged cylinder this tank was filled from (v287,
+  /// issue #2650): set by a scan or a pick of a cylinder that has one,
+  /// cleared by a preset or a trip slot. An identity, not a link, so a
+  /// rental with no gear row still counts its uses. User-authored like
+  /// [tripCylinderId]: downloads never touch it.
+  final String? passportId;
+
   /// The gear item this cylinder is (the `dive_tanks.equipment_id` link the
   /// transmitter registry writes when a serial is assigned to an item).
   /// Read-only on the domain side: edit flows rebuild the tank field by
   /// field and never write it, like [computerId], so a rebuild that forgot
   /// it cannot wipe what the registry recorded.
   final String? equipmentId;
+
+  /// How long this cylinder was breathed, as the source log recorded it
+  /// (v259, issue #1496). MacDive logs one per tank with no gas-switch
+  /// times, so it says how long but not when. Per-cylinder SAC uses it as
+  /// the breathing time when the dive has no gas switches. Import-owned,
+  /// like [transmitterSerial]: edit flows never write it.
+  final Duration? usageDuration;
 
   /// Deco gas-switch depth override in meters (planning only); null = auto
   /// (MOD at the deco pO2). Subsurface per-cylinder "Deco switch at", v120.
@@ -1161,18 +1278,30 @@ class DiveTank extends Equatable {
     this.endPressure,
     this.gasMix = const GasMix(),
     this.role = TankRole.backGas,
+    this.roleSource,
     this.material,
     this.order = 0,
     this.presetName,
     this.computerId,
     this.transmitterSerial,
+    this.sourceId,
     this.sourceTankIndex,
+    this.sharedComputerIds,
     this.regulatorEquipmentId,
     this.tripCylinderId,
+    this.passportId,
     this.equipmentId,
+    this.usageDuration,
     this.decoSwitchDepth,
     this.isTravelGas = false,
   });
+
+  /// Whether [computer] breathed this cylinder: it owns it, shares it, or
+  /// the tank belongs to the whole dive (unattributed).
+  bool isUsedBy(String computer) =>
+      computerId == null ||
+      computerId == computer ||
+      (sharedComputerIds?.contains(computer) ?? false);
 
   /// Pressure consumed during dive
   double? get pressureUsed {
@@ -1191,6 +1320,8 @@ class DiveTank extends Equatable {
     double? endPressure,
     GasMix? gasMix,
     TankRole? role,
+    TankRoleSource? roleSource,
+    bool clearRoleSource = false,
     TankMaterial? material,
     int? order,
     String? presetName,
@@ -1198,13 +1329,20 @@ class DiveTank extends Equatable {
     String? computerId,
     String? transmitterSerial,
     bool clearTransmitterSerial = false,
+    String? sourceId,
     int? sourceTankIndex,
     bool clearSourceTankIndex = false,
+    List<String>? sharedComputerIds,
     String? regulatorEquipmentId,
     String? equipmentId,
+    Duration? usageDuration,
+    bool clearUsageDuration = false,
     bool clearRegulatorEquipmentId = false,
+    bool clearMaterial = false,
     String? tripCylinderId,
     bool clearTripCylinderId = false,
+    String? passportId,
+    bool clearPassportId = false,
     double? decoSwitchDepth,
     bool clearDecoSwitchDepth = false,
     bool? isTravelGas,
@@ -1218,23 +1356,30 @@ class DiveTank extends Equatable {
       endPressure: endPressure ?? this.endPressure,
       gasMix: gasMix ?? this.gasMix,
       role: role ?? this.role,
-      material: material ?? this.material,
+      roleSource: clearRoleSource ? null : (roleSource ?? this.roleSource),
+      material: clearMaterial ? null : (material ?? this.material),
       order: order ?? this.order,
       presetName: clearPresetName ? null : (presetName ?? this.presetName),
       computerId: computerId ?? this.computerId,
       transmitterSerial: clearTransmitterSerial
           ? null
           : (transmitterSerial ?? this.transmitterSerial),
+      sourceId: sourceId ?? this.sourceId,
       sourceTankIndex: clearSourceTankIndex
           ? null
           : (sourceTankIndex ?? this.sourceTankIndex),
+      sharedComputerIds: sharedComputerIds ?? this.sharedComputerIds,
       regulatorEquipmentId: clearRegulatorEquipmentId
           ? null
           : (regulatorEquipmentId ?? this.regulatorEquipmentId),
       tripCylinderId: clearTripCylinderId
           ? null
           : (tripCylinderId ?? this.tripCylinderId),
+      passportId: clearPassportId ? null : (passportId ?? this.passportId),
       equipmentId: equipmentId ?? this.equipmentId,
+      usageDuration: clearUsageDuration
+          ? null
+          : (usageDuration ?? this.usageDuration),
       decoSwitchDepth: clearDecoSwitchDepth
           ? null
           : (decoSwitchDepth ?? this.decoSwitchDepth),
@@ -1252,15 +1397,20 @@ class DiveTank extends Equatable {
     endPressure,
     gasMix,
     role,
+    roleSource,
     material,
     order,
     presetName,
     computerId,
     transmitterSerial,
+    sourceId,
     sourceTankIndex,
+    sharedComputerIds,
     regulatorEquipmentId,
     equipmentId,
     tripCylinderId,
+    passportId,
+    usageDuration,
     decoSwitchDepth,
     isTravelGas,
   ];

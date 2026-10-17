@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/shared/widgets/nav/nav_destinations.dart';
+import 'package:submersion/shared/widgets/nav/nav_selection.dart';
 
 void main() {
   group('kNavDestinations', () {
@@ -38,20 +39,57 @@ void main() {
         'dives',
         'sites',
         'trips',
-        'media',
         'equipment',
         'buddies',
         'dive-centers',
-        'certifications',
-        'courses',
+        'training',
+        'media',
+        'documents',
         'species',
         'insights',
         'planning',
         'transfer',
-        'gps-log',
+        'tracks',
         'settings',
         'more',
       ]);
+    });
+
+    test('Tracks takes GPS Log\'s place and route', () {
+      final tracks = kNavDestinations.firstWhere((d) => d.id == 'tracks');
+      expect(tracks.route, '/tracks');
+      expect(kNavDestinations.map((d) => d.id), isNot(contains('gps-log')));
+    });
+
+    test('Training replaces Certifications and Courses', () {
+      final training = kNavDestinations.firstWhere((d) => d.id == 'training');
+      expect(training.route, '/training');
+      expect(training.extraMatchPaths, ['/certifications', '/courses']);
+      expect(training.icon, Icons.school_outlined);
+      expect(training.selectedIcon, Icons.school);
+      expect(training.accentId, 'certifications');
+      final ids = kNavDestinations.map((d) => d.id);
+      expect(ids, isNot(contains('certifications')));
+      expect(ids, isNot(contains('courses')));
+    });
+
+    test('Training is the selected entry on every training page', () {
+      final training = kNavDestinations.indexWhere((d) => d.id == 'training');
+      for (final location in const [
+        '/training',
+        '/certifications',
+        '/certifications/wallet',
+        '/certifications/abc/edit',
+        '/courses',
+        '/courses/abc',
+        '/courses?selected=abc',
+      ]) {
+        expect(
+          bestNavMatchIndex(kNavDestinations, Uri.parse(location)),
+          training,
+          reason: location,
+        );
+      }
     });
 
     test(
@@ -74,17 +112,17 @@ void main() {
         'dives',
         'sites',
         'trips',
-        'media',
         'equipment',
         'buddies',
         'dive-centers',
-        'certifications',
-        'courses',
+        'training',
+        'media',
+        'documents',
         'species',
         'insights',
         'planning',
         'transfer',
-        'gps-log',
+        'tracks',
         'settings',
       ]);
     });
