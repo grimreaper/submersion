@@ -322,12 +322,17 @@ class ReparseService {
       if (sourceRow.isPrimary) await stage('dives', [diveId]);
 
       // ------------------------------------------------------------------
-      // 8. Drop the stored safety review. It graded the profile, tanks and
-      //    gas switches this re-parse may have just rewritten (a non-primary
-      //    source still rewrites tanks), so it recomputes on next view
-      //    (#1641). Both reparseDive and reparseAllForComputer land here.
+      // 8. Drop the stored safety review when this re-parse rewrote what it
+      //    graded, so it recomputes on next view (#1641): the dive row's
+      //    gradient factors and mode (primary only), or the profile strand
+      //    and, under it, the events, tanks and gas switches (ownsStrand).
+      //    A re-parse that rewrote neither leaves a valid review alone,
+      //    rather than tombstoning it on every peer. Both reparseDive and
+      //    reparseAllForComputer land here.
       // ------------------------------------------------------------------
-      await SafetyFindingsRepository.clearReviewForDive(db, _sync, diveId);
+      if (sourceRow.isPrimary || ownsStrand) {
+        await SafetyFindingsRepository.clearReviewForDive(db, _sync, diveId);
+      }
 
       return (profilePreserved: !ownsStrand);
     });

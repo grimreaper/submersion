@@ -131,6 +131,31 @@ void main() {
     );
   });
 
+  test(
+    'keeps the review when the re-parse rewrites nothing it graded',
+    () async {
+      // A combined dive with no primary row: the source owns no strand and is
+      // not primary, so the profile, tanks, gas switches and dive row are all
+      // left as they were, and so is the review graded on them.
+      await (db.update(db.diveDataSources)..where((t) => t.id.equals('src-1')))
+          .write(const DiveDataSourcesCompanion(isPrimary: Value(false)));
+
+      await reparse(
+        parsed([
+          pigeon.ProfileSample(timeSeconds: 0, depthMeters: 0),
+          pigeon.ProfileSample(timeSeconds: 300, depthMeters: 18),
+          pigeon.ProfileSample(timeSeconds: 1200, depthMeters: 0),
+        ]),
+      );
+
+      expect(await reviews.getReview('dive-1'), isNotNull);
+      final deletions = await (db.select(
+        db.deletionLog,
+      )..where((t) => t.entityType.equals('diveSafetyReviews'))).get();
+      expect(deletions, isEmpty, reason: 'peers keep their copy too');
+    },
+  );
+
   test('an empty parse writes nothing and keeps the review', () async {
     await expectLater(
       reparse(parsed(const [])),
