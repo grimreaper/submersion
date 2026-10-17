@@ -15,6 +15,7 @@ import 'package:submersion/core/services/sync/changeset_log/peer_cursor_store.da
 import 'package:submersion/core/services/sync/library_epoch.dart';
 import 'package:submersion/core/services/sync/library_epoch_store.dart';
 import 'package:submersion/core/services/sync/peer_device_name_store.dart';
+import 'package:submersion/core/services/sync/peer_sync_snapshot.dart';
 import 'package:submersion/core/services/sync/sync_data_serializer.dart';
 import 'package:submersion/core/services/sync/sync_initializer.dart';
 import 'package:submersion/core/services/sync/sync_service.dart';
@@ -278,6 +279,40 @@ void main() {
         isEmpty,
       );
     });
+
+    test(
+      'a halt for adoption leaves the storage cleanup not caught up',
+      () async {
+        final snapshots = PeerSyncSnapshotStore(
+          await SharedPreferences.getInstance(),
+        );
+        // A caught-up snapshot from an earlier, clean sync.
+        await snapshots.write(
+          PeerSyncSnapshot(
+            takenAt: DateTime(2026, 10, 1),
+            caughtUp: true,
+            peers: const [],
+          ),
+        );
+        final service = SyncService(
+          syncRepository: SyncRepository(),
+          serializer: SyncDataSerializer(),
+          cloudProvider: cloud,
+          epochStore: epochStore,
+          peerSnapshots: snapshots,
+        );
+        await service.writeLibraryEpochMarker(cloud, marker);
+        await seedPeerFile(peerDeviceId: 'peer-1', epochId: 'e1');
+
+        final result = await service.performSync();
+
+        expect(result.status, SyncResultStatus.awaitingAdoption);
+        // Rows a replacing device adds after the replace never arrive here
+        // while this device waits, so the cleanup must not trust the old
+        // snapshot.
+        expect(snapshots.read()!.caughtUp, isFalse);
+      },
+    );
 
     test('missing marker with accepted epoch self-heals the marker', () async {
       await SyncRepository().setLastAcceptedEpochId('e1');

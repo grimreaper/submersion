@@ -122,4 +122,22 @@ class PeerSyncSnapshotStore {
 
   Future<void> write(PeerSyncSnapshot snapshot) =>
       _prefs.setString(key, jsonEncode(snapshot.toJson()));
+
+  /// Marks the last snapshot as not caught up, keeping its peers and time.
+  ///
+  /// Called when a sync starts, so only a sync that reaches its clean end
+  /// (which writes a fresh snapshot) can leave the cleanup trusting it. A
+  /// sync that halts for adoption or throws part way leaves this device not
+  /// caught up, which defers every cloud delete: fail-closed.
+  Future<void> markNotCaughtUp() async {
+    final current = read();
+    if (current == null || !current.caughtUp) return;
+    await write(
+      PeerSyncSnapshot(
+        takenAt: current.takenAt,
+        caughtUp: false,
+        peers: current.peers,
+      ),
+    );
+  }
 }

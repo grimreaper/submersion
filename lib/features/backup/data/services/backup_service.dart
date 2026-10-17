@@ -98,9 +98,10 @@ class BackupService {
   /// Nullable so existing constructions keep working.
   final PostRestoreSyncStore? _postRestoreSyncStore;
 
-  /// Told when a restore has replaced the database, so the storage cleanup
-  /// can run its post-restore pass (storage GC design, Coordinator).
-  final Future<void> Function(DateTime at)? _onRestoreCompleted;
+  /// Told when a restore is about to replace the database, so the storage
+  /// cleanup defers cloud deletes and runs its post-restore pass (storage GC
+  /// design, Coordinator).
+  final Future<void> Function(DateTime at)? _onRestoring;
 
   /// End-to-end encryption deps: when the sync-encryption flag is on and a
   /// key + keyslot mirror are available, cloud uploads become framed .sbe
@@ -137,7 +138,7 @@ class BackupService {
     SyncRepository? syncRepository,
     LibraryEpochStore? epochStore,
     PostRestoreSyncStore? postRestoreSyncStore,
-    Future<void> Function(DateTime at)? onRestoreCompleted,
+    Future<void> Function(DateTime at)? onRestoring,
     BackupSafPort? safPort,
     EncryptionKeyStore? encryptionKeyStore,
     SyncPreferences? syncPreferences,
@@ -149,7 +150,7 @@ class BackupService {
        _syncRepository = syncRepository ?? SyncRepository(),
        _epochStore = epochStore,
        _postRestoreSyncStore = postRestoreSyncStore,
-       _onRestoreCompleted = onRestoreCompleted,
+       _onRestoring = onRestoring,
        _safPort = safPort ?? const MethodChannelBackupSafPort(),
        _encryptionKeyStore = encryptionKeyStore,
        _syncPreferences = syncPreferences,
@@ -1007,13 +1008,6 @@ class BackupService {
       // intent so the next launch forces a gate-bypassing reconciling sync.
       await _postRestoreSyncStore?.setPending();
     }
-    try {
-      await _onRestoreCompleted?.call(DateTime.now());
-    } catch (e) {
-      // The restore itself succeeded; a missed cleanup marker only delays
-      // the cleanup to its normal schedule.
-      _log.warning('Recording the restore for storage cleanup failed: $e');
-    }
   }
 
   /// Replace the database with [sourcePath], then re-baseline sync.
@@ -1029,6 +1023,16 @@ class BackupService {
     String sourcePath, {
     void Function(int currentStep, int totalSteps)? onMigrationProgress,
   }) async {
+    // Marked BEFORE the replace: the marker is what holds the storage
+    // cleanup's cloud deletes back until a sync after the restore has run,
+    // so it must exist even if the app dies between the replace and the
+    // steps after it. A restore that then fails only defers cleanup until
+    // the next pull, which is the safe direction.
+    try {
+      await _onRestoring?.call(DateTime.now());
+    } catch (e) {
+      _log.warning('Recording the restore for storage cleanup failed: $e');
+    }
     String liveDeviceId;
     try {
       liveDeviceId = await _syncRepository.getDeviceId();

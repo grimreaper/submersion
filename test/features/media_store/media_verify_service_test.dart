@@ -19,8 +19,16 @@ import '../../helpers/test_database.dart';
 
 /// Lists a key once per stored copy, as Google Drive does when two devices
 /// uploaded one key at the same moment; each delete removes one copy.
-class _DuplicatingStore extends InMemoryMediaObjectStore {
+class _DuplicatingStore extends InMemoryMediaObjectStore
+    implements DuplicateKeyStore {
   final copies = <String, int>{};
+
+  @override
+  Future<int> deleteExtraCopies(String key) async {
+    final extra = (copies[key] ?? 1) - 1;
+    if (extra > 0) copies[key] = 1;
+    return extra;
+  }
 
   @override
   Stream<StoreObjectInfo> list(String keyPrefix) async* {
@@ -40,6 +48,18 @@ class _DuplicatingStore extends InMemoryMediaObjectStore {
     }
     copies.remove(key);
     await super.delete(key);
+  }
+}
+
+/// Repeats every listed key, as a paged listing might, while holding one
+/// object per key.
+class _RepeatingStore extends InMemoryMediaObjectStore {
+  @override
+  Stream<StoreObjectInfo> list(String keyPrefix) async* {
+    await for (final info in super.list(keyPrefix)) {
+      yield info;
+      yield info;
+    }
   }
 }
 
@@ -477,6 +497,48 @@ void main() {
       expect(dup.copies[key], 1, reason: 'one copy left');
       expect(report.orphansRemoved, 2);
       expect(report.totalBytes, 9);
+    });
+
+    test('a store that cannot hold duplicates is never asked to', () async {
+      // A listing that repeats a key on S3 is a listing artefact, not two
+      // objects: deleting "the extra copy" would delete the only one.
+      await insertDive('d1');
+      await photo('a.jpg', hash: 'aabb', uploadedAt: DateTime(2026, 2));
+      final repeating = _RepeatingStore();
+      final key = StoreKeys.objectKey('aabb', extension: 'jpg');
+      repeating.objects[key] = List.filled(3, 7);
+      repeating.modified[key] = old;
+      final sweep = MediaVerifyService(
+        store: repeating,
+        mediaRepository: repo,
+        queue: queue,
+        now: () => now,
+      );
+
+      final report = await sweep.run();
+
+      expect(repeating.objects.keys, contains(key));
+      expect(report.orphansRemoved, 0);
+    });
+
+    test('duplicates wait while deletes are deferred', () async {
+      await insertDive('d1');
+      await photo('a.jpg', hash: 'aabb', uploadedAt: DateTime(2026, 2));
+      final dup = _DuplicatingStore();
+      final key = StoreKeys.objectKey('aabb', extension: 'jpg');
+      dup.objects[key] = List.filled(3, 7);
+      dup.modified[key] = old;
+      dup.copies[key] = 2;
+      final sweep = MediaVerifyService(
+        store: dup,
+        mediaRepository: repo,
+        queue: queue,
+        now: () => now,
+      );
+
+      await sweep.run(policy: OrphanDeletePolicy(now: now, syncEnabled: true));
+
+      expect(dup.copies[key], 2);
     });
 
     test('a key listed once is never deleted as a duplicate', () async {

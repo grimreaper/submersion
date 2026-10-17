@@ -578,6 +578,14 @@ class SyncService {
           message: _l10n.settings_cloudSync_result_notAuthenticated,
         );
       }
+      // Until this sync reaches its clean end, the storage cleanup must not
+      // trust the previous snapshot: an adoption halt or a failure below
+      // leaves this device behind its peers (storage GC design, safety).
+      try {
+        await _peerSnapshots?.markNotCaughtUp();
+      } catch (e) {
+        _log.warning('Peer sync snapshot reset failed (non-fatal): $e');
+      }
       var deviceId = await _syncRepository.getDeviceId();
       // Scoped to this provider: a cursor minted against a backend we switched
       // away from reads as null here, forcing a full cold-start reconcile on

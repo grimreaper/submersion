@@ -49,7 +49,7 @@ final backupServiceProvider = Provider<BackupService>((ref) {
     postRestoreSyncStore: PostRestoreSyncStore(
       ref.watch(sharedPreferencesProvider),
     ),
-    onRestoreCompleted: (at) =>
+    onRestoring: (at) =>
         StorageGcStore.markRestored(ref.read(sharedPreferencesProvider), at),
     encryptionKeyStore: ref.watch(encryptionKeyStoreProvider),
     syncPreferences: ref.watch(syncPreferencesProvider),

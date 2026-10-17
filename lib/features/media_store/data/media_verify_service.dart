@@ -215,10 +215,28 @@ class MediaVerifyService {
             referenced || (refs.isNotEmpty && !usable.contains(parsed.hash));
         if (keep) {
           // Extra copies of one key hold identical bytes: drop all but one.
+          // Only a store that can hold copies is asked, and it re-resolves
+          // them itself, so a listing that merely repeats a key never costs
+          // the only copy (see DuplicateKeyStore).
           final extras = listed.copies - 1;
-          if (extras > 0) {
-            reclaimableBytes += extras * size;
-            if (!dryRun) await deleteCopies(info.key, extras, size);
+          if (_store case final DuplicateKeyStore store when extras > 0) {
+            if (!rules.deletesAllowed) {
+              waitingBytes += extras * size;
+            } else if (dryRun) {
+              reclaimableBytes += extras * size;
+            } else {
+              try {
+                final removed = await store.deleteExtraCopies(info.key);
+                orphansRemoved += removed;
+                bytesReclaimed += removed * size;
+                reclaimableBytes += removed * size;
+              } on Exception catch (e) {
+                _log.warning(
+                  'Removing duplicate copies failed for ${info.key}',
+                  error: e,
+                );
+              }
+            }
           }
           continue;
         }

@@ -99,6 +99,14 @@ void main() {
     expect(await queue.resumeStatesFor('m2'), isEmpty);
   });
 
+  test('resumeStatesFor leaves a transferring upload alone', () async {
+    // Its session is live: the pipeline is pushing parts into it now.
+    final id = await uploadWithResume('m1', '{"s":1}');
+    await queue.markTransferring(id);
+
+    expect(await queue.resumeStatesFor('m1'), isEmpty);
+  });
+
   test('resumeStateOf reports the resume state a delete drops', () async {
     final id = await uploadWithResume('m1', '{"s":1}');
     final plain = await queue.enqueueUpload(mediaId: 'm2');

@@ -245,14 +245,22 @@ void main() {
     },
   );
 
-  test('a finished restore reports itself for the storage cleanup', () async {
+  test('a restore marks itself before the database is replaced', () async {
+    // The marker is what holds cloud deletes back after a restore, so it
+    // must exist even if the app dies between the replace and anything
+    // after it.
     final restoredAt = <DateTime>[];
+    final adapter = _FileWritingAdapter(_validDb(tmp.path, 'live.db'));
+    var replacesBeforeMark = -1;
     final service = BackupService(
-      dbAdapter: _FileWritingAdapter(_validDb(tmp.path, 'live.db')),
+      dbAdapter: adapter,
       preferences: prefs,
       safPort: _FakeSafPort(),
       syncRepository: _SpySync(),
-      onRestoreCompleted: (at) async => restoredAt.add(at),
+      onRestoring: (at) async {
+        replacesBeforeMark = adapter.restoreCalls;
+        restoredAt.add(at);
+      },
     );
     final record = BackupRecord(
       id: 'r',
@@ -266,6 +274,8 @@ void main() {
     await service.restoreFromBackup(record);
 
     expect(restoredAt, hasLength(1));
+    expect(replacesBeforeMark, 0);
+    expect(adapter.restoreCalls, 1);
   });
 
   test('restoreFromBackup throws when the SAF document is gone', () async {

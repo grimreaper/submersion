@@ -286,6 +286,20 @@ void main() {
     expect(coordinator.isRunning, isFalse);
   });
 
+  test(
+    'a run in flight when the coordinator is disposed ends quietly',
+    () async {
+      // A soft restart after a restore disposes the provider mid-run.
+      h.holdFirstSweep = Completer<void>();
+      final pass = coordinator.run(StorageGcTrigger.launch);
+      coordinator.dispose();
+      h.holdFirstSweep!.complete();
+
+      await expectLater(pass, completes);
+      expect(h.mediaRuns, isEmpty, reason: 'a disposed run skips the cloud');
+    },
+  );
+
   test('device reclaimable bytes come from a dry run', () async {
     expect(await coordinator.deviceReclaimableBytes(), 250);
     expect(h.deviceRuns, [true]);

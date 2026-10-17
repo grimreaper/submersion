@@ -90,5 +90,21 @@ void main() {
       );
       expect(store.read(), isNull);
     });
+
+    test('markNotCaughtUp keeps the peers and clears caughtUp', () async {
+      final store = PeerSyncSnapshotStore(
+        await SharedPreferences.getInstance(),
+      );
+      await store.markNotCaughtUp(); // nothing written: still nothing
+      expect(store.read(), isNull);
+
+      await store.write(build());
+      await store.markNotCaughtUp();
+
+      final read = store.read()!;
+      expect(read.caughtUp, isFalse);
+      expect(read.peers.single.deviceId, 'a');
+      expect(read.takenAt, now);
+    });
   });
 }

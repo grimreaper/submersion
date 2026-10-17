@@ -111,6 +111,7 @@ class StorageGcCoordinator {
 
   final _changes = StreamController<void>.broadcast();
   Future<void>? _current;
+  bool _disposed = false;
 
   StorageGcStore get store => _store;
 
@@ -126,10 +127,10 @@ class StorageGcCoordinator {
     if (running != null) return running;
     final pass = _run(trigger).whenComplete(() {
       _current = null;
-      _changes.add(null);
+      _notify();
     });
     _current = pass;
-    _changes.add(null);
+    _notify();
     return pass;
   }
 
@@ -147,7 +148,18 @@ class StorageGcCoordinator {
     return bytes;
   }
 
-  void dispose() => _changes.close();
+  /// Stops notifying and makes a run in flight skip whatever it has not
+  /// started yet. A soft restart after a restore disposes the provider while
+  /// a run may still be listing the store; that run must not go on against
+  /// services that were torn down.
+  void dispose() {
+    _disposed = true;
+    _changes.close();
+  }
+
+  void _notify() {
+    if (!_changes.isClosed) _changes.add(null);
+  }
 
   Future<void> _run(StorageGcTrigger trigger) async {
     final now = _now();
@@ -164,6 +176,7 @@ class StorageGcCoordinator {
     } catch (e) {
       _log.warning('Device cleanup failed', error: e);
     }
+    if (_disposed) return;
     try {
       await _cloudPart(effective, now, automatic: automatic);
     } catch (e) {

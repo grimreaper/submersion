@@ -215,6 +215,9 @@ final mediaVerifyRunnerProvider =
         // Drain queued repairs BEFORE stamping: a stamp failure (DB/sync)
         // must not strand repairs the sweep just queued.
         unawaited(runtime.worker?.drain());
+        // A deferred run deleted nothing; stamping it would hold every
+        // device's cleanup off for the fleet cadence.
+        if (report.deferred) return report;
         final storesRepository = ref.read(mediaStoresRepositoryProvider);
         final active = await storesRepository.getActive();
         if (active != null) {

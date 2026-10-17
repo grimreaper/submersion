@@ -3,6 +3,7 @@ import 'dart:io';
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
 import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/local_cache_database.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
@@ -11,7 +12,9 @@ import 'package:submersion/features/media/presentation/providers/media_providers
 import 'package:submersion/features/media_store/data/media_cache_store.dart';
 import 'package:submersion/features/media_store/data/media_stores_repository.dart';
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
+import 'package:submersion/features/media_store/data/orphan_delete_policy.dart';
 import 'package:submersion/features/media_store/presentation/providers/media_store_providers.dart';
+import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 
 import '../../helpers/in_memory_media_object_store.dart';
 import '../../helpers/test_database.dart';
@@ -20,8 +23,11 @@ void main() {
   late LocalCacheDatabase cacheDb;
   late Directory root;
   late InMemoryMediaObjectStore store;
+  late SharedPreferences prefs;
 
   setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
     await setUpTestDatabase();
     cacheDb = LocalCacheDatabase(
       NativeDatabase.memory(setup: registerAppSqlFunctions),
@@ -36,10 +42,17 @@ void main() {
     await tearDownTestDatabase();
   });
 
-  ProviderContainer container({bool attached = true}) {
+  ProviderContainer container({
+    bool attached = true,
+    OrphanDeletePolicy Function()? policy,
+  }) {
     final cache = MediaCacheStore(database: cacheDb, root: root);
     final c = ProviderContainer(
       overrides: [
+        // The delete policy reads the sync snapshot and restore time here.
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        if (policy != null)
+          orphanDeletePolicyFactoryProvider.overrideWithValue(policy),
         mediaRepositoryProvider.overrideWithValue(MediaRepository()),
         mediaTransferQueueRepositoryProvider.overrideWithValue(
           MediaTransferQueueRepository(database: cacheDb),
@@ -78,6 +91,24 @@ void main() {
       expect((await storesRepository.getActive())!.lastSweepAt, isNotNull);
     },
   );
+
+  test('a deferred run does not stamp the fleet timestamp', () async {
+    // Stamping a run that deleted nothing would hold every device's
+    // cleanup off for a week.
+    final storesRepository = MediaStoresRepository();
+    await storesRepository.upsertActive(
+      storeId: 'store-1',
+      providerType: 's3',
+      displayHint: 'test',
+    );
+
+    final report = await container(
+      policy: () => OrphanDeletePolicy(now: DateTime.now(), syncEnabled: true),
+    ).read(mediaVerifyRunnerProvider)();
+
+    expect(report.deferred, isTrue);
+    expect((await storesRepository.getActive())!.lastSweepAt, isNull);
+  });
 
   test('runner without an active descriptor still returns a report', () async {
     final report = await container().read(mediaVerifyRunnerProvider)();

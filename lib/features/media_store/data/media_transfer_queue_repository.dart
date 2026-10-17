@@ -621,6 +621,9 @@ class MediaTransferQueueRepository {
               (t) =>
                   t.mediaId.equals(mediaId) &
                   t.direction.equals('upload') &
+                  // A transferring row's session is live: the pipeline is
+                  // pushing parts into it right now.
+                  t.state.equals('transferring').not() &
                   t.resumeStateJson.isNotNull(),
             ))
             .get();
