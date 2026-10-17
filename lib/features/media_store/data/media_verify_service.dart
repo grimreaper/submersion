@@ -1,8 +1,11 @@
 import 'package:submersion/core/services/logger_service.dart';
+import 'package:submersion/core/services/media_store/media_key_reference.dart';
 import 'package:submersion/core/services/media_store/media_object_store.dart';
 import 'package:submersion/core/services/media_store/network_status_service.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
+import 'package:submersion/features/media_store/data/media_key_references.dart';
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
+import 'package:submersion/features/media_store/data/orphan_delete_policy.dart';
 
 /// Outcome of one Verify Library run (orphan-prevention spec 6.3).
 class VerifyLibraryReport {
@@ -21,6 +24,21 @@ class VerifyLibraryReport {
   final int sessionsAborted;
   final int repairsQueued;
 
+  /// Bytes across every listed object, duplicate copies included: the store's
+  /// size as far as Submersion's own namespaces go.
+  final int totalBytes;
+
+  /// Bytes whose delete was (or, in a dry run, would be) allowed now. Equal
+  /// to [bytesReclaimed] in a run that deletes and suffers no failures.
+  final int reclaimableBytes;
+
+  /// Unreferenced bytes the policy held back: inside the safety wait, or
+  /// deferred because this device is not caught up.
+  final int waitingBytes;
+
+  /// True when the policy allowed no deletes at all this run.
+  final bool deferred;
+
   const VerifyLibraryReport({
     required this.objectsChecked,
     required this.originalsChecked,
@@ -30,6 +48,10 @@ class VerifyLibraryReport {
     required this.bytesReclaimed,
     required this.sessionsAborted,
     required this.repairsQueued,
+    this.totalBytes = 0,
+    this.reclaimableBytes = 0,
+    this.waitingBytes = 0,
+    this.deferred = false,
   });
 }
 
@@ -83,57 +105,152 @@ class MediaVerifyService {
   final DateTime Function() _now;
   final _log = LoggerService.forClass(MediaVerifyService);
 
+  /// Runs one sweep.
+  ///
+  /// [policy] decides when an unreferenced object may go; null keeps the
+  /// original behaviour (7-day grace, nothing else). A [dryRun] lists and
+  /// measures only: no deletes, no reverse repair, no session reap.
   Future<VerifyLibraryReport> run({
     void Function(int objectsChecked)? onProgress,
+    OrphanDeletePolicy? policy,
+    bool dryRun = false,
   }) async {
     final now = _now();
-    final graceCutoff = now.subtract(graceWindow);
-    final referenced = await _mediaRepository.getAllContentHashes();
+    final rules = policy ?? OrphanDeletePolicy.unrestricted(now);
+    final references = await _mediaRepository.getContentReferences();
 
     var objectsChecked = 0;
     var orphansRemoved = 0;
     var bytesReclaimed = 0;
+    var totalBytes = 0;
+    var reclaimableBytes = 0;
+    var waitingBytes = 0;
 
     // Hashes actually present per tier, for reverse repair below.
     final presentOriginals = <String>{};
     final presentThumbs = <String>{};
     final presentRenditions = <String>{};
 
-    /// Returns how many objects the namespace listed.
-    Future<int> sweepNamespace(String prefix, Set<String> present) async {
+    // Every namespace is listed before anything is deleted: whether a
+    // sibling may go depends on whether a copy some row resolves to exists
+    // in ANY namespace (the resolver falls back across extension variants,
+    // StoreKeys.objectKeyPrefix), and a key listed more than once (two
+    // devices racing one key on Google Drive) has to be counted first.
+    final listings = <StoreNamespace, Map<String, _Listed>>{};
+    final listedCounts = <StoreNamespace, int>{};
+    for (final ns in StoreNamespace.values) {
+      final prefix = _prefixFor(ns);
+      final keys = <String, _Listed>{};
       var listed = 0;
       await for (final info in _store.list(prefix)) {
         listed++;
         objectsChecked++;
         onProgress?.call(objectsChecked);
-        final hash = _hashFromKey(info.key, prefix);
-        if (hash == null) continue; // malformed keys are never deleted
-        if (referenced.contains(hash)) {
-          present.add(hash);
-          continue;
-        }
-        if (!info.lastModified.isBefore(graceCutoff)) continue;
-        try {
-          await _store.delete(info.key);
-          orphansRemoved++;
-          bytesReclaimed += info.sizeBytes ?? 0;
-        } on Exception catch (e) {
-          // Best-effort per object; a miss stays for the next sweep.
-          _log.warning('Verify sweep delete failed for ${info.key}', error: e);
-        }
+        totalBytes += info.sizeBytes ?? 0;
+        final prev = keys[info.key];
+        keys[info.key] = _Listed(prev?.info ?? info, (prev?.copies ?? 0) + 1);
       }
-      return listed;
+      listings[ns] = keys;
+      listedCounts[ns] = listed;
     }
 
-    final originalsChecked = await sweepNamespace(
-      _objectsPrefix,
-      presentOriginals,
-    );
-    final thumbsChecked = await sweepNamespace(_thumbsPrefix, presentThumbs);
-    final renditionsChecked = await sweepNamespace(
-      _renditionsPrefix,
-      presentRenditions,
-    );
+    // Hashes with at least one copy a row resolves to, in originals or
+    // renditions. A sibling under any other hash may be the only copy left.
+    final usable = <String>{};
+    for (final ns in const [
+      StoreNamespace.objects,
+      StoreNamespace.renditions,
+    ]) {
+      for (final key in listings[ns]!.keys) {
+        final parsed = _parseKey(key, _prefixFor(ns));
+        if (parsed == null) continue;
+        final refs = references[parsed.hash];
+        if (refs != null &&
+            isKeyReferenced(
+              namespace: ns,
+              extension: parsed.extension,
+              refs: refs,
+            )) {
+          usable.add(parsed.hash);
+        }
+      }
+    }
+
+    Future<void> deleteCopies(String key, int copies, int size) async {
+      for (var i = 0; i < copies; i++) {
+        try {
+          await _store.delete(key);
+          orphansRemoved++;
+          bytesReclaimed += size;
+        } on Exception catch (e) {
+          // Best-effort per object; a miss stays for the next sweep.
+          _log.warning('Verify sweep delete failed for $key', error: e);
+          return;
+        }
+      }
+    }
+
+    for (final ns in StoreNamespace.values) {
+      final present = switch (ns) {
+        StoreNamespace.objects => presentOriginals,
+        StoreNamespace.thumbs => presentThumbs,
+        StoreNamespace.renditions => presentRenditions,
+      };
+      for (final listed in listings[ns]!.values) {
+        final info = listed.info;
+        final size = info.sizeBytes ?? 0;
+        final parsed = _parseKey(info.key, _prefixFor(ns));
+        if (parsed == null) continue; // malformed keys are never deleted
+        final refs = references[parsed.hash] ?? const <MediaKeyReference>[];
+        if (refs.isNotEmpty) present.add(parsed.hash);
+
+        final referenced = isKeyReferenced(
+          namespace: ns,
+          extension: parsed.extension,
+          refs: refs,
+        );
+        // A sibling of a photo still in use goes only when a copy the
+        // resolver will use is present; otherwise it may be the last one.
+        final keep =
+            referenced || (refs.isNotEmpty && !usable.contains(parsed.hash));
+        if (keep) {
+          // Extra copies of one key hold identical bytes: drop all but one.
+          final extras = listed.copies - 1;
+          if (extras > 0) {
+            reclaimableBytes += extras * size;
+            if (!dryRun) await deleteCopies(info.key, extras, size);
+          }
+          continue;
+        }
+
+        if (rules.verdictFor(info.lastModified) != OrphanVerdict.delete) {
+          waitingBytes += listed.copies * size;
+          continue;
+        }
+        reclaimableBytes += listed.copies * size;
+        if (!dryRun) await deleteCopies(info.key, listed.copies, size);
+      }
+    }
+    final originalsChecked = listedCounts[StoreNamespace.objects]!;
+    final thumbsChecked = listedCounts[StoreNamespace.thumbs]!;
+    final renditionsChecked = listedCounts[StoreNamespace.renditions]!;
+
+    if (dryRun) {
+      return VerifyLibraryReport(
+        objectsChecked: objectsChecked,
+        originalsChecked: originalsChecked,
+        thumbsChecked: thumbsChecked,
+        renditionsChecked: renditionsChecked,
+        orphansRemoved: 0,
+        bytesReclaimed: 0,
+        sessionsAborted: 0,
+        repairsQueued: 0,
+        totalBytes: totalBytes,
+        reclaimableBytes: reclaimableBytes,
+        waitingBytes: waitingBytes,
+        deferred: !rules.deletesAllowed,
+      );
+    }
 
     // Reverse repair (spec 6.2): a stamp whose object is absent is stale -
     // clear it and queue a re-upload; the pipeline re-materializes local
@@ -183,25 +300,44 @@ class MediaVerifyService {
       bytesReclaimed: bytesReclaimed,
       sessionsAborted: sessionsAborted,
       repairsQueued: repairsQueued,
+      totalBytes: totalBytes,
+      reclaimableBytes: reclaimableBytes,
+      waitingBytes: waitingBytes,
+      deferred: !rules.deletesAllowed,
     );
   }
+
+  static String _prefixFor(StoreNamespace ns) => switch (ns) {
+    StoreNamespace.objects => _objectsPrefix,
+    StoreNamespace.thumbs => _thumbsPrefix,
+    StoreNamespace.renditions => _renditionsPrefix,
+  };
 
   /// StoreKeys layout: a two-hex-char shard directory that must echo the
   /// hash's first two characters, a lowercase-hex hash, and a short
   /// alphanumeric extension. Anything else is treated as malformed and
   /// never deleted.
   static final _contentKeyShape = RegExp(
-    r'^([0-9a-f]{2})/([0-9a-f]{4,64})\.[a-z0-9]{1,8}$',
+    r'^([0-9a-f]{2})/([0-9a-f]{4,64})\.([a-z0-9]{1,8})$',
   );
 
-  /// `smv1/<tier>/<aa>/<hash>.<ext>` -> hash, or null when the key does
-  /// not match the content-addressed shape (including a shard directory
+  /// `smv1/<tier>/<aa>/<hash>.<ext>` -> (hash, ext), or null when the key
+  /// does not match the content-addressed shape (including a shard directory
   /// that does not match the hash, or a key outside [prefix]).
-  String? _hashFromKey(String key, String prefix) {
+  ({String hash, String extension})? _parseKey(String key, String prefix) {
     if (!key.startsWith(prefix)) return null;
     final match = _contentKeyShape.firstMatch(key.substring(prefix.length));
     if (match == null) return null;
     final hash = match.group(2)!;
-    return hash.startsWith(match.group(1)!) ? hash : null;
+    if (!hash.startsWith(match.group(1)!)) return null;
+    return (hash: hash, extension: match.group(3)!);
   }
+}
+
+/// One listed key and how many copies of it the listing returned.
+class _Listed {
+  const _Listed(this.info, this.copies);
+
+  final StoreObjectInfo info;
+  final int copies;
 }

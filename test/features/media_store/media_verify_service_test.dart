@@ -3,17 +3,45 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/database.dart';
+import 'package:submersion/core/services/media_store/media_object_store.dart';
 import 'package:submersion/core/services/media_store/store_keys.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media/domain/entities/media_item.dart';
 import 'package:submersion/features/media/domain/entities/media_source_type.dart';
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
 import 'package:submersion/features/media_store/data/media_verify_service.dart';
+import 'package:submersion/features/media_store/data/orphan_delete_policy.dart';
 import 'package:submersion/core/services/media_store/network_status_service.dart';
 import 'package:submersion/core/database/local_cache_database.dart';
 
 import '../../helpers/in_memory_media_object_store.dart';
 import '../../helpers/test_database.dart';
+
+/// Lists a key once per stored copy, as Google Drive does when two devices
+/// uploaded one key at the same moment; each delete removes one copy.
+class _DuplicatingStore extends InMemoryMediaObjectStore {
+  final copies = <String, int>{};
+
+  @override
+  Stream<StoreObjectInfo> list(String keyPrefix) async* {
+    await for (final info in super.list(keyPrefix)) {
+      for (var i = 0; i < (copies[info.key] ?? 1); i++) {
+        yield info;
+      }
+    }
+  }
+
+  @override
+  Future<void> delete(String key) async {
+    final n = copies[key] ?? 1;
+    if (n > 1) {
+      copies[key] = n - 1;
+      return;
+    }
+    copies.remove(key);
+    await super.delete(key);
+  }
+}
 
 class _ReapThrowingStore extends InMemoryMediaObjectStore {
   @override
@@ -344,5 +372,140 @@ void main() {
     for (var i = 1; i < seen.length; i++) {
       expect(seen[i], greaterThanOrEqualTo(seen[i - 1]));
     }
+  });
+
+  group('storage GC', () {
+    test('dry run deletes nothing and reports reclaimable bytes', () async {
+      await insertDive('d1');
+      seedObject(StoreKeys.objectKey('dead', extension: 'jpg'), modified: old);
+      store.staleSessionCount = 2;
+
+      final report = await service.run(dryRun: true);
+
+      expect(
+        store.objects.keys,
+        contains(StoreKeys.objectKey('dead', extension: 'jpg')),
+      );
+      expect(report.orphansRemoved, 0);
+      expect(report.bytesReclaimed, 0);
+      expect(report.reclaimableBytes, 3);
+      expect(report.sessionsAborted, 0, reason: 'a dry run reaps nothing');
+    });
+
+    test('deferred policy deletes nothing and reports waiting bytes', () async {
+      await insertDive('d1');
+      seedObject(StoreKeys.objectKey('dead', extension: 'jpg'), modified: old);
+
+      final report = await service.run(
+        policy: OrphanDeletePolicy(now: now, syncEnabled: true),
+      );
+
+      expect(report.deferred, isTrue);
+      expect(report.orphansRemoved, 0);
+      expect(report.reclaimableBytes, 0);
+      expect(report.waitingBytes, 3);
+    });
+
+    test(
+      'deletes an unreferenced extension sibling past the grace window',
+      () async {
+        await insertDive('d1');
+        await photo('a.jpg', hash: 'aabb', uploadedAt: DateTime(2026, 2));
+        final kept = StoreKeys.objectKey('aabb', extension: 'jpg');
+        final sibling = StoreKeys.objectKey('aabb', extension: 'jpeg');
+        final staleRendition = StoreKeys.renditionKey('aabb', ext: 'jpg');
+        seedObject(kept, modified: old);
+        seedObject(sibling, modified: old);
+        seedObject(staleRendition, modified: old);
+
+        final report = await service.run();
+
+        expect(store.objects.keys, contains(kept));
+        expect(store.objects.keys, isNot(contains(sibling)));
+        expect(store.objects.keys, isNot(contains(staleRendition)));
+        expect(report.orphansRemoved, 2);
+      },
+    );
+
+    test('keeps a sibling a pending row still needs', () async {
+      await insertDive('d1');
+      await photo('a.jpg', hash: 'aabb', uploadedAt: DateTime(2026, 2));
+      // Same bytes under another name, upload not finished: no stamp yet.
+      await photo('b.jpeg', hash: 'aabb');
+      final sibling = StoreKeys.objectKey('aabb', extension: 'jpeg');
+      seedObject(StoreKeys.objectKey('aabb', extension: 'jpg'), modified: old);
+      seedObject(sibling, modified: old);
+
+      final report = await service.run();
+
+      expect(store.objects.keys, contains(sibling));
+      expect(report.orphansRemoved, 0);
+    });
+
+    test('keeps a sibling when it is the only copy of the photo', () async {
+      await insertDive('d1');
+      await photo('a.jpg', hash: 'aabb', uploadedAt: DateTime(2026, 2));
+      // The row's own key is missing; the resolver can still fall back to
+      // this variant, so it must not be deleted.
+      final onlyCopy = StoreKeys.objectKey('aabb', extension: 'jpeg');
+      seedObject(onlyCopy, modified: old);
+
+      final report = await service.run();
+
+      expect(store.objects.keys, contains(onlyCopy));
+      expect(report.orphansRemoved, 0);
+    });
+
+    test('deletes extra copies of a duplicated key and keeps one', () async {
+      await insertDive('d1');
+      await photo('a.jpg', hash: 'aabb', uploadedAt: DateTime(2026, 2));
+      final dup = _DuplicatingStore();
+      final key = StoreKeys.objectKey('aabb', extension: 'jpg');
+      dup.objects[key] = List.filled(3, 7);
+      dup.modified[key] = old;
+      dup.copies[key] = 3;
+      final sweep = MediaVerifyService(
+        store: dup,
+        mediaRepository: repo,
+        queue: queue,
+        now: () => now,
+      );
+
+      final report = await sweep.run();
+
+      expect(dup.objects.keys, contains(key));
+      expect(dup.copies[key], 1, reason: 'one copy left');
+      expect(report.orphansRemoved, 2);
+      expect(report.totalBytes, 9);
+    });
+
+    test('a key listed once is never deleted as a duplicate', () async {
+      await insertDive('d1');
+      await photo('a.jpg', hash: 'aabb', uploadedAt: DateTime(2026, 2));
+      final key = StoreKeys.objectKey('aabb', extension: 'jpg');
+      seedObject(key, modified: old);
+
+      final report = await service.run();
+
+      expect(store.objects.keys, contains(key));
+      expect(report.orphansRemoved, 0);
+    });
+
+    test('totalBytes sums every listed object', () async {
+      await insertDive('d1');
+      await photo('a.jpg', hash: 'aabb', uploadedAt: DateTime(2026, 2));
+      seedObject(StoreKeys.objectKey('aabb', extension: 'jpg'), modified: old);
+      seedObject(StoreKeys.thumbKey('aabb'), modified: old, size: 5);
+      seedObject(
+        StoreKeys.objectKey('f00d', extension: 'jpg'),
+        modified: now.subtract(const Duration(hours: 1)),
+        size: 7,
+      );
+
+      final report = await service.run();
+
+      expect(report.totalBytes, 15);
+      expect(report.waitingBytes, 7);
+    });
   });
 }
