@@ -25,6 +25,7 @@ class _RecordingCoordinator extends StorageGcCoordinator {
         isSyncBusy: () => false,
         hasTransferringUploads: () async => false,
         mediaSweep: ({required dryRun}) async => null,
+        deletesAllowed: () async => false,
         fleetSweepDue: (_) async => false,
         stampFleetSweep: (_) async {},
         measureSync: () async => null,
@@ -34,11 +35,13 @@ class _RecordingCoordinator extends StorageGcCoordinator {
 
   final runs = <StorageGcTrigger>[];
   Completer<void>? hold;
+  int reclaims = 0;
 
   @override
-  Future<void> run(StorageGcTrigger trigger) async {
+  Future<int> run(StorageGcTrigger trigger) async {
     runs.add(trigger);
     await hold?.future;
+    return reclaims;
   }
 }
 
@@ -164,6 +167,17 @@ void main() {
         );
       },
     );
+  });
+
+  testWidgets('the snackbar reports what the pass reclaimed', (tester) async {
+    coordinator.reclaims = 600 * 1024 * 1024;
+    await tester.pumpWidget(harness(const StorageReclaimCard()));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Reclaim storage'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Reclaimed 600 MB'), findsOneWidget);
   });
 
   group('CloudStorageGroup', () {

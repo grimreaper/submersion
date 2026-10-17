@@ -16,8 +16,13 @@ void main() {
     if (temp.existsSync()) await temp.delete(recursive: true);
   });
 
-  RestoreTempSweep build() =>
-      RestoreTempSweep(temporaryDirectory: () async => temp);
+  // Ages come from the modification time alone here, so a test can backdate
+  // a file with setLastModified; the default also weighs the time the file
+  // was created (see the last test).
+  RestoreTempSweep build() => RestoreTempSweep(
+    temporaryDirectory: () async => temp,
+    touchedAt: (stat) => stat.modified,
+  );
 
   Future<File> write(String relative, int bytes, Duration age) async {
     final file = File(p.join(temp.path, relative));
@@ -65,6 +70,32 @@ void main() {
     expect(preMigration.existsSync(), isFalse);
     expect(report.bytesReclaimed, 150);
   });
+
+  test(
+    'deletes the decrypted, staged and export copies a kill left behind',
+    () async {
+      const uuid = '0b9d2f7e-6c1a-4d3e-9f2b-1a2b3c4d5e6f';
+      final leftovers = [
+        // The plaintext copy of an encrypted backup, made for validation.
+        await write('restore_$uuid.db', 10, const Duration(days: 3)),
+        // Backup staging and SAF target copies.
+        await write(
+          '$uuid-submersion_backup_2026-10-01_101500.db',
+          10,
+          const Duration(days: 3),
+        ),
+        await write('export_$uuid.db', 10, const Duration(days: 3)),
+        await write('reenc_$uuid.sbe', 10, const Duration(days: 3)),
+      ];
+
+      final report = await build().run(now: now);
+
+      for (final f in leftovers) {
+        expect(f.existsSync(), isFalse, reason: f.path);
+      }
+      expect(report.filesDeleted, leftovers.length);
+    },
+  );
 
   test('keeps a backup-named file younger than 24 hours', () async {
     // The share sheet exports under the same name into the same folder.
@@ -116,5 +147,23 @@ void main() {
   test('a missing temp folder reclaims nothing', () async {
     await temp.delete(recursive: true);
     expect((await build().run(now: now)).filesDeleted, 0);
+  });
+
+  test('a copy that kept an old modification time is not old', () async {
+    // File.copy keeps the source's modification time on Apple platforms, so
+    // a restore copy made a minute ago can look as old as its backup. Its
+    // creation (status change) time is when the copy was made.
+    final copy = await write(
+      'restore-0b9d2f7e-6c1a-4d3e-9f2b-1a2b3c4d5e6f-submersion_backup_x.db',
+      10,
+      const Duration(days: 10),
+    );
+
+    final report = await RestoreTempSweep(
+      temporaryDirectory: () async => temp,
+    ).run(now: DateTime.now());
+
+    expect(copy.existsSync(), isTrue);
+    expect(report.filesDeleted, 0);
   });
 }

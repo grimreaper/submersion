@@ -197,6 +197,16 @@ class MediaVerifyService {
       return !guardTripped;
     }
 
+    // A database with no hashed media at all does not know this store: a
+    // fresh or reset dive log with the attachment still in place. Every
+    // object would look unreferenced, so nothing is deleted on its say-so.
+    final storeUnknown = references.isEmpty && objectsChecked > 0;
+    // Asked once up front too, so a sync that started before the deletes
+    // marks the run deferred even when it finds nothing to delete.
+    if (!dryRun) mayDelete();
+    bool deletesAllowed() =>
+        rules.deletesAllowed && !storeUnknown && !guardTripped;
+
     Future<void> deleteCopies(String key, int copies, int size) async {
       for (var i = 0; i < copies; i++) {
         if (!mayDelete()) return;
@@ -242,7 +252,7 @@ class MediaVerifyService {
           // the only copy (see DuplicateKeyStore).
           final extras = listed.copies - 1;
           if (_store case final DuplicateKeyStore store when extras > 0) {
-            if (!rules.deletesAllowed) {
+            if (!deletesAllowed()) {
               waitingBytes += extras * size;
             } else if (dryRun) {
               reclaimableBytes += extras * size;
@@ -264,7 +274,8 @@ class MediaVerifyService {
           continue;
         }
 
-        if (rules.verdictFor(info.lastModified) != OrphanVerdict.delete) {
+        if (!deletesAllowed() ||
+            rules.verdictFor(info.lastModified) != OrphanVerdict.delete) {
           waitingBytes +=
               (_store is DuplicateKeyStore ? listed.copies : 1) * size;
           continue;
@@ -276,6 +287,11 @@ class MediaVerifyService {
         if (!dryRun) await deleteCopies(info.key, copies, size);
       }
     }
+    // Deletes held back for any reason: the policy, a database that does not
+    // know the store, or a sync that started during the sweep. A deferred
+    // run is not a completed sweep, and it repairs nothing either: its
+    // reference set cannot be trusted to say which stamps are stale.
+    final deferred = !deletesAllowed();
     final originalsChecked = listedCounts[StoreNamespace.objects]!;
     final thumbsChecked = listedCounts[StoreNamespace.thumbs]!;
     final renditionsChecked = listedCounts[StoreNamespace.renditions]!;
@@ -293,7 +309,7 @@ class MediaVerifyService {
         totalBytes: totalBytes,
         reclaimableBytes: reclaimableBytes,
         waitingBytes: waitingBytes,
-        deferred: !rules.deletesAllowed,
+        deferred: deferred,
         sizesUnknown: sizesUnknown,
       );
     }
@@ -302,25 +318,27 @@ class MediaVerifyService {
     // clear it and queue a re-upload; the pipeline re-materializes local
     // bytes when they resolve and fails gracefully when they do not.
     var repairsQueued = 0;
-    for (final row in await _mediaRepository.getRemoteStampedSummaries()) {
-      var repaired = false;
-      if (row.hasOriginal && !presentOriginals.contains(row.contentHash)) {
-        await _mediaRepository.clearRemoteUploaded(row.id);
-        repaired = true;
-      }
-      if (row.hasThumb && !presentThumbs.contains(row.contentHash)) {
-        await _mediaRepository.clearRemoteThumbUploaded(row.id);
-        repaired = true;
-      }
-      if (row.hasRendition && !presentRenditions.contains(row.contentHash)) {
-        await _mediaRepository.clearRemoteCompressed(row.id);
-        repaired = true;
-      }
-      if (repaired) {
-        // Repair-specific enqueue: re-arms a terminally failed row, which
-        // plain enqueueUpload deliberately refuses to resurrect.
-        await _queue.enqueueRepairUpload(mediaId: row.id);
-        repairsQueued++;
+    if (!deferred) {
+      for (final row in await _mediaRepository.getRemoteStampedSummaries()) {
+        var repaired = false;
+        if (row.hasOriginal && !presentOriginals.contains(row.contentHash)) {
+          await _mediaRepository.clearRemoteUploaded(row.id);
+          repaired = true;
+        }
+        if (row.hasThumb && !presentThumbs.contains(row.contentHash)) {
+          await _mediaRepository.clearRemoteThumbUploaded(row.id);
+          repaired = true;
+        }
+        if (row.hasRendition && !presentRenditions.contains(row.contentHash)) {
+          await _mediaRepository.clearRemoteCompressed(row.id);
+          repaired = true;
+        }
+        if (repaired) {
+          // Repair-specific enqueue: re-arms a terminally failed row, which
+          // plain enqueueUpload deliberately refuses to resurrect.
+          await _queue.enqueueRepairUpload(mediaId: row.id);
+          repairsQueued++;
+        }
       }
     }
 
@@ -349,7 +367,7 @@ class MediaVerifyService {
       totalBytes: totalBytes,
       reclaimableBytes: reclaimableBytes,
       waitingBytes: waitingBytes,
-      deferred: !rules.deletesAllowed,
+      deferred: deferred,
       sizesUnknown: sizesUnknown,
     );
   }

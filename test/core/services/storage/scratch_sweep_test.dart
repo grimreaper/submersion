@@ -73,9 +73,13 @@ void main() {
       if (root.existsSync()) await root.delete(recursive: true);
     });
 
+    // Ages come from the modification time alone here, so a test can
+    // backdate a file with setLastModified; the default also weighs the time
+    // the file was created (see the last test).
     StorageScratchSweep build() => StorageScratchSweep(
       temporaryDirectory: () async => temp,
       supportDirectory: () async => support,
+      touchedAt: (stat) => stat.modified,
     );
 
     Future<File> write(String absolute, int bytes, Duration age) async {
@@ -292,6 +296,24 @@ void main() {
       expect(report.filesDeleted, 1);
       expect(report.bytesReclaimed, 500);
       expect(stale.existsSync(), isTrue);
+    });
+
+    test('a staging copy that kept an old modification time is kept', () async {
+      // The upload pipeline stages with File.copy, which keeps the source's
+      // modification time on Apple platforms; the copy is minutes old.
+      final staged = await write(
+        staging('photo.jpg'),
+        10,
+        const Duration(days: 30),
+      );
+
+      final report = await StorageScratchSweep(
+        temporaryDirectory: () async => temp,
+        supportDirectory: () async => support,
+      ).run(now: DateTime.now());
+
+      expect(staged.existsSync(), isTrue);
+      expect(report.filesDeleted, 0);
     });
   });
 }

@@ -56,6 +56,14 @@ final storageGcCoordinatorProvider = Provider<StorageGcCoordinator>((ref) {
     hasTransferringUploads: () =>
         ref.read(mediaTransferQueueRepositoryProvider).hasTransferringUploads(),
     mediaSweep: ({required dryRun}) => _mediaSweep(ref, dryRun: dryRun),
+    deletesAllowed: () async {
+      // A database with no media_stores row never registered this store (a
+      // fresh dive log, a restore from before it was attached): it must not
+      // decide what in the store is orphaned.
+      final active = await ref.read(mediaStoresRepositoryProvider).getActive();
+      if (active == null) return false;
+      return ref.read(orphanDeletePolicyFactoryProvider)().deletesAllowed;
+    },
     fleetSweepDue: (now) async {
       final active = await ref.read(mediaStoresRepositoryProvider).getActive();
       return isCadenceDue(
@@ -107,12 +115,21 @@ class StorageGcView {
   final AreaResult? lastDeviceResult;
   final AreaResult? lastCloudResult;
 
-  /// The more recent of the two "last reclaimed" results.
+  /// What the most recent pass that reclaimed anything gave back: the newer
+  /// of the two results, or both added together when one pass produced
+  /// both (they share its start time).
   AreaResult? get lastReclaimed {
     final d = lastDeviceResult;
     final c = lastCloudResult;
     if (d == null) return c;
     if (c == null) return d;
+    if (c.at == d.at) {
+      return AreaResult(
+        bytes: d.bytes + c.bytes,
+        items: d.items + c.items,
+        at: d.at,
+      );
+    }
     return c.at.isAfter(d.at) ? c : d;
   }
 }
@@ -166,7 +183,7 @@ Future<VerifyLibraryReport?> _mediaSweep(
   Ref ref, {
   required bool dryRun,
 }) async {
-  final runtime = await ref.read(mediaStoreRuntimeProvider.future);
+  final runtime = await sweepableMediaStoreRuntime(ref);
   if (runtime == null) return null;
   final report =
       await MediaVerifyService(

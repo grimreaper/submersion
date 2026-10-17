@@ -1,11 +1,14 @@
+import 'dart:convert';
 import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/local_cache_database.dart';
+import 'package:submersion/core/services/media_store/media_store_attach_state.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media/data/resolvers/media_store_resolver.dart';
 import 'package:submersion/features/media/presentation/providers/media_providers.dart';
@@ -16,6 +19,7 @@ import 'package:submersion/features/media_store/data/orphan_delete_policy.dart';
 import 'package:submersion/features/media_store/presentation/providers/media_store_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 
+import '../../helpers/fake_path_provider.dart';
 import '../../helpers/in_memory_media_object_store.dart';
 import '../../helpers/test_database.dart';
 
@@ -25,15 +29,27 @@ void main() {
   late InMemoryMediaObjectStore store;
   late SharedPreferences prefs;
 
+  void writeMarker(String storeId) {
+    store.objects['smv1/store.json'] = utf8.encode(
+      jsonEncode({'storeId': storeId, 'formatVersion': 1, 'createdAt': ''}),
+    );
+  }
+
   setUp(() async {
-    SharedPreferences.setMockInitialValues({});
+    // Attached to store-1, whose marker the store carries: the preflight
+    // every sweep runs passes.
+    SharedPreferences.setMockInitialValues({
+      MediaStoreAttachState.storeIdKey: 'store-1',
+    });
     prefs = await SharedPreferences.getInstance();
     await setUpTestDatabase();
     cacheDb = LocalCacheDatabase(
       NativeDatabase.memory(setup: registerAppSqlFunctions),
     );
     root = await Directory.systemTemp.createTemp('verify_runner');
+    useFakePathProvider(_TempPathProvider(root.path));
     store = InMemoryMediaObjectStore();
+    writeMarker('store-1');
   });
 
   tearDown(() async {
@@ -121,4 +137,25 @@ void main() {
       throwsStateError,
     );
   });
+
+  test('a store that fails its marker check is not swept', () async {
+    // Repointed or wiped: its objects are not this library's to judge.
+    writeMarker('another-library');
+
+    await expectLater(
+      container().read(mediaVerifyRunnerProvider)(),
+      throwsStateError,
+    );
+  });
+}
+
+/// Points the temporary directory at the test's own folder: the store
+/// marker read goes through it.
+class _TempPathProvider extends PathProviderPlatform {
+  _TempPathProvider(this.path);
+
+  final String path;
+
+  @override
+  Future<String?> getTemporaryPath() async => path;
 }

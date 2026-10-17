@@ -30,23 +30,13 @@ class _StorageReclaimCardState extends ConsumerState<StorageReclaimCard> {
     final l10n = context.l10n;
     final coordinator = ref.read(storageGcCoordinatorProvider);
     setState(() => _running = true);
+    // The pass reports what it reclaimed; a tap that joined a pass already
+    // under way gets that pass's figure.
+    var bytes = 0;
     try {
-      await coordinator.run(StorageGcTrigger.manual);
+      bytes = await coordinator.run(StorageGcTrigger.manual);
     } finally {
       if (mounted) setState(() => _running = false);
-    }
-    // What the run reclaimed: the results it recorded, which carry a time
-    // no earlier than its start. Taken from the coordinator, since the tap
-    // may have joined a run that was already under way.
-    final startedAt = coordinator.lastRunStartedAt ?? DateTime.now();
-    var bytes = 0;
-    for (final result in [
-      coordinator.store.lastDeviceResult,
-      coordinator.store.lastCloudResult,
-    ]) {
-      if (result != null && !result.at.isBefore(startedAt)) {
-        bytes += result.bytes;
-      }
     }
     if (!mounted) return;
     messenger.showSnackBar(

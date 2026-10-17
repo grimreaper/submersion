@@ -301,6 +301,7 @@ void main() {
     'a failing session reap is best-effort: the sweep still succeeds',
     () async {
       await insertDive('d1');
+      await photo('kept.jpg', hash: 'aabb', uploadedAt: DateTime(2026, 2));
       seedObject(StoreKeys.objectKey('dead', extension: 'jpg'), modified: old);
       final throwingStore = _ReapThrowingStore()
         ..objects.addAll(store.objects)
@@ -409,6 +410,7 @@ void main() {
       // A sync that starts mid-sweep may bring rows the sweep's reference
       // snapshot does not have; nothing may be deleted after that.
       await insertDive('d1');
+      await photo('kept.jpg', hash: 'aabb', uploadedAt: DateTime(2026, 2));
       seedObject(StoreKeys.objectKey('dead1', extension: 'jpg'), modified: old);
       seedObject(StoreKeys.objectKey('dead2', extension: 'jpg'), modified: old);
       var allowed = true;
@@ -417,11 +419,72 @@ void main() {
       final report = await service.run(deleteGuard: () => allowed);
 
       expect(report.orphansRemoved, 1);
+      expect(
+        report.deferred,
+        isTrue,
+        reason: 'a stopped run is not a completed fleet sweep',
+      );
       expect(store.objects.keys.where((k) => k.contains('dead')), hasLength(1));
+    });
+
+    test(
+      'a database that references nothing in the store deletes nothing',
+      () async {
+        // A fresh or reset dive log with the store still attached: every object
+        // looks unreferenced, and deleting them would empty the shared store.
+        await insertDive('d1');
+        seedObject(
+          StoreKeys.objectKey('dead', extension: 'jpg'),
+          modified: old,
+        );
+
+        final report = await service.run();
+
+        expect(store.objects, isNotEmpty);
+        expect(report.orphansRemoved, 0);
+        expect(report.deferred, isTrue);
+        expect(report.waitingBytes, 3);
+      },
+    );
+
+    test(
+      'a guard that is false from the start reports the run deferred',
+      () async {
+        await insertDive('d1');
+        await photo('kept.jpg', hash: 'aabb', uploadedAt: DateTime(2026, 2));
+        seedObject(
+          StoreKeys.objectKey('dead', extension: 'jpg'),
+          modified: old,
+        );
+
+        final report = await service.run(deleteGuard: () => false);
+
+        expect(report.orphansRemoved, 0);
+        expect(report.deferred, isTrue);
+      },
+    );
+
+    test('a deferred run leaves upload stamps alone', () async {
+      // Reverse repair clears synced stamps; on a database that is not
+      // caught up that would override facts a peer changed since.
+      await insertDive('d1');
+      final item = await photo(
+        'missing.jpg',
+        hash: 'cc11',
+        uploadedAt: DateTime(2026, 2),
+      );
+
+      final report = await service.run(
+        policy: OrphanDeletePolicy(now: now, syncEnabled: true),
+      );
+
+      expect(report.repairsQueued, 0);
+      expect((await repo.getMediaById(item.id))!.remoteUploadedAt, isNotNull);
     });
 
     test('dry run deletes nothing and reports reclaimable bytes', () async {
       await insertDive('d1');
+      await photo('kept.jpg', hash: 'aabb', uploadedAt: DateTime(2026, 2));
       seedObject(StoreKeys.objectKey('dead', extension: 'jpg'), modified: old);
       store.staleSessionCount = 2;
 
@@ -548,6 +611,7 @@ void main() {
 
     test('a repeated orphan on a plain store is counted once', () async {
       await insertDive('d1');
+      await photo('kept.jpg', hash: 'aabb', uploadedAt: DateTime(2026, 2));
       final repeating = _RepeatingStore();
       final key = StoreKeys.objectKey('dead', extension: 'jpg');
       repeating.objects[key] = List.filled(3, 7);

@@ -10,9 +10,13 @@ void main() {
     DateTime? takenAt,
     bool caughtUp = true,
     List<Duration> peerPublishedAfterUpload = const [],
+    String providerId = 'dropbox',
+    bool hasUnpublishedPeers = false,
   }) => PeerSyncSnapshot(
     takenAt: takenAt ?? now.subtract(const Duration(minutes: 5)),
     caughtUp: caughtUp,
+    providerId: providerId,
+    hasUnpublishedPeers: hasUnpublishedPeers,
     peers: [
       for (final (i, d) in peerPublishedAfterUpload.indexed)
         PeerPublish(deviceId: 'p$i', publishedAt: upload.add(d)),
@@ -37,6 +41,7 @@ void main() {
     final policy = OrphanDeletePolicy(
       now: now,
       syncEnabled: true,
+      currentProviderId: 'dropbox',
       snapshot: snapshot(
         peerPublishedAfterUpload: const [Duration(hours: 3), Duration(days: 1)],
       ),
@@ -48,6 +53,7 @@ void main() {
     final policy = OrphanDeletePolicy(
       now: now,
       syncEnabled: true,
+      currentProviderId: 'dropbox',
       snapshot: snapshot(
         peerPublishedAfterUpload: const [
           Duration(hours: 3),
@@ -62,6 +68,7 @@ void main() {
     final policy = OrphanDeletePolicy(
       now: now,
       syncEnabled: true,
+      currentProviderId: 'dropbox',
       snapshot: snapshot(
         peerPublishedAfterUpload: const [Duration(minutes: 30)],
       ),
@@ -73,6 +80,7 @@ void main() {
     final policy = OrphanDeletePolicy(
       now: now,
       syncEnabled: true,
+      currentProviderId: 'dropbox',
       snapshot: snapshot(),
     );
     expect(policy.verdictFor(upload), OrphanVerdict.delete);
@@ -96,6 +104,7 @@ void main() {
     final policy = OrphanDeletePolicy(
       now: now,
       syncEnabled: true,
+      currentProviderId: 'dropbox',
       snapshot: snapshot(caughtUp: false),
     );
     expect(
@@ -109,6 +118,7 @@ void main() {
     final before = OrphanDeletePolicy(
       now: now,
       syncEnabled: true,
+      currentProviderId: 'dropbox',
       snapshot: snapshot(
         takenAt: restoredAt.subtract(const Duration(hours: 1)),
       ),
@@ -122,12 +132,56 @@ void main() {
     final after = OrphanDeletePolicy(
       now: now,
       syncEnabled: true,
+      currentProviderId: 'dropbox',
       snapshot: snapshot(takenAt: restoredAt.add(const Duration(minutes: 5))),
       lastRestoreAt: restoredAt,
     );
     expect(
       after.verdictFor(now.subtract(const Duration(days: 30))),
       OrphanVerdict.delete,
+    );
+  });
+
+  test('defers when the snapshot is older than the grace window', () {
+    // A device that stopped syncing (a revoked token, auto-sync off) must
+    // not keep deleting on what it knew weeks ago.
+    final stale = OrphanDeletePolicy(
+      now: now,
+      syncEnabled: true,
+      currentProviderId: 'dropbox',
+      snapshot: snapshot(takenAt: now.subtract(const Duration(days: 8))),
+    );
+    expect(stale.deletesAllowed, isFalse);
+    expect(
+      stale.verdictFor(now.subtract(const Duration(days: 30))),
+      OrphanVerdict.deferred,
+    );
+  });
+
+  test('defers when the snapshot came from another sync backend', () {
+    final switched = OrphanDeletePolicy(
+      now: now,
+      syncEnabled: true,
+      currentProviderId: 'icloud',
+      snapshot: snapshot(),
+    );
+    expect(switched.deletesAllowed, isFalse);
+  });
+
+  test('no early delete while a device has not published yet', () {
+    // A device whose first publish is still uploading is invisible to the
+    // manifest check, yet may already be uploading media.
+    final policy = OrphanDeletePolicy(
+      now: now,
+      syncEnabled: true,
+      currentProviderId: 'dropbox',
+      snapshot: snapshot(hasUnpublishedPeers: true),
+    );
+    expect(policy.verdictFor(upload), OrphanVerdict.wait);
+    expect(
+      policy.verdictFor(now.subtract(const Duration(days: 8))),
+      OrphanVerdict.delete,
+      reason: 'the grace window still applies',
     );
   });
 }

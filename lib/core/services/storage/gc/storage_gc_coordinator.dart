@@ -55,9 +55,11 @@ bool isCadenceDue(DateTime? last, DateTime now, Duration period) {
 /// - **Cloud part:** automatic runs need an unmetered network and happen at
 ///   most once a day. A cleanup (deletes) runs when the fleet cadence is due,
 ///   after a restore until a sweep is no longer deferred, or on request.
-///   Otherwise a weekly measurement lists the store without deleting. Nothing
-///   cloud-side runs while a sync is merging; deletes also wait while an
-///   upload is transferring. Rescan and Reclaim run on any network but
+///   Otherwise a weekly measurement lists the store without deleting. Deletes
+///   wait while a sync is merging, while an upload is transferring, and
+///   whenever the delete policy would defer (no listing is spent on a sweep
+///   that could delete nothing). Automatic cloud work skips a merging sync
+///   altogether; Rescan and Reclaim still measure, on any network but
 ///   offline, since the diver asked.
 class StorageGcCoordinator {
   StorageGcCoordinator({
@@ -68,6 +70,7 @@ class StorageGcCoordinator {
     required Future<bool> Function() hasTransferringUploads,
     required Future<VerifyLibraryReport?> Function({required bool dryRun})
     mediaSweep,
+    required Future<bool> Function() deletesAllowed,
     required Future<bool> Function(DateTime now) fleetSweepDue,
     required Future<void> Function(DateTime now) stampFleetSweep,
     required Future<({int bytes, bool partial})?> Function() measureSync,
@@ -80,6 +83,7 @@ class StorageGcCoordinator {
        _isSyncBusy = isSyncBusy,
        _hasTransferringUploads = hasTransferringUploads,
        _mediaSweep = mediaSweep,
+       _deletesAllowed = deletesAllowed,
        _fleetSweepDue = fleetSweepDue,
        _stampFleetSweep = stampFleetSweep,
        _measureSync = measureSync,
@@ -101,6 +105,11 @@ class StorageGcCoordinator {
   final Future<bool> Function() _hasTransferringUploads;
   final Future<VerifyLibraryReport?> Function({required bool dryRun})
   _mediaSweep;
+
+  /// Whether cloud deletes could happen at all right now (the delete policy
+  /// and the store's registration in this database). Checked before a
+  /// deleting sweep is started, so a deferral costs no listing.
+  final Future<bool> Function() _deletesAllowed;
   final Future<bool> Function(DateTime now) _fleetSweepDue;
   final Future<void> Function(DateTime now) _stampFleetSweep;
   final Future<({int bytes, bool partial})?> Function() _measureSync;
@@ -110,14 +119,8 @@ class StorageGcCoordinator {
   final _log = LoggerService.forClass(StorageGcCoordinator);
 
   final _changes = StreamController<void>.broadcast();
-  Future<void>? _current;
+  Future<int>? _current;
   bool _disposed = false;
-  DateTime? _lastRunStartedAt;
-
-  /// When the most recent run started, on the coordinator's clock. A caller
-  /// that joined a run already in progress uses it to find that run's
-  /// results, which predate the caller's own request.
-  DateTime? get lastRunStartedAt => _lastRunStartedAt;
 
   StorageGcStore get store => _store;
 
@@ -127,8 +130,10 @@ class StorageGcCoordinator {
   /// Fires when a run starts and when it ends.
   Stream<void> get changes => _changes.stream;
 
-  /// Runs one pass. A call while a pass is running joins that pass.
-  Future<void> run(StorageGcTrigger trigger) {
+  /// Runs one pass and returns the bytes it reclaimed, on the device and in
+  /// the cloud. A call while a pass is running joins that pass and gets its
+  /// result.
+  Future<int> run(StorageGcTrigger trigger) {
     final running = _current;
     if (running != null) return running;
     final pass = _run(trigger).whenComplete(() {
@@ -167,9 +172,8 @@ class StorageGcCoordinator {
     if (!_changes.isClosed) _changes.add(null);
   }
 
-  Future<void> _run(StorageGcTrigger trigger) async {
+  Future<int> _run(StorageGcTrigger trigger) async {
     final now = _now();
-    _lastRunStartedAt = now;
     var effective = trigger;
     final automatic =
         trigger == StorageGcTrigger.launch ||
@@ -178,26 +182,29 @@ class StorageGcCoordinator {
     if (automatic && _store.postRestorePendingSince != null) {
       effective = StorageGcTrigger.postRestore;
     }
+    var reclaimed = 0;
     try {
-      await _devicePart(effective, now);
+      reclaimed += await _devicePart(effective, now);
     } catch (e) {
       _log.warning('Device cleanup failed', error: e);
     }
-    if (_disposed) return;
+    if (_disposed) return reclaimed;
     try {
-      await _cloudPart(effective, now, automatic: automatic);
+      reclaimed += await _cloudPart(effective, now, automatic: automatic);
     } catch (e) {
       _log.warning('Cloud cleanup failed', error: e);
     }
+    return reclaimed;
   }
 
-  Future<void> _devicePart(StorageGcTrigger trigger, DateTime now) async {
-    if (trigger == StorageGcTrigger.rescan) return;
+  /// Returns the bytes the device sweeps reclaimed.
+  Future<int> _devicePart(StorageGcTrigger trigger, DateTime now) async {
+    if (trigger == StorageGcTrigger.rescan) return 0;
     final forced =
         trigger == StorageGcTrigger.manual ||
         trigger == StorageGcTrigger.postRestore;
     if (!forced && !isCadenceDue(_store.lastDeviceRun, now, devicePeriod)) {
-      return;
+      return 0;
     }
     var total = ScratchSweepReport.empty;
     var failed = false;
@@ -230,25 +237,30 @@ class StorageGcCoordinator {
     if (trigger == StorageGcTrigger.postRestore) {
       await _store.clearPostRestorePending();
     }
+    return total.bytesReclaimed;
   }
 
-  Future<void> _cloudPart(
+  /// Returns the bytes the cloud cleanup reclaimed.
+  Future<int> _cloudPart(
     StorageGcTrigger trigger,
     DateTime now, {
     required bool automatic,
   }) async {
-    if (_isSyncBusy()) return;
-    final network = await _network();
-    if (network == NetworkKind.offline) return;
     final requested =
         trigger == StorageGcTrigger.manual ||
         trigger == StorageGcTrigger.rescan;
-    if (!requested && network != NetworkKind.unmetered) return;
+    // A merge in progress rules out deletes, not measuring: a dry run writes
+    // nothing, so a requested scan goes ahead.
+    final syncBusy = _isSyncBusy();
+    if (syncBusy && !requested) return 0;
+    final network = await _network();
+    if (network == NetworkKind.offline) return 0;
+    if (!requested && network != NetworkKind.unmetered) return 0;
 
     final cloudPending = _store.postRestoreCloudPending;
     if (automatic || trigger == StorageGcTrigger.postRestore) {
       final period = cloudPending ? postRestoreRetry : cloudAttemptPeriod;
-      if (!isCadenceDue(_store.lastCloudAttempt, now, period)) return;
+      if (!isCadenceDue(_store.lastCloudAttempt, now, period)) return 0;
     }
 
     final wantDelete =
@@ -260,26 +272,43 @@ class StorageGcCoordinator {
         trigger == StorageGcTrigger.postRestore ||
         isCadenceDue(_store.lastCloudMeasure, now, measurePeriod);
 
-    final deleting = wantDelete && !await _hasTransferringUploads();
-    if (!deleting && !measureDue) return;
+    final deleting =
+        wantDelete &&
+        !syncBusy &&
+        await _deletesAllowed() &&
+        !await _hasTransferringUploads();
+    if (!deleting && !measureDue) return 0;
     if (!requested) await _store.setLastCloudAttempt(now);
 
-    final report = await _mediaSweep(dryRun: !deleting);
-    if (deleting && (report == null || !report.deferred)) {
-      if (report != null) await _stampFleetSweep(now);
-      if (cloudPending) await _store.setPostRestoreCloudPending(false);
-      if (report != null && report.orphansRemoved > 0) {
-        await _store.setLastCloudResult(
-          AreaResult(
-            bytes: report.bytesReclaimed,
-            items: report.orphansRemoved,
-            at: now,
-          ),
-        );
-      }
+    // A media failure must not cost the other areas their figures; the last
+    // known media figures stay, and the total is marked partial.
+    VerifyLibraryReport? report;
+    var mediaFailed = false;
+    try {
+      report = await _mediaSweep(dryRun: !deleting);
+    } catch (e) {
+      mediaFailed = true;
+      _log.warning('Media store sweep failed', error: e);
     }
 
-    var partial = report?.sizesUnknown ?? false;
+    var reclaimed = 0;
+    if (report != null && report.orphansRemoved > 0) {
+      reclaimed = report.bytesReclaimed;
+      await _store.setLastCloudResult(
+        AreaResult(
+          bytes: report.bytesReclaimed,
+          items: report.orphansRemoved,
+          at: now,
+        ),
+      );
+    }
+    // Only a completed sweep counts: a deferred or failed one is retried.
+    if (deleting && !mediaFailed && (report == null || !report.deferred)) {
+      if (report != null) await _stampFleetSweep(now);
+      if (cloudPending) await _store.setPostRestoreCloudPending(false);
+    }
+
+    var partial = mediaFailed || (report?.sizesUnknown ?? false);
     int? syncBytes;
     try {
       final sync = await _measureSync();
@@ -297,20 +326,30 @@ class StorageGcCoordinator {
       _log.warning('Shared library measurement failed', error: e);
     }
 
-    final reclaimed = deleting ? report?.bytesReclaimed ?? 0 : 0;
+    final previous = _store.cloudUsage;
+    final r = report;
     await _store.setCloudUsage(
       CloudUsage(
         scannedAt: now,
-        mediaBytes: report == null ? null : report.totalBytes - reclaimed,
-        mediaReclaimableBytes: report == null
+        mediaBytes: mediaFailed
+            ? previous?.mediaBytes
+            : r == null
             ? null
-            : report.reclaimableBytes - reclaimed,
-        mediaWaitingBytes: report?.waitingBytes,
+            : r.totalBytes - r.bytesReclaimed,
+        mediaReclaimableBytes: mediaFailed
+            ? previous?.mediaReclaimableBytes
+            : r == null
+            ? null
+            : r.reclaimableBytes - r.bytesReclaimed,
+        mediaWaitingBytes: mediaFailed
+            ? previous?.mediaWaitingBytes
+            : r?.waitingBytes,
         syncBytes: syncBytes,
         librariesBytes: libraries?.bytes,
         partial: partial || (libraries?.partial ?? false),
       ),
     );
     await _store.setLastCloudMeasure(now);
+    return reclaimed;
   }
 }

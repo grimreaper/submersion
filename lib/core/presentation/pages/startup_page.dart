@@ -44,6 +44,7 @@ import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/services/dive_log_availability.dart';
 import 'package:submersion/core/services/startup_recovery_service.dart';
 import 'package:submersion/core/services/local_cache_database_service.dart';
+import 'package:submersion/core/services/storage/gc/storage_gc_store.dart';
 import 'package:submersion/core/services/security/biometric_service.dart';
 import 'package:submersion/core/services/security/database_locked_exception.dart';
 import 'package:submersion/core/services/security/database_security_service.dart';
@@ -1458,6 +1459,11 @@ class _StartupWrapperState extends State<StartupWrapper>
 
     try {
       await before?.call();
+      // Recorded before the swap, as BackupService does: the marker holds the
+      // storage cleanup's cloud deletes back until a sync after the restore,
+      // and the restored database must not judge what in the media store is
+      // orphaned before then. A marker that cannot be recorded stops here.
+      await StorageGcStore.markRestored(widget.prefs, DateTime.now());
       if (widget.restoreOverride != null) {
         await widget.restoreOverride!(path, onProgress);
       } else {

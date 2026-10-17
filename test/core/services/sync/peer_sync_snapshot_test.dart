@@ -16,34 +16,36 @@ void main() {
   PeerSyncSnapshot build({
     List<SyncManifest>? manifests,
     Set<String> fenced = const {},
-    Set<String> skipped = const {},
     Set<String> readFailed = const {},
     Set<String> newerSchema = const {},
+    Set<String> incomplete = const {},
+    Set<String> unpublished = const {},
     int recordsFailed = 0,
   }) => buildPeerSyncSnapshot(
     now: now,
+    providerId: 'dropbox',
     selfDeviceId: 'self',
     peerManifests: manifests ?? [_manifest('a', 1000)],
     fencedPeerIds: fenced,
-    skippedPeerIds: skipped,
     readFailedPeerIds: readFailed,
     newerSchemaPeerIds: newerSchema,
+    incompletePeerIds: incomplete,
+    unpublishedPeerIds: unpublished,
     recordsFailed: recordsFailed,
   );
 
-  test('excludes self, fenced and stale-epoch peers', () {
+  test('excludes self and fenced peers', () {
     final snapshot = build(
       manifests: [
         _manifest('self', 5),
         _manifest('a', 1000),
         _manifest('b', 2000),
-        _manifest('c', 3000),
       ],
       fenced: {'b'},
-      skipped: {'c'},
     );
 
     expect(snapshot.takenAt, now);
+    expect(snapshot.providerId, 'dropbox');
     expect(snapshot.peers.map((p) => p.deviceId), ['a']);
     expect(
       snapshot.peers.single.publishedAt,
@@ -51,11 +53,27 @@ void main() {
     );
   });
 
-  test('is caught up only after a clean pull', () {
+  test('keeps a stale-epoch peer, which can still upload media', () {
+    // A peer halted awaiting adoption is inert for merging, but it keeps
+    // uploading; early delete must wait for it to publish like any other.
+    final snapshot = build(
+      manifests: [_manifest('a', 1000), _manifest('stale', 500)],
+    );
+
+    expect(snapshot.peers.map((p) => p.deviceId), ['a', 'stale']);
+  });
+
+  test('is caught up only after a clean pull that reached every head', () {
     expect(build().caughtUp, isTrue);
     expect(build(recordsFailed: 1).caughtUp, isFalse);
     expect(build(readFailed: {'a'}).caughtUp, isFalse);
     expect(build(newerSchema: {'a'}).caughtUp, isFalse);
+    expect(build(incomplete: {'a'}).caughtUp, isFalse);
+  });
+
+  test('records devices that have not published a manifest yet', () {
+    expect(build().hasUnpublishedPeers, isFalse);
+    expect(build(unpublished: {'new-device'}).hasUnpublishedPeers, isTrue);
   });
 
   group('PeerSyncSnapshotStore', () {
@@ -72,6 +90,8 @@ void main() {
 
       expect(read.takenAt, snapshot.takenAt);
       expect(read.caughtUp, isTrue);
+      expect(read.providerId, 'dropbox');
+      expect(read.hasUnpublishedPeers, isFalse);
       expect(read.peers.single.deviceId, 'a');
       expect(read.peers.single.publishedAt, snapshot.peers.single.publishedAt);
     });

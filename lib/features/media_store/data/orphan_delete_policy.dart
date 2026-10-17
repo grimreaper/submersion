@@ -37,32 +37,43 @@ class OrphanDeletePolicy {
     required this.now,
     required this.syncEnabled,
     this.snapshot,
+    this.currentProviderId,
     this.lastRestoreAt,
-    this.grace = const Duration(days: 7),
+    this.grace = defaultGrace,
     this.skew = const Duration(hours: 1),
   });
 
-  /// Sync off: the 7-day grace window is the only rule. Today's behaviour.
-  const OrphanDeletePolicy.unrestricted(this.now)
-    : syncEnabled = false,
-      snapshot = null,
-      lastRestoreAt = null,
-      grace = const Duration(days: 7),
-      skew = const Duration(hours: 1);
+  /// Sync off: the grace window is the only rule. Today's behaviour.
+  const OrphanDeletePolicy.unrestricted(DateTime now)
+    : this(now: now, syncEnabled: false);
+
+  /// How long an unreferenced object is kept before it may go, and how old
+  /// the last clean pull may be before this device is no longer trusted to
+  /// know every row that references the store.
+  static const defaultGrace = Duration(days: 7);
 
   final DateTime now;
   final bool syncEnabled;
   final PeerSyncSnapshot? snapshot;
+
+  /// The sync backend in use now; a snapshot from another backend is not
+  /// trusted.
+  final String? currentProviderId;
   final DateTime? lastRestoreAt;
   final Duration grace;
   final Duration skew;
 
   /// False when this device is not caught up, so every verdict is
-  /// [OrphanVerdict.deferred].
+  /// [OrphanVerdict.deferred]: no clean pull, a pull from another backend,
+  /// one older than the grace window (a device that stopped syncing must not
+  /// keep deleting on what it knew then), or one from before the last
+  /// restore.
   bool get deletesAllowed {
     if (!syncEnabled) return true;
     final s = snapshot;
     if (s == null || !s.caughtUp) return false;
+    if (s.providerId != currentProviderId) return false;
+    if (s.takenAt.isBefore(now.subtract(grace))) return false;
     final restored = lastRestoreAt;
     return restored == null || s.takenAt.isAfter(restored);
   }
@@ -71,7 +82,9 @@ class OrphanDeletePolicy {
     if (!deletesAllowed) return OrphanVerdict.deferred;
     if (lastModified.isBefore(now.subtract(grace))) return OrphanVerdict.delete;
     final s = snapshot;
-    if (syncEnabled && s != null) {
+    // Early delete only when every device that can upload is known: a device
+    // whose first publish has no manifest yet is not in [s.peers].
+    if (syncEnabled && s != null && !s.hasUnpublishedPeers) {
       final covered = lastModified.add(skew);
       final everyoneSince =
           covered.isBefore(s.takenAt) &&

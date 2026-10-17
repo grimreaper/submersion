@@ -97,6 +97,26 @@ void main() {
     expect(keys, ['smv1/objects/aa/video.mp4']);
   });
 
+  test('a large upload is dated by the upload, not the source file', () async {
+    // The cleanup's grace window and early delete are measured from
+    // lastModified. A copy that kept the photo's capture date would make a
+    // fresh upload look months old to a device that has not seen its row.
+    final store = build(smallFileThresholdBytes: 1024);
+    final src = File('${tmp.path}/old-video.mp4')
+      ..writeAsBytesSync(List<int>.filled(4096, 7))
+      ..setLastModifiedSync(DateTime(2025, 1, 1));
+    final before = DateTime.now().subtract(const Duration(seconds: 5));
+
+    await store.putFile(
+      'smv1/objects/aa/old-video.mp4',
+      src,
+      contentType: 'video/mp4',
+    );
+
+    final listed = await store.list('smv1/objects/').single;
+    expect(listed.lastModified.isAfter(before), isTrue);
+  });
+
   test('null container path maps to a fatal MediaStoreException', () async {
     final store = ICloudMediaObjectStore(
       platform: _NoContainerPlatform(container),

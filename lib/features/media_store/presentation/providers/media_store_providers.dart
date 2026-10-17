@@ -246,17 +246,46 @@ final mediaDeletionCoordinatorProvider = Provider<MediaDeletionCoordinator>((
 // backend at call time, so there is no cached row to go stale.
 final orphanDeletePolicyFactoryProvider =
     Provider<OrphanDeletePolicy Function()>((ref) {
-      return () => OrphanDeletePolicy(
-        now: DateTime.now(),
-        syncEnabled: ref.read(cloudStorageProviderProvider) != null,
-        snapshot: PeerSyncSnapshotStore(
-          ref.read(sharedPreferencesProvider),
-        ).read(),
-        lastRestoreAt: StorageGcStore(
-          ref.read(sharedPreferencesProvider),
-        ).lastRestoreAt,
-      );
+      return () {
+        final syncProvider = ref.read(cloudStorageProviderProvider);
+        final prefs = ref.read(sharedPreferencesProvider);
+        return OrphanDeletePolicy(
+          now: DateTime.now(),
+          syncEnabled: syncProvider != null,
+          currentProviderId: syncProvider?.providerId,
+          snapshot: PeerSyncSnapshotStore(prefs).read(),
+          lastRestoreAt: StorageGcStore(prefs).lastRestoreAt,
+        );
+      };
     });
+
+/// The runtime a media store sweep may run against.
+///
+/// Null when no store is attached. Throws when one is attached but cannot be
+/// built right now (a lapsed session, a missing credential), so a caller
+/// does not mistake it for "not set up"; and when the store fails the marker
+/// check the upload worker runs before every transfer (detached, wiped or
+/// repointed), since sweeping it would judge another library's objects, or
+/// an empty store, against this library's rows.
+Future<MediaStoreRuntime?> sweepableMediaStoreRuntime(Ref ref) async {
+  final attachState = ref.read(mediaStoreAttachStateProvider);
+  final runtime = await ref.read(mediaStoreRuntimeProvider.future);
+  if (runtime == null) {
+    if (await attachState.attachedStoreId() != null) {
+      throw StateError('The attached media store is unavailable');
+    }
+    return null;
+  }
+  final refusal = await MediaStorePreflight(
+    attachState: attachState,
+    store: runtime.store,
+    attachedStoreId: runtime.storeId,
+  ).check();
+  if (refusal != null) {
+    throw StateError('The media store failed its marker check ($refusal)');
+  }
+  return runtime;
+}
 
 /// Runs a Verify Library sweep against the attached store, stamps the
 /// fleet-wide timestamp on success, and kicks a drain for any queued
@@ -268,7 +297,7 @@ final orphanDeletePolicyFactoryProvider =
 final mediaVerifyRunnerProvider =
     Provider<Future<VerifyLibraryReport> Function()>((ref) {
       return () async {
-        final runtime = await ref.read(mediaStoreRuntimeProvider.future);
+        final runtime = await sweepableMediaStoreRuntime(ref);
         if (runtime == null) {
           throw StateError('no media store attached');
         }

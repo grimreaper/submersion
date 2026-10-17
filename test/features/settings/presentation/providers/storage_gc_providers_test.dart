@@ -1,21 +1,27 @@
+import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/local_cache_database.dart';
+import 'package:submersion/core/services/media_store/media_store_attach_state.dart';
 import 'package:submersion/core/services/media_store/network_status_service.dart';
 import 'package:submersion/core/services/media_store/store_keys.dart';
 import 'package:submersion/core/services/shared_library/shared_library_models.dart';
 import 'package:submersion/core/services/shared_library/shared_library_store.dart';
 import 'package:submersion/core/services/shared_library/shared_library_transport.dart';
 import 'package:submersion/core/services/storage/gc/storage_gc_coordinator.dart';
+import 'package:submersion/core/services/storage/gc/storage_gc_store.dart';
 import 'package:submersion/core/services/storage/local_cache_sweep.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media/data/resolvers/media_store_resolver.dart';
+import 'package:submersion/features/media/domain/entities/media_item.dart';
+import 'package:submersion/features/media/domain/entities/media_source_type.dart';
 import 'package:submersion/features/media/presentation/providers/media_providers.dart';
 import 'package:submersion/features/media_store/data/media_cache_store.dart';
 import 'package:submersion/features/media_store/data/media_stores_repository.dart';
@@ -27,6 +33,7 @@ import 'package:submersion/features/settings/presentation/providers/sync_provide
 import 'package:submersion/features/shared_library/presentation/providers/shared_library_providers.dart';
 
 import '../../../../helpers/fake_cloud_storage_provider.dart';
+import '../../../../helpers/fake_path_provider.dart';
 import '../../../../helpers/in_memory_media_object_store.dart';
 import '../../../../helpers/test_database.dart';
 
@@ -43,11 +50,20 @@ void main() {
   late FakeCloudStorageProvider libraryCloud;
   final old = DateTime.now().subtract(const Duration(days: 30));
 
+  void writeMarker(String storeId) {
+    store.objects['smv1/store.json'] = utf8.encode(
+      jsonEncode({'storeId': storeId, 'formatVersion': 1, 'createdAt': ''}),
+    );
+  }
+
   setUp(() async {
     // A fresh local cache sweep stamp keeps the weekly pass (which needs
     // the live database services) out of these tests.
     SharedPreferences.setMockInitialValues({
       kLocalCacheSweepStampKey: DateTime.now().millisecondsSinceEpoch,
+      // This device is attached to store-1, and the store carries its
+      // marker: the preflight every sweep now runs passes.
+      MediaStoreAttachState.storeIdKey: 'store-1',
     });
     prefs = await SharedPreferences.getInstance();
     await setUpTestDatabase();
@@ -55,7 +71,9 @@ void main() {
       NativeDatabase.memory(setup: registerAppSqlFunctions),
     );
     root = await Directory.systemTemp.createTemp('storage_gc_providers');
+    useFakePathProvider(_TempPathProvider(root.path));
     store = InMemoryMediaObjectStore();
+    writeMarker('store-1');
     syncCloud = FakeCloudStorageProvider();
     libraryCloud = FakeCloudStorageProvider();
   });
@@ -66,9 +84,46 @@ void main() {
     await tearDownTestDatabase();
   });
 
+  /// A photo this database knows, with its object in the store: without one
+  /// the database does not know the store and the sweep deletes nothing.
+  Future<void> knownPhoto() async {
+    final repo = MediaRepository();
+    final created = await repo.createMedia(
+      MediaItem(
+        id: '',
+        mediaType: MediaType.photo,
+        sourceType: MediaSourceType.localFile,
+        originalFilename: 'kept.jpg',
+        takenAt: DateTime(2026, 1, 1),
+        createdAt: DateTime(2026, 1, 1),
+        updatedAt: DateTime(2026, 1, 1),
+      ),
+    );
+    await repo.stampContentIdentity(
+      created.id,
+      contentHash: 'aabb',
+      sizeBytes: 3,
+    );
+    await repo.stampRemoteUploaded(created.id, uploadedAt: DateTime(2026, 2));
+    store.objects[StoreKeys.objectKey('aabb', extension: 'jpg')] = [1, 2, 3];
+    store.modified[StoreKeys.objectKey('aabb', extension: 'jpg')] = old;
+  }
+
+  void deadObject() {
+    store.objects[StoreKeys.objectKey('dead', extension: 'jpg')] = [1, 2, 3];
+    store.modified[StoreKeys.objectKey('dead', extension: 'jpg')] = old;
+  }
+
+  Future<void> registerStore() => MediaStoresRepository().upsertActive(
+    storeId: 'store-1',
+    providerType: 's3',
+    displayHint: 'test',
+  );
+
   ProviderContainer container({
     List<SharedLibrary> libraries = const [],
     bool syncOn = true,
+    bool runtimeAvailable = true,
   }) {
     final cache = MediaCacheStore(database: cacheDb, root: root);
     final c = ProviderContainer(
@@ -82,12 +137,14 @@ void main() {
           MediaTransferQueueRepository(database: cacheDb),
         ),
         mediaStoreRuntimeProvider.overrideWith(
-          (ref) async => MediaStoreRuntime(
-            storeId: 'store-1',
-            store: store,
-            cache: cache,
-            resolver: MediaStoreResolver(store: store, cache: cache),
-          ),
+          (ref) async => runtimeAvailable
+              ? MediaStoreRuntime(
+                  storeId: 'store-1',
+                  store: store,
+                  cache: cache,
+                  resolver: MediaStoreResolver(store: store, cache: cache),
+                )
+              : null,
         ),
         cloudStorageProviderProvider.overrideWithValue(
           syncOn ? syncCloud : null,
@@ -165,25 +222,92 @@ void main() {
   );
 
   test('a manual run that may delete stamps the active descriptor', () async {
-    final stores = MediaStoresRepository();
-    await stores.upsertActive(
-      storeId: 'store-1',
-      providerType: 's3',
-      displayHint: 'test',
-    );
-    store.objects[StoreKeys.objectKey('dead', extension: 'jpg')] = [1, 2, 3];
-    store.modified[StoreKeys.objectKey('dead', extension: 'jpg')] = old;
+    await registerStore();
+    await knownPhoto();
+    deadObject();
     // Sync off: the 7-day grace window is the only rule, so the old orphan
     // may go.
     final c = container(syncOn: false);
 
-    await c.read(storageGcCoordinatorProvider).run(StorageGcTrigger.manual);
+    final reclaimed = await c
+        .read(storageGcCoordinatorProvider)
+        .run(StorageGcTrigger.manual);
 
-    expect(store.objects, isEmpty);
-    expect((await stores.getActive())!.lastSweepAt, isNotNull);
+    expect(
+      store.objects.keys,
+      isNot(contains(StoreKeys.objectKey('dead', extension: 'jpg'))),
+    );
+    expect(reclaimed, greaterThanOrEqualTo(3));
+    expect((await MediaStoresRepository().getActive())!.lastSweepAt, isNotNull);
     final usage = c.read(storageGcStoreProvider).cloudUsage!;
     expect(usage.syncBytes, isNull, reason: 'no sync backend set up');
     expect(c.read(storageGcStoreProvider).lastCloudResult!.bytes, 3);
+  });
+
+  test('no cloud deletes without a media_stores row for the store', () async {
+    // A database that never registered this store (a fresh dive log, a
+    // restore from before it was attached) must not decide what in it is
+    // orphaned.
+    await knownPhoto();
+    deadObject();
+    final c = container(syncOn: false);
+
+    await c.read(storageGcCoordinatorProvider).run(StorageGcTrigger.manual);
+
+    expect(
+      store.objects.keys,
+      contains(StoreKeys.objectKey('dead', extension: 'jpg')),
+    );
+  });
+
+  test('a store that fails its marker check is not swept', () async {
+    // Repointed or wiped: the store's objects are not this library's.
+    await registerStore();
+    await knownPhoto();
+    deadObject();
+    writeMarker('another-library');
+    final c = container(syncOn: false);
+
+    await c.read(storageGcCoordinatorProvider).run(StorageGcTrigger.manual);
+
+    expect(
+      store.objects.keys,
+      contains(StoreKeys.objectKey('dead', extension: 'jpg')),
+    );
+    expect(c.read(storageGcStoreProvider).cloudUsage!.partial, isTrue);
+  });
+
+  test(
+    'an attached store that cannot be built marks the scan partial',
+    () async {
+      final c = container(runtimeAvailable: false);
+
+      await c.read(storageGcCoordinatorProvider).run(StorageGcTrigger.rescan);
+
+      final usage = c.read(storageGcStoreProvider).cloudUsage!;
+      expect(usage.partial, isTrue, reason: 'attached, not "not set up"');
+    },
+  );
+
+  test('an unavailable store keeps the post-restore cleanup pending', () async {
+    await StorageGcStore.markRestored(prefs, DateTime.now());
+    final c = container(runtimeAvailable: false, syncOn: false);
+    await registerStore();
+
+    await c.read(storageGcCoordinatorProvider).run(StorageGcTrigger.launch);
+
+    expect(c.read(storageGcStoreProvider).postRestoreCloudPending, isTrue);
+  });
+
+  test('last reclaimed adds the device and cloud results of one pass', () {
+    final at = DateTime(2026, 10, 17);
+    final view = StorageGcView(
+      running: false,
+      lastDeviceResult: AreaResult(bytes: 5, items: 1, at: at),
+      lastCloudResult: AreaResult(bytes: 300, items: 2, at: at),
+    );
+    expect(view.lastReclaimed!.bytes, 305);
+    expect(view.lastReclaimed!.items, 3);
   });
 }
 
@@ -194,4 +318,15 @@ class _FakeLibraryStore extends SharedLibraryStore {
 
   @override
   Future<List<SharedLibrary>> getLibraries() async => libraries;
+}
+
+/// Points the temporary directory at the test's own folder: the store
+/// marker read goes through it.
+class _TempPathProvider extends PathProviderPlatform {
+  _TempPathProvider(this.path);
+
+  final String path;
+
+  @override
+  Future<String?> getTemporaryPath() async => path;
 }

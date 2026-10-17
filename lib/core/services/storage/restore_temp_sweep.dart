@@ -17,20 +17,36 @@ import 'package:submersion/core/services/storage/scratch_sweep.dart';
 /// only once they are a day old. The age guard matters because the share
 /// sheet's export writes the same names into the same folder.
 class RestoreTempSweep {
-  RestoreTempSweep({required Future<Directory> Function() temporaryDirectory})
-    : _temporaryDirectory = temporaryDirectory;
+  RestoreTempSweep({
+    required Future<Directory> Function() temporaryDirectory,
+    DateTime Function(FileStat stat) touchedAt = lastTouched,
+  }) : _temporaryDirectory = temporaryDirectory,
+       _touchedAt = touchedAt;
 
   final Future<Directory> Function() _temporaryDirectory;
+  final DateTime Function(FileStat stat) _touchedAt;
   final _log = LoggerService.forClass(RestoreTempSweep);
 
   static const Duration minAge = Duration(hours: 24);
 
-  /// A backup name, optionally behind the `restore-<uuid>-` prefix restores
-  /// now use for their copies: a dated backup (`submersion_backup_...`, plain
-  /// or encrypted) or a pre-migration copy (`<yyyyMMdd>-<HHmmssSSS>-v<n>-v<m>`).
+  /// The temp names backups and restores write, each deleted only in a
+  /// finally block that a killed app never reaches:
+  /// - a backup name (`submersion_backup_...`, plain or encrypted), bare (a
+  ///   share-sheet export, an older restore copy) or behind the
+  ///   `restore-<uuid>-` restore-copy or `<uuid>-` staging prefix;
+  /// - a pre-migration copy (`<yyyyMMdd>-<HHmmssSSS>-v<n>-v<m>.db`), bare or
+  ///   behind the restore-copy prefix;
+  /// - the decrypted plaintext copy of an encrypted backup
+  ///   (`restore_<uuid>.db`), and the export and re-encryption copies
+  ///   (`export_<uuid>.db`, `reenc_<uuid>.sbe`).
   static final _backupName = RegExp(
-    r'^(restore-[0-9a-f-]{36}-)?'
-    r'(submersion_backup_.+\.(db|sbe)|\d{8}-\d{9}-v\d+-v\d+\.db)$',
+    r'^(?:'
+    r'(?:restore-)?(?:[0-9a-f-]{36}-)?submersion_backup_.+\.(?:db|sbe)'
+    r'|(?:restore-[0-9a-f-]{36}-)?\d{8}-\d{9}-v\d+-v\d+\.db'
+    r'|restore_[0-9a-f-]{36}\.db'
+    r'|export_[0-9a-f-]{36}\.db'
+    r'|reenc_[0-9a-f-]{36}\.sbe'
+    r')$',
   );
 
   /// A [dryRun] counts what the pass would reclaim and deletes nothing.
@@ -47,7 +63,7 @@ class RestoreTempSweep {
       if (!_backupName.hasMatch(name)) continue;
       try {
         final stat = await entity.stat();
-        if (!stat.modified.isBefore(cutoff)) continue;
+        if (!_touchedAt(stat).isBefore(cutoff)) continue;
         if (!dryRun) await entity.delete();
         files++;
         bytes += stat.size;

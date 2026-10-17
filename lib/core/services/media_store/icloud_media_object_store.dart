@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
+import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/services/media_store/icloud_media_platform.dart';
 import 'package:submersion/core/services/media_store/media_object_store.dart';
 
@@ -19,6 +20,7 @@ class ICloudMediaObjectStore implements MediaObjectStore {
   }) : _platform = platform;
 
   final ICloudMediaPlatform _platform;
+  final _log = LoggerService.forClass(ICloudMediaObjectStore);
   final String rootFolder;
   final int smallFileThresholdBytes;
 
@@ -87,6 +89,15 @@ class ICloudMediaObjectStore implements MediaObjectStore {
       // same-volume, then let the OS upload in the background.
       final staging = '$path.uploading';
       await source.copy(staging);
+      // File.copy keeps the source's modification time on Apple platforms,
+      // and list() reports that time: a fresh upload of an old video would
+      // look months old to the storage cleanup, whose grace window runs from
+      // lastModified. Date the object by the upload instead.
+      try {
+        await File(staging).setLastModified(DateTime.now());
+      } on FileSystemException catch (e) {
+        _log.warning('Could not date the staged upload for $key', error: e);
+      }
       final moved = await _platform.moveIntoContainer(staging, path);
       if (!moved) {
         throw MediaStoreException(

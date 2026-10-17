@@ -27,21 +27,39 @@ class PeerSyncSnapshot {
     required this.takenAt,
     required this.caughtUp,
     required this.peers,
+    this.providerId,
+    this.hasUnpublishedPeers = false,
   });
 
-  /// When the pull finished, on this device's clock.
+  /// When the pull started, on this device's clock. The start, not the end:
+  /// a restore that lands while this sync is still publishing must find the
+  /// snapshot older than its marker, since the pull read the old database.
   final DateTime takenAt;
 
-  /// True when the pull applied every live peer cleanly: no failed records,
-  /// no peer that failed to read, and no peer held for a newer schema.
+  /// True when the pull applied every live peer cleanly and reached each
+  /// one's published head: no failed records, no peer that failed to read,
+  /// no peer held for a newer schema, and no peer the reader stopped short
+  /// of (a gap, a corrupt changeset, an incomplete base).
   final bool caughtUp;
 
-  /// Live peers in the current library epoch, excluding this device.
+  /// Every other device with a manifest that is not retired, stale-epoch
+  /// peers included: a peer halted awaiting adoption still uploads media.
   final List<PeerPublish> peers;
+
+  /// The sync backend the pull ran against. A snapshot from another backend
+  /// says nothing about this one.
+  final String? providerId;
+
+  /// True when a device had files in the sync folder but no manifest yet (a
+  /// first publish still uploading). Such a device is invisible to [peers],
+  /// so nothing can be early-deleted on its account.
+  final bool hasUnpublishedPeers;
 
   Map<String, Object?> toJson() => {
     'takenAt': takenAt.millisecondsSinceEpoch,
     'caughtUp': caughtUp,
+    'providerId': providerId,
+    'hasUnpublishedPeers': hasUnpublishedPeers,
     'peers': [
       for (final p in peers)
         {'id': p.deviceId, 'at': p.publishedAt.millisecondsSinceEpoch},
@@ -53,6 +71,8 @@ class PeerSyncSnapshot {
     return PeerSyncSnapshot(
       takenAt: DateTime.fromMillisecondsSinceEpoch(json['takenAt']! as int),
       caughtUp: json['caughtUp']! as bool,
+      providerId: json['providerId'] as String?,
+      hasUnpublishedPeers: json['hasUnpublishedPeers'] as bool? ?? false,
       peers: [
         for (final raw in peers.cast<Map<String, Object?>>())
           PeerPublish(
@@ -64,33 +84,38 @@ class PeerSyncSnapshot {
   }
 }
 
-/// Builds the snapshot for one finished pull.
+/// Builds the snapshot for one finished pull that started at [now].
 ///
-/// Fenced (retired) peers and stale-epoch peers are left out: neither can
-/// publish anything this library will apply. A stale-epoch peer does not
-/// spoil [PeerSyncSnapshot.caughtUp] either, since it never will be applied;
-/// a peer that failed to read or is held for a newer schema does.
+/// Fenced (retired) peers are left out: they publish nothing more. A
+/// stale-epoch peer stays in [PeerSyncSnapshot.peers] (it may still be
+/// uploading media for rows it will replay on adoption) but does not spoil
+/// [PeerSyncSnapshot.caughtUp], since its changes are never applied here. A
+/// peer that failed to read, is held for a newer schema, or was not read to
+/// its head does.
 PeerSyncSnapshot buildPeerSyncSnapshot({
   required DateTime now,
+  required String providerId,
   required String selfDeviceId,
   required List<SyncManifest> peerManifests,
   required Set<String> fencedPeerIds,
-  required Set<String> skippedPeerIds,
   required Set<String> readFailedPeerIds,
   required Set<String> newerSchemaPeerIds,
+  required Set<String> incompletePeerIds,
+  required Set<String> unpublishedPeerIds,
   required int recordsFailed,
 }) {
   return PeerSyncSnapshot(
     takenAt: now,
+    providerId: providerId,
     caughtUp:
         recordsFailed == 0 &&
         readFailedPeerIds.isEmpty &&
-        newerSchemaPeerIds.isEmpty,
+        newerSchemaPeerIds.isEmpty &&
+        incompletePeerIds.isEmpty,
+    hasUnpublishedPeers: unpublishedPeerIds.isNotEmpty,
     peers: [
       for (final m in peerManifests)
-        if (m.deviceId != selfDeviceId &&
-            !fencedPeerIds.contains(m.deviceId) &&
-            !skippedPeerIds.contains(m.deviceId))
+        if (m.deviceId != selfDeviceId && !fencedPeerIds.contains(m.deviceId))
           PeerPublish(
             deviceId: m.deviceId,
             publishedAt: DateTime.fromMillisecondsSinceEpoch(m.updatedAt),
@@ -142,6 +167,8 @@ class PeerSyncSnapshotStore {
         takenAt: current.takenAt,
         caughtUp: false,
         peers: current.peers,
+        providerId: current.providerId,
+        hasUnpublishedPeers: current.hasUnpublishedPeers,
       ),
     );
   }

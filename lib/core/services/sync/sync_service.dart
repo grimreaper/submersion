@@ -572,18 +572,18 @@ class SyncService {
         0.0,
         _l10n.settings_cloudSync_progress_preparing,
       );
+      // Until this sync reaches its clean end, the storage cleanup must not
+      // trust the previous snapshot: an authentication failure, an adoption
+      // halt or a failure below leaves this device behind its peers (storage
+      // GC design, safety). A reset that cannot be written fails this sync
+      // rather than leave a stale caught-up snapshot behind it.
+      await _peerSnapshots?.markNotCaughtUp();
       if (!await provider.isAuthenticated()) {
         return SyncResult(
           status: SyncResultStatus.authError,
           message: _l10n.settings_cloudSync_result_notAuthenticated,
         );
       }
-      // Until this sync reaches its clean end, the storage cleanup must not
-      // trust the previous snapshot: an adoption halt or a failure below
-      // leaves this device behind its peers (storage GC design, safety). A
-      // reset that cannot be written fails this sync rather than leave a
-      // stale caught-up snapshot behind it.
-      await _peerSnapshots?.markNotCaughtUp();
       var deviceId = await _syncRepository.getDeviceId();
       // Scoped to this provider: a cursor minted against a backend we switched
       // away from reads as null here, forcing a full cold-start reconcile on
@@ -661,6 +661,9 @@ class SyncService {
       var recordsSynced = 0;
       var conflictsFound = 0;
       var recordsFailed = 0;
+      // The snapshot's time: before the pull, not after the publish (see
+      // PeerSyncSnapshot.takenAt).
+      final pullStartedAt = DateTime.now();
       final pullResult = await _changesetReader.pull(
         provider: provider,
         selfDeviceId: deviceId,
@@ -850,19 +853,21 @@ class SyncService {
       }
       await _syncRepository.persistSyncClock();
       // What the storage cleanup needs from this pull once the manifests are
-      // gone: whether every live peer applied cleanly, and when each last
-      // published. Best-effort: a failed write leaves the previous snapshot,
-      // which the cleanup reads as older and therefore more cautious.
+      // gone: whether every live peer applied cleanly to its head, and when
+      // each last published. Best-effort: a failed write leaves the
+      // not-caught-up mark this sync set at its start, the cautious state.
       try {
         await _peerSnapshots?.write(
           buildPeerSyncSnapshot(
-            now: now,
+            now: pullStartedAt,
+            providerId: provider.providerId,
             selfDeviceId: deviceId,
             peerManifests: pullResult.peerManifests,
             fencedPeerIds: fencedPeerIds,
-            skippedPeerIds: pullResult.skippedPeerDeviceIds,
             readFailedPeerIds: pullResult.readFailedPeerDeviceIds,
             newerSchemaPeerIds: pullResult.newerSchemaPeerDeviceIds,
+            incompletePeerIds: pullResult.incompletePeerDeviceIds,
+            unpublishedPeerIds: pullResult.unpublishedPeerDeviceIds,
             recordsFailed: recordsFailed,
           ),
         );

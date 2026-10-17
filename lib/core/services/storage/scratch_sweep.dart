@@ -24,6 +24,17 @@ bool shouldSweepScratch({
   return now.difference(lastSweptAt) >= const Duration(days: 1);
 }
 
+/// When a file was last written or created, for the sweeps' age checks.
+///
+/// The modification time alone is not enough: File.copy keeps the source's
+/// modification time on Apple platforms (and Windows), so a copy made a
+/// minute ago (a restore copy, an upload's staging copy) can look as old as
+/// the file it came from. The status change time is set when the copy is
+/// made (on Windows it is the creation time), so the later of the two is
+/// when this file last changed here.
+DateTime lastTouched(FileStat stat) =>
+    stat.changed.isAfter(stat.modified) ? stat.changed : stat.modified;
+
 /// What one sweep pass reclaimed.
 class ScratchSweepReport {
   const ScratchSweepReport({
@@ -80,11 +91,14 @@ class StorageScratchSweep {
   StorageScratchSweep({
     required Future<Directory> Function() temporaryDirectory,
     required Future<Directory> Function() supportDirectory,
+    DateTime Function(FileStat stat) touchedAt = lastTouched,
   }) : _temporaryDirectory = temporaryDirectory,
-       _supportDirectory = supportDirectory;
+       _supportDirectory = supportDirectory,
+       _touchedAt = touchedAt;
 
   final Future<Directory> Function() _temporaryDirectory;
   final Future<Directory> Function() _supportDirectory;
+  final DateTime Function(FileStat stat) _touchedAt;
   final _log = LoggerService.forClass(StorageScratchSweep);
 
   /// Long enough that an import or a staged write in flight is never caught.
@@ -171,7 +185,7 @@ class StorageScratchSweep {
       if (entity is! File) continue;
       try {
         final stat = await entity.stat();
-        if (!stat.modified.isBefore(cutoff)) continue;
+        if (!_touchedAt(stat).isBefore(cutoff)) continue;
         final size = stat.size;
         if (!dryRun) await entity.delete();
         files++;

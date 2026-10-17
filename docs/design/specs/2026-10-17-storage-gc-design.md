@@ -75,9 +75,12 @@ assert it for each sweep.
    restore's `finally` when the path was a download or SAF copy (never when it was
    the record's own `localPath`). The coordinator's device sweep also removes
    leftovers already present: files directly in the temp dir matching the backup
-   name patterns (`submersion_backup_*.db|.sbe`, pre-migration
-   `<ts>-v<n>-v<m>.db`) older than 24 hours. The age guard matters because
-   `exportBackupToTemp` (share sheet) writes the same names there.
+   name patterns (`submersion_backup_*.db|.sbe`, also behind a `restore-<uuid>-`
+   or `<uuid>-` copy prefix; pre-migration `<ts>-v<n>-v<m>.db`, also behind
+   `restore-<uuid>-`) and the backup code's working copies (`restore_<uuid>.db`,
+   the decrypted plaintext; `export_<uuid>.db`; `reenc_<uuid>.sbe`) older than
+   24 hours. The age guard matters because `exportBackupToTemp` (share sheet)
+   writes the same names there.
 2. Existing local sweeps (`StorageScratchSweep`, `LocalCacheSweep`,
    `sweepLeftoverSyncTempFiles`, `MediaOrphanBacklogSweep`) keep their logic and
    move under the coordinator.
@@ -121,9 +124,13 @@ assert it for each sweep.
    handled by verify; the fixes are timing (coordinator) and the early-delete rule
    below. The coordinator must also run when `getActive()` is null after a restore
    that predates attaching the store: it uses the runtime's attached store
-   (`attachedId`) and keeps its cadence stamp device-locally in that case, instead
-   of bailing out forever (`media_store_providers.dart:556`). Once a descriptor
-   row exists again, the synced fleet stamp takes over. (Designer's call.)
+   (`attachedId`) and measures, instead of bailing out forever
+   (`media_store_providers.dart:556`). It deletes nothing until a descriptor row
+   exists again (a peer's sync brings it back, or a reconnect writes it), as the
+   old auto-verify required: a database without one may be a fresh or reset dive
+   log that knows only some of the store's media, and would judge the rest
+   orphaned. Then the synced fleet stamp takes over. Verify Library keeps its
+   current behaviour. (Designer's call, narrowed by the review.)
 
    After a Merge restore (the default), rows for media added after the backup come
    back from peers on the next reconciling sync, so those objects are not orphans
@@ -140,34 +147,64 @@ reclaimable figure. A sync-folder deletion sweep is not part of this work.
 ## Safety rules (all sweeps)
 
 - **Grace window for cloud media orphans:** 7 days from the object's
-  `lastModified`, as today.
+  `lastModified`, as today. The iCloud store sets each staged copy's modification
+  time to the upload time: a file copy keeps the source's time, which would make
+  a new upload look as old as the photo.
 - **Early delete:** an orphan may go sooner once every other known sync device has
-  synced since it was uploaded, meaning, for each live peer, its manifest
-  `updatedAt` is later than the object's `lastModified` plus a clock-skew margin,
-  and this device has applied that peer through its manifest's `publishedHlcHigh`.
-  Retired peers (`ssv1.<id>.retired.json`) do not count. A peer whose manifest
-  cannot be read blocks early delete. If sync is off, the 7 days always apply. The
-  skew margin is the builder's call (an hour is reasonable).
+  synced since it was uploaded, meaning, for each peer, its manifest `updatedAt`
+  is later than the object's `lastModified` plus a clock-skew margin (an hour),
+  this device's last clean pull started later than that too, and this device has
+  applied that peer through its manifest's `publishedHlcHigh`. Retired peers
+  (`ssv1.<id>.retired.json`) do not count; a peer still on an older library epoch
+  does. A peer whose manifest cannot be read blocks early delete, and so does a
+  device with sync files but no manifest yet (its first publish is still under
+  way). If sync is off, the 7 days always apply.
 - **Caught up before any cloud media delete** (designer's call): when database
   sync is on, every cloud media delete (orphans and siblings, early or after 7
-  days) requires this device to have applied every live peer through its
-  manifest's `publishedHlcHigh` on the latest pull, and no post-restore sync or
-  replace adoption still pending. Otherwise the media sweep measures and defers.
-  The post-restore run therefore does its device part at once and its cloud
-  deletes after the first reconciling sync completes.
-- **Known limitation (unchanged from today):** a device that shares the media
-  store without database sync is invisible to this one. Its rows are not in the
-  reference set, so its objects can be deleted after 7 days; that device's
-  reverse repair re-uploads them from its local copy. This design does not make
-  that worse, and does not fix it.
+  days) requires the latest pull to have read every live peer to its published
+  head (no unreadable manifest, gap, missing base or failed record) and applied
+  it through its manifest's `publishedHlcHigh`, with no post-restore sync or
+  replace adoption still pending. That pull must also come from the sync backend
+  in use now, be no older than the grace window (a device that stopped syncing
+  must not keep deleting on what it knew then), and have started after the last
+  restore. Otherwise the media sweep measures and defers. Each sync marks this
+  device not caught up before it authenticates, so a sync that fails, halts or
+  cannot sign in leaves it that way, and a sync that cannot write that mark does
+  not run. Every restore path (Settings and the startup screen) records the
+  restore before it swaps the database, and a restore that cannot record it does
+  not go ahead. The post-restore run therefore does its device part at once and
+  its cloud deletes after the first reconciling sync completes.
+- **A database that does not know the store deletes nothing from it:** the
+  automatic cleanup and Reclaim delete only while the dive log has an active
+  `media_stores` row (see Media store item 6), and no sweep deletes when no row
+  references any media while the store holds objects (a fresh or reset dive log
+  with the attachment still in place). Such runs measure and defer.
+- **Only this library's store:** every sweep, Verify Library included, first runs
+  the store-marker check the upload worker runs before each transfer. A detached,
+  wiped or repointed store is not swept.
+- **A run that may not delete does not repair either:** reverse repair clears
+  synced upload stamps, so a deferred run skips it. Its view of which rows still
+  need an object may be out of date.
+- **Known limitation:** a device that shares the media store without database
+  sync is invisible to this one. Its rows are not in the reference set, so its
+  objects can be deleted after 7 days, or within hours under early delete, which
+  counts only the devices this one knows of; that device's reverse repair
+  re-uploads them from its local copy. Early delete makes this happen sooner than
+  before; it does not fix it.
 - **Nothing deleted while work is in flight:** cloud media deletes wait while the
   transfer queue has a `transferring` row (a `pending` row's hash is already
   protected by the no-stamp rule, and a row stuck pending must not block cleanup
   forever);
   sync-folder work waits while `SyncCoordinator.busy`. A sweep that finds its area
-  busy defers to the next opportunity rather than waiting.
+  busy defers to the next opportunity rather than waiting. An automatic run skips
+  the cloud part while a sync runs; Reclaim and Rescan still measure then, but
+  delete nothing. A sync that starts while a sweep is deleting stops the deletes,
+  and that run counts as deferred: it neither stamps the fleet sweep nor clears
+  the post-restore flag.
 - **Never another device's in-progress files:** only this device's own superseded
-  sync files and temp files; malformed or unexpected keys are skipped.
+  sync files and temp files; malformed or unexpected keys are skipped. A device
+  file's age is the later of its modified and changed times, because a copy keeps
+  the source's modified time on Apple platforms.
 - **Unreadable is skip, not delete**, as in the shared library transport.
 
 ## Coordinator

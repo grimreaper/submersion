@@ -43,6 +43,8 @@ class _Harness {
   bool transferring = false;
   bool fleetDue = true;
   bool hasMediaStore = true;
+  bool deletesAllowed = true;
+  Object? mediaError;
   VerifyLibraryReport mediaReport = _report();
   int syncBytes = 30;
   bool syncPartial = false;
@@ -75,8 +77,11 @@ class _Harness {
     hasTransferringUploads: () async => transferring,
     mediaSweep: ({required dryRun}) async {
       mediaRuns.add(dryRun);
+      final error = mediaError;
+      if (error != null) throw error;
       return hasMediaStore ? mediaReport : null;
     },
+    deletesAllowed: () async => deletesAllowed,
     fleetSweepDue: (now) async => fleetDue,
     stampFleetSweep: (now) async => fleetStamps++,
     measureSync: () async => (bytes: syncBytes, partial: syncPartial),
@@ -134,11 +139,38 @@ void main() {
     expect(h.mediaRuns, isEmpty);
   });
 
-  test('cloud part skips while sync is busy', () async {
+  test(
+    'cloud deletes wait while a sync is running; Reclaim still measures',
+    () async {
+      h.syncBusy = true;
+      await coordinator.run(StorageGcTrigger.manual);
+      expect(h.mediaRuns, [true], reason: 'a dry run writes nothing');
+      expect(h.fleetStamps, 0);
+      expect(h.deviceRuns, [false]);
+    },
+  );
+
+  test('automatic cloud work skips while a sync is running', () async {
     h.syncBusy = true;
-    await coordinator.run(StorageGcTrigger.manual);
+    await coordinator.run(StorageGcTrigger.launch);
     expect(h.mediaRuns, isEmpty);
-    expect(h.deviceRuns, [false]);
+  });
+
+  test('rescan measures while a sync is running', () async {
+    h.syncBusy = true;
+    await coordinator.run(StorageGcTrigger.rescan);
+    expect(h.mediaRuns, [true]);
+    expect(h.store.cloudUsage, isNotNull);
+  });
+
+  test('no deleting sweep while the policy would defer', () async {
+    // Listing the whole store to delete nothing, hourly after a restore,
+    // costs time and data for no result.
+    h.deletesAllowed = false;
+    h.fleetDue = true;
+    await coordinator.run(StorageGcTrigger.launch);
+    expect(h.mediaRuns, [true], reason: 'measurement only, as it was due');
+    expect(h.fleetStamps, 0);
   });
 
   test('cloud deletes wait while an upload is transferring', () async {
@@ -332,16 +364,59 @@ void main() {
     },
   );
 
-  test('a joining caller learns when the shared run started', () async {
+  test(
+    'a run returns what the pass reclaimed on the device and in the cloud',
+    () async {
+      h.mediaReport = _report(reclaimable: 40, reclaimed: 40, removed: 4);
+      expect(await coordinator.run(StorageGcTrigger.manual), 250 + 40);
+    },
+  );
+
+  test('a joining caller gets the shared pass\'s result', () async {
     h.holdFirstSweep = Completer<void>();
     final first = coordinator.run(StorageGcTrigger.launch);
-    h.now = h.now.add(const Duration(minutes: 5));
     final joined = coordinator.run(StorageGcTrigger.manual);
     h.holdFirstSweep!.complete();
-    await Future.wait([first, joined]);
-
-    expect(coordinator.lastRunStartedAt, DateTime(2026, 10, 17, 12));
+    expect(await joined, await first);
+    expect(await joined, greaterThan(0));
   });
+
+  test(
+    'a failing media sweep still records the other areas, marked partial',
+    () async {
+      await coordinator.run(StorageGcTrigger.rescan);
+      final before = h.store.cloudUsage!;
+      h.mediaError = Exception('list failed');
+      h.syncBytes = 77;
+
+      await coordinator.run(StorageGcTrigger.rescan);
+
+      final usage = h.store.cloudUsage!;
+      expect(usage.syncBytes, 77);
+      expect(usage.partial, isTrue);
+      expect(
+        usage.mediaBytes,
+        before.mediaBytes,
+        reason: 'the last known media figure stays, flagged partial',
+      );
+    },
+  );
+
+  test(
+    'a failing media sweep keeps the post-restore cleanup pending',
+    () async {
+      await StorageGcStore.markRestored(
+        await SharedPreferences.getInstance(),
+        h.now,
+      );
+      h.mediaError = StateError('attached store unavailable');
+
+      await coordinator.run(StorageGcTrigger.launch);
+
+      expect(h.store.postRestoreCloudPending, isTrue);
+      expect(h.fleetStamps, 0);
+    },
+  );
 
   test('device reclaimable bytes come from a dry run', () async {
     expect(await coordinator.deviceReclaimableBytes(), 250);
