@@ -8,6 +8,7 @@ import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/services/sync/sync_event_bus.dart';
 import 'package:submersion/features/documents/data/repositories/document_owner_options_repository.dart';
+import 'package:submersion/features/certifications/domain/certification_title.dart';
 import 'package:submersion/features/documents/data/repositories/document_row_mapper.dart';
 import 'package:submersion/features/documents/domain/document_ids.dart';
 import 'package:submersion/features/documents/domain/entities/document.dart';
@@ -21,7 +22,9 @@ class DocumentListEntry {
   /// Name of the record the document is filed under; null when personal,
   /// or for an unnumbered dive with no name or site. A dive reads as its
   /// number and its name or site (`#142 · Blue Hole`), as the picker lists
-  /// it (#3391).
+  /// it (#3391). For a certification this is the stored name, empty when it
+  /// has no custom title; [withOwnerLabel] puts the title derived from
+  /// [certification] in its place (issue #3366).
   final String? ownerLabel;
   final int pageCount;
 
@@ -29,12 +32,26 @@ class DocumentListEntry {
   /// diver's date format; null for every other owner.
   final DateTime? ownerDate;
 
+  /// What the owning certification's title is made from; null unless the
+  /// document is filed under a certification that still exists.
+  final CertificationTitleFields? certification;
+
   const DocumentListEntry(
     this.document,
     this.ownerLabel,
     this.pageCount, {
     this.ownerDate,
+    this.certification,
   });
+
+  /// This entry with its owner shown as [label].
+  DocumentListEntry withOwnerLabel(String label) => DocumentListEntry(
+    document,
+    label,
+    pageCount,
+    ownerDate: ownerDate,
+    certification: certification,
+  );
 }
 
 typedef CardImages = ({Uint8List? front, Uint8List? back});
@@ -83,10 +100,13 @@ class DocumentRepository {
   static const _inListChunk = 500;
   static const _pageEntity = 'documentPages';
 
+  /// Fires on any write to documents or their pages, and on a certification
+  /// edit: a certification owner's title is derived from its row (#3366).
   Stream<void> watchChanges() => _db.tableUpdates(
     TableUpdateQuery.allOf([
       TableUpdateQuery.onTable(_db.documents),
       TableUpdateQuery.onTable(_db.documentPages),
+      TableUpdateQuery.onTable(_db.certifications),
     ]),
   );
 
@@ -178,7 +198,9 @@ class DocumentRepository {
           'dc.name) AS owner_label, '
           'dv.id AS owner_dive_id, dv.dive_number AS owner_dive_number, '
           'dv.name AS owner_dive_name, dvs.name AS owner_dive_site, '
-          'dv.dive_date_time AS owner_dive_date_time '
+          'dv.dive_date_time AS owner_dive_date_time, '
+          'cert.name AS cert_name, cert.agency AS cert_agency, '
+          'cert.level AS cert_level '
           'FROM documents d '
           'LEFT JOIN dive_sites s ON s.id = d.site_id '
           'LEFT JOIN trips t ON t.id = d.trip_id '
@@ -204,6 +226,14 @@ class DocumentRepository {
           document,
           r.readNullable<String>('owner_label'),
           pageCount,
+          certification: switch (r.readNullable<String>('cert_agency')) {
+            final agency? => (
+              name: r.read<String>('cert_name'),
+              agency: agency,
+              level: r.readNullable<String>('cert_level'),
+            ),
+            null => null,
+          },
         );
       }
       final dive = DocumentOwnerOption.dive(

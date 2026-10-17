@@ -3,6 +3,7 @@ import 'package:go_router/go_router.dart';
 
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
+import 'package:submersion/features/certification_agencies/presentation/providers/certification_catalog_providers.dart';
 import 'package:submersion/features/documents/domain/entities/document.dart';
 import 'package:submersion/features/documents/presentation/document_l10n.dart';
 import 'package:submersion/features/documents/presentation/providers/document_providers.dart';
@@ -65,13 +66,18 @@ class _DocumentDetailPageState extends ConsumerState<DocumentDetailPage> {
         appBar: AppBar(automaticallyImplyLeading: !widget.embedded),
         body: Center(child: Text(l10n.documents_error_load('$e'))),
       ),
-      data: (entry) {
-        if (entry == null) {
+      data: (stored) {
+        if (stored == null) {
           return Scaffold(
             appBar: AppBar(automaticallyImplyLeading: !widget.embedded),
             body: Center(child: Text(l10n.documents_empty)),
           );
         }
+        final entry = withCertificationOwnerTitle(
+          stored,
+          l10n,
+          catalog: ref.watch(certificationCatalogSyncProvider),
+        );
         final doc = entry.document;
         final owner = entry.ownerText(units);
         return Scaffold(

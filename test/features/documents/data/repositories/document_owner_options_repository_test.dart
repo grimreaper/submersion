@@ -47,6 +47,12 @@ void main() {
       'INSERT INTO buddies (id, diver_id, name, created_at, updated_at) '
       "VALUES ('b1', 'd1', 'zoe', 0, 0), ('b2', 'd1', 'Adam', 0, 0)",
     );
+    await sql(
+      'INSERT INTO certifications (id, diver_id, name, agency, level, '
+      "created_at, updated_at) VALUES ('c1', 'd1', '', 'padi', "
+      "'advancedNitrox', 0, 0), ('c2', 'd1', 'Adv. Nitrox', 'padi', "
+      "'advancedNitrox', 0, 0)",
+    );
     repo = DocumentOwnerOptionsRepository();
   });
   tearDown(tearDownTestDatabase);
@@ -91,6 +97,39 @@ void main() {
     expect(byId['v3']!.label, '');
     expect(byId['v3']!.subtitle, isNull);
   });
+
+  // Issue #3366: a certification with no custom title stores an empty name,
+  // so the option carries what its title is derived from.
+  test('a certification carries the fields its title is made from', () async {
+    final certs = await repo.optionsFor(
+      DocumentOwnerKind.certification,
+      diverId: 'd1',
+    );
+    expect(certs.map((o) => o.id), unorderedEquals(['c1', 'c2']));
+    final plain = certs.firstWhere((o) => o.id == 'c1');
+    expect(plain.certification, (
+      name: '',
+      agency: 'padi',
+      level: 'advancedNitrox',
+    ));
+    final trip = (await repo.optionsFor(
+      DocumentOwnerKind.trip,
+      diverId: 'd1',
+    )).first;
+    expect(trip.certification, isNull);
+  });
+
+  test(
+    'certificationFieldsFor reads a certification and is null when gone',
+    () async {
+      expect(await repo.certificationFieldsFor('c1'), (
+        name: '',
+        agency: 'padi',
+        level: 'advancedNitrox',
+      ));
+      expect(await repo.certificationFieldsFor('gone'), isNull);
+    },
+  );
 
   test('club library sites are not offered', () async {
     final sites = await repo.optionsFor(DocumentOwnerKind.site, diverId: 'd1');

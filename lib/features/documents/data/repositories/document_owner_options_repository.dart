@@ -3,6 +3,7 @@ import 'package:drift/drift.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/util/wall_clock_utc.dart';
+import 'package:submersion/features/certifications/domain/certification_title.dart';
 import 'package:submersion/features/documents/domain/entities/document.dart';
 
 /// One record a document can be filed under, as the owner picker lists it.
@@ -19,7 +20,18 @@ class DocumentOwnerOption {
   /// Dives and trips: the wall clock, formatted where it is shown.
   final DateTime? date;
 
-  const DocumentOwnerOption(this.id, this.label, {this.subtitle, this.date});
+  /// Certifications only: what the title is made from. [label] is the stored
+  /// name, empty for a certification with no custom title, so the picker
+  /// titles it from these instead (issue #3366).
+  final CertificationTitleFields? certification;
+
+  const DocumentOwnerOption(
+    this.id,
+    this.label, {
+    this.subtitle,
+    this.date,
+    this.certification,
+  });
 
   /// A dive as a document owner (#3391): its number, told apart by its own
   /// name or else its site, and its wall-clock date. The picker, the
@@ -77,12 +89,15 @@ class DocumentOwnerOptionsRepository {
     // Trips read best latest first; everything else alphabetically.
     final trip = kind == DocumentOwnerKind.trip;
     final gear = kind == DocumentOwnerKind.equipment;
+    final cert = kind == DocumentOwnerKind.certification;
     // What tells two same-named records apart: a trip's dates (a "Bonaire"
     // every year), a piece of gear's make.
     final extra = trip
         ? ', start_date'
         : gear
         ? ', brand, model'
+        : cert
+        ? ', agency, level'
         : '';
     final order = trip
         ? 'start_date DESC, name COLLATE NOCASE'
@@ -112,6 +127,7 @@ class DocumentOwnerOptionsRepository {
           date: trip
               ? DateTime.fromMillisecondsSinceEpoch(r.read<int>('start_date'))
               : null,
+          certification: cert ? _certificationFields(r) : null,
         ),
     ];
   }
@@ -129,6 +145,23 @@ class DocumentOwnerOptionsRepository {
         site: r.readNullable<String>('site'),
         dateTimeMillis: r.read<int>('dive_date_time'),
       );
+
+  static CertificationTitleFields _certificationFields(QueryRow r) => (
+    name: r.read<String>('name'),
+    agency: r.read<String>('agency'),
+    level: r.readNullable<String>('level'),
+  );
+
+  /// The title fields of certification [id]; null when it no longer exists.
+  Future<CertificationTitleFields?> certificationFieldsFor(String id) async {
+    final row = await _db
+        .customSelect(
+          'SELECT name, agency, level FROM certifications WHERE id = ?',
+          variables: [Variable.withString(id)],
+        )
+        .getSingleOrNull();
+    return row == null ? null : _certificationFields(row);
+  }
 
   Future<List<DocumentOwnerOption>> _dives(String diverId) async {
     final rows = await _db
