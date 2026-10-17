@@ -60,9 +60,16 @@ class SafetyReviewSweep {
   /// each dive. [isCancelled] is polled before each dive; returning true stops
   /// the sweep and yields a result with `cancelled: true`. Cancelling is
   /// lossless -- unswept dives still compute lazily on first view.
+  ///
+  /// [recompute] grades every dive again, even one whose stored review is
+  /// current for this engine and these settings. The manual "Analyze all
+  /// dives" sets it: a user runs that after correcting dive data, which the
+  /// "is current" check cannot see (#1643). Without it the sweep only fills
+  /// in reviews that are missing or out of date, which is all a restore needs.
   Future<SafetyReviewSweepResult> run({
     String? diverId,
     List<String>? diveIds,
+    bool recompute = false,
     void Function(int done, int total)? onProgress,
     bool Function()? isCancelled,
   }) async {
@@ -99,6 +106,12 @@ class SafetyReviewSweep {
         // before its profile arrived. A bare read would return that cached
         // value and never run the compute-through-cache, leaving the review
         // missing until an app restart.
+        if (recompute) {
+          _ref.invalidate(safetyReviewRecomputeProvider(diveId));
+          await _ref.read(safetyReviewRecomputeProvider(diveId).future);
+          // Read once; drop it so a long sweep holds no review per dive.
+          _ref.invalidate(safetyReviewRecomputeProvider(diveId));
+        }
         _ref.invalidate(safetyReviewProvider(diveId));
         await _ref.read(safetyReviewProvider(diveId).future);
       } catch (_) {

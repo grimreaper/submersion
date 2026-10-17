@@ -39,8 +39,6 @@ final safetyReviewProvider = FutureProvider.family<SafetyReview?, String>((
   ref,
   diveId,
 ) async {
-  final repo = ref.watch(safetyFindingsRepositoryProvider);
-
   // getReview is a one-shot SELECT, not a Drift stream, so this provider only
   // re-runs when invalidated. A sync imports safety review/finding rows (and a
   // batch "Analyze all dives" writes them) directly to the DB, bypassing every
@@ -50,6 +48,31 @@ final safetyReviewProvider = FutureProvider.family<SafetyReview?, String>((
   ref.invalidateSelfWhen(
     ref.watch(diveRepositoryProvider).watchDiveDetailChanges(),
   );
+  return _reviewDive(ref, diveId, recompute: false);
+});
+
+/// [safetyReviewProvider] without the "stored review is current" shortcut:
+/// runs the engine again even when the stored review matches this engine and
+/// these settings. "Analyze all dives" reads this, because a user reaches for
+/// it after correcting a dive's data, which neither the engine version nor
+/// the settings fingerprint can see (#1643).
+///
+/// Every other guard still holds: a review this build cannot judge (a newer
+/// engine or fingerprint format) is kept, and when the engine cannot run
+/// (toggle off, settings not loaded, no usable analysis) the stored review is
+/// returned untouched rather than lost. Read once per sweep, so it does not
+/// watch for changes; the sweep invalidates it before each read.
+final safetyReviewRecomputeProvider =
+    FutureProvider.family<SafetyReview?, String>(
+      (ref, diveId) => _reviewDive(ref, diveId, recompute: true),
+    );
+
+Future<SafetyReview?> _reviewDive(
+  Ref ref,
+  String diveId, {
+  required bool recompute,
+}) async {
+  final repo = ref.watch(safetyFindingsRepositoryProvider);
 
   // Compare against the active diver's settings, not the placeholder or the
   // previous diver's still in state during a switch.
@@ -57,7 +80,12 @@ final safetyReviewProvider = FutureProvider.family<SafetyReview?, String>((
   final currentInputs = ref.watch(diverAnalysisSettingsProvider).fingerprint;
 
   final stored = await repo.getReview(diveId);
-  if (stored != null && _isCurrent(stored, currentInputs)) return stored;
+  if (stored != null &&
+      (recompute
+          ? _isFromNewerBuild(stored)
+          : _isCurrent(stored, currentInputs))) {
+    return stored;
+  }
 
   // The toggle below is per diver: right after a diver switch it still reads
   // the previous diver's until the new diver's settings load (#2564).
@@ -92,7 +120,7 @@ final safetyReviewProvider = FutureProvider.family<SafetyReview?, String>((
       ),
     ),
   );
-});
+}
 
 /// Whether [stored] may be served as is under [currentInputs].
 ///
@@ -101,13 +129,20 @@ final safetyReviewProvider = FutureProvider.family<SafetyReview?, String>((
 /// At this engine version the fingerprint must match, unless it was written
 /// in a newer format this build cannot compare, which is kept for the same
 /// reason. An older engine, or no fingerprint at all, is recomputed.
-bool _isCurrent(SafetyReview stored, String currentInputs) {
+bool _isCurrent(SafetyReview stored, String currentInputs) =>
+    _isFromNewerBuild(stored) ||
+    (stored.engineVersion == SafetyReviewService.engineVersion &&
+        stored.inputsHash == currentInputs);
+
+/// Whether [stored] came from a build newer than this one: a newer engine, or
+/// this engine under a fingerprint format this build cannot compare. Never
+/// recomputed here, even on request, or this build would overwrite the newer
+/// peer's review with its own older one.
+bool _isFromNewerBuild(SafetyReview stored) {
   const engine = SafetyReviewService.engineVersion;
-  if (stored.engineVersion > engine) return true;
-  if (stored.engineVersion < engine) return false;
+  if (stored.engineVersion != engine) return stored.engineVersion > engine;
   final hash = stored.inputsHash;
-  if (hash == null) return false;
-  return hash == currentInputs || AnalysisSettings.isNewerFormat(hash);
+  return hash != null && AnalysisSettings.isNewerFormat(hash);
 }
 
 /// The safety finding currently selected for profile-chart highlighting, or
