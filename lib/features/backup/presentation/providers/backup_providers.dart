@@ -1,6 +1,7 @@
 import 'dart:async';
 import 'dart:io';
 
+import 'package:submersion/core/services/storage/gc/storage_gc_store.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/services/logger_service.dart';
@@ -48,6 +49,8 @@ final backupServiceProvider = Provider<BackupService>((ref) {
     postRestoreSyncStore: PostRestoreSyncStore(
       ref.watch(sharedPreferencesProvider),
     ),
+    onRestoreCompleted: (at) =>
+        StorageGcStore.markRestored(ref.read(sharedPreferencesProvider), at),
     encryptionKeyStore: ref.watch(encryptionKeyStoreProvider),
     syncPreferences: ref.watch(syncPreferencesProvider),
     backupEncryptionKeyStore: ref.watch(backupEncryptionKeyStoreProvider),

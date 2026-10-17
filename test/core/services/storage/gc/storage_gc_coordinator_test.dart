@@ -1,0 +1,321 @@
+import 'dart:async';
+
+import 'package:flutter_test/flutter_test.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:submersion/core/services/media_store/network_status_service.dart';
+import 'package:submersion/core/services/storage/gc/storage_gc_coordinator.dart';
+import 'package:submersion/core/services/storage/gc/storage_gc_store.dart';
+import 'package:submersion/core/services/storage/scratch_sweep.dart';
+import 'package:submersion/features/media_store/data/media_verify_service.dart';
+
+VerifyLibraryReport _report({
+  int total = 100,
+  int reclaimable = 0,
+  int reclaimed = 0,
+  int removed = 0,
+  int waiting = 0,
+  bool deferred = false,
+}) => VerifyLibraryReport(
+  objectsChecked: 1,
+  originalsChecked: 1,
+  thumbsChecked: 0,
+  renditionsChecked: 0,
+  orphansRemoved: removed,
+  bytesReclaimed: reclaimed,
+  sessionsAborted: 0,
+  repairsQueued: 0,
+  totalBytes: total,
+  reclaimableBytes: reclaimable,
+  waitingBytes: waiting,
+  deferred: deferred,
+);
+
+/// Records every call the coordinator makes, with scripted answers.
+class _Harness {
+  _Harness(this.store);
+
+  final StorageGcStore store;
+  DateTime now = DateTime(2026, 10, 17, 12);
+  NetworkKind network = NetworkKind.unmetered;
+  bool syncBusy = false;
+  bool transferring = false;
+  bool fleetDue = true;
+  bool hasMediaStore = true;
+  VerifyLibraryReport mediaReport = _report();
+  int syncBytes = 30;
+  ({int bytes, bool partial})? libraries = (bytes: 4, partial: false);
+  bool failFirstSweep = false;
+
+  final deviceRuns = <bool>[]; // dryRun flag per call of the first sweep
+  final secondSweepRuns = <bool>[];
+  var localCacheRuns = 0;
+  final mediaRuns = <bool>[]; // dryRun flag per media sweep
+  var fleetStamps = 0;
+  Completer<void>? holdFirstSweep;
+
+  StorageGcCoordinator build() => StorageGcCoordinator(
+    deviceSweeps: [
+      ({required now, required dryRun}) async {
+        deviceRuns.add(dryRun);
+        await holdFirstSweep?.future;
+        if (failFirstSweep) throw StateError('boom');
+        return const ScratchSweepReport(filesDeleted: 2, bytesReclaimed: 200);
+      },
+      ({required now, required dryRun}) async {
+        secondSweepRuns.add(dryRun);
+        return const ScratchSweepReport(filesDeleted: 1, bytesReclaimed: 50);
+      },
+    ],
+    localCacheSweep: (now) async => localCacheRuns++,
+    network: () async => network,
+    isSyncBusy: () => syncBusy,
+    hasTransferringUploads: () async => transferring,
+    mediaSweep: ({required dryRun}) async {
+      mediaRuns.add(dryRun);
+      return hasMediaStore ? mediaReport : null;
+    },
+    fleetSweepDue: (now) async => fleetDue,
+    stampFleetSweep: (now) async => fleetStamps++,
+    measureSync: () async => syncBytes,
+    measureLibraries: () async => libraries,
+    store: store,
+    now: () => now,
+  );
+}
+
+void main() {
+  late _Harness h;
+  late StorageGcCoordinator coordinator;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    h = _Harness(StorageGcStore(await SharedPreferences.getInstance()));
+    coordinator = h.build();
+  });
+
+  test('launch runs device sweeps once a day', () async {
+    await coordinator.run(StorageGcTrigger.launch);
+    await coordinator.run(StorageGcTrigger.launch);
+    expect(h.deviceRuns, [false], reason: 'second launch the same day skips');
+    expect(h.localCacheRuns, 1);
+
+    h.now = h.now.add(const Duration(days: 1));
+    await coordinator.run(StorageGcTrigger.resume);
+    expect(h.deviceRuns, [false, false]);
+  });
+
+  test(
+    'manual runs device and cloud regardless of cadence and network',
+    () async {
+      await coordinator.run(StorageGcTrigger.launch);
+      h.network = NetworkKind.cellular;
+      h.fleetDue = false;
+
+      await coordinator.run(StorageGcTrigger.manual);
+
+      expect(h.deviceRuns, [false, false]);
+      expect(h.mediaRuns.last, isFalse, reason: 'manual deletes');
+    },
+  );
+
+  test('automatic cloud waits for an unmetered network', () async {
+    h.network = NetworkKind.cellular;
+    await coordinator.run(StorageGcTrigger.launch);
+    expect(h.mediaRuns, isEmpty);
+    expect(h.deviceRuns, [false], reason: 'the device part still runs');
+  });
+
+  test('nothing in the cloud runs offline, even on request', () async {
+    h.network = NetworkKind.offline;
+    await coordinator.run(StorageGcTrigger.manual);
+    expect(h.mediaRuns, isEmpty);
+  });
+
+  test('cloud part skips while sync is busy', () async {
+    h.syncBusy = true;
+    await coordinator.run(StorageGcTrigger.manual);
+    expect(h.mediaRuns, isEmpty);
+    expect(h.deviceRuns, [false]);
+  });
+
+  test('cloud deletes wait while an upload is transferring', () async {
+    h.transferring = true;
+    await coordinator.run(StorageGcTrigger.manual);
+    expect(h.mediaRuns, [true], reason: 'measures instead of deleting');
+  });
+
+  test('rescan measures without deleting', () async {
+    h.network = NetworkKind.cellular;
+    await coordinator.run(StorageGcTrigger.rescan);
+
+    expect(h.mediaRuns, [true]);
+    expect(h.deviceRuns, isEmpty, reason: 'rescan is cloud only');
+    final usage = h.store.cloudUsage!;
+    expect(usage.mediaBytes, 100);
+    expect(usage.syncBytes, 30);
+    expect(usage.librariesBytes, 4);
+    expect(usage.scannedAt, h.now);
+  });
+
+  test('an automatic delete run stamps the fleet and records usage', () async {
+    h.mediaReport = _report(
+      total: 100,
+      reclaimable: 40,
+      reclaimed: 40,
+      removed: 4,
+      waiting: 7,
+    );
+    await coordinator.run(StorageGcTrigger.launch);
+
+    expect(h.mediaRuns, [false]);
+    expect(h.fleetStamps, 1);
+    final usage = h.store.cloudUsage!;
+    expect(usage.mediaBytes, 60, reason: 'what is left after the deletes');
+    expect(usage.mediaReclaimableBytes, 0);
+    expect(usage.mediaWaitingBytes, 7);
+    expect(h.store.lastCloudResult!.bytes, 40);
+    expect(h.store.lastCloudResult!.items, 4);
+  });
+
+  test('a deferred media sweep does not stamp the fleet', () async {
+    h.mediaReport = _report(deferred: true, waiting: 9);
+    await coordinator.run(StorageGcTrigger.launch);
+    expect(h.fleetStamps, 0);
+    expect(h.store.lastCloudResult, isNull);
+  });
+
+  test('automatic cloud attempts are at most daily', () async {
+    h.fleetDue = true;
+    h.mediaReport = _report(deferred: true);
+    await coordinator.run(StorageGcTrigger.launch);
+    await coordinator.run(StorageGcTrigger.resume);
+    expect(h.mediaRuns, hasLength(1));
+
+    h.now = h.now.add(const Duration(days: 1));
+    await coordinator.run(StorageGcTrigger.resume);
+    expect(h.mediaRuns, hasLength(2));
+  });
+
+  test('a weekly measurement runs when no cleanup is due', () async {
+    h.fleetDue = false;
+    await coordinator.run(StorageGcTrigger.launch);
+    expect(h.mediaRuns, [true]);
+
+    h.now = h.now.add(const Duration(days: 2));
+    await coordinator.run(StorageGcTrigger.launch);
+    expect(h.mediaRuns, [true], reason: 'measured two days ago');
+
+    h.now = h.now.add(const Duration(days: 6));
+    await coordinator.run(StorageGcTrigger.launch);
+    expect(h.mediaRuns, [true, true]);
+  });
+
+  test(
+    'a restore marker forces a post-restore run and clears after it',
+    () async {
+      await coordinator.run(StorageGcTrigger.launch);
+      expect(h.deviceRuns, [false]);
+
+      await StorageGcStore.markRestored(
+        await SharedPreferences.getInstance(),
+        h.now,
+      );
+      await coordinator.run(StorageGcTrigger.launch);
+
+      expect(h.deviceRuns, [false, false], reason: 'cadence ignored');
+      expect(h.store.postRestorePendingSince, isNull);
+    },
+  );
+
+  test(
+    'post-restore keeps the cloud delete pending while the media sweep is deferred',
+    () async {
+      h.fleetDue = false;
+      await StorageGcStore.markRestored(
+        await SharedPreferences.getInstance(),
+        h.now,
+      );
+      h.mediaReport = _report(deferred: true);
+
+      await coordinator.run(StorageGcTrigger.launch);
+      expect(h.mediaRuns, [false]);
+      expect(h.store.postRestoreCloudPending, isTrue);
+
+      // An hour later the pull after the restore has happened.
+      h.now = h.now.add(const Duration(hours: 1));
+      h.mediaReport = _report(reclaimed: 5, removed: 1, reclaimable: 5);
+      await coordinator.run(StorageGcTrigger.resume);
+
+      expect(h.mediaRuns, [false, false]);
+      expect(h.store.postRestoreCloudPending, isFalse);
+    },
+  );
+
+  test('records last reclaimed per area', () async {
+    await coordinator.run(StorageGcTrigger.launch);
+    final device = h.store.lastDeviceResult!;
+    expect(device.bytes, 250);
+    expect(device.items, 3);
+    expect(device.at, h.now);
+  });
+
+  test('a failing sweep does not stop the others', () async {
+    h.failFirstSweep = true;
+    await coordinator.run(StorageGcTrigger.launch);
+    expect(h.secondSweepRuns, [false]);
+    expect(h.localCacheRuns, 1);
+    expect(h.mediaRuns, isNotEmpty);
+  });
+
+  test('no media store leaves the media figures out', () async {
+    h.hasMediaStore = false;
+    await coordinator.run(StorageGcTrigger.rescan);
+    final usage = h.store.cloudUsage!;
+    expect(usage.mediaBytes, isNull);
+    expect(usage.syncBytes, 30);
+  });
+
+  test('concurrent runs share one execution', () async {
+    h.holdFirstSweep = Completer<void>();
+    final first = coordinator.run(StorageGcTrigger.manual);
+    final second = coordinator.run(StorageGcTrigger.manual);
+    expect(coordinator.isRunning, isTrue);
+    h.holdFirstSweep!.complete();
+    await Future.wait([first, second]);
+    expect(h.deviceRuns, [false]);
+    expect(coordinator.isRunning, isFalse);
+  });
+
+  test('device reclaimable bytes come from a dry run', () async {
+    expect(await coordinator.deviceReclaimableBytes(), 250);
+    expect(h.deviceRuns, [true]);
+    expect(h.secondSweepRuns, [true]);
+  });
+
+  group('isCadenceDue', () {
+    final now = DateTime(2026, 10, 17);
+    test('never run is due', () {
+      expect(isCadenceDue(null, now, const Duration(days: 7)), isTrue);
+    });
+    test('inside the period is not due', () {
+      expect(
+        isCadenceDue(
+          now.subtract(const Duration(days: 6)),
+          now,
+          const Duration(days: 7),
+        ),
+        isFalse,
+      );
+    });
+    test('a far-future stamp is due', () {
+      expect(
+        isCadenceDue(
+          now.add(const Duration(days: 30)),
+          now,
+          const Duration(days: 7),
+        ),
+        isTrue,
+      );
+    });
+  });
+}

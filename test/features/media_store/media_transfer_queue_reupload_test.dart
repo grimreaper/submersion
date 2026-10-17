@@ -37,4 +37,12 @@ void main() {
     final rows = await queue.allForTesting();
     expect(rows.single.overrideLevel, isNull);
   });
+
+  test('hasTransferringUploads sees only an upload in flight', () async {
+    expect(await queue.hasTransferringUploads(), isFalse);
+    final id = await queue.enqueueUpload(mediaId: 'm1');
+    expect(await queue.hasTransferringUploads(), isFalse, reason: 'pending');
+    await queue.markTransferring(id);
+    expect(await queue.hasTransferringUploads(), isTrue);
+  });
 }

@@ -595,6 +595,23 @@ class MediaTransferQueueRepository {
   /// The queue is local bookkeeping, not synced data, so a plain delete is
   /// enough -- no tombstone. Callers must not delete a row that is currently
   /// `transferring`; see the guard in the transfers page.
+  /// Whether an upload is transferring right now. The storage cleanup holds
+  /// its cloud deletes while one is (storage GC design, safety rules); a
+  /// pending row is not counted, since its hash already protects its objects
+  /// and a row stuck pending must not block the cleanup forever.
+  Future<bool> hasTransferringUploads() async {
+    final row =
+        await (_db.select(_db.mediaTransferQueue)
+              ..where(
+                (t) =>
+                    t.direction.equals('upload') &
+                    t.state.equals('transferring'),
+              )
+              ..limit(1))
+            .getSingleOrNull();
+    return row != null;
+  }
+
   /// Upload rows for [mediaId] that hold a resumable session, read before a
   /// re-upload drops them so their provider-side sessions can be abandoned
   /// (storage GC design, leak 4).

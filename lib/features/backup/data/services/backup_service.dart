@@ -98,6 +98,10 @@ class BackupService {
   /// Nullable so existing constructions keep working.
   final PostRestoreSyncStore? _postRestoreSyncStore;
 
+  /// Told when a restore has replaced the database, so the storage cleanup
+  /// can run its post-restore pass (storage GC design, Coordinator).
+  final Future<void> Function(DateTime at)? _onRestoreCompleted;
+
   /// End-to-end encryption deps: when the sync-encryption flag is on and a
   /// key + keyslot mirror are available, cloud uploads become framed .sbe
   /// artifacts and encrypted restores can decrypt silently. Both nullable so
@@ -133,6 +137,7 @@ class BackupService {
     SyncRepository? syncRepository,
     LibraryEpochStore? epochStore,
     PostRestoreSyncStore? postRestoreSyncStore,
+    Future<void> Function(DateTime at)? onRestoreCompleted,
     BackupSafPort? safPort,
     EncryptionKeyStore? encryptionKeyStore,
     SyncPreferences? syncPreferences,
@@ -144,6 +149,7 @@ class BackupService {
        _syncRepository = syncRepository ?? SyncRepository(),
        _epochStore = epochStore,
        _postRestoreSyncStore = postRestoreSyncStore,
+       _onRestoreCompleted = onRestoreCompleted,
        _safPort = safPort ?? const MethodChannelBackupSafPort(),
        _encryptionKeyStore = encryptionKeyStore,
        _syncPreferences = syncPreferences,
@@ -1000,6 +1006,13 @@ class BackupService {
       // Merge: the restore dialog's choice is the consent. Arm a one-shot
       // intent so the next launch forces a gate-bypassing reconciling sync.
       await _postRestoreSyncStore?.setPending();
+    }
+    try {
+      await _onRestoreCompleted?.call(DateTime.now());
+    } catch (e) {
+      // The restore itself succeeded; a missed cleanup marker only delays
+      // the cleanup to its normal schedule.
+      _log.warning('Recording the restore for storage cleanup failed: $e');
     }
   }
 

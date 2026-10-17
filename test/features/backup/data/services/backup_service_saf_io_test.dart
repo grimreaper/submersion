@@ -245,6 +245,29 @@ void main() {
     },
   );
 
+  test('a finished restore reports itself for the storage cleanup', () async {
+    final restoredAt = <DateTime>[];
+    final service = BackupService(
+      dbAdapter: _FileWritingAdapter(_validDb(tmp.path, 'live.db')),
+      preferences: prefs,
+      safPort: _FakeSafPort(),
+      syncRepository: _SpySync(),
+      onRestoreCompleted: (at) async => restoredAt.add(at),
+    );
+    final record = BackupRecord(
+      id: 'r',
+      filename: 'b.db',
+      timestamp: DateTime(2026),
+      sizeBytes: 1,
+      location: BackupLocation.local,
+      localPath: _validDb(tmp.path, 'b.db'),
+    );
+
+    await service.restoreFromBackup(record);
+
+    expect(restoredAt, hasLength(1));
+  });
+
   test('restoreFromBackup throws when the SAF document is gone', () async {
     final port = _FakeSafPort()..wroteFrom = null;
     // exists() returns true in the fake; override via a record whose doc is
