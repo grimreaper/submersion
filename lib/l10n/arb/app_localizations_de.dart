@@ -50757,7 +50757,8 @@ class AppLocalizationsDe extends AppLocalizations {
       locale: localeName,
       other:
           '$count weitere Tauchgänge haben ihr Gasgemisch behalten. Bitte prüfen.',
-      one: '1 weiterer Tauchgang hat sein Gasgemisch behalten. Bitte prüfen.',
+      one:
+          '$count weiterer Tauchgang hat sein Gasgemisch behalten. Bitte prüfen.',
     );
     return '$_temp0';
   }

@@ -49785,7 +49785,7 @@ class AppLocalizationsHe extends AppLocalizations {
       count,
       locale: localeName,
       other: '$count צלילות נוספות שמרו על תערובת הגז שלהן. כדאי לבדוק אותן.',
-      one: 'צלילה אחת נוספת שמרה על תערובת הגז שלה. כדאי לבדוק אותה.',
+      one: 'צלילה נוספת אחת שמרה על תערובת הגז שלה. כדאי לבדוק אותה.',
     );
     return '$_temp0';
   }

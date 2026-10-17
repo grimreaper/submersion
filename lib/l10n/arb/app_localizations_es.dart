@@ -50916,7 +50916,8 @@ class AppLocalizationsEs extends AppLocalizations {
       locale: localeName,
       other:
           '$count inmersiones más conservaron su mezcla de gas. Conviene revisarlas.',
-      one: '1 inmersión más conservó su mezcla de gas. Conviene revisarla.',
+      one:
+          '$count inmersión más conservó su mezcla de gas. Conviene revisarla.',
     );
     return '$_temp0';
   }

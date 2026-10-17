@@ -50062,7 +50062,7 @@ class AppLocalizationsEn extends AppLocalizations {
       count,
       locale: localeName,
       other: '$count other dives kept their gas mix. Check them.',
-      one: '1 other dive kept its gas mix. Check it.',
+      one: '$count other dive kept its gas mix. Check it.',
     );
     return '$_temp0';
   }

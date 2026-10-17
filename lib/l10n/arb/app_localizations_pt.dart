@@ -50864,7 +50864,7 @@ class AppLocalizationsPt extends AppLocalizations {
       locale: localeName,
       other:
           '$count outros mergulhos mantiveram sua mistura. Convém verificá-los.',
-      one: '1 outro mergulho manteve sua mistura. Convém verificá-lo.',
+      one: '$count outro mergulho manteve sua mistura. Convém verificá-lo.',
     );
     return '$_temp0';
   }

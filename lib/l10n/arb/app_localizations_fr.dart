@@ -50976,7 +50976,7 @@ class AppLocalizationsFr extends AppLocalizations {
       count,
       locale: localeName,
       other: '$count autres plongées ont conservé leur mélange. À vérifier.',
-      one: '1 autre plongée a conservé son mélange. À vérifier.',
+      one: '$count autre plongée a conservé son mélange. À vérifier.',
     );
     return '$_temp0';
   }

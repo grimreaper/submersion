@@ -50537,7 +50537,7 @@ class AppLocalizationsNl extends AppLocalizations {
       locale: localeName,
       other:
           '$count andere duiken hebben hun gasmengsel behouden. Controleer die.',
-      one: '1 andere duik heeft zijn gasmengsel behouden. Controleer die.',
+      one: '$count andere duik heeft zijn gasmengsel behouden. Controleer die.',
     );
     return '$_temp0';
   }

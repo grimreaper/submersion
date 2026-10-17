@@ -50862,7 +50862,8 @@ class AppLocalizationsIt extends AppLocalizations {
       locale: localeName,
       other:
           '$count altre immersioni hanno mantenuto la loro miscela. Da controllare.',
-      one: '1 altra immersione ha mantenuto la sua miscela. Da controllare.',
+      one:
+          '$count altra immersione ha mantenuto la sua miscela. Da controllare.',
     );
     return '$_temp0';
   }

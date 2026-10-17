@@ -80563,7 +80563,7 @@ abstract class AppLocalizations {
   /// No description provided for @dataQuality_useAsBailout_mixesKept.
   ///
   /// In en, this message translates to:
-  /// **'{count, plural, =1{1 other dive kept its gas mix. Check it.} other{{count} other dives kept their gas mix. Check them.}}'**
+  /// **'{count, plural, =1{{count} other dive kept its gas mix. Check it.} other{{count} other dives kept their gas mix. Check them.}}'**
   String dataQuality_useAsBailout_mixesKept(int count);
 
   /// No description provided for @dataQuality_useAsBailout_registered.

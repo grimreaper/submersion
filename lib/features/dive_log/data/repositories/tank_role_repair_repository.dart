@@ -48,6 +48,7 @@ class TankRoleRepairRepository {
         roleSource: const Value(null),
         o2Percent: oc == null ? const Value.absent() : Value(oc.o2Percent),
         hePercent: oc == null ? const Value.absent() : Value(oc.hePercent),
+        hlc: Value(await _sync.issueRowClock()),
       ),
     );
     await _pending('diveTanks', tankId, now);
@@ -65,8 +66,14 @@ class TankRoleRepairRepository {
         _db.gasSwitches,
       )..where((s) => s.tankId.equals(ocTankId))).get();
       for (final sw in moved) {
-        await (_db.update(_db.gasSwitches)..where((s) => s.id.equals(sw.id)))
-            .write(GasSwitchesCompanion(tankId: Value(tankId)));
+        await (_db.update(
+          _db.gasSwitches,
+        )..where((s) => s.id.equals(sw.id))).write(
+          GasSwitchesCompanion(
+            tankId: Value(tankId),
+            hlc: Value(await _sync.issueRowClock()),
+          ),
+        );
         await _pending('gasSwitches', sw.id, now);
       }
       await (_db.delete(
@@ -91,8 +98,14 @@ class TankRoleRepairRepository {
       await _pending('diveTanks', row.id, now);
     }
     for (final sw in undo.retargetedSwitches) {
-      await (_db.update(_db.gasSwitches)..where((s) => s.id.equals(sw.id)))
-          .write(GasSwitchesCompanion(tankId: Value(sw.tankId)));
+      await (_db.update(
+        _db.gasSwitches,
+      )..where((s) => s.id.equals(sw.id))).write(
+        GasSwitchesCompanion(
+          tankId: Value(sw.tankId),
+          hlc: Value(await _sync.issueRowClock()),
+        ),
+      );
       await _pending('gasSwitches', sw.id, now);
     }
     final dives = {for (final r in undo.tankRows) r.diveId};

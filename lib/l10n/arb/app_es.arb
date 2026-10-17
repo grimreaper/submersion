@@ -15030,7 +15030,7 @@
   "dataQuality_useAsBailout_title": "¿Convertir este tanque en el bailout?",
   "dataQuality_useAsBailout_merge": "Elimina el tanque de bailout duplicado (los cambios de gas pasan al tanque {tankNumber})",
   "dataQuality_useAsBailout_register": "Registrar también este transmisor como bailout",
-  "dataQuality_useAsBailout_mixesKept": "{count, plural, =1{1 inmersión más conservó su mezcla de gas. Conviene revisarla.} other{{count} inmersiones más conservaron su mezcla de gas. Conviene revisarlas.}}",
+  "dataQuality_useAsBailout_mixesKept": "{count, plural, =1{{count} inmersión más conservó su mezcla de gas. Conviene revisarla.} other{{count} inmersiones más conservaron su mezcla de gas. Conviene revisarlas.}}",
   "dataQuality_useAsBailout_registered": "Transmisor registrado como bailout. Deshacer solo cambia esta inmersión.",
   "dataQuality_repairLabel_assignTransmitter": "Asignar transmisor",
   "dataQuality_repairLabel_removeGearFromDive": "Quitar de la inmersión de {diver}",
