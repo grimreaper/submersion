@@ -231,6 +231,34 @@ void main() {
       expect(findings.single.status, QualityStatus.resolved);
     },
   );
+
+  // Review: a transmitter breathed as a deco gas is registered as Deco, the
+  // role the repair gave it, not as Bailout.
+  test('registers the role the repair chose', () async {
+    await (db.update(db.diveTanks)..where((t) => t.id.equals('oc-d1'))).write(
+      const DiveTanksCompanion(
+        tankRole: Value('deco'),
+        o2Percent: Value(100),
+        hePercent: Value(0),
+      ),
+    );
+    final finding = await seedFinding();
+
+    final outcome = await executor.useAsBailout(
+      diveId: 'd1',
+      tankId: 'tx-d1',
+      ocTankId: 'oc-d1',
+      findingId: finding.id,
+      registerTransmitter: true,
+      serial: '180777',
+      label: 'O2',
+      diverId: 'diver-1',
+    );
+
+    expect(outcome.role, TankRole.deco);
+    final entries = await TransmitterRepository().getForDiver('diver-1');
+    expect(entries.single.role, TankRole.deco);
+  });
 }
 
 class _ThrowingTransmitterRepository extends TransmitterRepository {

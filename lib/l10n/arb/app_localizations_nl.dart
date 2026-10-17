@@ -50527,8 +50527,9 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
-  String get dataQuality_useAsBailout_register =>
-      'Deze zender ook als bailout registreren';
+  String dataQuality_useAsBailout_register(String role) {
+    return 'Deze zender ook als $role registreren';
+  }
 
   @override
   String dataQuality_useAsBailout_mixesKept(int count) {
@@ -50543,8 +50544,9 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
-  String get dataQuality_useAsBailout_registered =>
-      'Zender als bailout geregistreerd. Ongedaan maken wijzigt alleen deze duik.';
+  String dataQuality_useAsBailout_registered(String role) {
+    return 'Zender als $role geregistreerd. Ongedaan maken wijzigt alleen deze duik.';
+  }
 
   @override
   String get dataQuality_repairLabel_assignTransmitter => 'Zender toewijzen';

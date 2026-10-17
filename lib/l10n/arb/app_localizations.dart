@@ -80557,8 +80557,8 @@ abstract class AppLocalizations {
   /// No description provided for @dataQuality_useAsBailout_register.
   ///
   /// In en, this message translates to:
-  /// **'Also register this transmitter as a Bailout'**
-  String get dataQuality_useAsBailout_register;
+  /// **'Also register this transmitter as {role}'**
+  String dataQuality_useAsBailout_register(String role);
 
   /// No description provided for @dataQuality_useAsBailout_mixesKept.
   ///
@@ -80569,8 +80569,8 @@ abstract class AppLocalizations {
   /// No description provided for @dataQuality_useAsBailout_registered.
   ///
   /// In en, this message translates to:
-  /// **'Transmitter registered as Bailout. Undo changes this dive only.'**
-  String get dataQuality_useAsBailout_registered;
+  /// **'Transmitter registered as {role}. Undo changes this dive only.'**
+  String dataQuality_useAsBailout_registered(String role);
 
   /// No description provided for @dataQuality_repairLabel_assignTransmitter.
   ///

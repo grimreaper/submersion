@@ -90,7 +90,7 @@ void main() {
     final box = tester.widget<CheckboxListTile>(find.byType(CheckboxListTile));
     expect(box.value, isTrue);
     expect(
-      find.text('Also register this transmitter as a Bailout'),
+      find.text('Also register this transmitter as Bailout'),
       findsOneWidget,
     );
     await tester.tap(find.text('Use as bailout'));
@@ -133,5 +133,25 @@ void main() {
   ) async {
     await show(tester, ocHasPressureSeries: true);
     expect(find.textContaining('Removes the duplicate'), findsNothing);
+  });
+
+  // Review: a transmitter breathed as a deco gas is offered Deco, in the
+  // role line and in the register box.
+  testWidgets('names the deco role for a deco target', (tester) async {
+    await show(
+      tester,
+      ocTank: const DiveTank(
+        id: 'oc',
+        order: 3,
+        role: TankRole.deco,
+        gasMix: GasMix(o2: 50, he: 0),
+        sourceTankIndex: 3,
+      ),
+    );
+    expect(
+      find.text("Role: O₂ Supply, read from the transmitter's name → Deco"),
+      findsOneWidget,
+    );
+    expect(find.text('Also register this transmitter as Deco'), findsOneWidget);
   });
 }

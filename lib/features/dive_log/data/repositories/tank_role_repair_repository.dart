@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart';
 
+import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/data/repositories/sync_repository.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/database_service.dart';
@@ -30,13 +31,14 @@ class TankRoleRepairRepository {
   final SyncRepository _sync;
   final TankPressureRepository _pressures;
 
-  /// Re-roles [tankId] to bailout, clears its role source and takes
-  /// [ocTankId]'s mix. When [ocTankId] is an as-imported gas cylinder of the
+  /// Re-roles [tankId] to [ocTankId]'s open-circuit role (bailout when that
+  /// cylinder is gone; see [openCircuitTargetRole]), clears its role source
+  /// and takes [ocTankId]'s mix. When [ocTankId] is an as-imported gas cylinder of the
   /// same computer, it is merged in: its switches move to [tankId] first
   /// (deleting a tank cascades to its switches), then it is deleted and
   /// tombstoned. Null when [tankId] is gone or its role is not name-derived.
   /// The caller owns the transaction and the change notification.
-  Future<({bool merged, UseAsBailoutUndo undo})?> useAsBailout({
+  Future<({bool merged, TankRole role, UseAsBailoutUndo undo})?> useAsBailout({
     required String diveId,
     required String tankId,
     required String ocTankId,
@@ -45,14 +47,11 @@ class TankRoleRepairRepository {
     if (tank == null || tank.roleSource == null) return null;
     final oc = await _tank(diveId, ocTankId);
     final now = DateTime.now().millisecondsSinceEpoch;
+    final role = openCircuitTargetRole(oc?.tankRole);
 
     await (_db.update(_db.diveTanks)..where((t) => t.id.equals(tankId))).write(
       DiveTanksCompanion(
-        // The open-circuit role the gas was breathed as (bailout, or a deco
-        // or stage gas); bailout when that cylinder is gone.
-        tankRole: Value(
-          oc != null && !isLoopTankRole(oc.tankRole) ? oc.tankRole : 'bailout',
-        ),
+        tankRole: Value(role.name),
         roleSource: const Value(null),
         o2Percent: oc == null ? const Value.absent() : Value(oc.o2Percent),
         hePercent: oc == null ? const Value.absent() : Value(oc.hePercent),
@@ -93,6 +92,7 @@ class TankRoleRepairRepository {
 
     return (
       merged: merge,
+      role: role,
       undo: (tankRows: [tank, if (merge) oc], retargetedSwitches: moved),
     );
   }

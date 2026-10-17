@@ -50747,8 +50747,9 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get dataQuality_useAsBailout_register =>
-      'Diesen Sender auch als Bailout registrieren';
+  String dataQuality_useAsBailout_register(String role) {
+    return 'Diesen Sender auch als $role registrieren';
+  }
 
   @override
   String dataQuality_useAsBailout_mixesKept(int count) {
@@ -50764,8 +50765,9 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String get dataQuality_useAsBailout_registered =>
-      'Sender als Bailout registriert. Rückgängig ändert nur diesen Tauchgang.';
+  String dataQuality_useAsBailout_registered(String role) {
+    return 'Sender als $role registriert. Rückgängig ändert nur diesen Tauchgang.';
+  }
 
   @override
   String get dataQuality_repairLabel_assignTransmitter => 'Sender zuweisen';

@@ -47718,7 +47718,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get dataQuality_useAsBailout_register => '同时将此发射器登记为应急气瓶';
+  String dataQuality_useAsBailout_register(String role) {
+    return '同时将此发射器登记为$role';
+  }
 
   @override
   String dataQuality_useAsBailout_mixesKept(int count) {
@@ -47731,7 +47733,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String get dataQuality_useAsBailout_registered => '发射器已登记为应急气瓶。撤销只会更改本次潜水。';
+  String dataQuality_useAsBailout_registered(String role) {
+    return '发射器已登记为$role。撤销只会更改本次潜水。';
+  }
 
   @override
   String get dataQuality_repairLabel_assignTransmitter => '分配发射器';

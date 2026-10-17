@@ -118,4 +118,36 @@ void main() {
     );
     expect(result, isEmpty);
   });
+
+  // Review: a transmitter dropout (a reading of 0, or one isolated low
+  // sample) is not a pressure drop.
+  test('a dropout on open circuit does not flag an O2 supply', () {
+    final o2 = [...series(0, 2400, 200, 0.5), ...series(2410, 3000, 180, 0)];
+    final withDropout = [
+      for (final p in o2) p.t == 2700 ? (t: 2700, bar: 0.0) : p,
+    ];
+    final result = bailoutEvidence<String>(
+      switches: [(t: 2400, tankKey: 'oc')],
+      isLoopTank: isLoop,
+      pressures: {'tx': withDropout},
+      candidates: ['tx'],
+      inWaterEndSeconds: null,
+    );
+    expect(result, isEmpty);
+  });
+
+  test('an isolated low sample on the loop does not hide a bailout', () {
+    final bailout = [...series(0, 2390, 200, 0), ...series(2400, 3000, 200, 6)];
+    final withDip = [
+      for (final p in bailout) p.t == 1200 ? (t: 1200, bar: 60.0) : p,
+    ];
+    final result = bailoutEvidence<String>(
+      switches: [(t: 2400, tankKey: 'oc')],
+      isLoopTank: isLoop,
+      pressures: {'tx': withDip},
+      candidates: ['tx'],
+      inWaterEndSeconds: null,
+    );
+    expect(result, hasLength(1));
+  });
 }

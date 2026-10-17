@@ -760,5 +760,60 @@ void main() {
         expect(result.mixesKept, 1);
       },
     );
+
+    // Review: a Deco entry (the repair registers the role it chose) must
+    // replace the 100% default too.
+    test(
+      'a Deco entry fixes the mix from the deco cylinder breathed',
+      () async {
+        await seedDiverAndDive();
+        await seedTank(
+          id: 'k1',
+          diveId: 'd1',
+          serial: '180777',
+          sourceIndex: 0,
+          role: 'oxygenSupply',
+          roleSource: 'transmitterName',
+          o2: 100,
+        );
+        await seedTank(
+          id: 'deco',
+          diveId: 'd1',
+          order: 3,
+          sourceIndex: 3,
+          role: 'deco',
+          o2: 50,
+        );
+        final db = DatabaseService.instance.database;
+        await db
+            .into(db.gasSwitches)
+            .insert(
+              const GasSwitchesCompanion(
+                id: Value('s1'),
+                diveId: Value('d1'),
+                timestamp: Value(2400),
+                tankId: Value('deco'),
+                createdAt: Value(0),
+              ),
+            );
+        await TankPressureRepository().insertTankPressures('d1', {
+          'k1': [
+            for (var t = 0; t <= 3000; t += 10)
+              (
+                timestamp: t,
+                pressure: t < 2400 ? 200.0 : 200.0 - (t - 2400) / 10,
+              ),
+          ],
+        });
+        final entry = await repo.create(_entry(role: TankRole.deco));
+
+        final result = await repo.applyToExistingDives(entry);
+
+        final k1 = (await tankRow('k1'))!;
+        expect(k1.tankRole, 'deco');
+        expect(k1.o2Percent, 50);
+        expect(result.mixesKept, 0);
+      },
+    );
   });
 }

@@ -51502,8 +51502,9 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get dataQuality_useAsBailout_register =>
-      'تسجيل جهاز الإرسال هذا أيضًا كغاز طوارئ';
+  String dataQuality_useAsBailout_register(String role) {
+    return 'تسجيل جهاز الإرسال هذا أيضًا بدور $role';
+  }
 
   @override
   String dataQuality_useAsBailout_mixesKept(int count) {
@@ -51521,8 +51522,9 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String get dataQuality_useAsBailout_registered =>
-      'تم تسجيل جهاز الإرسال كغاز طوارئ. التراجع يغيّر هذه الغطسة فقط.';
+  String dataQuality_useAsBailout_registered(String role) {
+    return 'تم تسجيل جهاز الإرسال بدور $role. التراجع يغيّر هذه الغطسة فقط.';
+  }
 
   @override
   String get dataQuality_repairLabel_assignTransmitter => 'تعيين جهاز إرسال';

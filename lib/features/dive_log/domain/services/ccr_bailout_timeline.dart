@@ -27,6 +27,15 @@ const double kBailoutMinRateRatio = 4.0;
 bool isLoopTankRole(String? roleName) =>
     roleName == TankRole.diluent.name || roleName == TankRole.oxygenSupply.name;
 
+/// The role a name-derived transmitter tank takes once the timeline shows
+/// it was breathed as [ocRoleName]'s gas: that open-circuit role (bailout, or
+/// a deco or stage gas), or bailout when the cylinder is gone or is a loop
+/// gas.
+TankRole openCircuitTargetRole(String? ocRoleName) {
+  if (ocRoleName == null || isLoopTankRole(ocRoleName)) return TankRole.bailout;
+  return TankRole.values.asNameMap()[ocRoleName] ?? TankRole.bailout;
+}
+
 typedef TimelineSwitch<K> = ({int t, K tankKey});
 typedef TimelinePressure = ({int t, double bar});
 
@@ -73,16 +82,6 @@ List<BailoutEvidence<K>>? bailoutEvidence<K>({
 
   final end = inWaterEndSeconds ?? _lastSampleTime(pressures, ordered);
 
-  // The open-circuit target active at [t], or null while on the loop.
-  K? ocTargetAt(int t) {
-    K? active;
-    for (final sw in ordered) {
-      if (sw.t > t) break;
-      active = isLoopTank(sw.tankKey) ? null : sw.tankKey;
-    }
-    return active;
-  }
-
   var ocSeconds = 0;
   for (var i = 0; i < ordered.length; i++) {
     final from = ordered[i].t.clamp(0, end);
@@ -95,16 +94,23 @@ List<BailoutEvidence<K>>? bailoutEvidence<K>({
 
   final out = <BailoutEvidence<K>>[];
   for (final key in candidates) {
-    final samples = pressures[key];
-    if (samples == null || samples.length < 2) continue;
+    final samples = _withoutDropouts(pressures[key] ?? const []);
+    if (samples.length < 2) continue;
     var loopDrop = 0.0;
     final ocDropByTarget = <K, double>{};
+    // One cursor over the time-sorted switches: the open-circuit target
+    // active at the current sample, or null while on the loop.
+    var next = 0;
+    K? target;
     for (var i = 1; i < samples.length; i++) {
       final t = samples[i].t;
       if (t > end) break;
+      while (next < ordered.length && ordered[next].t <= t) {
+        final key = ordered[next++].tankKey;
+        target = isLoopTank(key) ? null : key;
+      }
       final drop = samples[i - 1].bar - samples[i].bar;
       if (drop <= 0) continue;
-      final target = ocTargetAt(t);
       if (target == null) {
         loopDrop += drop;
       } else {
@@ -130,6 +136,27 @@ List<BailoutEvidence<K>>? bailoutEvidence<K>({
     );
   }
   return out;
+}
+
+/// Biggest dip below both neighbours, in bar, still read as a real reading.
+const double _kDropoutDipBar = 10.0;
+
+/// [samples] without transmitter dropouts: readings of zero or less, and an
+/// isolated sample far below both its neighbours. Either would otherwise
+/// count as a drop of the whole cylinder.
+List<TimelinePressure> _withoutDropouts(List<TimelinePressure> samples) {
+  final positive = [
+    for (final s in samples)
+      if (s.bar > 0) s,
+  ];
+  return [
+    for (var i = 0; i < positive.length; i++)
+      if (i == 0 ||
+          i == positive.length - 1 ||
+          positive[i - 1].bar - positive[i].bar <= _kDropoutDipBar ||
+          positive[i + 1].bar - positive[i].bar <= _kDropoutDipBar)
+        positive[i],
+  ];
 }
 
 int _lastSampleTime<K>(

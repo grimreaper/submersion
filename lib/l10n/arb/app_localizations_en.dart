@@ -50053,8 +50053,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get dataQuality_useAsBailout_register =>
-      'Also register this transmitter as a Bailout';
+  String dataQuality_useAsBailout_register(String role) {
+    return 'Also register this transmitter as $role';
+  }
 
   @override
   String dataQuality_useAsBailout_mixesKept(int count) {
@@ -50068,8 +50069,9 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
-  String get dataQuality_useAsBailout_registered =>
-      'Transmitter registered as Bailout. Undo changes this dive only.';
+  String dataQuality_useAsBailout_registered(String role) {
+    return 'Transmitter registered as $role. Undo changes this dive only.';
+  }
 
   @override
   String get dataQuality_repairLabel_assignTransmitter => 'Assign transmitter';

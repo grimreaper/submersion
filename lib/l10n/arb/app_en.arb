@@ -30308,7 +30308,14 @@
       }
     }
   },
-  "dataQuality_useAsBailout_register": "Also register this transmitter as a Bailout",
+  "dataQuality_useAsBailout_register": "Also register this transmitter as {role}",
+  "@dataQuality_useAsBailout_register": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      }
+    }
+  },
   "dataQuality_useAsBailout_mixesKept": "{count, plural, =1{{count} other dive kept its gas mix. Check it.} other{{count} other dives kept their gas mix. Check them.}}",
   "@dataQuality_useAsBailout_mixesKept": {
     "placeholders": {
@@ -30317,7 +30324,14 @@
       }
     }
   },
-  "dataQuality_useAsBailout_registered": "Transmitter registered as Bailout. Undo changes this dive only.",
+  "dataQuality_useAsBailout_registered": "Transmitter registered as {role}. Undo changes this dive only.",
+  "@dataQuality_useAsBailout_registered": {
+    "placeholders": {
+      "role": {
+        "type": "String"
+      }
+    }
+  },
   "dataQuality_repairLabel_assignTransmitter": "Assign transmitter",
   "dataQuality_repairLabel_removeGearFromDive": "Remove from {diver}'s dive",
   "@dataQuality_repairLabel_removeGearFromDive": {

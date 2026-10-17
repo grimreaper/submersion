@@ -50967,8 +50967,9 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get dataQuality_useAsBailout_register =>
-      'Enregistrer aussi cet émetteur comme bailout';
+  String dataQuality_useAsBailout_register(String role) {
+    return 'Enregistrer aussi cet émetteur comme $role';
+  }
 
   @override
   String dataQuality_useAsBailout_mixesKept(int count) {
@@ -50982,8 +50983,9 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String get dataQuality_useAsBailout_registered =>
-      'Émetteur enregistré comme bailout. Annuler ne modifie que cette plongée.';
+  String dataQuality_useAsBailout_registered(String role) {
+    return 'Émetteur enregistré comme $role. Annuler ne modifie que cette plongée.';
+  }
 
   @override
   String get dataQuality_repairLabel_assignTransmitter =>

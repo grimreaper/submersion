@@ -8,6 +8,7 @@ import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/services/sync/sync_event_bus.dart';
 import 'package:submersion/core/text/text_sort.dart';
 import 'package:submersion/features/data_quality/data/services/quality_scan_service.dart';
+import 'package:submersion/features/dive_log/domain/services/ccr_bailout_timeline.dart';
 import 'package:submersion/features/dive_log/domain/services/transmitter_serial.dart';
 import 'package:submersion/features/transmitters/data/services/bailout_mix_fixer.dart';
 import 'package:submersion/features/transmitters/domain/entities/transmitter.dart';
@@ -321,9 +322,10 @@ class TransmitterRepository {
         final nameDerived =
             TankRoleSource.fromName(row.roleSource) ==
             TankRoleSource.transmitterName;
-        // A bailout entry also replaces the importer's 100% O2 default with
-        // the bailout's own mix, before the role write below (#3307).
-        if (nameDerived && t.role == TankRole.bailout) {
+        // An open-circuit entry (bailout, deco, stage) also replaces the
+        // importer's 100% O2 default with that gas's own mix, before the role
+        // write below (#3307).
+        if (nameDerived && !isLoopTankRole(t.role.name)) {
           if (!await mixFixer.fix(row)) mixesKeptDives.add(row.diveId);
         }
         final companion = DiveTanksCompanion(

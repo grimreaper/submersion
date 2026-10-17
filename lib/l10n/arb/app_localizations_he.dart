@@ -49776,8 +49776,9 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
-  String get dataQuality_useAsBailout_register =>
-      'לרשום גם את המשדר הזה כבלון חירום';
+  String dataQuality_useAsBailout_register(String role) {
+    return 'לרשום גם את המשדר הזה בתפקיד $role';
+  }
 
   @override
   String dataQuality_useAsBailout_mixesKept(int count) {
@@ -49791,8 +49792,9 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
-  String get dataQuality_useAsBailout_registered =>
-      'המשדר נרשם כבלון חירום. ביטול משנה רק את הצלילה הזו.';
+  String dataQuality_useAsBailout_registered(String role) {
+    return 'המשדר נרשם בתפקיד $role. ביטול משנה רק את הצלילה הזו.';
+  }
 
   @override
   String get dataQuality_repairLabel_assignTransmitter => 'שיוך משדר';

@@ -1,6 +1,5 @@
 import 'package:flutter/material.dart';
 
-import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/dive_log/domain/services/as_imported_gas_cylinder.dart';
 import 'package:submersion/features/dive_log/domain/services/ccr_bailout_timeline.dart';
@@ -73,6 +72,7 @@ class _UseAsBailoutDialogState extends State<UseAsBailoutDialog> {
     final l10n = context.l10n;
     final tank = widget.tank;
     final oc = widget.ocTank;
+    final targetRole = openCircuitTargetRole(oc?.role.name);
     String line(String field, String from, String to) =>
         l10n.cylinderConfigs_overwriteChange(field, from, to);
 
@@ -89,10 +89,7 @@ class _UseAsBailoutDialogState extends State<UseAsBailoutDialog> {
                 l10n.diveLog_tank_roleFromTransmitterName(
                   tank.role.localizedName(l10n),
                 ),
-                (oc != null && !isLoopTankRole(oc.role.name)
-                        ? oc.role
-                        : TankRole.bailout)
-                    .localizedName(l10n),
+                targetRole.localizedName(l10n),
               ),
             ),
             if (oc != null && oc.gasMix.name != tank.gasMix.name)
@@ -120,7 +117,11 @@ class _UseAsBailoutDialogState extends State<UseAsBailoutDialog> {
                 controlAffinity: ListTileControlAffinity.leading,
                 value: _register,
                 onChanged: (v) => setState(() => _register = v ?? false),
-                title: Text(l10n.dataQuality_useAsBailout_register),
+                title: Text(
+                  l10n.dataQuality_useAsBailout_register(
+                    targetRole.localizedName(l10n),
+                  ),
+                ),
               ),
             ],
           ],

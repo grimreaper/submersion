@@ -1,5 +1,7 @@
 import 'package:flutter/material.dart';
 
+import 'package:submersion/features/dive_log/presentation/widgets/tank_enum_display.dart';
+import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/features/data_quality/data/services/quality_repair_executor.dart';
 import 'package:submersion/features/data_quality/domain/entities/quality_finding.dart';
 import 'package:submersion/features/data_quality/domain/repairs/quality_repair_action.dart';
@@ -55,6 +57,7 @@ Future<void> runUseAsBailoutRepair(
   final l10n = context.l10n;
   var mixesKept = 0;
   var registered = false;
+  TankRole? role;
   await withUndo(
     () async {
       final outcome = await executor.useAsBailout(
@@ -69,11 +72,14 @@ Future<void> runUseAsBailoutRepair(
       );
       mixesKept = outcome.mixesKept;
       registered = outcome.registered;
+      role = outcome.role;
       return outcome.result;
     },
     note: () => registered
         ? [
-            l10n.dataQuality_useAsBailout_registered,
+            l10n.dataQuality_useAsBailout_registered(
+              (role ?? TankRole.bailout).localizedName(l10n),
+            ),
             if (mixesKept > 0)
               l10n.dataQuality_useAsBailout_mixesKept(mixesKept),
           ].join(' ')

@@ -124,9 +124,10 @@ class QualityContextBuilder {
     // The detectors read what the rest of the app reads: one source per
     // stretch of a tank, never two recordings interleaved (#2440).
     final allSeries = await _tankSeries.getSeriesForDive(dive.id);
+    final primarySourceId = sources.where((s) => s.isPrimary).firstOrNull?.id;
     final tankSeries = selectTankSeriesPerSource(
       allSeries,
-      preferredSourceId: sources.where((s) => s.isPrimary).firstOrNull?.id,
+      preferredSourceId: primarySourceId,
     );
     final byTank = <String, List<series.TankPressureSeries>>{};
     for (final s in tankSeries) {
@@ -150,7 +151,7 @@ class QualityContextBuilder {
       final own = [
         for (final s in selectTankSeriesPerSource(
           selectTankSeriesForComputer(allSeries, tank.computerId),
-          preferredSourceId: sources.where((s) => s.isPrimary).firstOrNull?.id,
+          preferredSourceId: primarySourceId,
           preferredComputerId: tank.computerId,
         ))
           if (s.tankId == tank.id) s,

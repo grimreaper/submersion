@@ -50580,8 +50580,9 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get dataQuality_useAsBailout_register =>
-      'A jeladó regisztrálása bailoutként is';
+  String dataQuality_useAsBailout_register(String role) {
+    return 'A jeladó regisztrálása $role szerepben is';
+  }
 
   @override
   String dataQuality_useAsBailout_mixesKept(int count) {
@@ -50595,8 +50596,9 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String get dataQuality_useAsBailout_registered =>
-      'Jeladó bailoutként regisztrálva. A visszavonás csak ezt a merülést módosítja.';
+  String dataQuality_useAsBailout_registered(String role) {
+    return 'Jeladó $role szerepben regisztrálva. A visszavonás csak ezt a merülést módosítja.';
+  }
 
   @override
   String get dataQuality_repairLabel_assignTransmitter =>

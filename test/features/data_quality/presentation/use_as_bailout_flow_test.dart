@@ -27,7 +27,10 @@ class _FakeExecutor extends Fake implements QualityRepairExecutor {
   final calls = <Map<String, Object?>>[];
 
   @override
-  Future<({RepairResult result, int mixesKept, bool registered})> useAsBailout({
+  Future<
+    ({RepairResult result, int mixesKept, bool registered, TankRole? role})
+  >
+  useAsBailout({
     required String diveId,
     required String tankId,
     required String ocTankId,
@@ -51,6 +54,7 @@ class _FakeExecutor extends Fake implements QualityRepairExecutor {
       result: const RepairResult.applied(),
       mixesKept: mixesKept,
       registered: registered,
+      role: TankRole.bailout,
     );
   }
 }
@@ -169,7 +173,7 @@ void main() {
     expect(ran, isTrue);
     expect(
       lastNote,
-      '${l10n.dataQuality_useAsBailout_registered} '
+      '${l10n.dataQuality_useAsBailout_registered('Bailout')} '
       '${l10n.dataQuality_useAsBailout_mixesKept(2)}',
     );
   });
