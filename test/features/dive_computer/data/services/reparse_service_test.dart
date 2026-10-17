@@ -2163,6 +2163,73 @@ void main() {
         },
       );
 
+      // #3307: the diver made the "OC" transmitter the bailout and merged
+      // the computer's pressureless bailout cylinder into it. A reparse
+      // must not bring that cylinder back.
+      test('reparse of a repaired dive does not bring the merged cylinder '
+          'back', () async {
+        await seed(role: 'bailout', o2: 18.0, he: 45.0);
+        pigeon.ProfileSample at(int t, double depth, int gas, double bar) =>
+            pigeon.ProfileSample(
+              timeSeconds: t,
+              depthMeters: depth,
+              gasMixIndex: gas,
+              tankPressuresBar: [bar],
+            );
+        await service.applyParsedUpdate(
+          diveId: 'dive-1',
+          sourceRowId: 'src-1',
+          parsed: makeParsedDive(
+            diveMode: 'ccr',
+            samples: [
+              at(0, 0, 0, 200),
+              at(600, 30, 0, 200),
+              at(2390, 30, 0, 200),
+              at(2400, 30, 1, 200),
+              at(2700, 15, 1, 170),
+              at(3000, 3, 1, 140),
+              at(3010, 0, 1, 140),
+            ],
+            tanks: [
+              pigeon.TankInfo(
+                index: 0,
+                gasMixIndex: 4294967295,
+                startPressureBar: 200.0,
+                endPressureBar: 140.0,
+                usage: 1,
+                transmitterSerial: 109623,
+              ),
+            ],
+            gasMixes: [
+              pigeon.GasMix(
+                index: 0,
+                o2Percent: 10.0,
+                hePercent: 50.0,
+                usage: 2,
+              ),
+              pigeon.GasMix(index: 1, o2Percent: 18.0, hePercent: 45.0),
+            ],
+          ),
+          descriptorVendor: 'Shearwater',
+          descriptorProduct: 'Petrel 3',
+          descriptorModel: 0,
+          libdivecomputerVersion: null,
+        );
+        final tanks = await (db.select(
+          db.diveTanks,
+        )..where((t) => t.diveId.equals('dive-1'))).get();
+        expect(tanks.where((t) => t.tankRole == 'bailout').map((t) => t.id), [
+          'tank-0',
+        ]);
+        final tx = tanks.firstWhere((t) => t.id == 'tank-0');
+        expect(tx.o2Percent, 18.0);
+        expect(tx.hePercent, 45.0);
+        final switches = await (db.select(
+          db.gasSwitches,
+        )..where((t) => t.diveId.equals('dive-1'))).get();
+        expect(switches.map((s) => s.tankId), ['tank-0']);
+      });
+
       test('reparse still refreshes a recorded mix', () async {
         await seed(role: 'diluent', roleSource: 'transmitterName', o2: 21.0);
         await service.applyParsedUpdate(

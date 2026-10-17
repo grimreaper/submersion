@@ -10,6 +10,7 @@ import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/profile/tank_pressure_glitches.dart';
 import 'package:submersion/core/services/sync/event_scope_tombstone.dart';
 import 'package:submersion/core/services/sync/sync_event_bus.dart';
+import 'package:submersion/features/dive_computer/data/services/bailout_gas_claim.dart';
 import 'package:submersion/features/dive_computer/data/services/libdc_dive_mode.dart';
 import 'package:submersion/features/dive_computer/data/services/parsed_dive_start_time.dart';
 import 'package:submersion/features/dive_computer/data/services/reparse_empty_parse.dart';
@@ -261,6 +262,7 @@ class ReparseService {
           diveId: diveId,
           computerId: computerId,
           resolvedTanks: resolvedTanks,
+          parsed: parsed,
         );
         // A tank this parse gained is new, with no source yet (v251, issue
         // #2716); a single-source dive's one source is it.
@@ -865,6 +867,7 @@ class ReparseService {
     required String diveId,
     required String? computerId,
     required List<DownloadedTank> resolvedTanks,
+    required pigeon.ParsedDive parsed,
   }) async {
     final tankIdsByIndex = <int, String>{};
     // Get existing tanks
@@ -898,24 +901,62 @@ class ReparseService {
         if (t.roleSource != null) t.index: t.role ?? TankRole.backGas.name,
     };
 
+    // The role is the diver's once they set it, so a re-parse leaves it
+    // alone, unless it is still the computer's guess from the transmitter's
+    // name (issue #2595): then this parse, with the registry applied,
+    // decides it. A row from before v254 whose role is the one this parse
+    // read off the name is that same guess, whether or not the transmitter
+    // has been registered since.
+    bool roleIsComputers(DiveTank existing, int index) =>
+        TankRoleSource.fromName(existing.roleSource) ==
+            TankRoleSource.transmitterName ||
+        (existing.roleSource == null &&
+            existing.tankRole == nameDerivedRoles[index]);
+
+    // A bailout transmitter claims the computer's pressureless cylinder for
+    // its gas (#3307). Stored roles the diver set count, so a transmitter the
+    // diver made the bailout keeps the cylinder merged; a stored cylinder the
+    // diver edited is never claimed.
+    final claim = claimBailoutGasesInDive(
+      tanks: [
+        for (final tank in parsedTanks)
+          switch (matches[tank.index]) {
+            final existing? when !roleIsComputers(existing, tank.index) =>
+              tank.copyWith(role: existing.tankRole, clearRoleSource: true),
+            _ => tank,
+          },
+      ],
+      diveMode: parsed.diveMode,
+      switches: resolveGasSwitches(parsed),
+      samples: [
+        for (final s in parsed.samples)
+          (
+            timeSeconds: s.timeSeconds,
+            pressureBar: s.pressureBar,
+            tankIndex: s.tankIndex,
+            tankPressuresBar: s.tankPressuresBar,
+          ),
+      ],
+      depths: [
+        for (final s in parsed.samples)
+          (t: s.timeSeconds, depth: s.depthMeters),
+      ],
+      keep: {
+        for (final entry in matches.entries)
+          if (_isDiverEdited(entry.value)) entry.key,
+      },
+    );
+
+    // Claimed cylinders are gone from [claim.tanks]; a role overlaid above
+    // is only on rows whose role this loop leaves alone.
     final newTankOrders = <int>{};
-    for (final tank in parsedTanks) {
+    for (final tank in claim.tanks) {
       newTankOrders.add(tank.index);
       final existing = matches[tank.index];
       if (existing != null) {
         tankIdsByIndex[tank.index] = existing.id;
         final parsedRole = tank.role ?? TankRole.backGas.name;
-        // The role is the diver's once they set it, so a re-parse leaves it
-        // alone, unless it is still the computer's guess from the
-        // transmitter's name (issue #2595): then this parse, with the
-        // registry applied, decides it. A row from before v254 whose role is
-        // the one this parse read off the name is that same guess, whether
-        // or not the transmitter has been registered since.
-        final roleIsComputers =
-            TankRoleSource.fromName(existing.roleSource) ==
-                TankRoleSource.transmitterName ||
-            (existing.roleSource == null &&
-                existing.tankRole == nameDerivedRoles[tank.index]);
+        final isComputers = roleIsComputers(existing, tank.index);
         // Update existing tank: overwrite computer fields, preserve user fields
         await (db.update(
           db.diveTanks,
@@ -957,10 +998,8 @@ class ReparseService {
             sourceTankIndex: existing.sourceTankIndex == null
                 ? Value(tank.index)
                 : const Value.absent(),
-            tankRole: roleIsComputers
-                ? Value(parsedRole)
-                : const Value.absent(),
-            roleSource: roleIsComputers
+            tankRole: isComputers ? Value(parsedRole) : const Value.absent(),
+            roleSource: isComputers
                 ? Value(tank.roleSource)
                 : const Value.absent(),
             // tankName, presetName, equipmentId, tankMaterial and a role
@@ -1002,9 +1041,16 @@ class ReparseService {
     // Delete tanks that exist in DB but were neither matched nor kept by
     // order (the pre-v200 rule, so manual rows on a re-parsed dive behave as
     // before).
+    // A stored cylinder a transmitter claimed is merged into it, so it goes
+    // even though this parse matched it.
+    final claimedIds = {
+      for (final index in claim.remappedIndices.keys)
+        if (matches[index] != null) matches[index]!.id,
+    };
     for (final existing in existingTanks) {
-      if (matchedIds.contains(existing.id)) continue;
-      if (!newTankOrders.contains(existing.tankOrder)) {
+      final claimed = claimedIds.contains(existing.id);
+      if (matchedIds.contains(existing.id) && !claimed) continue;
+      if (claimed || !newTankOrders.contains(existing.tankOrder)) {
         await (db.delete(
           db.diveTanks,
         )..where((t) => t.id.equals(existing.id))).go();
@@ -1012,8 +1058,21 @@ class ReparseService {
       }
     }
 
+    // Switches to a claimed cylinder land on the transmitter that claimed it.
+    for (final entry in claim.remappedIndices.entries) {
+      final claimerId = tankIdsByIndex[entry.value];
+      if (claimerId != null) tankIdsByIndex[entry.key] = claimerId;
+    }
+
     return tankIdsByIndex;
   }
+
+  /// A stored cylinder that carries something only the diver adds.
+  static bool _isDiverEdited(DiveTank row) =>
+      (row.volume ?? 0) > 0 ||
+      row.tankName != null ||
+      row.equipmentId != null ||
+      row.presetName != null;
 
   /// Re-inserts per-tank pressure time-series from parsed samples, and backfills
   /// each tank's start/end pressure from the profile when the parsed tank
