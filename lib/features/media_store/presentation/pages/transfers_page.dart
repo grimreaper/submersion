@@ -210,9 +210,17 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
 
     final messenger = ScaffoldMessenger.of(context);
     final queue = ref.read(mediaTransferQueueRepositoryProvider);
+    final runtime = await ref.read(mediaStoreRuntimeProvider.future);
     _selection.exit();
-    for (final id in ids) {
-      await queue.delete(id);
+    final worker = runtime?.worker;
+    if (worker != null) {
+      // Through the worker, so a resumable session the rows held is
+      // abandoned rather than left for the verify sweep's weekly reap.
+      await worker.deleteEntries(ids.toList());
+    } else {
+      for (final id in ids) {
+        await queue.delete(id);
+      }
     }
     if (!mounted) return BulkActionOutcome.completed;
     messenger.showSnackBar(

@@ -595,6 +595,34 @@ class MediaTransferQueueRepository {
   /// The queue is local bookkeeping, not synced data, so a plain delete is
   /// enough -- no tombstone. Callers must not delete a row that is currently
   /// `transferring`; see the guard in the transfers page.
+  /// Upload rows for [mediaId] that hold a resumable session, read before a
+  /// re-upload drops them so their provider-side sessions can be abandoned
+  /// (storage GC design, leak 4).
+  Future<List<DroppedResume>> resumeStatesFor(String mediaId) async {
+    final rows =
+        await (_db.select(_db.mediaTransferQueue)..where(
+              (t) =>
+                  t.mediaId.equals(mediaId) &
+                  t.direction.equals('upload') &
+                  t.resumeStateJson.isNotNull(),
+            ))
+            .get();
+    return [
+      for (final r in rows)
+        DroppedResume(mediaId: r.mediaId, resumeStateJson: r.resumeStateJson!),
+    ];
+  }
+
+  /// The resumable session row [id] holds, or null; read before [delete].
+  Future<DroppedResume?> resumeStateOf(int id) async {
+    final row = await (_db.select(
+      _db.mediaTransferQueue,
+    )..where((t) => t.id.equals(id))).getSingleOrNull();
+    final json = row?.resumeStateJson;
+    if (row == null || json == null || row.direction != 'upload') return null;
+    return DroppedResume(mediaId: row.mediaId, resumeStateJson: json);
+  }
+
   Future<int> delete(int id) =>
       (_db.delete(_db.mediaTransferQueue)..where((t) => t.id.equals(id))).go();
 
@@ -737,4 +765,12 @@ class _HoldBoard {
     hold = next;
     _changes.add(null);
   }
+}
+
+/// A resumable upload session whose queue row is being dropped.
+class DroppedResume {
+  const DroppedResume({required this.mediaId, required this.resumeStateJson});
+
+  final String mediaId;
+  final String resumeStateJson;
 }
