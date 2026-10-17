@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/services/database_service.dart';
+import 'package:submersion/features/dive_log/data/repositories/dive_repository_impl.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/documents/domain/document_expiry.dart';
 import 'package:submersion/features/documents/domain/entities/document.dart';
@@ -169,7 +170,8 @@ void main() {
     await db
         .update(db.diveSites)
         .write(const DiveSitesCompanion(name: Value('Great Blue Hole')));
-    await pumpEventQueue();
+    // The owner tick is debounced so a sync's write burst refreshes once.
+    await Future<void>.delayed(DiveRepository.changeTickDebounce * 2);
     expect(
       (await c.read(allDocumentsProvider.future)).single.ownerLabel,
       '#142 · Great Blue Hole',

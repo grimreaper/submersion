@@ -7,6 +7,8 @@ import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/services/sync/sync_event_bus.dart';
+import 'package:submersion/core/utils/stream_debounce.dart';
+import 'package:submersion/features/dive_log/data/repositories/dive_repository_impl.dart';
 import 'package:submersion/features/documents/data/repositories/document_owner_options_repository.dart';
 import 'package:submersion/features/certifications/domain/certification_title.dart';
 import 'package:submersion/features/documents/data/repositories/document_row_mapper.dart';
@@ -113,22 +115,26 @@ class DocumentRepository {
   /// Ticks when a record a document can be filed under changes, so the
   /// owner labels of [getAllForDiver] and [getEntryById] follow a rename
   /// (a dive's number, name, date or site, #3391). Kept apart from
-  /// [watchChanges] so page content is not reread on every dive write.
-  Stream<void> watchOwnerChanges() => _db.tableUpdates(
-    TableUpdateQuery.allOf([
-      for (final table in <ResultSetImplementation>[
-        _db.diveSites,
-        _db.trips,
-        _db.equipment,
-        _db.courses,
-        _db.certifications,
-        _db.buddies,
-        _db.diveCenters,
-        _db.dives,
-      ])
-        TableUpdateQuery.onTable(table),
-    ]),
-  );
+  /// [watchChanges] so page content is not reread on every dive write, and
+  /// debounced like the dive list's ticks so a sync's write burst refreshes
+  /// the labels once, on the settled rows.
+  Stream<void> watchOwnerChanges() => _db
+      .tableUpdates(
+        TableUpdateQuery.allOf([
+          for (final table in <ResultSetImplementation>[
+            _db.diveSites,
+            _db.trips,
+            _db.equipment,
+            _db.courses,
+            _db.certifications,
+            _db.buddies,
+            _db.diveCenters,
+            _db.dives,
+          ])
+            TableUpdateQuery.onTable(table),
+        ]),
+      )
+      .debounce(DiveRepository.changeTickDebounce);
 
   Future<Document?> getById(String id) async {
     final row = await (_db.select(

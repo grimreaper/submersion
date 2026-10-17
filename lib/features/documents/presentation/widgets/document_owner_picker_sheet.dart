@@ -175,11 +175,15 @@ class _OwnerPickerSheetState extends ConsumerState<_OwnerPickerSheet> {
               itemBuilder: (context, i) {
                 final (o, name) = shown[i];
                 final date = dateOf(o);
-                // An unnumbered dive goes by its date.
-                final title = name.isEmpty ? (date ?? '') : name;
+                // A dive reads number, name or site, then date, as the
+                // File under field does (#3391): an unnumbered one leads
+                // with its name or site, else its date.
+                final title = name.isNotEmpty
+                    ? name
+                    : (o.subtitle ?? date ?? '');
                 final subtitle = [
-                  ?o.subtitle,
-                  if (name.isNotEmpty) ?date,
+                  if (name.isNotEmpty) ?o.subtitle,
+                  if (title != date) ?date,
                 ].join(' · ');
                 final owner = DocumentOwner(kind, o.id);
                 return ListTile(

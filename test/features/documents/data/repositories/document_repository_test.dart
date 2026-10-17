@@ -2,6 +2,7 @@ import 'package:drift/drift.dart' hide isNull, isNotNull;
 import 'package:flutter_test/flutter_test.dart';
 
 import 'package:submersion/core/database/database.dart';
+import 'package:submersion/features/dive_log/data/repositories/dive_repository_impl.dart';
 import 'package:submersion/features/documents/data/repositories/document_repository.dart';
 import 'package:submersion/features/documents/domain/document_ids.dart';
 import 'package:submersion/features/documents/domain/entities/document.dart';
@@ -440,6 +441,26 @@ void main() {
     );
     await expectLater(changed.timeout(const Duration(seconds: 2)), completes);
   });
+
+  test(
+    'a burst of owner writes ticks once, after it settles (#3391)',
+    () async {
+      var ticks = 0;
+      final sub = repo.watchOwnerChanges().listen((_) => ticks++);
+      addTearDown(sub.cancel);
+      for (var i = 0; i < 5; i++) {
+        await db.customUpdate(
+          "UPDATE trips SET name = 'Bonaire $i' WHERE id = 't1'",
+          updates: {db.trips},
+          updateKind: UpdateKind.update,
+        );
+      }
+      await pumpEventQueue();
+      expect(ticks, 0);
+      await Future<void>.delayed(DiveRepository.changeTickDebounce * 2);
+      expect(ticks, 1);
+    },
+  );
 
   test('card images: save, read, clear one side, clear both', () async {
     await seedCert(db, 'c1');

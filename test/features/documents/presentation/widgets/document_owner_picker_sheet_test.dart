@@ -38,6 +38,13 @@ void main() {
                   subtitle: 'Salt Pier',
                   date: DateTime.utc(2026, 9, 1, 9),
                 ),
+                DocumentOwnerOption(
+                  'v2',
+                  '',
+                  subtitle: 'Blue Hole',
+                  date: DateTime.utc(2026, 9, 2, 9),
+                ),
+                DocumentOwnerOption('v3', '', date: DateTime.utc(2026, 9, 3)),
               ],
               DocumentOwnerKind.certification => const [
                 // The query's order: the empty stored name first.
@@ -123,6 +130,25 @@ void main() {
     await t.pumpAndSettle();
     expect(find.text('#12'), findsOneWidget);
     expect(find.textContaining('Salt Pier'), findsOneWidget);
+  });
+
+  // Issue #3391: a dive reads number, name or site, then date, as the File
+  // under field does; an unnumbered one leads with its name or site.
+  testWidgets('an unnumbered dive leads with its site, else its date', (
+    t,
+  ) async {
+    await openPicker(t);
+    await t.tap(find.byKey(const ValueKey('owner-kind-dive')));
+    await t.pumpAndSettle();
+    final tiles = {
+      for (final tile in t.widgetList<ListTile>(find.byType(ListTile)))
+        (tile.title! as Text).data: (tile.subtitle as Text?)?.data,
+    };
+    expect(tiles['#12'], startsWith('Salt Pier · '));
+    expect(tiles['Blue Hole'], isNotNull);
+    expect(tiles['Blue Hole'], isNot(contains('Blue Hole')));
+    // Nothing but its date: the date is the title, with nothing under it.
+    expect(tiles.entries.where((e) => e.value == null), hasLength(1));
   });
 
   // Issue #3366: a certification with no custom title stores an empty name
