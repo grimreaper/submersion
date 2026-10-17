@@ -15,7 +15,7 @@ import 'package:submersion/l10n/l10n_extension.dart';
 /// narrower screens. The width is the tile's own, in logical pixels after
 /// zoom, so zooming in on a wide pane can itself bring back the stacked
 /// layout.
-class DisplayZoomSettingsTile extends ConsumerWidget {
+class DisplayZoomSettingsTile extends ConsumerStatefulWidget {
   const DisplayZoomSettingsTile({super.key});
 
   /// The narrowest tile that fits the title and the slider on one row at the
@@ -31,7 +31,20 @@ class DisplayZoomSettingsTile extends ConsumerWidget {
   static const double oneRowControlsWidthFraction = 0.6;
 
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<DisplayZoomSettingsTile> createState() =>
+      _DisplayZoomSettingsTileState();
+}
+
+class _DisplayZoomSettingsTileState
+    extends ConsumerState<DisplayZoomSettingsTile> {
+  /// Dragging rescales the app live, which changes this tile's logical width,
+  /// so a drag near the threshold switches layouts mid-gesture. The key moves
+  /// the slider to its new parent instead of rebuilding it, which would
+  /// cancel the drag before it saves.
+  final _sliderKey = GlobalKey();
+
+  @override
+  Widget build(BuildContext context) {
     final zoom = ref.watch(displayZoomNotifierProvider);
     final notifier = ref.read(displayZoomNotifierProvider.notifier);
     final l10n = context.l10n;
@@ -45,20 +58,30 @@ class DisplayZoomSettingsTile extends ConsumerWidget {
             tooltip: l10n.settings_appearance_displaySize_reset,
             onPressed: notifier.reset,
           );
-    final slider = _ZoomSlider(zoom: zoom, label: label, notifier: notifier);
+    final slider = _ZoomSlider(
+      key: _sliderKey,
+      zoom: zoom,
+      label: label,
+      notifier: notifier,
+    );
     final textScale =
-        MediaQuery.textScalerOf(context).scale(_referenceFontSize) /
-        _referenceFontSize;
+        MediaQuery.textScalerOf(
+          context,
+        ).scale(DisplayZoomSettingsTile._referenceFontSize) /
+        DisplayZoomSettingsTile._referenceFontSize;
 
     return LayoutBuilder(
       builder: (context, constraints) {
-        if (constraints.maxWidth >= oneRowMinWidth * textScale) {
+        if (constraints.maxWidth >=
+            DisplayZoomSettingsTile.oneRowMinWidth * textScale) {
           return ListTile(
             leading: const Icon(Icons.format_size),
             title: Text(l10n.settings_appearance_displaySize),
             subtitle: Text(label),
             trailing: SizedBox(
-              width: constraints.maxWidth * oneRowControlsWidthFraction,
+              width:
+                  constraints.maxWidth *
+                  DisplayZoomSettingsTile.oneRowControlsWidthFraction,
               child: Row(
                 children: [
                   Expanded(child: slider),
@@ -95,6 +118,7 @@ class DisplayZoomSettingsTile extends ConsumerWidget {
 /// The slider between its Smaller and Larger labels.
 class _ZoomSlider extends StatelessWidget {
   const _ZoomSlider({
+    super.key,
     required this.zoom,
     required this.label,
     required this.notifier,

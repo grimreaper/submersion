@@ -1,3 +1,4 @@
+import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,6 +20,7 @@ Future<ProviderContainer> _pumpTile(
   Map<String, Object> initial, {
   double width = _narrow,
   double textScale = 1,
+  ValueListenable<double>? widthListenable,
 }) async {
   SharedPreferences.setMockInitialValues(initial);
   final prefs = await SharedPreferences.getInstance();
@@ -43,8 +45,10 @@ Future<ProviderContainer> _pumpTile(
         home: Scaffold(
           body: Align(
             alignment: Alignment.topLeft,
-            child: SizedBox(
-              width: width,
+            child: ValueListenableBuilder<double>(
+              valueListenable: widthListenable ?? ValueNotifier(width),
+              builder: (context, width, child) =>
+                  SizedBox(width: width, child: child),
               child: const DisplayZoomSettingsTile(),
             ),
           ),
@@ -218,6 +222,39 @@ void main() {
       final title = tester.getRect(find.text('Display size'));
       expect(slider.left, greaterThan(title.right));
       expect(find.byTooltip('Reset'), findsOneWidget);
+    });
+
+    testWidgets('a drag survives the layout changing under it', (tester) async {
+      // Dragging rescales the app live, which changes the tile's logical
+      // width; near the threshold that flips the layout mid-drag.
+      final width = ValueNotifier<double>(_wide);
+      addTearDown(width.dispose);
+      await _pumpTile(tester, {}, widthListenable: width);
+      final prefs = await SharedPreferences.getInstance();
+
+      final gesture = await tester.startGesture(
+        tester.getCenter(find.byType(Slider)),
+      );
+      await gesture.moveBy(const Offset(-40, 0));
+      await tester.pump();
+
+      width.value = _narrow;
+      await tester.pump();
+      expect(
+        tester.getRect(find.byType(Slider)).top,
+        greaterThanOrEqualTo(tester.getRect(find.text('Display size')).bottom),
+      );
+
+      await gesture.moveBy(const Offset(-40, 0));
+      await tester.pump();
+      await gesture.up();
+      await tester.pumpAndSettle();
+
+      expect(prefs.getDouble('display_zoom'), isNotNull);
+      expect(
+        prefs.getDouble('display_zoom'),
+        lessThan(DisplayZoom.defaultValue),
+      );
     });
   });
 }
