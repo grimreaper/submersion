@@ -38011,6 +38011,18 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
+  String get dataQuality_detector_transmitter_role => 'תפקיד המשדר';
+
+  @override
+  String dataQuality_msg_transmitterRoleBailout(
+    int tankNumber,
+    String role,
+    String ocDrop,
+  ) {
+    return 'בלון $tankNumber מסומן כ$role לפי שם המשדר, אבל הוא איבד $ocDrop אחרי המעבר למעגל פתוח וכמעט כלום בלולאה, כך שנראה שזה בלון החירום. בלון חירום שלא נשמו ממנו, או שנשמו ממנו בלי החלפת גז במחשב, אי אפשר לזהות כך.';
+  }
+
+  @override
   String get dataQuality_msg_twinTanks => 'שני בלונים נושאים סדרת לחץ כמעט זהה';
 
   @override

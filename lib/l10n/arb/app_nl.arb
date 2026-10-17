@@ -11654,6 +11654,8 @@
   "dataQuality_msg_hypoxic": "Hypoxisch mengsel ({gas}) weergegeven als in gebruik aan de oppervlakte",
   "dataQuality_msg_switchMod": "Gaswisseling op {depth} ligt voorbij de MOD van dat gas van {mod}",
   "dataQuality_msg_tankInactive": "Deze fles verloor {drop} terwijl de gastijdlijn aangeeft dat ze niet in gebruik was",
+  "dataQuality_detector_transmitter_role": "Rol van de zender",
+  "dataQuality_msg_transmitterRoleBailout": "Fles {tankNumber} staat op basis van de zendernaam als {role} gemarkeerd, maar verloor {ocDrop} na de overstap naar open circuit en vrijwel niets op de loop, dus het lijkt de bailout te zijn. Een bailout die nooit is geademd, of zonder gaswissel op de computer, is zo niet te herkennen.",
   "dataQuality_msg_twinTanks": "Twee flessen hebben een vrijwel identieke drukreeks",
   "dataQuality_msg_sourceDepth": "Bronnen zijn het oneens over de maximale diepte: {primary} versus {source}",
   "dataQuality_msg_salinityHint": "De constante verhouding wijst op een verschil in de zout-/zoetwaterinstelling",

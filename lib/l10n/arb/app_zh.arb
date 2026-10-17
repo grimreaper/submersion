@@ -11654,6 +11654,8 @@
   "dataQuality_msg_hypoxic": "低氧混合气（{gas}）显示在水面处于使用状态",
   "dataQuality_msg_switchMod": "在 {depth} 的气体切换超出了该气体的 MOD {mod}",
   "dataQuality_msg_tankInactive": "该气瓶损失了 {drop}，而气体时间线显示它未在使用",
+  "dataQuality_detector_transmitter_role": "发射器角色",
+  "dataQuality_msg_transmitterRoleBailout": "气瓶 {tankNumber} 根据发射器名称被标记为{role}，但切换到开路后损失了 {ocDrop}，在回路上几乎没有消耗，因此看起来是应急气瓶。从未呼吸过的应急气瓶，或在电脑上未切换气体就使用的应急气瓶，无法用此方法检测。",
   "dataQuality_msg_twinTanks": "两个气瓶的压力序列几乎完全相同",
   "dataQuality_msg_sourceDepth": "各来源对最大深度存在分歧：{primary} 对 {source}",
   "dataQuality_msg_salinityHint": "这一恒定比值表明盐水/淡水设置存在差异",

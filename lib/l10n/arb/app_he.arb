@@ -11654,6 +11654,8 @@
   "dataQuality_msg_hypoxic": "תערובת היפוקסית ({gas}) מוצגת כבשימוש בפני השטח",
   "dataQuality_msg_switchMod": "החלפת הגז בעומק {depth} חורגת מה-MOD של אותו גז שהוא {mod}",
   "dataQuality_msg_tankInactive": "בלון זה איבד {drop} בעוד ציר הזמן של הגז מציין שהוא לא היה בשימוש",
+  "dataQuality_detector_transmitter_role": "תפקיד המשדר",
+  "dataQuality_msg_transmitterRoleBailout": "בלון {tankNumber} מסומן כ{role} לפי שם המשדר, אבל הוא איבד {ocDrop} אחרי המעבר למעגל פתוח וכמעט כלום בלולאה, כך שנראה שזה בלון החירום. בלון חירום שלא נשמו ממנו, או שנשמו ממנו בלי החלפת גז במחשב, אי אפשר לזהות כך.",
   "dataQuality_msg_twinTanks": "שני בלונים נושאים סדרת לחץ כמעט זהה",
   "dataQuality_msg_sourceDepth": "המקורות חלוקים לגבי העומק המרבי: {primary} מול {source}",
   "dataQuality_msg_salinityHint": "היחס הקבוע מרמז על הבדל בהגדרת מים מלוחים/מתוקים",

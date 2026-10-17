@@ -38893,6 +38893,18 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get dataQuality_detector_transmitter_role => 'Senderrolle';
+
+  @override
+  String dataQuality_msg_transmitterRoleBailout(
+    int tankNumber,
+    String role,
+    String ocDrop,
+  ) {
+    return 'Flasche $tankNumber ist nach dem Sendernamen als $role markiert, verlor aber $ocDrop nach dem Wechsel auf offenen Kreislauf und im Kreislauf fast nichts. Sie ist also wohl das Bailout. Ein nie geatmetes Bailout oder eines ohne Gaswechsel am Computer lässt sich so nicht erkennen.';
+  }
+
+  @override
   String get dataQuality_msg_twinTanks =>
       'Zwei Flaschen weisen eine nahezu identische Druckreihe auf';
 

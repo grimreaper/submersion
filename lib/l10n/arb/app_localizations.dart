@@ -61536,6 +61536,22 @@ abstract class AppLocalizations {
   /// **'This tank lost {drop} while the gas timeline says it was not in use'**
   String dataQuality_msg_tankInactive(String drop);
 
+  /// No description provided for @dataQuality_detector_transmitter_role.
+  ///
+  /// In en, this message translates to:
+  /// **'Transmitter role'**
+  String get dataQuality_detector_transmitter_role;
+
+  /// No description provided for @dataQuality_msg_transmitterRoleBailout.
+  ///
+  /// In en, this message translates to:
+  /// **'Tank {tankNumber} is marked {role} from its transmitter\'s name, but it lost {ocDrop} after the switch to open circuit and almost none on the loop, so it looks like the bailout. A bailout that was never breathed, or one breathed without a gas switch on the computer, cannot be detected this way.'**
+  String dataQuality_msg_transmitterRoleBailout(
+    int tankNumber,
+    String role,
+    String ocDrop,
+  );
+
   /// No description provided for @dataQuality_msg_twinTanks.
   ///
   /// In en, this message translates to:

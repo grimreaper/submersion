@@ -36746,6 +36746,18 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get dataQuality_detector_transmitter_role => '发射器角色';
+
+  @override
+  String dataQuality_msg_transmitterRoleBailout(
+    int tankNumber,
+    String role,
+    String ocDrop,
+  ) {
+    return '气瓶 $tankNumber 根据发射器名称被标记为$role，但切换到开路后损失了 $ocDrop，在回路上几乎没有消耗，因此看起来是应急气瓶。从未呼吸过的应急气瓶，或在电脑上未切换气体就使用的应急气瓶，无法用此方法检测。';
+  }
+
+  @override
   String get dataQuality_msg_twinTanks => '两个气瓶的压力序列几乎完全相同';
 
   @override

@@ -38747,6 +38747,18 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get dataQuality_detector_transmitter_role => 'Jeladó szerepe';
+
+  @override
+  String dataQuality_msg_transmitterRoleBailout(
+    int tankNumber,
+    String role,
+    String ocDrop,
+  ) {
+    return 'A(z) $tankNumber. palack a jeladó neve alapján $role szerepű, de a nyitott körre váltás után $ocDrop nyomást veszített, a hurkon szinte semmit, így valószínűleg ez a bailout. A soha be nem lélegzett, vagy a komputeren gázváltás nélkül használt bailout így nem ismerhető fel.';
+  }
+
+  @override
   String get dataQuality_msg_twinTanks =>
       'Két palack majdnem azonos nyomássorozatot mutat';
 

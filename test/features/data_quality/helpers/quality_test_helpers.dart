@@ -1,3 +1,4 @@
+import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/features/data_quality/domain/entities/dive_quality_context.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart'
     as domain;
@@ -16,6 +17,7 @@ domain.Dive makeTestDive({
   String? serial,
   List<domain.DiveTank> tanks = const [],
   String? diverId,
+  DiveMode diveMode = DiveMode.oc,
 }) => domain.Dive(
   id: id,
   diverId: diverId,
@@ -27,6 +29,7 @@ domain.Dive makeTestDive({
   waterTemp: waterTemp,
   diveComputerSerial: serial,
   tanks: tanks,
+  diveMode: diveMode,
 );
 
 DiveQualityContext makeContext({

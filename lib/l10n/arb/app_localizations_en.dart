@@ -38318,6 +38318,18 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String get dataQuality_detector_transmitter_role => 'Transmitter role';
+
+  @override
+  String dataQuality_msg_transmitterRoleBailout(
+    int tankNumber,
+    String role,
+    String ocDrop,
+  ) {
+    return 'Tank $tankNumber is marked $role from its transmitter\'s name, but it lost $ocDrop after the switch to open circuit and almost none on the loop, so it looks like the bailout. A bailout that was never breathed, or one breathed without a gas switch on the computer, cannot be detected this way.';
+  }
+
+  @override
   String get dataQuality_msg_twinTanks =>
       'Two tanks carry a near-identical pressure series';
 

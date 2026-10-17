@@ -11654,6 +11654,8 @@
   "dataQuality_msg_hypoxic": "Mistura hipóxica ({gas}) indicada em uso à superfície",
   "dataQuality_msg_switchMod": "A troca de gás a {depth} ultrapassa a MOD desse gás de {mod}",
   "dataQuality_msg_tankInactive": "Este cilindro perdeu {drop} enquanto a linha temporal de gás indica que não estava em uso",
+  "dataQuality_detector_transmitter_role": "Função do transmissor",
+  "dataQuality_msg_transmitterRoleBailout": "O cilindro {tankNumber} está marcado como {role} pelo nome do transmissor, mas perdeu {ocDrop} após a troca para circuito aberto e quase nada no circuito fechado, por isso parece ser o bailout. Um bailout que nunca foi respirado, ou respirado sem troca de gás no computador, não pode ser detectado assim.",
   "dataQuality_msg_twinTanks": "Dois cilindros apresentam uma série de pressão quase idêntica",
   "dataQuality_msg_sourceDepth": "As fontes divergem sobre a profundidade máxima: {primary} vs. {source}",
   "dataQuality_msg_salinityHint": "A proporção constante sugere uma diferença na definição de água salgada/doce",

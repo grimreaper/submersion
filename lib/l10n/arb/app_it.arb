@@ -11654,6 +11654,8 @@
   "dataQuality_msg_hypoxic": "Miscela ipossica ({gas}) indicata in uso in superficie",
   "dataQuality_msg_switchMod": "Il cambio gas a {depth} supera la MOD di quel gas di {mod}",
   "dataQuality_msg_tankInactive": "Questa bombola ha perso {drop} mentre la cronologia dei gas la indica come non in uso",
+  "dataQuality_detector_transmitter_role": "Ruolo del trasmettitore",
+  "dataQuality_msg_transmitterRoleBailout": "La bombola {tankNumber} è indicata come {role} in base al nome del trasmettitore, ma ha perso {ocDrop} dopo il passaggio al circuito aperto e quasi nulla nel loop, quindi sembra essere il bailout. Un bailout mai respirato, o respirato senza un cambio gas sul computer, non può essere rilevato in questo modo.",
   "dataQuality_msg_twinTanks": "Due bombole presentano una serie di pressione quasi identica",
   "dataQuality_msg_sourceDepth": "Le fonti non concordano sulla profondità massima: {primary} contro {source}",
   "dataQuality_msg_salinityHint": "Il rapporto costante suggerisce una differenza nell'impostazione acqua salata/dolce",

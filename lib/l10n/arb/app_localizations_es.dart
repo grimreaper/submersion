@@ -39000,6 +39000,18 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get dataQuality_detector_transmitter_role => 'Función del transmisor';
+
+  @override
+  String dataQuality_msg_transmitterRoleBailout(
+    int tankNumber,
+    String role,
+    String ocDrop,
+  ) {
+    return 'El tanque $tankNumber figura como $role según el nombre de su transmisor, pero perdió $ocDrop tras el cambio a circuito abierto y casi nada en el circuito cerrado, así que parece ser el bailout. Un bailout que no se respiró, o que se respiró sin cambio de gas en el ordenador, no se puede detectar así.';
+  }
+
+  @override
   String get dataQuality_msg_twinTanks =>
       'Dos tanques tienen una serie de presión casi idéntica';
 

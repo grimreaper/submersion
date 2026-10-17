@@ -23882,6 +23882,21 @@
       }
     }
   },
+  "dataQuality_detector_transmitter_role": "Transmitter role",
+  "dataQuality_msg_transmitterRoleBailout": "Tank {tankNumber} is marked {role} from its transmitter's name, but it lost {ocDrop} after the switch to open circuit and almost none on the loop, so it looks like the bailout. A bailout that was never breathed, or one breathed without a gas switch on the computer, cannot be detected this way.",
+  "@dataQuality_msg_transmitterRoleBailout": {
+    "placeholders": {
+      "tankNumber": {
+        "type": "int"
+      },
+      "role": {
+        "type": "String"
+      },
+      "ocDrop": {
+        "type": "String"
+      }
+    }
+  },
   "dataQuality_msg_twinTanks": "Two tanks carry a near-identical pressure series",
   "dataQuality_msg_sourceDepth": "Sources disagree on max depth: {primary} vs {source}",
   "@dataQuality_msg_sourceDepth": {

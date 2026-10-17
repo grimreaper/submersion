@@ -11802,6 +11802,8 @@
   "dataQuality_msg_hypoxic": "Hypoxisches Gemisch ({gas}) an der Oberfläche in Verwendung angezeigt",
   "dataQuality_msg_switchMod": "Gaswechsel auf {depth} liegt über der MOD dieses Gases von {mod}",
   "dataQuality_msg_tankInactive": "Diese Flasche verlor {drop}, obwohl die Gas-Zeitleiste sie als nicht in Verwendung ausweist",
+  "dataQuality_detector_transmitter_role": "Senderrolle",
+  "dataQuality_msg_transmitterRoleBailout": "Flasche {tankNumber} ist nach dem Sendernamen als {role} markiert, verlor aber {ocDrop} nach dem Wechsel auf offenen Kreislauf und im Kreislauf fast nichts. Sie ist also wohl das Bailout. Ein nie geatmetes Bailout oder eines ohne Gaswechsel am Computer lässt sich so nicht erkennen.",
   "dataQuality_msg_twinTanks": "Zwei Flaschen weisen eine nahezu identische Druckreihe auf",
   "dataQuality_msg_sourceDepth": "Quellen widersprechen sich bei der maximalen Tiefe: {primary} vs. {source}",
   "dataQuality_msg_salinityHint": "Das konstante Verhältnis deutet auf eine unterschiedliche Salz-/Süßwasser-Einstellung hin",

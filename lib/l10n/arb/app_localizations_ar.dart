@@ -39473,6 +39473,18 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get dataQuality_detector_transmitter_role => 'دور جهاز الإرسال';
+
+  @override
+  String dataQuality_msg_transmitterRoleBailout(
+    int tankNumber,
+    String role,
+    String ocDrop,
+  ) {
+    return 'الأسطوانة $tankNumber معلَّمة على أنها $role بناءً على اسم جهاز الإرسال، لكنها فقدت $ocDrop بعد التحويل إلى الدائرة المفتوحة ولم تفقد شيئًا تقريبًا على الدائرة المغلقة، لذا يبدو أنها أسطوانة غاز الطوارئ. لا يمكن بهذه الطريقة اكتشاف غاز طوارئ لم يُتنفَّس منه، أو استُخدم دون تبديل الغاز على الكمبيوتر.';
+  }
+
+  @override
   String get dataQuality_msg_twinTanks =>
       'تحمل أسطوانتان سلسلة ضغط شبه متطابقة';
 

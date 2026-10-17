@@ -11654,6 +11654,8 @@
   "dataQuality_msg_hypoxic": "Mélange hypoxique ({gas}) indiqué comme utilisé en surface",
   "dataQuality_msg_switchMod": "Le changement de gaz à {depth} dépasse la MOD de {mod} de ce gaz",
   "dataQuality_msg_tankInactive": "Ce bloc a perdu {drop} alors que la chronologie des gaz indique qu'il n'était pas utilisé",
+  "dataQuality_detector_transmitter_role": "Rôle de l'émetteur",
+  "dataQuality_msg_transmitterRoleBailout": "Le bloc {tankNumber} est marqué {role} d'après le nom de son émetteur, mais il a perdu {ocDrop} après le passage en circuit ouvert et presque rien sur la boucle : c'est donc probablement le bailout. Un bailout jamais respiré, ou respiré sans changement de gaz sur l'ordinateur, ne peut pas être détecté ainsi.",
   "dataQuality_msg_twinTanks": "Deux blocs présentent une série de pression quasi identique",
   "dataQuality_msg_sourceDepth": "Les sources divergent sur la profondeur maximale : {primary} contre {source}",
   "dataQuality_msg_salinityHint": "Le rapport constant suggère une différence de réglage eau salée/eau douce",
