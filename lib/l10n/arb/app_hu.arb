@@ -10418,7 +10418,7 @@
   "settings_setup_accountSignIn": "Bejelentkezés: {label}",
   "settings_setup_dismiss": "Elvetés",
   "settings_photosMedia_title": "Fotók és média",
-  "settings_photosMedia_subtitle": "Források, tárolás és fiókok",
+  "settings_photosMedia_subtitle": "Források és tárolás",
   "settings_photosMedia_sourcesHeader": "Honnan érkeznek a fotók",
   "settings_photosMedia_storageHeader": "Hol tároljuk a másolatokat",
   "settings_photosMedia_displayHeader": "Megjelenítés",

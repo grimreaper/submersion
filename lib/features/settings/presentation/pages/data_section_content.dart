@@ -148,7 +148,8 @@ class _DataSectionContentState extends ConsumerState<DataSectionContent> {
           ),
           // The accounts behind sync, media storage and shared libraries;
           // its own entry so it is not filed under one of them (issue
-          // #3388). Photos & Media keeps a link too.
+          // #3388). This is the only entry point since Photos & Media
+          // dropped its link (issue #3460).
           tile(
             icon: Icons.account_circle_outlined,
             title: Text(l10n.settings_connectedAccounts_title),

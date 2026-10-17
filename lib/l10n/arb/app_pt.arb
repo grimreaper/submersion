@@ -10418,7 +10418,7 @@
   "settings_setup_accountSignIn": "Entrar em {label}",
   "settings_setup_dismiss": "Dispensar",
   "settings_photosMedia_title": "Fotos e mídia",
-  "settings_photosMedia_subtitle": "Fontes, armazenamento e contas",
+  "settings_photosMedia_subtitle": "Fontes e armazenamento",
   "settings_photosMedia_sourcesHeader": "De onde vêm as fotos",
   "settings_photosMedia_storageHeader": "Onde as cópias são mantidas",
   "settings_photosMedia_displayHeader": "Exibição",

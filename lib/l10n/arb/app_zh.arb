@@ -10418,7 +10418,7 @@
   "settings_setup_accountSignIn": "登录 {label}",
   "settings_setup_dismiss": "忽略",
   "settings_photosMedia_title": "照片与媒体",
-  "settings_photosMedia_subtitle": "来源、存储与账户",
+  "settings_photosMedia_subtitle": "来源与存储",
   "settings_photosMedia_sourcesHeader": "照片来源",
   "settings_photosMedia_storageHeader": "副本保存位置",
   "settings_photosMedia_displayHeader": "显示",

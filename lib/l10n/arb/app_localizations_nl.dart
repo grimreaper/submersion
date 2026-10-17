@@ -36397,7 +36397,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get settings_photosMedia_title => 'Foto\'s en media';
 
   @override
-  String get settings_photosMedia_subtitle => 'Bronnen, opslag en accounts';
+  String get settings_photosMedia_subtitle => 'Bronnen en opslag';
 
   @override
   String get settings_photosMedia_sourcesHeader => 'Waar foto\'s vandaan komen';

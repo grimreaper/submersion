@@ -36432,7 +36432,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get settings_photosMedia_title => 'Fotók és média';
 
   @override
-  String get settings_photosMedia_subtitle => 'Források, tárolás és fiókok';
+  String get settings_photosMedia_subtitle => 'Források és tárolás';
 
   @override
   String get settings_photosMedia_sourcesHeader => 'Honnan érkeznek a fotók';

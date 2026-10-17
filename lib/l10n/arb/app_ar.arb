@@ -10418,7 +10418,7 @@
   "settings_setup_accountSignIn": "تسجيل الدخول إلى {label}",
   "settings_setup_dismiss": "تجاهل",
   "settings_photosMedia_title": "الصور والوسائط",
-  "settings_photosMedia_subtitle": "المصادر والتخزين والحسابات",
+  "settings_photosMedia_subtitle": "المصادر والتخزين",
   "settings_photosMedia_sourcesHeader": "من أين تأتي الصور",
   "settings_photosMedia_storageHeader": "أين تُحفظ النسخ",
   "settings_photosMedia_displayHeader": "العرض",

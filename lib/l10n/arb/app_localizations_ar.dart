@@ -37139,7 +37139,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String get settings_photosMedia_title => 'الصور والوسائط';
 
   @override
-  String get settings_photosMedia_subtitle => 'المصادر والتخزين والحسابات';
+  String get settings_photosMedia_subtitle => 'المصادر والتخزين';
 
   @override
   String get settings_photosMedia_sourcesHeader => 'من أين تأتي الصور';

@@ -22423,7 +22423,7 @@
   },
   "settings_setup_dismiss": "Dismiss",
   "settings_photosMedia_title": "Photos & Media",
-  "settings_photosMedia_subtitle": "Sources, storage & accounts",
+  "settings_photosMedia_subtitle": "Sources & storage",
   "settings_photosMedia_sourcesHeader": "Where photos come from",
   "settings_photosMedia_storageHeader": "Where copies are kept",
   "settings_photosMedia_displayHeader": "Display",

@@ -57737,7 +57737,7 @@ abstract class AppLocalizations {
   /// No description provided for @settings_photosMedia_subtitle.
   ///
   /// In en, this message translates to:
-  /// **'Sources, storage & accounts'**
+  /// **'Sources & storage'**
   String get settings_photosMedia_subtitle;
 
   /// No description provided for @settings_photosMedia_sourcesHeader.

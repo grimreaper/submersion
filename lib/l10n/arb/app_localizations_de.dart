@@ -36577,7 +36577,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settings_photosMedia_title => 'Fotos & Medien';
 
   @override
-  String get settings_photosMedia_subtitle => 'Quellen, Speicher & Konten';
+  String get settings_photosMedia_subtitle => 'Quellen & Speicher';
 
   @override
   String get settings_photosMedia_sourcesHeader => 'Woher Fotos kommen';

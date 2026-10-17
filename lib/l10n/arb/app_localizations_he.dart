@@ -35737,7 +35737,7 @@ class AppLocalizationsHe extends AppLocalizations {
   String get settings_photosMedia_title => 'תמונות ומדיה';
 
   @override
-  String get settings_photosMedia_subtitle => 'מקורות, אחסון וחשבונות';
+  String get settings_photosMedia_subtitle => 'מקורות ואחסון';
 
   @override
   String get settings_photosMedia_sourcesHeader => 'מאיפה מגיעות התמונות';

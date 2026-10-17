@@ -10559,7 +10559,7 @@
   "settings_setup_accountSignIn": "Bei {label} anmelden",
   "settings_setup_dismiss": "Ausblenden",
   "settings_photosMedia_title": "Fotos & Medien",
-  "settings_photosMedia_subtitle": "Quellen, Speicher & Konten",
+  "settings_photosMedia_subtitle": "Quellen & Speicher",
   "settings_photosMedia_sourcesHeader": "Woher Fotos kommen",
   "settings_photosMedia_storageHeader": "Wo Kopien aufbewahrt werden",
   "settings_photosMedia_displayHeader": "Anzeige",

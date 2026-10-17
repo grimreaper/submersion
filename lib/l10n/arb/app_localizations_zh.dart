@@ -34524,7 +34524,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings_photosMedia_title => '照片与媒体';
 
   @override
-  String get settings_photosMedia_subtitle => '来源、存储与账户';
+  String get settings_photosMedia_subtitle => '来源与存储';
 
   @override
   String get settings_photosMedia_sourcesHeader => '照片来源';

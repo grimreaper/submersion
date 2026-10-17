@@ -10418,7 +10418,7 @@
   "settings_setup_accountSignIn": "Accedi a {label}",
   "settings_setup_dismiss": "Ignora",
   "settings_photosMedia_title": "Foto e media",
-  "settings_photosMedia_subtitle": "Sorgenti, archiviazione e account",
+  "settings_photosMedia_subtitle": "Sorgenti e archiviazione",
   "settings_photosMedia_sourcesHeader": "Da dove arrivano le foto",
   "settings_photosMedia_storageHeader": "Dove sono conservate le copie",
   "settings_photosMedia_displayHeader": "Visualizzazione",
