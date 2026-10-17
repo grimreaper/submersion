@@ -6,6 +6,8 @@ import 'package:submersion/core/services/sync/sync_fact_groups.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/services/logger_service.dart';
+import 'package:submersion/core/services/media_store/media_key_reference.dart';
+import 'package:submersion/core/services/media_store/store_keys.dart';
 import 'package:submersion/core/services/sync/sync_event_bus.dart';
 import 'package:submersion/core/utils/stream_debounce.dart';
 import 'package:submersion/features/dive_log/data/repositories/series_id_chunks.dart';
@@ -2556,6 +2558,37 @@ class MediaRepository {
       ..where(hash.isNotNull());
     final rows = await query.get();
     return rows.map((r) => r.read(hash)!).toSet();
+  }
+
+  /// Every row with a content hash, grouped by hash, with the facts that
+  /// decide which media store keys it can resolve to (storage GC design,
+  /// leak 3). The verify sweep uses it to tell a sibling object some row
+  /// still needs from one nothing does.
+  Future<Map<String, List<MediaKeyReference>>> getContentReferences() async {
+    // selectOnly projection, for the same reason as below: full rows would
+    // drag signature BLOBs into memory for every hashed row.
+    final hash = _db.media.contentHash;
+    final filename = _db.media.originalFilename;
+    final fileType = _db.media.fileType;
+    final original = _db.media.remoteUploadedAt;
+    final rendition = _db.media.remoteCompressedUploadedAt;
+    final query = _db.selectOnly(_db.media)
+      ..addColumns([hash, filename, fileType, original, rendition])
+      ..where(hash.isNotNull());
+    final out = <String, List<MediaKeyReference>>{};
+    for (final row in await query.get()) {
+      out
+          .putIfAbsent(row.read(hash)!, () => [])
+          .add(
+            MediaKeyReference(
+              originalExtension: StoreKeys.extensionFor(row.read(filename)),
+              isVideo: row.read(fileType) == 'video',
+              hasOriginalStamp: row.read(original) != null,
+              hasRenditionStamp: row.read(rendition) != null,
+            ),
+          );
+    }
+    return out;
   }
 
   /// Rows with a content hash and at least one remote stamp, for the

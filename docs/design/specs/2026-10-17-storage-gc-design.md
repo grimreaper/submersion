@@ -95,17 +95,16 @@ assert it for each sweep.
    Change verify so a sibling under an in-use hash is deleted only when no row
    with that hash could need it. The rule is deliberately conservative
    (designer's call), unioned over every row with the hash:
-   - **Extension siblings:** an original key `<hash>.<ext>` is referenced if any
-     row with the hash has `extensionFor(originalFilename) == ext`. Key
-     derivation uses `store_keys.dart`, as the resolver does.
-   - **Original after a switch to compressed:** deletable only when every row with
-     the hash has a compressed level set, a `remoteCompressedUploadedAt` stamp and
-     no `remoteUploadedAt` stamp.
-   - **Rendition after a switch back to original:** deletable only when every row
-     with the hash has no compressed level and a `remoteUploadedAt` stamp.
-   - **Any row with the hash that has no upload stamps** (upload pending, reverse
-     repair, or a restored backup taken before the upload) keeps every object
-     under that hash.
+   - **Any row with the hash that has no upload stamp** (upload pending,
+     reverse repair, or a restored backup taken before the upload) keeps every
+     object under that hash.
+   - **Originals:** otherwise `<hash>.<ext>` is referenced only when some row
+     with the hash has a `remoteUploadedAt` stamp and resolves to `ext`. This
+     drops both a second extension and the original left after every row
+     switched to compressed.
+   - **Renditions:** referenced only when some row with the hash has a
+     `remoteCompressedUploadedAt` stamp and the key's extension is that row's
+     rendition format (`mp4` for video, `jpg` otherwise).
 
    The resolver itself derives both keys for every row, so it must not be copied
    literally here. Thumbs stay keyed by hash alone.
@@ -162,7 +161,9 @@ reclaimable figure. A sync-folder deletion sweep is not part of this work.
   reverse repair re-uploads them from its local copy. This design does not make
   that worse, and does not fix it.
 - **Nothing deleted while work is in flight:** cloud media deletes wait while the
-  transfer queue has `pending` or `transferring` rows or the worker is draining;
+  transfer queue has a `transferring` row (a `pending` row's hash is already
+  protected by the no-stamp rule, and a row stuck pending must not block cleanup
+  forever);
   sync-folder work waits while `SyncCoordinator.busy`. A sweep that finds its area
   busy defers to the next opportunity rather than waiting.
 - **Never another device's in-progress files:** only this device's own superseded
