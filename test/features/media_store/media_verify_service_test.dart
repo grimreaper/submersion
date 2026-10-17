@@ -24,10 +24,17 @@ class _DuplicatingStore extends InMemoryMediaObjectStore
   final copies = <String, int>{};
 
   @override
-  Future<int> deleteExtraCopies(String key) async {
-    final extra = (copies[key] ?? 1) - 1;
-    if (extra > 0) copies[key] = 1;
-    return extra;
+  Future<int> deleteExtraCopies(
+    String key, {
+    bool Function()? mayDelete,
+  }) async {
+    var removed = 0;
+    while ((copies[key] ?? 1) > 1) {
+      if (mayDelete != null && !mayDelete()) break;
+      copies[key] = copies[key]! - 1;
+      removed++;
+    }
+    return removed;
   }
 
   @override
@@ -585,6 +592,30 @@ void main() {
       expect(dup.copies[key], 1, reason: 'one copy left');
       expect(report.orphansRemoved, 2);
       expect(report.totalBytes, 9);
+    });
+
+    test('a sync that starts between duplicate deletes stops them', () async {
+      await insertDive('d1');
+      await photo('a.jpg', hash: 'aabb', uploadedAt: DateTime(2026, 2));
+      final dup = _DuplicatingStore();
+      final key = StoreKeys.objectKey('aabb', extension: 'jpg');
+      dup.objects[key] = List.filled(3, 7);
+      dup.modified[key] = old;
+      dup.copies[key] = 4;
+      final sweep = MediaVerifyService(
+        store: dup,
+        mediaRepository: repo,
+        queue: queue,
+        now: () => now,
+      );
+      // Quiet for the up-front check, the per-key check and the first copy;
+      // a sync starts before the second.
+      var asked = 0;
+
+      final report = await sweep.run(deleteGuard: () => ++asked <= 3);
+
+      expect(dup.copies[key], 3, reason: 'one copy went before the sync');
+      expect(report.orphansRemoved, 1);
     });
 
     test('a store that cannot hold duplicates is never asked to', () async {

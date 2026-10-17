@@ -215,6 +215,25 @@ void main() {
     expect(names, contains('smv1/objects/aa/other.jpg'));
   });
 
+  test('deleteExtraCopies stops once its guard says no', () async {
+    for (var i = 0; i < 3; i++) {
+      server.filesById['dup-$i'] = (
+        name: 'smv1/objects/aa/aabb.jpg',
+        bytes: Uint8List.fromList([1, 2]),
+      );
+    }
+    final store = build();
+    var asked = 0;
+
+    final removed = await store.deleteExtraCopies(
+      'smv1/objects/aa/aabb.jpg',
+      mayDelete: () => ++asked == 1,
+    );
+
+    expect(removed, 1);
+    expect(server.filesById, hasLength(2));
+  });
+
   test('deleteExtraCopies deletes nothing when one copy exists', () async {
     server.filesById['only'] = (
       name: 'smv1/objects/aa/aabb.jpg',

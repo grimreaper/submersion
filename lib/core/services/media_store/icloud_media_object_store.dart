@@ -2,7 +2,6 @@ import 'dart:io';
 
 import 'package:path/path.dart' as p;
 
-import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/services/media_store/icloud_media_platform.dart';
 import 'package:submersion/core/services/media_store/media_object_store.dart';
 
@@ -17,10 +16,15 @@ class ICloudMediaObjectStore implements MediaObjectStore {
     required ICloudMediaPlatform platform,
     this.rootFolder = 'submersion-media',
     this.smallFileThresholdBytes = 8 * 1024 * 1024,
-  }) : _platform = platform;
+    Future<void> Function(File file, DateTime at)? dateStagedCopy,
+  }) : _platform = platform,
+       _dateStagedCopy = dateStagedCopy ?? _setLastModified;
+
+  static Future<void> _setLastModified(File file, DateTime at) =>
+      file.setLastModified(at);
 
   final ICloudMediaPlatform _platform;
-  final _log = LoggerService.forClass(ICloudMediaObjectStore);
+  final Future<void> Function(File file, DateTime at) _dateStagedCopy;
   final String rootFolder;
   final int smallFileThresholdBytes;
 
@@ -92,11 +96,22 @@ class ICloudMediaObjectStore implements MediaObjectStore {
       // File.copy keeps the source's modification time on Apple platforms,
       // and list() reports that time: a fresh upload of an old video would
       // look months old to the storage cleanup, whose grace window runs from
-      // lastModified. Date the object by the upload instead.
+      // lastModified. Date the object by the upload instead, or do not
+      // publish it: the retry dates it again.
       try {
-        await File(staging).setLastModified(DateTime.now());
+        await _dateStagedCopy(File(staging), DateTime.now());
       } on FileSystemException catch (e) {
-        _log.warning('Could not date the staged upload for $key', error: e);
+        try {
+          await File(staging).delete();
+        } on FileSystemException catch (_) {
+          // A leftover is hidden from list(), and the retry's copy
+          // replaces it.
+        }
+        throw MediaStoreException(
+          'Could not date the staged upload for $key',
+          kind: MediaStoreErrorKind.transient,
+          cause: e,
+        );
       }
       final moved = await _platform.moveIntoContainer(staging, path);
       if (!moved) {

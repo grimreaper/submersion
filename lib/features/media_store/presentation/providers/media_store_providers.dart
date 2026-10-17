@@ -287,6 +287,18 @@ Future<MediaStoreRuntime?> sweepableMediaStoreRuntime(Ref ref) async {
   return runtime;
 }
 
+/// Asked before every cloud media delete, by the scheduled cleanup and by
+/// Verify Library alike: false once a sync or a restore has started since
+/// the sweep began, because the sweep judged orphans against the rows it
+/// read at its start.
+bool Function() mediaSweepDeleteGuard(Ref ref) {
+  final quiet = SyncCoordinator.quietGuard();
+  final notRestored = StorageGcStore.restoreGuard(
+    ref.read(sharedPreferencesProvider),
+  );
+  return () => quiet() && notRestored();
+}
+
 /// Runs a Verify Library sweep against the attached store, stamps the
 /// fleet-wide timestamp on success, and kicks a drain for any queued
 /// repairs (orphan-prevention spec 6.3). Throws StateError when no store
@@ -294,40 +306,41 @@ Future<MediaStoreRuntime?> sweepableMediaStoreRuntime(Ref ref) async {
 // no-tick: the value is a CLOSURE, not a query result. Every repository read
 // happens inside it at call time via ref.read, so there is no cached row that
 // could go stale.
-final mediaVerifyRunnerProvider =
-    Provider<Future<VerifyLibraryReport> Function()>((ref) {
-      return () async {
-        final runtime = await sweepableMediaStoreRuntime(ref);
-        if (runtime == null) {
-          throw StateError('no media store attached');
-        }
-        final service = MediaVerifyService(
-          store: runtime.store,
-          mediaRepository: ref.read(mediaRepositoryProvider),
-          queue: ref.read(mediaTransferQueueRepositoryProvider),
-        );
-        // The same gates as the scheduled cleanup: no delete during or after
-        // a merge that started once this run began. A transferring upload
-        // needs no gate here; its row has no upload stamp yet, which keeps
-        // every object under its hash.
-        final report = await service.run(
-          policy: ref.read(orphanDeletePolicyFactoryProvider)(),
-          deleteGuard: SyncCoordinator.quietGuard(),
-        );
-        // Drain queued repairs BEFORE stamping: a stamp failure (DB/sync)
-        // must not strand repairs the sweep just queued.
-        unawaited(runtime.worker?.drain());
-        // A deferred run deleted nothing; stamping it would hold every
-        // device's cleanup off for the fleet cadence.
-        if (report.deferred) return report;
-        final storesRepository = ref.read(mediaStoresRepositoryProvider);
-        final active = await storesRepository.getActive();
-        if (active != null) {
-          await storesRepository.stampLastSweep(active.id, DateTime.now());
-        }
-        return report;
-      };
-    });
+final mediaVerifyRunnerProvider = Provider<Future<VerifyLibraryReport> Function()>((
+  ref,
+) {
+  return () async {
+    final runtime = await sweepableMediaStoreRuntime(ref);
+    if (runtime == null) {
+      throw StateError('no media store attached');
+    }
+    final service = MediaVerifyService(
+      store: runtime.store,
+      mediaRepository: ref.read(mediaRepositoryProvider),
+      queue: ref.read(mediaTransferQueueRepositoryProvider),
+    );
+    // The same gates as the scheduled cleanup: no delete during or after
+    // a merge or a restore that started once this run began. A transferring upload
+    // needs no gate here; its row has no upload stamp yet, which keeps
+    // every object under its hash.
+    final report = await service.run(
+      policy: ref.read(orphanDeletePolicyFactoryProvider)(),
+      deleteGuard: mediaSweepDeleteGuard(ref),
+    );
+    // Drain queued repairs BEFORE stamping: a stamp failure (DB/sync)
+    // must not strand repairs the sweep just queued.
+    unawaited(runtime.worker?.drain());
+    // A deferred run deleted nothing; stamping it would hold every
+    // device's cleanup off for the fleet cadence.
+    if (report.deferred) return report;
+    final storesRepository = ref.read(mediaStoresRepositoryProvider);
+    final active = await storesRepository.getActive();
+    if (active != null) {
+      await storesRepository.stampLastSweep(active.id, DateTime.now());
+    }
+    return report;
+  };
+});
 
 /// Resumes an outstanding transfer queue at app launch and on app resume
 /// (issue #1270).

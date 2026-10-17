@@ -234,7 +234,8 @@ class StorageGcCoordinator {
         ),
       );
     }
-    if (trigger == StorageGcTrigger.postRestore) {
+    // Likewise the forced post-restore pass: a failure keeps it pending.
+    if (trigger == StorageGcTrigger.postRestore && !failed) {
       await _store.clearPostRestorePending();
     }
     return total.bytesReclaimed;

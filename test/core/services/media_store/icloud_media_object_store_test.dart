@@ -117,6 +117,35 @@ void main() {
     expect(listed.lastModified.isAfter(before), isTrue);
   });
 
+  test('an upload that cannot be dated is not published', () async {
+    // Published with the source's old time, a fresh upload could look past
+    // the grace window to a device that has not seen its row yet.
+    final store = ICloudMediaObjectStore(
+      platform: DirectoryICloudMediaPlatform(container),
+      smallFileThresholdBytes: 1024,
+      dateStagedCopy: (file, at) async =>
+          throw FileSystemException('read-only', file.path),
+    );
+    final src = File('${tmp.path}/old-video.mp4')
+      ..writeAsBytesSync(List<int>.filled(4096, 7));
+
+    await expectLater(
+      store.putFile('smv1/objects/aa/old-video.mp4', src, contentType: 'v'),
+      throwsA(
+        isA<MediaStoreException>().having(
+          (e) => e.kind,
+          'kind',
+          MediaStoreErrorKind.transient,
+        ),
+      ),
+    );
+    expect(await store.list('smv1/').toList(), isEmpty);
+    final staged = Directory(
+      '${container.path}/submersion-media',
+    ).listSync(recursive: true).whereType<File>();
+    expect(staged, isEmpty, reason: 'the staging copy is removed');
+  });
+
   test('null container path maps to a fatal MediaStoreException', () async {
     final store = ICloudMediaObjectStore(
       platform: _NoContainerPlatform(container),

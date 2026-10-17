@@ -28,7 +28,7 @@ class PeerSyncSnapshot {
     required this.caughtUp,
     required this.peers,
     this.providerId,
-    this.hasUnpublishedPeers = false,
+    this.hasUnappliedPeers = false,
   });
 
   /// When the pull started, on this device's clock. The start, not the end:
@@ -44,22 +44,25 @@ class PeerSyncSnapshot {
 
   /// Every other device with a manifest that is not retired, stale-epoch
   /// peers included: a peer halted awaiting adoption still uploads media.
+  /// Its entry alone never allows an early delete; see [hasUnappliedPeers].
   final List<PeerPublish> peers;
 
   /// The sync backend the pull ran against. A snapshot from another backend
   /// says nothing about this one.
   final String? providerId;
 
-  /// True when a device had files in the sync folder but no manifest yet (a
-  /// first publish still uploading). Such a device is invisible to [peers],
-  /// so nothing can be early-deleted on its account.
-  final bool hasUnpublishedPeers;
+  /// True when some device's rows may be missing here whatever its publish
+  /// time says: one with files in the sync folder but no manifest yet (a
+  /// first publish still uploading), or a stale-epoch peer this pull skipped
+  /// (its changesets are never applied here). Early delete waits for both;
+  /// the grace window still applies.
+  final bool hasUnappliedPeers;
 
   Map<String, Object?> toJson() => {
     'takenAt': takenAt.millisecondsSinceEpoch,
     'caughtUp': caughtUp,
     'providerId': providerId,
-    'hasUnpublishedPeers': hasUnpublishedPeers,
+    'hasUnappliedPeers': hasUnappliedPeers,
     'peers': [
       for (final p in peers)
         {'id': p.deviceId, 'at': p.publishedAt.millisecondsSinceEpoch},
@@ -72,7 +75,7 @@ class PeerSyncSnapshot {
       takenAt: DateTime.fromMillisecondsSinceEpoch(json['takenAt']! as int),
       caughtUp: json['caughtUp']! as bool,
       providerId: json['providerId'] as String?,
-      hasUnpublishedPeers: json['hasUnpublishedPeers'] as bool? ?? false,
+      hasUnappliedPeers: json['hasUnappliedPeers'] as bool? ?? false,
       peers: [
         for (final raw in peers.cast<Map<String, Object?>>())
           PeerPublish(
@@ -89,9 +92,10 @@ class PeerSyncSnapshot {
 /// Fenced (retired) peers are left out: they publish nothing more. A
 /// stale-epoch peer stays in [PeerSyncSnapshot.peers] (it may still be
 /// uploading media for rows it will replay on adoption) but does not spoil
-/// [PeerSyncSnapshot.caughtUp], since its changes are never applied here. A
-/// peer that failed to read, is held for a newer schema, or was not read to
-/// its head does.
+/// [PeerSyncSnapshot.caughtUp], since its changes are never applied here;
+/// that it was skipped sets [PeerSyncSnapshot.hasUnappliedPeers] instead, so
+/// its objects wait out the grace window. A peer that failed to read, is
+/// held for a newer schema, or was not read to its head spoils caughtUp.
 PeerSyncSnapshot buildPeerSyncSnapshot({
   required DateTime now,
   required String providerId,
@@ -102,6 +106,7 @@ PeerSyncSnapshot buildPeerSyncSnapshot({
   required Set<String> newerSchemaPeerIds,
   required Set<String> incompletePeerIds,
   required Set<String> unpublishedPeerIds,
+  required Set<String> skippedPeerIds,
   required int recordsFailed,
 }) {
   return PeerSyncSnapshot(
@@ -112,7 +117,8 @@ PeerSyncSnapshot buildPeerSyncSnapshot({
         readFailedPeerIds.isEmpty &&
         newerSchemaPeerIds.isEmpty &&
         incompletePeerIds.isEmpty,
-    hasUnpublishedPeers: unpublishedPeerIds.isNotEmpty,
+    hasUnappliedPeers:
+        unpublishedPeerIds.isNotEmpty || skippedPeerIds.isNotEmpty,
     peers: [
       for (final m in peerManifests)
         if (m.deviceId != selfDeviceId && !fencedPeerIds.contains(m.deviceId))
@@ -168,7 +174,7 @@ class PeerSyncSnapshotStore {
         caughtUp: false,
         peers: current.peers,
         providerId: current.providerId,
-        hasUnpublishedPeers: current.hasUnpublishedPeers,
+        hasUnappliedPeers: current.hasUnappliedPeers,
       ),
     );
   }

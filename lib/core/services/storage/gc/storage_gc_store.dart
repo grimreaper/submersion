@@ -69,6 +69,14 @@ class StorageGcStore {
     }
   }
 
+  /// A delete guard for a cloud sweep: true until a restore records itself
+  /// after this call. The sweep judged orphans against the database it
+  /// started with, and [markRestored] runs before the swap replaces it.
+  static bool Function() restoreGuard(SharedPreferences prefs) {
+    final at = prefs.getInt(_lastRestoreKey);
+    return () => prefs.getInt(_lastRestoreKey) == at;
+  }
+
   DateTime? get lastDeviceRun => _time(_lastDeviceRunKey);
   DateTime? get lastCloudMeasure => _time(_lastCloudMeasureKey);
 

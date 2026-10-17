@@ -868,6 +868,7 @@ class SyncService {
             newerSchemaPeerIds: pullResult.newerSchemaPeerDeviceIds,
             incompletePeerIds: pullResult.incompletePeerDeviceIds,
             unpublishedPeerIds: pullResult.unpublishedPeerDeviceIds,
+            skippedPeerIds: pullResult.skippedPeerDeviceIds,
             recordsFailed: recordsFailed,
           ),
         );

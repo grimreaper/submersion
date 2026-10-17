@@ -193,7 +193,7 @@ Future<VerifyLibraryReport?> _mediaSweep(
       ).run(
         policy: ref.read(orphanDeletePolicyFactoryProvider)(),
         dryRun: dryRun,
-        deleteGuard: SyncCoordinator.quietGuard(),
+        deleteGuard: mediaSweepDeleteGuard(ref),
       );
   // Repairs the sweep queued drain now rather than on the next trigger.
   if (!dryRun) unawaited(runtime.worker?.drain());

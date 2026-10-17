@@ -82,9 +82,10 @@ class OrphanDeletePolicy {
     if (!deletesAllowed) return OrphanVerdict.deferred;
     if (lastModified.isBefore(now.subtract(grace))) return OrphanVerdict.delete;
     final s = snapshot;
-    // Early delete only when every device that can upload is known: a device
-    // whose first publish has no manifest yet is not in [s.peers].
-    if (syncEnabled && s != null && !s.hasUnpublishedPeers) {
+    // Early delete only when every device that can upload is known and its
+    // publishes were applied here: not one whose first publish has no
+    // manifest yet, nor a skipped stale-epoch peer.
+    if (syncEnabled && s != null && !s.hasUnappliedPeers) {
       final covered = lastModified.add(skew);
       final everyoneSince =
           covered.isBefore(s.takenAt) &&

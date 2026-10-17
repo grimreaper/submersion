@@ -20,6 +20,7 @@ void main() {
     Set<String> newerSchema = const {},
     Set<String> incomplete = const {},
     Set<String> unpublished = const {},
+    Set<String> skipped = const {},
     int recordsFailed = 0,
   }) => buildPeerSyncSnapshot(
     now: now,
@@ -31,6 +32,7 @@ void main() {
     newerSchemaPeerIds: newerSchema,
     incompletePeerIds: incomplete,
     unpublishedPeerIds: unpublished,
+    skippedPeerIds: skipped,
     recordsFailed: recordsFailed,
   );
 
@@ -72,8 +74,22 @@ void main() {
   });
 
   test('records devices that have not published a manifest yet', () {
-    expect(build().hasUnpublishedPeers, isFalse);
-    expect(build(unpublished: {'new-device'}).hasUnpublishedPeers, isTrue);
+    expect(build().hasUnappliedPeers, isFalse);
+    expect(build(unpublished: {'new-device'}).hasUnappliedPeers, isTrue);
+  });
+
+  test('a skipped stale-epoch peer blocks early delete, not caught up', () {
+    // Its changesets are never applied here, so its publish time says
+    // nothing about which of its rows reached this device. It still gets
+    // the grace window; blocking every delete would stall the cleanup for
+    // as long as the device stays unadopted.
+    final snapshot = build(
+      manifests: [_manifest('a', 1000), _manifest('stale', 500)],
+      skipped: {'stale'},
+    );
+
+    expect(snapshot.hasUnappliedPeers, isTrue);
+    expect(snapshot.caughtUp, isTrue);
   });
 
   group('PeerSyncSnapshotStore', () {
@@ -91,7 +107,7 @@ void main() {
       expect(read.takenAt, snapshot.takenAt);
       expect(read.caughtUp, isTrue);
       expect(read.providerId, 'dropbox');
-      expect(read.hasUnpublishedPeers, isFalse);
+      expect(read.hasUnappliedPeers, isFalse);
       expect(read.peers.single.deviceId, 'a');
       expect(read.peers.single.publishedAt, snapshot.peers.single.publishedAt);
     });

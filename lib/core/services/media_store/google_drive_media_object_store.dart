@@ -263,7 +263,10 @@ class GoogleDriveMediaObjectStore
   }
 
   @override
-  Future<int> deleteExtraCopies(String key) async {
+  Future<int> deleteExtraCopies(
+    String key, {
+    bool Function()? mayDelete,
+  }) async {
     final files = await _filesByKey(key);
     // Distinct by id: only separate files count as copies.
     final byId = {for (final f in files) f.id: f};
@@ -278,10 +281,13 @@ class GoogleDriveMediaObjectStore
         final byTime = bm.compareTo(am);
         return byTime != 0 ? byTime : a.id.compareTo(b.id);
       });
+    var removed = 0;
     for (final extra in ordered.skip(1)) {
+      if (mayDelete != null && !mayDelete()) break;
       await _deleteById(extra.id);
+      removed++;
     }
-    return ordered.length - 1;
+    return removed;
   }
 
   @override

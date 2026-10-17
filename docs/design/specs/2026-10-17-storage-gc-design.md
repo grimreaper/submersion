@@ -149,16 +149,18 @@ reclaimable figure. A sync-folder deletion sweep is not part of this work.
 - **Grace window for cloud media orphans:** 7 days from the object's
   `lastModified`, as today. The iCloud store sets each staged copy's modification
   time to the upload time: a file copy keeps the source's time, which would make
-  a new upload look as old as the photo.
+  a new upload look as old as the photo. An upload it cannot date is not
+  published; the retry dates it again.
 - **Early delete:** an orphan may go sooner once every other known sync device has
   synced since it was uploaded, meaning, for each peer, its manifest `updatedAt`
   is later than the object's `lastModified` plus a clock-skew margin (an hour),
   this device's last clean pull started later than that too, and this device has
   applied that peer through its manifest's `publishedHlcHigh`. Retired peers
-  (`ssv1.<id>.retired.json`) do not count; a peer still on an older library epoch
-  does. A peer whose manifest cannot be read blocks early delete, and so does a
-  device with sync files but no manifest yet (its first publish is still under
-  way). If sync is off, the 7 days always apply.
+  (`ssv1.<id>.retired.json`) do not count. A peer whose manifest cannot be read
+  blocks early delete, and so do a device with sync files but no manifest yet
+  (its first publish is still under way) and a peer still on an older library
+  epoch (its changes are not applied here, so its publish time proves nothing);
+  their objects wait out the 7 days. If sync is off, the 7 days always apply.
 - **Caught up before any cloud media delete** (designer's call): when database
   sync is on, every cloud media delete (orphans and siblings, early or after 7
   days) requires the latest pull to have read every live peer to its published
@@ -198,9 +200,10 @@ reclaimable figure. A sync-folder deletion sweep is not part of this work.
   sync-folder work waits while `SyncCoordinator.busy`. A sweep that finds its area
   busy defers to the next opportunity rather than waiting. An automatic run skips
   the cloud part while a sync runs; Reclaim and Rescan still measure then, but
-  delete nothing. A sync that starts while a sweep is deleting stops the deletes,
-  and that run counts as deferred: it neither stamps the fleet sweep nor clears
-  the post-restore flag.
+  delete nothing. A sync or a restore that starts while a sweep is deleting stops
+  the deletes, and that run counts as deferred: it neither stamps the fleet sweep
+  nor clears the post-restore flag. A post-restore device pass with a failed
+  sweep stays pending, so the forced retry is not lost.
 - **Never another device's in-progress files:** only this device's own superseded
   sync files and temp files; malformed or unexpected keys are skipped. A device
   file's age is the later of its modified and changed times, because a copy keeps

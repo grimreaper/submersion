@@ -286,6 +286,20 @@ void main() {
     },
   );
 
+  test('a failed post-restore device pass stays pending', () async {
+    // The forced retry is what clears a restore's leftovers; losing it to
+    // one transient failure leaves them until the daily cadence.
+    await StorageGcStore.markRestored(
+      await SharedPreferences.getInstance(),
+      h.now,
+    );
+    h.failFirstSweep = true;
+
+    await coordinator.run(StorageGcTrigger.launch);
+
+    expect(h.store.postRestorePendingSince, isNotNull);
+  });
+
   test('records last reclaimed per area', () async {
     await coordinator.run(StorageGcTrigger.launch);
     final device = h.store.lastDeviceResult!;

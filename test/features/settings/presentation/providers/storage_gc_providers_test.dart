@@ -260,6 +260,26 @@ void main() {
     );
   });
 
+  test('a restore that starts during the sweep stops its deletes', () async {
+    // The sweep judged orphans against the database it started with; once a
+    // restore records itself that database is on its way out.
+    await registerStore();
+    await knownPhoto();
+    deadObject();
+    store.objects[StoreKeys.objectKey('dead2', extension: 'jpg')] = [4, 5, 6];
+    store.modified[StoreKeys.objectKey('dead2', extension: 'jpg')] = old;
+    store.onDelete = (_) => StorageGcStore.markRestored(prefs, DateTime.now());
+    final c = container(syncOn: false);
+
+    await c.read(storageGcCoordinatorProvider).run(StorageGcTrigger.manual);
+
+    final survivors = [
+      StoreKeys.objectKey('dead', extension: 'jpg'),
+      StoreKeys.objectKey('dead2', extension: 'jpg'),
+    ].where(store.objects.containsKey);
+    expect(survivors, hasLength(1), reason: 'one delete, then the restore');
+  });
+
   test('a store that fails its marker check is not swept', () async {
     // Repointed or wiped: the store's objects are not this library's.
     await registerStore();

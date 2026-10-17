@@ -11,12 +11,12 @@ void main() {
     bool caughtUp = true,
     List<Duration> peerPublishedAfterUpload = const [],
     String providerId = 'dropbox',
-    bool hasUnpublishedPeers = false,
+    bool hasUnappliedPeers = false,
   }) => PeerSyncSnapshot(
     takenAt: takenAt ?? now.subtract(const Duration(minutes: 5)),
     caughtUp: caughtUp,
     providerId: providerId,
-    hasUnpublishedPeers: hasUnpublishedPeers,
+    hasUnappliedPeers: hasUnappliedPeers,
     peers: [
       for (final (i, d) in peerPublishedAfterUpload.indexed)
         PeerPublish(deviceId: 'p$i', publishedAt: upload.add(d)),
@@ -175,7 +175,7 @@ void main() {
       now: now,
       syncEnabled: true,
       currentProviderId: 'dropbox',
-      snapshot: snapshot(hasUnpublishedPeers: true),
+      snapshot: snapshot(hasUnappliedPeers: true),
     );
     expect(policy.verdictFor(upload), OrphanVerdict.wait);
     expect(

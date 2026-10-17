@@ -150,6 +150,7 @@ abstract class MediaObjectStore {
 /// a key (a paging artefact) never costs the only copy.
 abstract interface class DuplicateKeyStore {
   /// Deletes every copy of [key] but one and returns how many it deleted:
-  /// zero when only one copy exists.
-  Future<int> deleteExtraCopies(String key);
+  /// zero when only one copy exists. [mayDelete] is asked before each
+  /// delete; once it returns false the rest are left.
+  Future<int> deleteExtraCopies(String key, {bool Function()? mayDelete});
 }

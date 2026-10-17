@@ -259,7 +259,10 @@ class MediaVerifyService {
             } else {
               if (!mayDelete()) continue;
               try {
-                final removed = await store.deleteExtraCopies(info.key);
+                final removed = await store.deleteExtraCopies(
+                  info.key,
+                  mayDelete: mayDelete,
+                );
                 orphansRemoved += removed;
                 bytesReclaimed += removed * size;
                 reclaimableBytes += removed * size;
