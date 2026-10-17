@@ -158,6 +158,23 @@ void main() {
       expect(_equipmentPane, findsOneWidget);
     });
 
+    testWidgets('wide: tapping back mid-slide lands on the last tapped', (
+      tester,
+    ) async {
+      await _pump(tester, window: const Size(1400, 900));
+      final l10n = await _en();
+
+      // The first slide's landing notification arrives after the second tap.
+      await _tapSection(tester, l10n.equipment_tab_sets);
+      await _tapSection(tester, l10n.equipment_tab_equipment);
+      expect(_equipmentPane, findsOneWidget);
+      expect(_setsPane, findsNothing);
+
+      await tester.pumpAndSettle();
+      expect(_equipmentPane, findsOneWidget);
+      expect(_setsPane, findsNothing);
+    });
+
     testWidgets('wide: switching still clears the other section selection', (
       tester,
     ) async {

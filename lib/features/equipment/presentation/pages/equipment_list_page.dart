@@ -54,6 +54,7 @@ class _EquipmentListPageState extends ConsumerState<EquipmentListPage>
   void initState() {
     super.initState();
     _tabController = TabController(length: 2, vsync: this);
+    _shownTabIndex = _tabController.index;
     _tabController.addListener(_onTabChanged);
   }
 
@@ -66,7 +67,7 @@ class _EquipmentListPageState extends ConsumerState<EquipmentListPage>
   }
 
   /// The section the page last built for; see [_onTabChanged].
-  int _shownTabIndex = 0;
+  late int _shownTabIndex;
 
   void _onTabChanged() {
     // A tapped name notifies twice: as the index changes, with the pill about
