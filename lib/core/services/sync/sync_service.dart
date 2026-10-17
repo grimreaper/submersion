@@ -17,6 +17,7 @@ import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/services/sync/child_column_clears.dart';
 import 'package:submersion/core/services/sync/device_local_fields.dart';
 import 'package:submersion/core/services/sync/peer_device_name_store.dart';
+import 'package:submersion/core/services/sync/peer_sync_snapshot.dart';
 import 'package:submersion/core/services/sync/sync_fact_groups.dart';
 import 'package:submersion/core/services/sync/media_resolution_hints.dart';
 import 'package:submersion/core/services/sync/conflict_reference.dart';
@@ -265,6 +266,7 @@ class SyncService {
   /// labels such as "From Eric's MacBook" need no cloud read. Optional:
   /// the legacy tests build the service without one.
   final PeerDeviceNameStore? _peerNames;
+  final PeerSyncSnapshotStore? _peerSnapshots;
 
   /// Told which media rows a merge gave something new to be found by, so
   /// their cached "not found here" searches retry at once (spec 6.2).
@@ -335,6 +337,7 @@ class SyncService {
     SyncEncryptionService? encryptionService,
     AppLocalizations Function()? localizations,
     PeerDeviceNameStore? peerNames,
+    PeerSyncSnapshotStore? peerSnapshots,
     Future<void> Function(MediaResolutionHints hints)? onMediaResolutionHints,
   }) : _syncRepository = syncRepository,
        _eventScopeApplier = EventScopeTombstoneApplier(
@@ -346,6 +349,7 @@ class SyncService {
        _epochStore = epochStore,
        _encryptionService = encryptionService,
        _peerNames = peerNames,
+       _peerSnapshots = peerSnapshots,
        _onMediaResolutionHints = onMediaResolutionHints,
        _localizations = localizations ?? _englishLocalizations;
 
@@ -839,6 +843,26 @@ class SyncService {
         );
       }
       await _syncRepository.persistSyncClock();
+      // What the storage cleanup needs from this pull once the manifests are
+      // gone: whether every live peer applied cleanly, and when each last
+      // published. Best-effort: a failed write leaves the previous snapshot,
+      // which the cleanup reads as older and therefore more cautious.
+      try {
+        await _peerSnapshots?.write(
+          buildPeerSyncSnapshot(
+            now: now,
+            selfDeviceId: deviceId,
+            peerManifests: pullResult.peerManifests,
+            fencedPeerIds: fencedPeerIds,
+            skippedPeerIds: pullResult.skippedPeerDeviceIds,
+            readFailedPeerIds: pullResult.readFailedPeerDeviceIds,
+            newerSchemaPeerIds: pullResult.newerSchemaPeerDeviceIds,
+            recordsFailed: recordsFailed,
+          ),
+        );
+      } catch (e) {
+        _log.warning('Peer sync snapshot write failed (non-fatal): $e');
+      }
       // Fleet-acked tombstone GC (replaces the unconditional 90-day purge).
       // Only durably fenced peers (retirement marker confirmed present) are
       // exempt from the ack constraint -- see the sweep above.
