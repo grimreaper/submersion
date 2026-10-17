@@ -2,6 +2,7 @@ import 'dart:io';
 
 import 'package:flutter/services.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:sqlite3/sqlite3.dart' as sqlite3;
 
@@ -187,6 +188,60 @@ void main() {
 
       expect(adapter.restoreCalls, 1);
       expect(spy.rebaselineCalls, 1);
+    },
+  );
+
+  test(
+    'restoreFromBackup deletes a downloaded copy once the restore finishes',
+    () async {
+      final source = _validDb(tmp.path, 'backup.db');
+      final service = BackupService(
+        dbAdapter: _FileWritingAdapter(_validDb(tmp.path, 'live.db')),
+        preferences: prefs,
+        safPort: _FakeSafPort(validSourcePath: source),
+        syncRepository: _SpySync(),
+      );
+      final record = BackupRecord(
+        id: 'r',
+        filename: 'downloaded_copy.db',
+        timestamp: DateTime(2026),
+        sizeBytes: 1,
+        location: BackupLocation.local,
+        localPath: 'content://tree/doc/x',
+      );
+
+      await service.restoreFromBackup(record);
+
+      expect(
+        File(p.join(_isolatedTempDir.path, 'downloaded_copy.db')).existsSync(),
+        isFalse,
+        reason: 'the temp copy of a SAF backup is the app\'s own leftover',
+      );
+    },
+  );
+
+  test(
+    'restoreFromBackup never deletes the record\'s own local file',
+    () async {
+      final local = _validDb(tmp.path, 'kept_backup.db');
+      final service = BackupService(
+        dbAdapter: _FileWritingAdapter(_validDb(tmp.path, 'live.db')),
+        preferences: prefs,
+        safPort: _FakeSafPort(),
+        syncRepository: _SpySync(),
+      );
+      final record = BackupRecord(
+        id: 'r',
+        filename: 'kept_backup.db',
+        timestamp: DateTime(2026),
+        sizeBytes: 1,
+        location: BackupLocation.local,
+        localPath: local,
+      );
+
+      await service.restoreFromBackup(record);
+
+      expect(File(local).existsSync(), isTrue);
     },
   );
 

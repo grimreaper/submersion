@@ -747,6 +747,11 @@ class BackupService {
     // Determine backup source path. A SAF (content://) ref is streamed to a
     // temp file first; SQLite open + validation need a real filesystem path.
     String sourcePath;
+    // Set when sourcePath is a copy this restore made (a SAF stream or a
+    // cloud download). Nothing else ever deletes it, so every such restore
+    // would otherwise leave a full-size database in the temp folder
+    // (storage GC design, leak 1).
+    var madeCopy = false;
     final localRef = record.localPath;
     if (localRef != null && isSafRef(localRef)) {
       if (!await _safPort.exists(localRef)) {
@@ -756,12 +761,20 @@ class BackupService {
       }
       final tempDir = await resolveSyncTempDir();
       sourcePath = p.join(tempDir.path, record.filename);
-      await _safPort.readBackup(documentUri: localRef, destPath: sourcePath);
+      madeCopy = true;
+      try {
+        await _safPort.readBackup(documentUri: localRef, destPath: sourcePath);
+      } catch (_) {
+        // A stream that failed part way leaves a partial copy behind.
+        await _MaterializedBackup(sourcePath, isTemp: true).cleanUp();
+        rethrow;
+      }
     } else if (localRef != null && await File(localRef).exists()) {
       sourcePath = localRef;
     } else if (record.cloudFileId != null && _cloudProvider != null) {
       // Download from cloud to a temp location
       _log.info('Downloading backup from cloud');
+      madeCopy = true;
       sourcePath = await _downloadFromCloud(
         record.cloudFileId!,
         record.filename,
@@ -769,7 +782,26 @@ class BackupService {
     } else {
       throw const BackupException('Backup file not found locally or in cloud');
     }
+    try {
+      await _restoreFromSource(
+        record,
+        sourcePath,
+        mode: mode,
+        encryptionSecret: encryptionSecret,
+        onMigrationProgress: onMigrationProgress,
+      );
+    } finally {
+      await _MaterializedBackup(sourcePath, isTemp: madeCopy).cleanUp();
+    }
+  }
 
+  Future<void> _restoreFromSource(
+    BackupRecord record,
+    String sourcePath, {
+    required RestoreMode mode,
+    String? encryptionSecret,
+    void Function(int currentStep, int totalSteps)? onMigrationProgress,
+  }) async {
     // An encrypted cloud artifact must be decrypted BEFORE validation (the
     // SQLite deep-check needs plaintext).
     final materialized = await _materializePlaintextBackup(

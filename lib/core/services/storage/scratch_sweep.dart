@@ -101,8 +101,9 @@ class StorageScratchSweep {
   static const String _appDir = 'Submersion';
 
   /// Throws on an I/O failure the caller should see; individual unreadable
-  /// entries are skipped rather than aborting the pass.
-  Future<ScratchSweepReport> run({DateTime? now}) async {
+  /// entries are skipped rather than aborting the pass. A [dryRun] counts
+  /// what the pass would reclaim and deletes nothing.
+  Future<ScratchSweepReport> run({DateTime? now, bool dryRun = false}) async {
     final at = now ?? DateTime.now();
     final temp = await _temporaryDirectory();
     final support = await _supportDirectory();
@@ -115,21 +116,34 @@ class StorageScratchSweep {
       Directory(p.join(temp.path, 'picked')),
       pickedMaxAge,
       at,
+      dryRun,
     );
     report += await _sweep(
       appPath(['media_cache', 'staging']),
       stagingMaxAge,
       at,
+      dryRun,
     );
     report += await _sweep(
       appPath(['media_cache', 'transcode']),
       transcodeMaxAge,
       at,
+      dryRun,
     );
-    report += await _sweep(appPath(['video_thumbnails']), thumbnailMaxAge, at);
-    report += await _sweep(appPath(['pdf_thumbnails']), thumbnailMaxAge, at);
+    report += await _sweep(
+      appPath(['video_thumbnails']),
+      thumbnailMaxAge,
+      at,
+      dryRun,
+    );
+    report += await _sweep(
+      appPath(['pdf_thumbnails']),
+      thumbnailMaxAge,
+      at,
+      dryRun,
+    );
 
-    if (!report.isEmpty) {
+    if (!report.isEmpty && !dryRun) {
       _log.info(
         'Scratch sweep reclaimed ${report.bytesReclaimed} bytes '
         'across ${report.filesDeleted} files',
@@ -144,6 +158,7 @@ class StorageScratchSweep {
     Directory dir,
     Duration maxAge,
     DateTime now,
+    bool dryRun,
   ) async {
     if (!await dir.exists()) return ScratchSweepReport.empty;
 
@@ -158,7 +173,7 @@ class StorageScratchSweep {
         final stat = await entity.stat();
         if (!stat.modified.isBefore(cutoff)) continue;
         final size = stat.size;
-        await entity.delete();
+        if (!dryRun) await entity.delete();
         files++;
         bytes += size;
         emptied.addAll(_ancestorsWithin(dir, entity.parent));

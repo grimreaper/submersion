@@ -279,5 +279,19 @@ void main() {
       expect(report.filesDeleted, 4);
       expect(report.bytesReclaimed, 1000);
     });
+
+    test('dry run counts without deleting', () async {
+      final stale = await write(
+        picked('0/dives.zip'),
+        500,
+        const Duration(days: 2),
+      );
+
+      final report = await build().run(now: now, dryRun: true);
+
+      expect(report.filesDeleted, 1);
+      expect(report.bytesReclaimed, 500);
+      expect(stale.existsSync(), isTrue);
+    });
   });
 }
