@@ -61,6 +61,36 @@ class _ReadOnlyProvider extends _PathProvider {
   }
 }
 
+/// Looks folders up without creating them, as WebDAV does.
+class _LookupProvider extends _PathProvider implements FolderLookup {
+  final created = <String>[];
+
+  @override
+  Future<String> createFolder(
+    String folderName, {
+    String? parentFolderId,
+  }) async {
+    final path = await super.createFolder(
+      folderName,
+      parentFolderId: parentFolderId,
+    );
+    created.add(path);
+    return path;
+  }
+
+  @override
+  Future<String?> findFolder(
+    String folderName, {
+    String? parentFolderId,
+  }) async {
+    final path = await super.createFolder(
+      folderName,
+      parentFolderId: parentFolderId,
+    );
+    return files.keys.any((k) => k.startsWith('$path/')) ? path : null;
+  }
+}
+
 void main() {
   test('sums only sync files', () async {
     final cloud = FakeCloudStorageProvider();
@@ -132,6 +162,26 @@ void main() {
       expect(measured.partial, isFalse);
     },
   );
+
+  test('measuring creates no missing optional folder', () async {
+    // A size scan must not write to a library, even one it may write to.
+    final cloud = _LookupProvider();
+    const root = 'submersion-sites/site-sync';
+    cloud.files.addAll({
+      '$root/sites/site-a.json': 10,
+      '$root/members/member-m1.json': 3,
+      '$root/backups/backup-1.zip': 100,
+    });
+
+    final measured = await SharedLibraryTransport(
+      cloud,
+      prefix: 'site-sync',
+    ).measureBytes();
+
+    expect(measured.bytes, 10 + 3 + 100);
+    expect(measured.partial, isFalse);
+    expect(cloud.created, isNot(contains('$root/suggestions')));
+  });
 
   test('a file without a size marks the library partial', () async {
     final cloud = _PathProvider();

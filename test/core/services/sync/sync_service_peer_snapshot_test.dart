@@ -37,14 +37,16 @@ void main() {
 
   tearDown(() => DatabaseService.instance.resetForTesting());
 
-  SyncService buildService({PeerSyncSnapshotStore? peerSnapshots}) =>
-      SyncService(
-        syncRepository: SyncRepository(),
-        serializer: SyncDataSerializer(),
-        cloudProvider: cloud,
-        epochStore: epochStore,
-        peerSnapshots: peerSnapshots ?? snapshots,
-      );
+  SyncService buildService({
+    PeerSyncSnapshotStore? peerSnapshots,
+    SyncRepository? syncRepository,
+  }) => SyncService(
+    syncRepository: syncRepository ?? SyncRepository(),
+    serializer: SyncDataSerializer(),
+    cloudProvider: cloud,
+    epochStore: epochStore,
+    peerSnapshots: peerSnapshots ?? snapshots,
+  );
 
   /// A caught-up snapshot from an earlier, clean sync.
   Future<void> seedCaughtUp() => snapshots.write(
@@ -126,6 +128,22 @@ void main() {
     expect(snapshots.read()!.caughtUp, isFalse);
   });
 
+  test('a sync whose cleanup fails leaves the cleanup not caught up', () async {
+    // Trusted only once the sync reached its clean end: a failure in its
+    // last steps must not leave a caught-up snapshot behind.
+    await seedCaughtUp();
+    await DiveRepository().createDive(
+      createTestDiveWithBottomTime(id: 'd1', diveNumber: 1),
+    );
+
+    final result = await buildService(
+      syncRepository: _FailingCleanupRepository(),
+    ).performSync();
+
+    expect(result.isSuccess, isFalse);
+    expect(snapshots.read()!.caughtUp, isFalse);
+  });
+
   test('a sync that cannot reset the snapshot does not run', () async {
     final service = buildService(
       peerSnapshots: _ThrowingSnapshots(await SharedPreferences.getInstance()),
@@ -137,6 +155,13 @@ void main() {
     expect(result.isSuccess, isFalse);
     expect(cloud.operationLog.where((op) => op.startsWith('upload:')), isEmpty);
   });
+}
+
+/// A repository whose post-publish bookkeeping fails.
+class _FailingCleanupRepository extends SyncRepository {
+  @override
+  Future<void> clearPendingRecords({int? markedBefore}) async =>
+      throw StateError('disk full');
 }
 
 /// A snapshot store whose fail-closed reset cannot be written.

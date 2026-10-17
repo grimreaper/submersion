@@ -15,6 +15,7 @@ import 'package:submersion/core/services/media_store/store_keys.dart';
 import 'package:submersion/core/services/shared_library/shared_library_models.dart';
 import 'package:submersion/core/services/shared_library/shared_library_store.dart';
 import 'package:submersion/core/services/shared_library/shared_library_transport.dart';
+import 'package:submersion/core/services/storage/gc/cloud_usage_measure.dart';
 import 'package:submersion/core/services/storage/gc/storage_gc_coordinator.dart';
 import 'package:submersion/core/services/storage/gc/storage_gc_store.dart';
 import 'package:submersion/core/services/storage/local_cache_sweep.dart';
@@ -392,6 +393,27 @@ void main() {
     expect(dryRuns, 1);
   });
 
+  test('the page shows only cloud areas set up now', () async {
+    // A scan from before a sync backend was disconnected still holds its
+    // figure; showing it would count an area that is gone.
+    await StorageGcStore(prefs).setCloudUsage(
+      CloudUsage(
+        scannedAt: DateTime(2026, 10, 1),
+        mediaBytes: 10,
+        syncBytes: 20,
+        librariesBytes: 30,
+      ),
+    );
+    final c = container(syncOn: false);
+    c.listen(storageGcStateProvider, (_, _) {});
+
+    final view = await c.read(storageGcStateProvider.future);
+
+    expect(view.cloudUsage!.mediaBytes, 10, reason: 'store-1 is attached');
+    expect(view.cloudUsage!.syncBytes, isNull);
+    expect(view.cloudUsage!.librariesBytes, isNull);
+  });
+
   test('last reclaimed adds the device and cloud results of one pass', () {
     final at = DateTime(2026, 10, 17);
     final view = StorageGcView(
@@ -411,6 +433,9 @@ class _FakeLibraryStore extends SharedLibraryStore {
 
   @override
   Future<List<SharedLibrary>> getLibraries() async => libraries;
+
+  @override
+  Stream<void> watchLibraries() => const Stream.empty();
 }
 
 /// Points the temporary directory at the test's own folder: the store

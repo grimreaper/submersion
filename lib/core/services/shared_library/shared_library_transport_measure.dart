@@ -13,23 +13,36 @@ extension SharedLibraryTransportMeasure on SharedLibraryTransport {
     var bytes = 0;
     var partial = false;
     final seen = <String>{};
-    for (final (folder, mayBeAbsent) in <(Future<String> Function(), bool)>[
+    // A library that has never had a suggestion or a backup has no folder
+    // for them. A measurement looks those up rather than creating them where
+    // creating writes (WebDAV), and a folder it cannot find or create is
+    // simply empty, not a reason to call the figure partial.
+    Future<String?> optional(String dir) async {
+      final root = await _rootId();
+      return switch (_provider) {
+        final FolderLookup lookup => lookup.findFolder(
+          dir,
+          parentFolderId: root,
+        ),
+        final provider => provider.createFolder(dir, parentFolderId: root),
+      };
+    }
+
+    for (final (folder, mayBeAbsent) in <(Future<String?> Function(), bool)>[
       (_rootId, false),
       (_membersId, false),
       (_sitesId, false),
-      (_suggestionsId, true),
-      (_backupsId, true),
+      (() => optional(SharedLibraryLayout.suggestionsDir), true),
+      (() => optional(SharedLibraryLayout.backupsDir), true),
     ]) {
-      final String folderId;
+      final String? folderId;
       try {
         folderId = await folder();
       } on Exception {
-        // A library that has never had a suggestion or a backup has no
-        // folder for them, and a reader may not create one: nothing to
-        // count, and no reason to call the figure partial.
         if (!mayBeAbsent) partial = true;
         continue;
       }
+      if (folderId == null) continue;
       try {
         for (final f in await _provider.listFiles(folderId: folderId)) {
           final ours = SharedLibraryTransport._directlyIn(folderId, f);

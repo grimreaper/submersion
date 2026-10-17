@@ -145,22 +145,23 @@ class StorageGcCoordinator {
 
   /// Records a media sweep run outside a pass (Verify Library), so the
   /// Storage usage page shows what it reclaimed and the media figures it
-  /// found. The other areas keep the figures of the last scan.
+  /// found. The other areas keep the figures of the last scan, whose time
+  /// the page shows; with no scan yet, the record is this sweep's alone and
+  /// partial, since nothing else was measured.
   Future<void> recordMediaSweep(VerifyLibraryReport report) async {
     final now = _now();
     await _recordCloudResult(report, now);
-    final usage = _store.cloudUsage;
-    if (usage != null) {
-      await _store.setCloudUsage(
-        usage.copyWith(
-          mediaBytes: report.totalBytes - report.bytesReclaimed,
-          mediaReclaimableBytes:
-              report.reclaimableBytes - report.bytesReclaimed,
-          mediaWaitingBytes: report.waitingBytes,
-          mediaDeferred: report.deferred,
-        ),
-      );
-    }
+    final usage =
+        _store.cloudUsage ?? CloudUsage(scannedAt: now, partial: true);
+    await _store.setCloudUsage(
+      usage.copyWith(
+        mediaBytes: report.totalBytes - report.bytesReclaimed,
+        mediaReclaimableBytes: report.reclaimableBytes - report.bytesReclaimed,
+        mediaWaitingBytes: report.waitingBytes,
+        mediaDeferred: report.deferred,
+        partial: usage.partial || report.sizesUnknown,
+      ),
+    );
     _notify();
   }
 

@@ -852,29 +852,6 @@ class SyncService {
         );
       }
       await _syncRepository.persistSyncClock();
-      // What the storage cleanup needs from this pull once the manifests are
-      // gone: whether every live peer applied cleanly to its head, and when
-      // each last published. Best-effort: a failed write leaves the
-      // not-caught-up mark this sync set at its start, the cautious state.
-      try {
-        await _peerSnapshots?.write(
-          buildPeerSyncSnapshot(
-            now: pullStartedAt,
-            providerId: provider.providerId,
-            selfDeviceId: deviceId,
-            peerManifests: pullResult.peerManifests,
-            fencedPeerIds: fencedPeerIds,
-            readFailedPeerIds: pullResult.readFailedPeerDeviceIds,
-            newerSchemaPeerIds: pullResult.newerSchemaPeerDeviceIds,
-            incompletePeerIds: pullResult.incompletePeerDeviceIds,
-            unpublishedPeerIds: pullResult.unpublishedPeerDeviceIds,
-            skippedPeerIds: pullResult.skippedPeerDeviceIds,
-            recordsFailed: recordsFailed,
-          ),
-        );
-      } catch (e) {
-        _log.warning('Peer sync snapshot write failed (non-fatal): $e');
-      }
       // Fleet-acked tombstone GC (replaces the unconditional 90-day purge).
       // Only durably fenced peers (retirement marker confirmed present) are
       // exempt from the ack constraint -- see the sweep above.
@@ -909,6 +886,32 @@ class SyncService {
         if (conflictsFound == 0) {
           await _syncRepository.clearAllSyncRecords(markedBefore: snapshotAt);
         }
+      }
+
+      // What the storage cleanup needs from this pull once the manifests are
+      // gone: whether every live peer applied cleanly to its head, and when
+      // each last published. Written last, after every step that can fail,
+      // so only a sync that reached its clean end is trusted. Best-effort: a
+      // failed write leaves the not-caught-up mark this sync set at its
+      // start, the cautious state.
+      try {
+        await _peerSnapshots?.write(
+          buildPeerSyncSnapshot(
+            now: pullStartedAt,
+            providerId: provider.providerId,
+            selfDeviceId: deviceId,
+            peerManifests: pullResult.peerManifests,
+            fencedPeerIds: fencedPeerIds,
+            readFailedPeerIds: pullResult.readFailedPeerDeviceIds,
+            newerSchemaPeerIds: pullResult.newerSchemaPeerDeviceIds,
+            incompletePeerIds: pullResult.incompletePeerDeviceIds,
+            unpublishedPeerIds: pullResult.unpublishedPeerDeviceIds,
+            skippedPeerIds: pullResult.skippedPeerDeviceIds,
+            recordsFailed: recordsFailed,
+          ),
+        );
+      } catch (e) {
+        _log.warning('Peer sync snapshot write failed (non-fatal): $e');
       }
 
       _reportProgress(

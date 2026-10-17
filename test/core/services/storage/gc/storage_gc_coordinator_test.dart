@@ -405,6 +405,32 @@ void main() {
     expect(h.store.cloudUsage!.mediaDeferred, isFalse);
   });
 
+  test(
+    'a Verify Library run before any scan still shows its figures',
+    () async {
+      await coordinator.recordMediaSweep(
+        _report(total: 90, reclaimable: 30, reclaimed: 30, removed: 3),
+      );
+
+      final usage = h.store.cloudUsage!;
+      expect(usage.mediaBytes, 60);
+      expect(usage.scannedAt, h.now);
+      expect(usage.partial, isTrue, reason: 'the other areas are not measured');
+    },
+  );
+
+  test(
+    'a Verify Library run with unknown sizes marks the total partial',
+    () async {
+      await coordinator.run(StorageGcTrigger.rescan);
+      expect(h.store.cloudUsage!.partial, isFalse);
+
+      await coordinator.recordMediaSweep(_report(sizesUnknown: true));
+
+      expect(h.store.cloudUsage!.partial, isTrue);
+    },
+  );
+
   test('a Verify Library result updates the page figures', () async {
     await coordinator.run(StorageGcTrigger.rescan);
     final notified = <void>[];

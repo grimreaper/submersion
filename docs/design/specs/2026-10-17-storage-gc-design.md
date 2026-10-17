@@ -281,6 +281,8 @@ Extend `StorageUsagePage`:
   Rescan runs the cloud measurement only (no deletes). Rows for areas the diver has
   not set up are hidden, but the group and its Rescan always show (approved
   follow-up), so an area connected since the last scan can be measured at once.
+  "Set up" is checked now, not at the last scan: an area disconnected since
+  drops out of the rows, the header and the reclaim card.
 
 Cloud measurement:
 
@@ -290,6 +292,9 @@ Cloud measurement:
 - Shared libraries: sum over joined libraries of the sized listings available
   (`listSites`, `listSuggestions`); members, keyslots and backups have no sized
   listing, so the figure is marked partial unless the builder adds sized listings.
+  (Built: the measurement lists the library's own folders. It looks the
+  optional suggestions and backups folders up without creating them, since
+  creating writes on WebDAV, and counts a missing one as empty.)
 
 Units follow the existing byte formatting. All strings go through l10n with every
 ARB file updated.

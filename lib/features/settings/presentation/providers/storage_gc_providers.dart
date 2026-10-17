@@ -135,9 +135,20 @@ class StorageGcView {
 // stream is what re-emits it after every run.
 final storageGcStateProvider = StreamProvider<StorageGcView>((ref) async* {
   final coordinator = ref.watch(storageGcCoordinatorProvider);
+  // Only the areas set up now: the last scan may predate a disconnect.
+  // Watched, so connecting or disconnecting an area rebuilds the view.
+  final media = await ref.watch(mediaStoreAttachedProvider.future);
+  final sync = ref.watch(cloudStorageProviderProvider) != null;
+  final libraries = (await ref.watch(
+    sharedLibrariesProvider.future,
+  )).isNotEmpty;
   StorageGcView view() => StorageGcView(
     running: coordinator.isRunning,
-    cloudUsage: coordinator.store.cloudUsage,
+    cloudUsage: coordinator.store.cloudUsage?.onlyAreas(
+      media: media,
+      sync: sync,
+      libraries: libraries,
+    ),
     lastDeviceResult: coordinator.store.lastDeviceResult,
     lastCloudResult: coordinator.store.lastCloudResult,
   );

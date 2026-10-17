@@ -84,6 +84,23 @@ class CloudUsage {
     return areas.isEmpty ? null : areas.fold<int>(0, (a, b) => a + b);
   }
 
+  /// This usage without the figures of areas that are not set up now: a
+  /// scan from before an area was disconnected still holds its figure.
+  CloudUsage onlyAreas({
+    required bool media,
+    required bool sync,
+    required bool libraries,
+  }) => CloudUsage(
+    scannedAt: scannedAt,
+    mediaBytes: media ? mediaBytes : null,
+    mediaReclaimableBytes: media ? mediaReclaimableBytes : null,
+    mediaWaitingBytes: media ? mediaWaitingBytes : null,
+    syncBytes: sync ? syncBytes : null,
+    librariesBytes: libraries ? librariesBytes : null,
+    partial: partial,
+    mediaDeferred: media && mediaDeferred,
+  );
+
   Map<String, Object?> toJson() => {
     'scannedAt': scannedAt.millisecondsSinceEpoch,
     'mediaBytes': mediaBytes,
