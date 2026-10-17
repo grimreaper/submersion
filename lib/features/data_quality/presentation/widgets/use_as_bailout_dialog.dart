@@ -20,10 +20,15 @@ Future<UseAsBailoutChoice?> showUseAsBailoutDialog(
   required DiveTank tank,
   required int tankNumber,
   required DiveTank? ocTank,
+  bool ocHasPressureSeries = false,
 }) => showDialog<UseAsBailoutChoice>(
   context: context,
-  builder: (_) =>
-      UseAsBailoutDialog(tank: tank, tankNumber: tankNumber, ocTank: ocTank),
+  builder: (_) => UseAsBailoutDialog(
+    tank: tank,
+    tankNumber: tankNumber,
+    ocTank: ocTank,
+    ocHasPressureSeries: ocHasPressureSeries,
+  ),
 );
 
 class UseAsBailoutDialog extends StatefulWidget {
@@ -32,11 +37,16 @@ class UseAsBailoutDialog extends StatefulWidget {
     required this.tank,
     required this.tankNumber,
     required this.ocTank,
+    this.ocHasPressureSeries = false,
   });
 
   final DiveTank tank;
   final int tankNumber;
   final DiveTank? ocTank;
+
+  /// Whether [ocTank] carries a pressure series, which the executor never
+  /// merges, so the dialog promises the merge on the same rule.
+  final bool ocHasPressureSeries;
 
   @override
   State<UseAsBailoutDialog> createState() => _UseAsBailoutDialogState();
@@ -51,7 +61,10 @@ class _UseAsBailoutDialogState extends State<UseAsBailoutDialog> {
     final oc = widget.ocTank;
     return oc != null &&
         oc.computerId == widget.tank.computerId &&
-        isAsImportedGasCylinder(oc, hasPressureSeries: false);
+        isAsImportedGasCylinder(
+          oc,
+          hasPressureSeries: widget.ocHasPressureSeries,
+        );
   }
 
   @override

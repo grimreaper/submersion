@@ -37,6 +37,7 @@ void main() {
     WidgetTester tester, {
     DiveTank tank = tx,
     DiveTank? ocTank = oc,
+    bool ocHasPressureSeries = false,
   }) async {
     await tester.pumpWidget(
       MaterialApp(
@@ -51,6 +52,7 @@ void main() {
                 tank: tank,
                 tankNumber: 2,
                 ocTank: ocTank,
+                ocHasPressureSeries: ocHasPressureSeries,
               );
               closed = true;
             },
@@ -122,5 +124,14 @@ void main() {
     await tester.pumpAndSettle();
     expect(closed, isTrue);
     expect(choice, isNull);
+  });
+
+  // Review: the executor never merges a cylinder with a pressure series,
+  // so the dialog must not promise it.
+  testWidgets('no merge line when the OC cylinder has a pressure series', (
+    tester,
+  ) async {
+    await show(tester, ocHasPressureSeries: true);
+    expect(find.textContaining('Removes the duplicate'), findsNothing);
   });
 }

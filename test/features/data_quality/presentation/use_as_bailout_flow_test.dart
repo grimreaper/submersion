@@ -121,6 +121,7 @@ void main() {
                 finding: finding,
                 action: action,
                 executor: executor,
+                hasPressureSeries: (_) async => const {},
                 diveRepository: _FakeDiveRepository(
                   useDive ? (diveToLoad ?? dive) : null,
                 ),

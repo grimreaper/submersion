@@ -46,7 +46,10 @@ class BailoutMixFixer {
       )..where((s) => s.diveId.equals(row.diveId))).get())
         if (sameComputer(s.computerId)) s,
     ];
-    final series = await _pressures.getTankPressuresForDive(row.diveId);
+    final series = await _pressures.getTankPressuresForComputer(
+      row.diveId,
+      row.computerId,
+    );
 
     final roleById = {for (final t in tanks) t.id: t.tankRole};
     final evidence = bailoutEvidence<String>(

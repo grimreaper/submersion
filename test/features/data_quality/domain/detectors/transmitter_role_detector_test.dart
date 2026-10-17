@@ -169,4 +169,27 @@ void main() {
     );
     expect(findings.single.params['tankPosition'], 1);
   });
+
+  // Review: on a consolidated dive the merged series can be the other
+  // computer's; the check reads the series its own computer logged.
+  test('reads the series the tank\'s own computer logged', () {
+    final o2Shape = [
+      ...series(0, 2400, 200, 0.5),
+      ...series(2410, 3000, 180, 0),
+    ];
+    final findings = detector.detect(
+      makeContext(
+        dive: makeTestDive(
+          diveMode: DiveMode.ccr,
+          tanks: [dil, tx, oc],
+          runtime: const Duration(minutes: 60),
+        ),
+        samples: flatProfile(durationSeconds: 3600),
+        pressures: {'tx': bailoutShape},
+        ownComputerPressures: {'tx': o2Shape},
+        gasSwitches: [switchToOc],
+      ),
+    );
+    expect(findings, isEmpty);
+  });
 }

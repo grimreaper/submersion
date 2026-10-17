@@ -5,6 +5,7 @@ import 'package:submersion/features/data_quality/domain/entities/quality_finding
 import 'package:submersion/features/data_quality/domain/repairs/quality_repair_action.dart';
 import 'package:submersion/features/data_quality/presentation/widgets/use_as_bailout_dialog.dart';
 import 'package:submersion/features/dive_log/data/repositories/dive_repository_impl.dart';
+import 'package:submersion/features/dive_log/data/repositories/tank_pressure_repository.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 
 /// Runs a repair and reports it with an undo; [note] adds to the message.
@@ -26,6 +27,7 @@ Future<void> runUseAsBailoutRepair(
   required QualityRepairExecutor executor,
   required RepairRunner withUndo,
   DiveRepository? diveRepository,
+  Future<Set<String>> Function(String diveId)? hasPressureSeries,
 }) async {
   final dive = await (diveRepository ?? DiveRepository()).getDiveById(
     action.diveId,
@@ -35,11 +37,16 @@ Future<void> runUseAsBailoutRepair(
   final index = tanks.indexWhere((t) => t.id == action.tankId);
   if (index < 0) return;
   final tank = tanks[index];
+  final seriesTanks = await (hasPressureSeries ?? _hasPressureSeries)(
+    action.diveId,
+  );
+  if (!context.mounted) return;
   final choice = await showUseAsBailoutDialog(
     context,
     tank: tank,
     tankNumber: index + 1,
     ocTank: tanks.where((t) => t.id == action.ocTankId).firstOrNull,
+    ocHasPressureSeries: seriesTanks.contains(action.ocTankId),
   );
   if (choice == null || !context.mounted) return;
 
@@ -71,3 +78,9 @@ Future<void> runUseAsBailoutRepair(
         : null,
   );
 }
+
+/// Ids of the dive's tanks that carry a pressure series.
+Future<Set<String>> _hasPressureSeries(String diveId) async =>
+    (await TankPressureRepository().getTankPressuresForDive(
+      diveId,
+    )).keys.toSet();

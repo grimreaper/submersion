@@ -51,7 +51,9 @@ class TransmitterRoleDetector extends QualityDetector {
             roleById[id] == TankRole.oxygenSupply,
         pressures: {
           tank.id: [
-            for (final s in ctx.pressuresByTankId[tank.id]!)
+            for (final s
+                in ctx.ownComputerPressuresByTankId[tank.id] ??
+                    ctx.pressuresByTankId[tank.id]!)
               (t: s.t, bar: s.bar),
           ],
         },

@@ -49,6 +49,7 @@ void main() {
     String? serial,
     String computerId = 'c1',
     double? volume,
+    String? preset,
   }) => db
       .into(db.diveTanks)
       .insert(
@@ -64,6 +65,7 @@ void main() {
           computerId: Value(computerId),
           sourceTankIndex: Value(order),
           volume: Value(volume),
+          presetName: Value(preset),
         ),
       );
 
@@ -79,7 +81,11 @@ void main() {
         ),
       );
 
-  Future<void> seed({double? ocVolume, String ocComputer = 'c1'}) async {
+  Future<void> seed({
+    double? ocVolume,
+    String ocComputer = 'c1',
+    String? ocPreset,
+  }) async {
     await tank('dil', order: 0, role: 'diluent', o2: 10, he: 50, serial: '1');
     await tank(
       'tx',
@@ -97,6 +103,7 @@ void main() {
       he: 45,
       volume: ocVolume,
       computerId: ocComputer,
+      preset: ocPreset,
     );
     await gasSwitch('s1', 2400, 'oc');
     await gasSwitch('s2', 2700, 'oc');
@@ -219,5 +226,33 @@ void main() {
     );
     expect(result, isNull);
     expect((await row('tx'))!.tankRole, 'oxygenSupply');
+  });
+
+  // Review: a preset the diver picked is an edit.
+  test('keeps an OC cylinder the diver gave a preset', () async {
+    await seed(ocPreset: 'al40');
+    final result = await repo.useAsBailout(
+      diveId: 'd1',
+      tankId: 'tx',
+      ocTankId: 'oc',
+    );
+    expect(result!.merged, isFalse);
+    expect(await row('oc'), isNotNull);
+  });
+
+  // Review: a tombstone left behind would delete the restored cylinder on
+  // other devices once it syncs.
+  test('undo withdraws the merged cylinder\'s tombstone', () async {
+    await seed();
+    final result = await repo.useAsBailout(
+      diveId: 'd1',
+      tankId: 'tx',
+      ocTankId: 'oc',
+    );
+    await repo.undoUseAsBailout(result!.undo);
+    final tombstones = await (db.select(
+      db.deletionLog,
+    )..where((d) => d.recordId.equals('oc'))).get();
+    expect(tombstones, isEmpty);
   });
 }

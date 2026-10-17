@@ -679,5 +679,86 @@ void main() {
 
       expect(result.mixesKept, 1);
     });
+
+    // Review: two computers on one transmitter each logged a series. Its
+    // own computer (c1) saw it drain on the loop like an O2 supply; only
+    // the other computer's series looks like a bailout, and must not count.
+    test(
+      'reads the pressure series of the transmitter\'s own computer',
+      () async {
+        await seedDiverAndDive(computerId: 'c1');
+        final db = DatabaseService.instance.database;
+        await db.customStatement(
+          "INSERT OR IGNORE INTO dive_computers (id, name, connection_type, "
+          "created_at, updated_at) VALUES ('c2', 'Petrel', 'ble', 1, 1)",
+        );
+        await seedTank(
+          id: 'k1',
+          diveId: 'd1',
+          serial: '180777',
+          sourceIndex: 0,
+          computerId: 'c1',
+          role: 'oxygenSupply',
+          roleSource: 'transmitterName',
+          o2: 100,
+        );
+        for (final (id, o2, he, order) in [
+          ('oc1', 18.0, 45.0, 3),
+          ('oc2', 21.0, 0.0, 4),
+        ]) {
+          await seedTank(
+            id: id,
+            diveId: 'd1',
+            order: order,
+            sourceIndex: order,
+            computerId: 'c1',
+            role: 'bailout',
+            o2: o2,
+            he: he,
+          );
+        }
+        await db
+            .into(db.gasSwitches)
+            .insert(
+              const GasSwitchesCompanion(
+                id: Value('s1'),
+                diveId: Value('d1'),
+                timestamp: Value(2400),
+                tankId: Value('oc1'),
+                computerId: Value('c1'),
+                createdAt: Value(0),
+              ),
+            );
+        await TankPressureRepository().insertTankSeries('d1', [
+          (
+            tankId: 'k1',
+            sourceId: null,
+            computerId: 'c1',
+            samples: [
+              for (var t = 0; t <= 3000; t += 10)
+                (timestamp: t, pressure: 200.0 - t / 120),
+            ],
+          ),
+          (
+            tankId: 'k1',
+            sourceId: null,
+            computerId: 'c2',
+            samples: [
+              for (var t = 0; t <= 3000; t += 10)
+                (
+                  timestamp: t,
+                  pressure: t < 2400 ? 200.0 : 200.0 - (t - 2400) / 10,
+                ),
+            ],
+          ),
+        ]);
+        final entry = await repo.create(_entry(role: TankRole.bailout));
+
+        final result = await repo.applyToExistingDives(entry);
+
+        expect((await tankRow('k1'))!.o2Percent, 100);
+        expect(result.mixesKept, 1);
+      },
+    );
   });
 }

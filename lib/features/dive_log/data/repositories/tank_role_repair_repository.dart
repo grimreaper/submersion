@@ -95,6 +95,9 @@ class TankRoleRepairRepository {
     final now = DateTime.now().millisecondsSinceEpoch;
     for (final row in undo.tankRows) {
       await _db.into(_db.diveTanks).insertOnConflictUpdate(row);
+      // A merged cylinder's tombstone would delete it again on every other
+      // device once it syncs.
+      await _sync.removeDeletion(entityType: 'diveTanks', recordId: row.id);
       await _pending('diveTanks', row.id, now);
     }
     for (final sw in undo.retargetedSwitches) {
@@ -132,6 +135,7 @@ class TankRoleRepairRepository {
     id: row.id,
     name: row.tankName,
     volume: row.volume,
+    presetName: row.presetName,
     order: row.tankOrder,
     computerId: row.computerId,
     transmitterSerial: row.transmitterSerial,
