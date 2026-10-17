@@ -222,7 +222,8 @@ Extend `StorageUsagePage`:
   libraries, each with bytes used (and reclaimable for the media store only), and
   a "Scanned <when>, Rescan" line.
   Rescan runs the cloud measurement only (no deletes). Rows for areas the diver has
-  not set up are hidden.
+  not set up are hidden, but the group and its Rescan always show (approved
+  follow-up), so an area connected since the last scan can be measured at once.
 
 Cloud measurement:
 

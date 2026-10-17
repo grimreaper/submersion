@@ -220,7 +220,11 @@ void main() {
       expect(find.text('Rescan'), findsOneWidget);
     });
 
-    testWidgets('cloud group hidden when nothing is set up', (tester) async {
+    testWidgets('cloud group stays with Rescan when nothing is set up', (
+      tester,
+    ) async {
+      // A diver who connects sync or a media store later must be able to
+      // scan it straight away rather than wait for the weekly measurement.
       await tester.pumpWidget(
         harness(
           const CloudStorageGroup(),
@@ -232,7 +236,15 @@ void main() {
       );
       await tester.pumpAndSettle();
 
-      expect(find.text('In the Cloud'), findsNothing);
+      expect(find.text('In the Cloud'), findsOneWidget);
+      expect(find.text('Media store'), findsNothing);
+      expect(find.text('Database sync'), findsNothing);
+      expect(find.text('Shared site libraries'), findsNothing);
+      expect(find.textContaining('Scanned'), findsOneWidget);
+
+      await tester.tap(find.text('Rescan'));
+      await tester.pump();
+      expect(coordinator.runs, [StorageGcTrigger.rescan]);
     });
   });
 }

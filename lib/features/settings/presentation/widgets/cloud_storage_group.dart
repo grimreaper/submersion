@@ -17,7 +17,9 @@ import 'package:submersion/l10n/l10n_extension.dart';
 /// Listing a whole store is slow and, on a metered connection, costs data,
 /// so the figures come from the cleanup's last scan rather than from opening
 /// the page; Rescan measures again on request. A row appears only for an
-/// area this device has set up, and the group disappears when there is none.
+/// area this device has set up. The group itself always shows, with its
+/// Rescan, so an area connected since the last scan can be measured at once
+/// instead of waiting for the weekly measurement.
 class CloudStorageGroup extends ConsumerWidget {
   const CloudStorageGroup({super.key});
 
@@ -27,10 +29,6 @@ class CloudStorageGroup extends ConsumerWidget {
     final theme = Theme.of(context);
     final view = ref.watch(storageGcStateProvider).value;
     final usage = view?.cloudUsage;
-    // Scanned and nothing set up: nothing to show.
-    if (usage != null && usage.totalBytes == null) {
-      return const SizedBox.shrink();
-    }
     final muted = theme.textTheme.bodySmall?.copyWith(
       color: theme.colorScheme.onSurfaceVariant,
     );
