@@ -112,6 +112,12 @@ class StorageGcCoordinator {
   final _changes = StreamController<void>.broadcast();
   Future<void>? _current;
   bool _disposed = false;
+  DateTime? _lastRunStartedAt;
+
+  /// When the most recent run started, on the coordinator's clock. A caller
+  /// that joined a run already in progress uses it to find that run's
+  /// results, which predate the caller's own request.
+  DateTime? get lastRunStartedAt => _lastRunStartedAt;
 
   StorageGcStore get store => _store;
 
@@ -163,6 +169,7 @@ class StorageGcCoordinator {
 
   Future<void> _run(StorageGcTrigger trigger) async {
     final now = _now();
+    _lastRunStartedAt = now;
     var effective = trigger;
     final automatic =
         trigger == StorageGcTrigger.launch ||

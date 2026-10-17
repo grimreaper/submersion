@@ -300,6 +300,17 @@ void main() {
     },
   );
 
+  test('a joining caller learns when the shared run started', () async {
+    h.holdFirstSweep = Completer<void>();
+    final first = coordinator.run(StorageGcTrigger.launch);
+    h.now = h.now.add(const Duration(minutes: 5));
+    final joined = coordinator.run(StorageGcTrigger.manual);
+    h.holdFirstSweep!.complete();
+    await Future.wait([first, joined]);
+
+    expect(coordinator.lastRunStartedAt, DateTime(2026, 10, 17, 12));
+  });
+
   test('device reclaimable bytes come from a dry run', () async {
     expect(await coordinator.deviceReclaimableBytes(), 250);
     expect(h.deviceRuns, [true]);

@@ -128,11 +128,15 @@ final storageGcStateProvider = StreamProvider<StorageGcView>((ref) async* {
 });
 
 /// Bytes the device sweeps could reclaim right now, from a dry run.
-// no-tick: a filesystem walk, not a table read. It is recomputed after every
-// cleanup run through its watch on storageGcStateProvider, and the page's
-// Recalculate action invalidates it.
+// no-tick: a filesystem walk, not a table read. It is recomputed after a
+// cleanup pass reclaims on the device (its watch on storageGcStateProvider),
+// and the page's Recalculate action invalidates it.
 final deviceReclaimableBytesProvider = FutureProvider.autoDispose<int>((ref) {
-  ref.watch(storageGcStateProvider);
+  // Recomputed only when a device pass recorded a result: a run that
+  // reclaimed nothing on the device left the figure as it was.
+  ref.watch(
+    storageGcStateProvider.select((s) => s.value?.lastDeviceResult?.at),
+  );
   return ref.read(storageGcCoordinatorProvider).deviceReclaimableBytes();
 });
 

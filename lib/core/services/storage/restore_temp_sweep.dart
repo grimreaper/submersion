@@ -1,5 +1,7 @@
 import 'dart:io';
 
+import 'package:path/path.dart' as p;
+
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/services/storage/scratch_sweep.dart';
 
@@ -35,7 +37,7 @@ class RestoreTempSweep {
     var bytes = 0;
     await for (final entity in temp.list(followLinks: false)) {
       if (entity is! File) continue;
-      final name = entity.uri.pathSegments.last;
+      final name = p.basename(entity.path);
       if (!_backupName.hasMatch(name)) continue;
       try {
         final stat = await entity.stat();

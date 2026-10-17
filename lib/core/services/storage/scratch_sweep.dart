@@ -176,7 +176,7 @@ class StorageScratchSweep {
         if (!dryRun) await entity.delete();
         files++;
         bytes += size;
-        emptied.addAll(_ancestorsWithin(dir, entity.parent));
+        if (!dryRun) emptied.addAll(_ancestorsWithin(dir, entity.parent));
       } on FileSystemException {
         // Skip an entry that vanished or is unreadable. A file being written
         // right now is exactly the case worth losing rather than fighting.

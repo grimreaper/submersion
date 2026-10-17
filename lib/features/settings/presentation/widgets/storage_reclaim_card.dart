@@ -29,15 +29,16 @@ class _StorageReclaimCardState extends ConsumerState<StorageReclaimCard> {
     final messenger = ScaffoldMessenger.of(context);
     final l10n = context.l10n;
     final coordinator = ref.read(storageGcCoordinatorProvider);
-    final startedAt = DateTime.now();
     setState(() => _running = true);
     try {
       await coordinator.run(StorageGcTrigger.manual);
     } finally {
       if (mounted) setState(() => _running = false);
     }
-    // What this run reclaimed: the results it recorded, which carry a time
-    // no earlier than its start.
+    // What the run reclaimed: the results it recorded, which carry a time
+    // no earlier than its start. Taken from the coordinator, since the tap
+    // may have joined a run that was already under way.
+    final startedAt = coordinator.lastRunStartedAt ?? DateTime.now();
     var bytes = 0;
     for (final result in [
       coordinator.store.lastDeviceResult,
@@ -48,7 +49,6 @@ class _StorageReclaimCardState extends ConsumerState<StorageReclaimCard> {
       }
     }
     if (!mounted) return;
-    ref.invalidate(deviceReclaimableBytesProvider);
     messenger.showSnackBar(
       SnackBar(
         content: Text(

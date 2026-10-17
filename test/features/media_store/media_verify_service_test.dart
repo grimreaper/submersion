@@ -521,6 +521,26 @@ void main() {
       expect(report.orphansRemoved, 0);
     });
 
+    test('a repeated orphan on a plain store is counted once', () async {
+      await insertDive('d1');
+      final repeating = _RepeatingStore();
+      final key = StoreKeys.objectKey('dead', extension: 'jpg');
+      repeating.objects[key] = List.filled(3, 7);
+      repeating.modified[key] = old;
+      final sweep = MediaVerifyService(
+        store: repeating,
+        mediaRepository: repo,
+        queue: queue,
+        now: () => now,
+      );
+
+      final report = await sweep.run();
+
+      expect(repeating.objects.keys, isNot(contains(key)));
+      expect(report.orphansRemoved, 1);
+      expect(report.bytesReclaimed, 3);
+    });
+
     test('duplicates wait while deletes are deferred', () async {
       await insertDive('d1');
       await photo('a.jpg', hash: 'aabb', uploadedAt: DateTime(2026, 2));

@@ -242,11 +242,15 @@ class MediaVerifyService {
         }
 
         if (rules.verdictFor(info.lastModified) != OrphanVerdict.delete) {
-          waitingBytes += listed.copies * size;
+          waitingBytes +=
+              (_store is DuplicateKeyStore ? listed.copies : 1) * size;
           continue;
         }
-        reclaimableBytes += listed.copies * size;
-        if (!dryRun) await deleteCopies(info.key, listed.copies, size);
+        // Only a store that can hold copies holds more than one; elsewhere a
+        // repeated key is a listing artefact and one delete removes it.
+        final copies = _store is DuplicateKeyStore ? listed.copies : 1;
+        reclaimableBytes += copies * size;
+        if (!dryRun) await deleteCopies(info.key, copies, size);
       }
     }
     final originalsChecked = listedCounts[StoreNamespace.objects]!;
