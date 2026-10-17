@@ -302,8 +302,9 @@ class QualityRepairExecutor {
   /// transmitter is also registered as a Bailout (an existing entry for the
   /// serial has its role changed) and the entry is applied to every other
   /// dive with it. Undo reverts this dive only: the registry entry stays.
-  /// [mixesKept] counts the other dives that found no bailout mix.
-  Future<({RepairResult result, int mixesKept})> useAsBailout({
+  /// [mixesKept] counts the other dives that found no bailout mix, and
+  /// [registered] says whether the registry entry was actually written.
+  Future<({RepairResult result, int mixesKept, bool registered})> useAsBailout({
     required String diveId,
     required String tankId,
     required String ocTankId,
@@ -321,15 +322,21 @@ class QualityRepairExecutor {
       ),
     );
     if (outcome == null) {
-      return (result: const RepairResult.noChange(), mixesKept: 0);
+      return (
+        result: const RepairResult.noChange(),
+        mixesKept: 0,
+        registered: false,
+      );
     }
     SyncEventBus.notifyLocalChange();
 
     var mixesKept = 0;
+    var registered = false;
     final normalized = normalizeTransmitterSerial(serial);
     if (registerTransmitter && normalized != null) {
       final entry = await _registerBailout(normalized, label, diverId);
       if (entry != null) {
+        registered = true;
         mixesKept = (await _transmitters.applyToExistingDives(entry)).mixesKept;
       }
     }
@@ -341,6 +348,7 @@ class QualityRepairExecutor {
         _rescan([diveId]);
       }),
       mixesKept: mixesKept,
+      registered: registered,
     );
   }
 

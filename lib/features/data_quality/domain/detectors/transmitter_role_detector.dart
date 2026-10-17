@@ -31,44 +31,55 @@ class TransmitterRoleDetector extends QualityDetector {
     if (candidates.isEmpty) return const [];
 
     final roleById = {for (final t in ctx.tanks) t.id: t.role};
-    final evidence = bailoutEvidence<String>(
-      switches: [
-        for (final sw in ctx.gasSwitches) (t: sw.timestamp, tankKey: sw.tankId),
-      ],
-      isLoopTank: (id) =>
-          roleById[id] == TankRole.diluent ||
-          roleById[id] == TankRole.oxygenSupply,
-      pressures: {
-        for (final t in candidates)
-          t.id: [
-            for (final s in ctx.pressuresByTankId[t.id]!) (t: s.t, bar: s.bar),
-          ],
-      },
-      candidates: candidates.map((t) => t.id),
-      inWaterEndSeconds: lastTimeBelowSurfaceThreshold(
-        ctx.primarySamples.map((s) => (t: s.t, depth: s.depth)),
-      ),
+    final ordered = [...ctx.tanks]..sort((a, b) => a.order.compareTo(b.order));
+    final inWaterEnd = lastTimeBelowSurfaceThreshold(
+      ctx.primarySamples.map((s) => (t: s.t, depth: s.depth)),
     );
-    if (evidence == null) return const [];
 
-    final byId = {for (final t in candidates) t.id: t};
-    return [
-      for (final e in evidence)
-        make(
-          ctx,
-          discriminator: e.tankKey,
-          computerId: byId[e.tankKey]!.computerId,
-          severity: QualitySeverity.warning,
-          params: {
-            'tankId': e.tankKey,
-            'tankOrder': byId[e.tankKey]!.order,
-            'ocTankId': e.ocTankKey,
-            'ocDropBar': e.ocDropBar,
-            'loopRate': e.loopRate,
-            'ocRate': e.ocRate,
-            'role': byId[e.tankKey]!.role.name,
-          },
-        ),
-    ];
+    final out = <QualityFinding>[];
+    for (final tank in candidates) {
+      // Only this transmitter's own computer's switches describe what was
+      // breathed from it; a second computer logs its own switches.
+      final evidence = bailoutEvidence<String>(
+        switches: [
+          for (final sw in ctx.gasSwitches)
+            if (tank.computerId == null || sw.appliesTo(tank.computerId!))
+              (t: sw.timestamp, tankKey: sw.tankId),
+        ],
+        isLoopTank: (id) =>
+            roleById[id] == TankRole.diluent ||
+            roleById[id] == TankRole.oxygenSupply,
+        pressures: {
+          tank.id: [
+            for (final s in ctx.pressuresByTankId[tank.id]!)
+              (t: s.t, bar: s.bar),
+          ],
+        },
+        candidates: [tank.id],
+        inWaterEndSeconds: inWaterEnd,
+      );
+      for (final e in evidence ?? const <BailoutEvidence<String>>[]) {
+        out.add(
+          make(
+            ctx,
+            discriminator: e.tankKey,
+            computerId: tank.computerId,
+            severity: QualitySeverity.warning,
+            params: {
+              'tankId': e.tankKey,
+              // The number the dive page shows (its position), since a merge
+              // leaves gaps in the stored order.
+              'tankPosition': ordered.indexWhere((t) => t.id == tank.id),
+              'ocTankId': e.ocTankKey,
+              'ocDropBar': e.ocDropBar,
+              'loopRate': e.loopRate,
+              'ocRate': e.ocRate,
+              'role': tank.role.name,
+            },
+          ),
+        );
+      }
+    }
+    return out;
   }
 }

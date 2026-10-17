@@ -28,12 +28,24 @@ class BailoutMixFixer {
   final TankPressureRepository _pressures;
 
   Future<bool> fix(DiveTank row) async {
-    final tanks = await (_db.select(
-      _db.diveTanks,
-    )..where((t) => t.diveId.equals(row.diveId))).get();
-    final switches = await (_db.select(
-      _db.gasSwitches,
-    )..where((s) => s.diveId.equals(row.diveId))).get();
+    // Only this transmitter's own computer: a second computer on the dive
+    // logs its own switches and its own gas-list cylinders.
+    bool sameComputer(String? computerId) =>
+        row.computerId == null ||
+        computerId == null ||
+        computerId == row.computerId;
+    final tanks = [
+      for (final t in await (_db.select(
+        _db.diveTanks,
+      )..where((t) => t.diveId.equals(row.diveId))).get())
+        if (t.id == row.id || sameComputer(t.computerId)) t,
+    ];
+    final switches = [
+      for (final s in await (_db.select(
+        _db.gasSwitches,
+      )..where((s) => s.diveId.equals(row.diveId))).get())
+        if (sameComputer(s.computerId)) s,
+    ];
     final series = await _pressures.getTankPressuresForDive(row.diveId);
 
     final roleById = {for (final t in tanks) t.id: t.tankRole};

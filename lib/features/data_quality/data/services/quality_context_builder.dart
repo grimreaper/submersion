@@ -153,6 +153,7 @@ class QualityContextBuilder {
           tankId: r.tankId,
           depth: r.depth,
           createdAt: DateTime.fromMillisecondsSinceEpoch(r.createdAt),
+          computerId: r.computerId,
         ),
     ];
 

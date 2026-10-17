@@ -186,4 +186,21 @@ void main() {
     expect(entries.single.id, 'e1');
     expect(entries.single.role, TankRole.bailout);
   });
+
+  // Review: the report must not claim a registration that did not happen.
+  test('registering without a serial registers nothing and says so', () async {
+    final finding = await seedFinding();
+
+    final outcome = await executor.useAsBailout(
+      diveId: 'd1',
+      tankId: 'tx-d1',
+      ocTankId: 'oc-d1',
+      findingId: finding.id,
+      registerTransmitter: true,
+      diverId: 'diver-1',
+    );
+
+    expect(outcome.registered, isFalse);
+    expect(await TransmitterRepository().getForDiver('diver-1'), isEmpty);
+  });
 }

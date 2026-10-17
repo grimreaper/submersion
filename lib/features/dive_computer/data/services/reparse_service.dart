@@ -942,8 +942,9 @@ class ReparseService {
           (t: s.timeSeconds, depth: s.depthMeters),
       ],
       keep: {
-        for (final entry in matches.entries)
-          if (_isDiverEdited(entry.value)) entry.key,
+        for (final tank in parsedTanks)
+          if (matches[tank.index] case final row?)
+            if (_isDiverEdited(row, tank)) tank.index,
       },
     );
 
@@ -1042,7 +1043,9 @@ class ReparseService {
     // order (the pre-v200 rule, so manual rows on a re-parsed dive behave as
     // before).
     // A stored cylinder a transmitter claimed is merged into it, so it goes
-    // even though this parse matched it.
+    // even though this parse matched it. A row the parse did not match keeps
+    // the pre-v200 rule: its order still counts as taken.
+    newTankOrders.addAll(claim.remappedIndices.keys);
     final claimedIds = {
       for (final index in claim.remappedIndices.keys)
         if (matches[index] != null) matches[index]!.id,
@@ -1067,12 +1070,17 @@ class ReparseService {
     return tankIdsByIndex;
   }
 
-  /// A stored cylinder that carries something only the diver adds.
-  static bool _isDiverEdited(DiveTank row) =>
+  /// A stored cylinder that carries something only the diver adds, or a mix
+  /// or role that differs from what this parse reads for it (the diver
+  /// corrected the analysis or the role).
+  static bool _isDiverEdited(DiveTank row, TankData parsed) =>
       (row.volume ?? 0) > 0 ||
       row.tankName != null ||
       row.equipmentId != null ||
-      row.presetName != null;
+      row.presetName != null ||
+      (row.o2Percent - parsed.o2Percent).abs() > 0.5 ||
+      (row.hePercent - parsed.hePercent).abs() > 0.5 ||
+      row.tankRole != (parsed.role ?? TankRole.backGas.name);
 
   /// Re-inserts per-tank pressure time-series from parsed samples, and backfills
   /// each tank's start/end pressure from the profile when the parsed tank

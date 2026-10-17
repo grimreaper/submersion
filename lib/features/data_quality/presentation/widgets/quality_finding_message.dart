@@ -205,7 +205,7 @@ QualityFindingMessage buildFindingMessage(
     case 'transmitter_role':
       final role = TankRole.values.asNameMap()[p['role']];
       detail = l10n.dataQuality_msg_transmitterRoleBailout(
-        i('tankOrder') + 1,
+        i('tankPosition') + 1,
         role?.localizedName(l10n) ?? '',
         fmt.pressure(d('ocDropBar')),
       );

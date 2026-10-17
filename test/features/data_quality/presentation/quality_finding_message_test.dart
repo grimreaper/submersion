@@ -114,7 +114,7 @@ void main() {
   test('transmitter_role names the tank, its role and the OC drop', () {
     final detail = detailFor('transmitter_role', {
       'tankId': 'tx',
-      'tankOrder': 1,
+      'tankPosition': 1,
       'ocTankId': 'oc',
       'ocDropBar': 60.0,
       'role': 'oxygenSupply',

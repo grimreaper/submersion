@@ -313,7 +313,7 @@ class TransmitterRepository {
     final now = DateTime.now().millisecondsSinceEpoch;
     final touchedDives = <String>{};
     var tanks = 0;
-    var mixesKept = 0;
+    final mixesKeptDives = <String>{};
     final mixFixer = BailoutMixFixer();
     await _db.transaction(() async {
       for (final row in candidates) {
@@ -324,7 +324,7 @@ class TransmitterRepository {
         // A bailout entry also replaces the importer's 100% O2 default with
         // the bailout's own mix, before the role write below (#3307).
         if (nameDerived && t.role == TankRole.bailout) {
-          if (!await mixFixer.fix(row)) mixesKept++;
+          if (!await mixFixer.fix(row)) mixesKeptDives.add(row.diveId);
         }
         final companion = DiveTanksCompanion(
           volume: !hasVolume && t.volumeL != null
@@ -374,7 +374,7 @@ class TransmitterRepository {
     return (
       tanksUpdated: tanks,
       divesUpdated: touchedDives.length,
-      mixesKept: mixesKept,
+      mixesKept: mixesKeptDives.length,
     );
   }
 

@@ -45,6 +45,7 @@ Future<void> runUseAsBailoutRepair(
 
   final l10n = context.l10n;
   var mixesKept = 0;
+  var registered = false;
   await withUndo(
     () async {
       final outcome = await executor.useAsBailout(
@@ -58,9 +59,10 @@ Future<void> runUseAsBailoutRepair(
         diverId: dive.diverId,
       );
       mixesKept = outcome.mixesKept;
+      registered = outcome.registered;
       return outcome.result;
     },
-    note: () => choice.register
+    note: () => registered
         ? [
             l10n.dataQuality_useAsBailout_registered,
             if (mixesKept > 0)

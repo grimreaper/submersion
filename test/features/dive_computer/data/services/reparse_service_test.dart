@@ -2230,43 +2230,108 @@ void main() {
         expect(switches.map((s) => s.tankId), ['tank-0']);
       });
 
-      test('reparse still refreshes a recorded mix', () async {
-        await seed(role: 'diluent', roleSource: 'transmitterName', o2: 21.0);
-        await service.applyParsedUpdate(
-          diveId: 'dive-1',
-          sourceRowId: 'src-1',
-          parsed: makeParsedDive(
-            diveMode: 'ccr',
-            tanks: [
-              pigeon.TankInfo(
-                index: 0,
-                gasMixIndex: 4294967295,
-                startPressureBar: 200.0,
-                endPressureBar: 190.0,
-                usage: 2,
-                transmitterSerial: 109623,
-              ),
-            ],
-            gasMixes: [
-              pigeon.GasMix(
-                index: 0,
-                o2Percent: 10.0,
-                hePercent: 50.0,
-                usage: 2,
-              ),
-            ],
-          ),
-          descriptorVendor: 'Shearwater',
-          descriptorProduct: 'Petrel 3',
-          descriptorModel: 0,
-          libdivecomputerVersion: null,
-        );
-        final tank = await (db.select(
-          db.diveTanks,
-        )..where((t) => t.id.equals('tank-0'))).getSingle();
-        expect(tank.o2Percent, 10.0);
-        expect(tank.hePercent, 50.0);
-      });
+      // Review: a cylinder whose mix the diver corrected is theirs; a reparse
+      // must not merge it away and keep the computer's mix instead.
+      for (final computerId in ['comp-1', null]) {
+        test('reparse keeps an OC cylinder whose mix the diver corrected '
+            '(${computerId ?? "no computer"})', () async {
+          await seed(role: 'bailout', o2: 18.0, he: 45.0);
+          await db
+              .into(db.diveTanks)
+              .insert(
+                const DiveTanksCompanion(
+                  id: Value('oc-row'),
+                  diveId: Value('dive-1'),
+                  o2Percent: Value(19.0),
+                  hePercent: Value(40.0),
+                  tankOrder: Value(2),
+                  sourceTankIndex: Value(2),
+                  tankRole: Value('bailout'),
+                ),
+              );
+          pigeon.ProfileSample at(int t, double depth, int gas) =>
+              pigeon.ProfileSample(
+                timeSeconds: t,
+                depthMeters: depth,
+                gasMixIndex: gas,
+                tankPressuresBar: const [200.0],
+              );
+          await service.applyParsedUpdate(
+            diveId: 'dive-1',
+            sourceRowId: 'src-1',
+            parsed: makeParsedDive(
+              diveMode: 'ccr',
+              samples: [at(0, 0, 0), at(600, 30, 0), at(3000, 3, 0)],
+              tanks: [
+                pigeon.TankInfo(
+                  index: 0,
+                  gasMixIndex: 4294967295,
+                  startPressureBar: 200.0,
+                  endPressureBar: 200.0,
+                  usage: 1,
+                  transmitterSerial: 109623,
+                ),
+              ],
+              gasMixes: [
+                pigeon.GasMix(
+                  index: 0,
+                  o2Percent: 10.0,
+                  hePercent: 50.0,
+                  usage: 2,
+                ),
+                pigeon.GasMix(index: 1, o2Percent: 18.0, hePercent: 45.0),
+              ],
+            ),
+            descriptorVendor: 'Shearwater',
+            descriptorProduct: 'Petrel 3',
+            descriptorModel: 0,
+            libdivecomputerVersion: null,
+          );
+          final oc = await (db.select(
+            db.diveTanks,
+          )..where((t) => t.id.equals('oc-row'))).getSingleOrNull();
+          expect(oc, isNotNull);
+          expect(oc!.o2Percent, 19.0);
+        });
+
+        test('reparse still refreshes a recorded mix', () async {
+          await seed(role: 'diluent', roleSource: 'transmitterName', o2: 21.0);
+          await service.applyParsedUpdate(
+            diveId: 'dive-1',
+            sourceRowId: 'src-1',
+            parsed: makeParsedDive(
+              diveMode: 'ccr',
+              tanks: [
+                pigeon.TankInfo(
+                  index: 0,
+                  gasMixIndex: 4294967295,
+                  startPressureBar: 200.0,
+                  endPressureBar: 190.0,
+                  usage: 2,
+                  transmitterSerial: 109623,
+                ),
+              ],
+              gasMixes: [
+                pigeon.GasMix(
+                  index: 0,
+                  o2Percent: 10.0,
+                  hePercent: 50.0,
+                  usage: 2,
+                ),
+              ],
+            ),
+            descriptorVendor: 'Shearwater',
+            descriptorProduct: 'Petrel 3',
+            descriptorModel: 0,
+            libdivecomputerVersion: null,
+          );
+          final tank = await (db.select(
+            db.diveTanks,
+          )..where((t) => t.id.equals('tank-0'))).getSingle();
+          expect(tank.o2Percent, 10.0);
+          expect(tank.hePercent, 50.0);
+        });
+      }
     });
 
     test('DiveTanks carry-over: writes the transmitter serial on both an '

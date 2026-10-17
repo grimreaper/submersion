@@ -19,8 +19,14 @@ void main() {
     int order,
     TankRole role, {
     TankRoleSource? roleSource,
-  }) =>
-      domain.DiveTank(id: id, order: order, role: role, roleSource: roleSource);
+    String? computerId,
+  }) => domain.DiveTank(
+    id: id,
+    order: order,
+    role: role,
+    roleSource: roleSource,
+    computerId: computerId,
+  );
 
   final tx = tank(
     'tx',
@@ -73,7 +79,7 @@ void main() {
     expect(findings, hasLength(1));
     final p = findings.single.params;
     expect(p['tankId'], 'tx');
-    expect(p['tankOrder'], 1);
+    expect(p['tankPosition'], 1);
     expect(p['ocTankId'], 'oc');
     expect((p['ocDropBar']! as num).toDouble(), closeTo(60, 0.001));
     expect(p['role'], 'oxygenSupply');
@@ -95,5 +101,72 @@ void main() {
 
   test('finding ids are stable across scans', () {
     expect(detector.detect(ctx()).single.id, detector.detect(ctx()).single.id);
+  });
+
+  // Review: two computers each log a switch to their own OC cylinder; only
+  // the transmitter's own computer's switches describe it.
+  test('reads only the switches of the tank\'s own computer', () {
+    final tx1 = tank(
+      'tx',
+      1,
+      TankRole.oxygenSupply,
+      roleSource: TankRoleSource.transmitterName,
+      computerId: 'c1',
+    );
+    final findings = detector.detect(
+      makeContext(
+        dive: makeTestDive(
+          diveMode: DiveMode.ccr,
+          tanks: [
+            dil,
+            tx1,
+            tank('oc1', 2, TankRole.bailout, computerId: 'c1'),
+            tank('oc2', 3, TankRole.bailout, computerId: 'c2'),
+          ],
+          runtime: const Duration(minutes: 60),
+        ),
+        samples: flatProfile(durationSeconds: 3600),
+        pressures: {'tx': bailoutShape},
+        gasSwitches: [
+          GasSwitch(
+            id: 's1',
+            diveId: 'd1',
+            timestamp: 2400,
+            tankId: 'oc1',
+            computerId: 'c1',
+            createdAt: DateTime.utc(2026, 7, 1),
+          ),
+          GasSwitch(
+            id: 's2',
+            diveId: 'd1',
+            timestamp: 2410,
+            tankId: 'oc2',
+            computerId: 'c2',
+            createdAt: DateTime.utc(2026, 7, 1),
+          ),
+        ],
+      ),
+    );
+    expect(findings.single.params['ocTankId'], 'oc1');
+  });
+
+  // Review: the finding numbers the tank as the dive page does, by position,
+  // not by a stored order that can have gaps after a merge.
+  test('numbers the tank by its position, not its stored order', () {
+    final findings = detector.detect(
+      ctx(
+        tanks: [
+          dil,
+          tank(
+            'tx',
+            3,
+            TankRole.oxygenSupply,
+            roleSource: TankRoleSource.transmitterName,
+          ),
+          tank('oc', 5, TankRole.bailout),
+        ],
+      ),
+    );
+    expect(findings.single.params['tankPosition'], 1);
   });
 }

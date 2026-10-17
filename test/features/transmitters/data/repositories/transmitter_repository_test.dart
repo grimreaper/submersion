@@ -607,5 +607,77 @@ void main() {
       expect(k1.o2Percent, 100);
       expect(result.mixesKept, 1);
     });
+
+    // Review: the other computer's bailout cylinder is not this
+    // transmitter's gas.
+    test(
+      'picks the single bailout of the transmitter\'s own computer',
+      () async {
+        await seedDiverAndDive(computerId: 'c1');
+        final db = DatabaseService.instance.database;
+        await db.customStatement(
+          "INSERT OR IGNORE INTO dive_computers (id, name, connection_type, "
+          "created_at, updated_at) VALUES ('c2', 'Petrel', 'ble', 1, 1)",
+        );
+        await seedTank(
+          id: 'k1',
+          diveId: 'd1',
+          serial: '180777',
+          sourceIndex: 0,
+          computerId: 'c1',
+          role: 'oxygenSupply',
+          roleSource: 'transmitterName',
+          o2: 100,
+        );
+        await seedTank(
+          id: 'oc1',
+          diveId: 'd1',
+          order: 3,
+          sourceIndex: 3,
+          computerId: 'c1',
+          role: 'bailout',
+          o2: 18,
+          he: 45,
+        );
+        await seedTank(
+          id: 'oc2',
+          diveId: 'd1',
+          order: 4,
+          sourceIndex: 3,
+          computerId: 'c2',
+          role: 'bailout',
+          o2: 21,
+        );
+        final entry = await repo.create(_entry(role: TankRole.bailout));
+
+        final result = await repo.applyToExistingDives(entry);
+
+        expect((await tankRow('k1'))!.o2Percent, 18);
+        expect(await tankRow('oc1'), isNull);
+        expect(await tankRow('oc2'), isNotNull);
+        expect(result.mixesKept, 0);
+      },
+    );
+
+    test('counts kept mixes per dive, not per tank', () async {
+      await seedDiverAndDive();
+      for (final id in ['k1', 'k2']) {
+        await seedTank(
+          id: id,
+          diveId: 'd1',
+          serial: '180777',
+          order: id == 'k1' ? 0 : 1,
+          sourceIndex: id == 'k1' ? 0 : 1,
+          role: 'oxygenSupply',
+          roleSource: 'transmitterName',
+          o2: 100,
+        );
+      }
+      final entry = await repo.create(_entry(role: TankRole.bailout));
+
+      final result = await repo.applyToExistingDives(entry);
+
+      expect(result.mixesKept, 1);
+    });
   });
 }
