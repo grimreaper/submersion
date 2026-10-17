@@ -264,11 +264,7 @@ class GoogleDriveMediaObjectStore
 
   @override
   Future<int> deleteExtraCopies(String key) async {
-    final folderId = await _ensureFolder();
-    final escaped = key.replaceAll("'", r"\'");
-    final files = await _query(
-      "name = '$escaped' and '$folderId' in parents and trashed = false",
-    );
+    final files = await _filesByKey(key);
     // Distinct by id: only separate files count as copies.
     final byId = {for (final f in files) f.id: f};
     if (byId.length < 2) return 0;
@@ -352,12 +348,17 @@ class GoogleDriveMediaObjectStore
   }
 
   Future<_DriveFile?> _findByKey(String key) async {
+    final files = await _filesByKey(key);
+    return files.isEmpty ? null : files.first;
+  }
+
+  /// Every file in the media folder named [key]. Drive allows several.
+  Future<List<_DriveFile>> _filesByKey(String key) async {
     final folderId = await _ensureFolder();
     final escaped = key.replaceAll("'", r"\'");
-    final files = await _query(
+    return _query(
       "name = '$escaped' and '$folderId' in parents and trashed = false",
     );
-    return files.isEmpty ? null : files.first;
   }
 
   /// Drive's documented per-page maximum, requested explicitly so a large

@@ -8,6 +8,8 @@ import 'package:submersion/core/services/sync/crypto/keyslots.dart';
 import 'package:submersion/core/services/shared_library/shared_library_models.dart';
 import 'package:submersion/core/services/shared_library/site_document.dart';
 
+part 'shared_library_transport_measure.dart';
+
 /// File operations on one shared site library folder (issue #2567).
 ///
 /// Every kind of file lives in its own subfolder and also carries a kind
@@ -366,42 +368,6 @@ class SharedLibraryTransport {
             isSafeFileId(_idOf(f.name, prefix)))
           f,
     ];
-  }
-
-  // Measurement
-
-  /// Bytes this library holds: the files directly in its root and in its
-  /// members, sites, suggestions and backups folders. Files of a library
-  /// nested below this one are not counted (the same [_directlyIn] guard as
-  /// [_listKind]). [partial] is set when a folder could not be listed or a
-  /// file reported no size. Measurement only; nothing is deleted.
-  Future<({int bytes, bool partial})> measureBytes() async {
-    var bytes = 0;
-    var partial = false;
-    final seen = <String>{};
-    for (final folder in <Future<String> Function()>[
-      _rootId,
-      _membersId,
-      _sitesId,
-      _suggestionsId,
-      _backupsId,
-    ]) {
-      try {
-        final folderId = await folder();
-        for (final f in await _provider.listFiles(folderId: folderId)) {
-          if (!_directlyIn(folderId, f) || !seen.add(f.id)) continue;
-          final size = f.sizeBytes;
-          if (size == null) {
-            partial = true;
-          } else {
-            bytes += size;
-          }
-        }
-      } on Exception {
-        partial = true;
-      }
-    }
-    return (bytes: bytes, partial: partial);
   }
 
   // Manifest and roles
