@@ -72,6 +72,25 @@ class _CountingStore extends InMemoryMediaObjectStore {
   }
 }
 
+/// A store with a cheap local listing (as iCloud has), recording which
+/// listing each sweep used.
+class _LocalListingStore extends InMemoryMediaObjectStore
+    implements LocalListingStore {
+  final used = <String>[];
+
+  @override
+  Stream<StoreObjectInfo> list(String keyPrefix) {
+    used.add('list');
+    return super.list(keyPrefix);
+  }
+
+  @override
+  Stream<StoreObjectInfo> listLocal(String keyPrefix) {
+    used.add('listLocal');
+    return super.list(keyPrefix);
+  }
+}
+
 class _RepeatingStore extends InMemoryMediaObjectStore {
   @override
   Stream<StoreObjectInfo> list(String keyPrefix) async* {
@@ -365,6 +384,24 @@ void main() {
       expect(report.totalBytes, 3);
       expect(counting.objects.keys, contains(StoreKeys.markerKey));
     });
+
+    test(
+      'a measurement uses the local listing, a cleanup the full one',
+      () async {
+        final local = _LocalListingStore();
+        final sweep = MediaVerifyService(
+          store: local,
+          mediaRepository: repo,
+          queue: queue,
+          now: () => now,
+        );
+
+        await sweep.run(dryRun: true);
+        await sweep.run();
+
+        expect(local.used, ['listLocal', 'list']);
+      },
+    );
 
     test('a key a listing repeats counts once in the total', () async {
       // Only a store that can hold copies has more than one; on any other a

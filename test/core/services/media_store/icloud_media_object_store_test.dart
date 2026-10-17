@@ -34,6 +34,16 @@ class _UndownloadablePlatform extends DirectoryICloudMediaPlatform {
   Future<bool> ensureDownloaded(String path) async => false;
 }
 
+/// Counts the refreshes that make iCloud download every evicted item.
+class _CountingPlatform extends DirectoryICloudMediaPlatform {
+  _CountingPlatform(super.root);
+
+  int refreshes = 0;
+
+  @override
+  Future<void> refreshFolder(String path) async => refreshes++;
+}
+
 void main() {
   // The NativeICloudMediaPlatform tests invoke a real MethodChannel, which
   // needs the services binding available (it then fails with a
@@ -144,6 +154,51 @@ void main() {
       '${container.path}/submersion-media',
     ).listSync(recursive: true).whereType<File>();
     expect(staged, isEmpty, reason: 'the staging copy is removed');
+  });
+
+  group('local listing', () {
+    test('asks iCloud for nothing', () async {
+      // A refresh starts downloading every evicted item; a measurement
+      // must not pull the whole media library back onto the disk.
+      final platform = _CountingPlatform(container);
+      final store = ICloudMediaObjectStore(platform: platform);
+      File('${container.path}/submersion-media/smv1/objects/aa/aabb.jpg')
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([1, 2, 3]);
+
+      final listed = await store.listLocal('smv1/').toList();
+
+      expect(platform.refreshes, 0);
+      expect(listed.single.key, 'smv1/objects/aa/aabb.jpg');
+      expect(listed.single.sizeBytes, 3);
+    });
+
+    test('reports an evicted item under its key, size unknown', () async {
+      // Where eviction leaves a .<name>.icloud placeholder, the object is
+      // still there; only its size is not known on this device.
+      final store = ICloudMediaObjectStore(
+        platform: DirectoryICloudMediaPlatform(container),
+      );
+      File(
+          '${container.path}/submersion-media/smv1/objects/aa/.aabb.jpg.icloud',
+        )
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([9]);
+
+      final listed = await store.listLocal('smv1/').toList();
+
+      expect(listed.single.key, 'smv1/objects/aa/aabb.jpg');
+      expect(listed.single.sizeBytes, isNull);
+    });
+
+    test('the full listing still refreshes', () async {
+      final platform = _CountingPlatform(container);
+      final store = ICloudMediaObjectStore(platform: platform);
+
+      await store.list('smv1/').toList();
+
+      expect(platform.refreshes, 1);
+    });
   });
 
   test('null container path maps to a fatal MediaStoreException', () async {

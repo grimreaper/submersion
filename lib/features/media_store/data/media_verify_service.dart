@@ -139,7 +139,16 @@ class MediaVerifyService {
       for (final ns in StoreNamespace.values) ns: <String, _Listed>{},
     };
     final listedCounts = {for (final ns in StoreNamespace.values) ns: 0};
-    await for (final info in _store.list(_layoutPrefix)) {
+    // A measurement takes what the device already has where the full
+    // listing would download the store (iCloud); a cleanup, which deletes
+    // and repairs on what it finds, always lists in full.
+    final listing = switch (_store) {
+      final LocalListingStore local when dryRun => local.listLocal(
+        _layoutPrefix,
+      ),
+      final store => store.list(_layoutPrefix),
+    };
+    await for (final info in listing) {
       final ns = _namespaceOf(info.key);
       if (ns == null) continue; // the store marker, or not ours to judge
       listedCounts[ns] = listedCounts[ns]! + 1;

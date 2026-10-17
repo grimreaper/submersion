@@ -141,6 +141,16 @@ abstract class MediaObjectStore {
   Future<int> reapStaleUploadSessions({required DateTime olderThan});
 }
 
+/// A store whose full listing costs more than the listing (iCloud's starts
+/// downloading every evicted item). A sweep that only measures asks for the
+/// local listing instead.
+abstract interface class LocalListingStore {
+  /// What this device already has, asking the provider for nothing. It may
+  /// miss what other devices added lately, and reports no size for an item
+  /// this device has not downloaded.
+  Stream<StoreObjectInfo> listLocal(String keyPrefix);
+}
+
 /// A store that can hold more than one object under one key.
 ///
 /// Google Drive keys objects by file name, and two devices uploading the same

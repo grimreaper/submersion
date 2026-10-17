@@ -192,7 +192,9 @@ reclaimable figure. A sync-folder deletion sweep is not part of this work.
   objects can be deleted after 7 days, or within hours under early delete, which
   counts only the devices this one knows of; that device's reverse repair
   re-uploads them from its local copy. Early delete makes this happen sooner than
-  before; it does not fix it.
+  before; it does not fix it. Accepted (maintainer's call): the setup is rare,
+  the cost is a re-upload rather than lost data, and early delete is what clears
+  the leftovers of a restore and re-upload within hours.
 - **Nothing deleted while work is in flight:** cloud media deletes wait while the
   transfer queue has a `transferring` row (a `pending` row's hash is already
   protected by the no-stamp rule, and a row stuck pending must not block cleanup
@@ -234,7 +236,12 @@ Schedule (approved):
   figures to show; when the device also wins the fleet cleanup, one listing serves
   both. Sync folder and shared library sizes are measured on the same scan; a
   measurement that takes over two minutes is dropped and the total marked
-  partial, so a stalled call cannot hold the pass.
+  partial, so a stalled call cannot hold the pass. A scan that only measures
+  lists what the device already has on iCloud instead of refreshing the
+  container, since the refresh starts downloading every evicted item; an
+  evicted item that left a placeholder counts with no size, so the total reads
+  as partial. The weekly
+  fleet cleanup, which deletes and repairs, still refreshes.
 - **After a restore:** an extra run of both, regardless of cadence (cloud still
   needs an unmetered network). A restore ends in a soft restart that does not
   re-run `StartupPage`, so trigger it from the post-restore path (for example the
