@@ -353,6 +353,59 @@ void main() {
     expect(all.single.pageCount, 2);
   });
 
+  test(
+    'an entry filed under a certification carries its title fields',
+    () async {
+      // Issue #3366: the stored name is empty for a certification with no
+      // custom title, so the list must be able to derive one.
+      await db.customStatement(
+        'INSERT INTO certifications (id, diver_id, name, agency, level, '
+        "created_at, updated_at) VALUES ('c1', 'd1', '', 'padi', "
+        "'advancedNitrox', 0, 0)",
+      );
+      await repo.save(
+        newDoc(
+          owner: const DocumentOwner(DocumentOwnerKind.certification, 'c1'),
+        ),
+        [
+          page(0, [1]),
+        ],
+      );
+      await repo.save(
+        newDoc(owner: const DocumentOwner(DocumentOwnerKind.trip, 't1')),
+        [
+          page(0, [1]),
+        ],
+      );
+      final all = await repo.getAllForDiver('d1');
+      final filed = all.firstWhere(
+        (e) => e.document.owner.kind == DocumentOwnerKind.certification,
+      );
+      expect(filed.certification, (
+        name: '',
+        agency: 'padi',
+        level: 'advancedNitrox',
+      ));
+      final trip = all.firstWhere(
+        (e) => e.document.owner.kind == DocumentOwnerKind.trip,
+      );
+      expect(trip.certification, isNull);
+    },
+  );
+
+  test('a certification change notifies watchers', () async {
+    // The list derives a certification owner's title from its row, so an
+    // edit to the certification must refresh it (#3366).
+    await seedCert(db, 'c1');
+    final changed = repo.watchChanges().first;
+    await db.customUpdate(
+      "UPDATE certifications SET level = 'openWater' WHERE id = 'c1'",
+      updates: {db.certifications},
+      updateKind: UpdateKind.update,
+    );
+    await expectLater(changed.timeout(const Duration(seconds: 2)), completes);
+  });
+
   test('card images: save, read, clear one side, clear both', () async {
     await seedCert(db, 'c1');
     await repo.saveCardImages(
