@@ -35746,9 +35746,6 @@ class AppLocalizationsHe extends AppLocalizations {
   String get settings_photosMedia_storageHeader => 'איפה נשמרים העותקים';
 
   @override
-  String get settings_photosMedia_accountsHeader => 'חשבונות';
-
-  @override
   String get settings_photosMedia_displayHeader => 'תצוגה';
 
   @override

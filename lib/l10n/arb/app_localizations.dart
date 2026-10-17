@@ -57752,12 +57752,6 @@ abstract class AppLocalizations {
   /// **'Where copies are kept'**
   String get settings_photosMedia_storageHeader;
 
-  /// No description provided for @settings_photosMedia_accountsHeader.
-  ///
-  /// In en, this message translates to:
-  /// **'Accounts'**
-  String get settings_photosMedia_accountsHeader;
-
   /// No description provided for @settings_photosMedia_displayHeader.
   ///
   /// In en, this message translates to:

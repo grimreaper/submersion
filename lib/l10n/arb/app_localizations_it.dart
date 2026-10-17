@@ -36667,9 +36667,6 @@ class AppLocalizationsIt extends AppLocalizations {
       'Dove sono conservate le copie';
 
   @override
-  String get settings_photosMedia_accountsHeader => 'Account';
-
-  @override
   String get settings_photosMedia_displayHeader => 'Visualizzazione';
 
   @override

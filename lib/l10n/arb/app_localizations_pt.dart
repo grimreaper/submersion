@@ -36651,9 +36651,6 @@ class AppLocalizationsPt extends AppLocalizations {
       'Onde as cópias são mantidas';
 
   @override
-  String get settings_photosMedia_accountsHeader => 'Contas';
-
-  @override
   String get settings_photosMedia_displayHeader => 'Exibição';
 
   @override

@@ -36038,9 +36038,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settings_photosMedia_storageHeader => 'Where copies are kept';
 
   @override
-  String get settings_photosMedia_accountsHeader => 'Accounts';
-
-  @override
   String get settings_photosMedia_displayHeader => 'Display';
 
   @override

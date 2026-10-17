@@ -36407,9 +36407,6 @@ class AppLocalizationsNl extends AppLocalizations {
       'Waar kopieën worden bewaard';
 
   @override
-  String get settings_photosMedia_accountsHeader => 'Accounts';
-
-  @override
   String get settings_photosMedia_displayHeader => 'Weergave';
 
   @override

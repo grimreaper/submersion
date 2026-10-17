@@ -37148,9 +37148,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get settings_photosMedia_storageHeader => 'أين تُحفظ النسخ';
 
   @override
-  String get settings_photosMedia_accountsHeader => 'الحسابات';
-
-  @override
   String get settings_photosMedia_displayHeader => 'العرض';
 
   @override

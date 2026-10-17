@@ -36441,9 +36441,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get settings_photosMedia_storageHeader => 'Hol tároljuk a másolatokat';
 
   @override
-  String get settings_photosMedia_accountsHeader => 'Fiókok';
-
-  @override
   String get settings_photosMedia_displayHeader => 'Megjelenítés';
 
   @override

@@ -34533,9 +34533,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings_photosMedia_storageHeader => '副本保存位置';
 
   @override
-  String get settings_photosMedia_accountsHeader => '账户';
-
-  @override
   String get settings_photosMedia_displayHeader => '显示';
 
   @override

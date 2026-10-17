@@ -36587,9 +36587,6 @@ class AppLocalizationsDe extends AppLocalizations {
       'Wo Kopien aufbewahrt werden';
 
   @override
-  String get settings_photosMedia_accountsHeader => 'Konten';
-
-  @override
   String get settings_photosMedia_displayHeader => 'Anzeige';
 
   @override
