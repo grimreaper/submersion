@@ -21,6 +21,7 @@ import 'package:submersion/core/services/media_store/media_upload_quality_policy
 import 'package:submersion/core/services/media_store/network_status_service.dart';
 import 'package:submersion/core/services/storage/gc/storage_gc_store.dart';
 import 'package:submersion/core/services/sync/peer_sync_snapshot.dart';
+import 'package:submersion/core/services/sync/sync_coordinator.dart';
 import 'package:submersion/features/media/data/media_cache_settings.dart';
 import 'package:submersion/features/media/data/resolvers/media_store_resolver.dart';
 import 'package:submersion/features/media/domain/entities/media_item.dart';
@@ -276,8 +277,13 @@ final mediaVerifyRunnerProvider =
           mediaRepository: ref.read(mediaRepositoryProvider),
           queue: ref.read(mediaTransferQueueRepositoryProvider),
         );
+        // The same gates as the scheduled cleanup: no delete during or after
+        // a merge that started once this run began. A transferring upload
+        // needs no gate here; its row has no upload stamp yet, which keeps
+        // every object under its hash.
         final report = await service.run(
           policy: ref.read(orphanDeletePolicyFactoryProvider)(),
+          deleteGuard: SyncCoordinator.quietGuard(),
         );
         // Drain queued repairs BEFORE stamping: a stamp failure (DB/sync)
         // must not strand repairs the sweep just queued.

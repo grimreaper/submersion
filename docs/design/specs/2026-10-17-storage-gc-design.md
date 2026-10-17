@@ -173,7 +173,11 @@ reclaimable figure. A sync-folder deletion sweep is not part of this work.
 ## Coordinator
 
 One `StorageGcCoordinator` replaces the separate fire-and-forget storage blocks in
-`StartupPage` (and the auto-verify block in the media store runtime provider). Each
+`StartupPage` (the scratch and local cache sweeps) and the auto-verify block in the
+media store runtime provider. Two startup jobs stay where they are on purpose:
+`sweepLeftoverSyncTempFiles` must run before the database opens, ahead of any
+provider, and `MediaOrphanBacklogSweep` deletes unlinked media rows (through the
+deletion coordinator), not files, so it is not a storage sweep. Each
 area is a sweep with a common shape: what it can measure (bytes used, bytes
 reclaimable now, bytes waiting on the grace window), how to reclaim, its cadence,
 and its preconditions. Exact interface is the builder's call.

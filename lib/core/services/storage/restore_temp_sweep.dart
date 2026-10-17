@@ -25,7 +25,13 @@ class RestoreTempSweep {
 
   static const Duration minAge = Duration(hours: 24);
 
-  static final _backupName = RegExp(r'^submersion_backup_.+\.(db|sbe)$');
+  /// A backup name, optionally behind the `restore-<uuid>-` prefix restores
+  /// now use for their copies: a dated backup (`submersion_backup_...`, plain
+  /// or encrypted) or a pre-migration copy (`<yyyyMMdd>-<HHmmssSSS>-v<n>-v<m>`).
+  static final _backupName = RegExp(
+    r'^(restore-[0-9a-f-]{36}-)?'
+    r'(submersion_backup_.+\.(db|sbe)|\d{8}-\d{9}-v\d+-v\d+\.db)$',
+  );
 
   /// A [dryRun] counts what the pass would reclaim and deletes nothing.
   Future<ScratchSweepReport> run({DateTime? now, bool dryRun = false}) async {

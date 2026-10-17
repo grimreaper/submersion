@@ -2,8 +2,9 @@ import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.da
 import 'package:submersion/core/services/sync/changeset_log/changeset_log_layout.dart';
 
 /// Bytes the database sync uses on [provider]: every `ssv1.` file that names
-/// a device, across every device. Measurement only; nothing is deleted.
-Future<int> measureSyncFolderBytes(
+/// a device, across every device. [partial] is set when a file reported no
+/// size, so the figure is a floor. Measurement only; nothing is deleted.
+Future<({int bytes, bool partial})> measureSyncFolderBytes(
   CloudStorageProvider provider, {
   String? folderId,
 }) async {
@@ -12,11 +13,17 @@ Future<int> measureSyncFolderBytes(
     namePattern: ChangesetLogLayout.listPattern,
   );
   var bytes = 0;
+  var partial = false;
   for (final f in files) {
     if (ChangesetLogLayout.deviceIdOf(f.name) == null) continue;
-    bytes += f.sizeBytes ?? 0;
+    final size = f.sizeBytes;
+    if (size == null) {
+      partial = true;
+    } else {
+      bytes += size;
+    }
   }
-  return bytes;
+  return (bytes: bytes, partial: partial);
 }
 
 /// What the last cloud scan found, kept device-locally between scans

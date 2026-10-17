@@ -15,6 +15,7 @@ VerifyLibraryReport _report({
   int removed = 0,
   int waiting = 0,
   bool deferred = false,
+  bool sizesUnknown = false,
 }) => VerifyLibraryReport(
   objectsChecked: 1,
   originalsChecked: 1,
@@ -28,6 +29,7 @@ VerifyLibraryReport _report({
   reclaimableBytes: reclaimable,
   waitingBytes: waiting,
   deferred: deferred,
+  sizesUnknown: sizesUnknown,
 );
 
 /// Records every call the coordinator makes, with scripted answers.
@@ -43,6 +45,7 @@ class _Harness {
   bool hasMediaStore = true;
   VerifyLibraryReport mediaReport = _report();
   int syncBytes = 30;
+  bool syncPartial = false;
   ({int bytes, bool partial})? libraries = (bytes: 4, partial: false);
   bool failFirstSweep = false;
 
@@ -76,7 +79,7 @@ class _Harness {
     },
     fleetSweepDue: (now) async => fleetDue,
     stampFleetSweep: (now) async => fleetStamps++,
-    measureSync: () async => syncBytes,
+    measureSync: () async => (bytes: syncBytes, partial: syncPartial),
     measureLibraries: () async => libraries,
     store: store,
     now: () => now,
@@ -266,6 +269,35 @@ void main() {
     expect(h.localCacheRuns, 1);
     expect(h.mediaRuns, isNotEmpty);
   });
+
+  test('a failed device pass retries on the next trigger', () async {
+    h.failFirstSweep = true;
+    await coordinator.run(StorageGcTrigger.launch);
+    expect(h.store.lastDeviceRun, isNull);
+
+    h.failFirstSweep = false;
+    await coordinator.run(StorageGcTrigger.resume);
+    expect(h.deviceRuns, [false, false]);
+    expect(h.store.lastDeviceRun, h.now);
+  });
+
+  test(
+    'an incomplete sync or media size marks the cloud usage partial',
+    () async {
+      h.syncPartial = true;
+      await coordinator.run(StorageGcTrigger.rescan);
+      expect(h.store.cloudUsage!.partial, isTrue);
+
+      h.syncPartial = false;
+      h.mediaReport = _report(sizesUnknown: true);
+      await coordinator.run(StorageGcTrigger.rescan);
+      expect(h.store.cloudUsage!.partial, isTrue);
+
+      h.mediaReport = _report();
+      await coordinator.run(StorageGcTrigger.rescan);
+      expect(h.store.cloudUsage!.partial, isFalse);
+    },
+  );
 
   test('no media store leaves the media figures out', () async {
     h.hasMediaStore = false;

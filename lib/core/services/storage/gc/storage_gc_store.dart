@@ -55,10 +55,18 @@ class StorageGcStore {
   /// Records a finished restore: its time, which the cloud delete policy
   /// compares the next pull against, and the two flags that force a
   /// post-restore run of the device and cloud parts.
+  ///
+  /// Throws when any of the three writes does not persist, so the restore
+  /// stops before the database is replaced instead of running unguarded.
   static Future<void> markRestored(SharedPreferences prefs, DateTime at) async {
-    await prefs.setInt(_lastRestoreKey, at.millisecondsSinceEpoch);
-    await prefs.setInt(_postRestorePendingKey, at.millisecondsSinceEpoch);
-    await prefs.setBool(_postRestoreCloudKey, true);
+    final saved = [
+      await prefs.setInt(_lastRestoreKey, at.millisecondsSinceEpoch),
+      await prefs.setInt(_postRestorePendingKey, at.millisecondsSinceEpoch),
+      await prefs.setBool(_postRestoreCloudKey, true),
+    ];
+    if (saved.contains(false)) {
+      throw StateError('The restore marker for storage cleanup was not saved');
+    }
   }
 
   DateTime? get lastDeviceRun => _time(_lastDeviceRunKey);

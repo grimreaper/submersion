@@ -115,6 +115,20 @@ void main() {
     expect(await queue.resumeStateOf(plain), isNull);
   });
 
+  test(
+    'a Transfers delete of a live upload leaves its session alone',
+    () async {
+      await media('m1', hash: 'aabb');
+      final id = await uploadWithResume('m1', '{"s":1}');
+      await queue.markTransferring(id);
+
+      expect(await queue.resumeStateOf(id), isNull);
+      await worker.deleteEntries([id]);
+
+      expect(store.abandonResumeCalls, isEmpty);
+    },
+  );
+
   test('worker abandons the session a re-upload dropped', () async {
     await media('m1', hash: 'aabb');
     await uploadWithResume('m1', '{"s":1}');

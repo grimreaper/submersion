@@ -210,13 +210,26 @@ void main() {
         localPath: 'content://tree/doc/x',
       );
 
+      // A share-sheet export of the same backup sits at the record's own
+      // name in the same folder; the restore must neither overwrite nor
+      // delete it.
+      final shared = File(p.join(_isolatedTempDir.path, 'downloaded_copy.db'))
+        ..writeAsStringSync('share sheet export');
+
       await service.restoreFromBackup(record);
 
+      expect(shared.readAsStringSync(), 'share sheet export');
+      final leftovers = _isolatedTempDir
+          .listSync()
+          .whereType<File>()
+          .where((f) => p.basename(f.path).contains('downloaded_copy'))
+          .where((f) => f.path != shared.path);
       expect(
-        File(p.join(_isolatedTempDir.path, 'downloaded_copy.db')).existsSync(),
-        isFalse,
+        leftovers,
+        isEmpty,
         reason: 'the temp copy of a SAF backup is the app\'s own leftover',
       );
+      shared.deleteSync();
     },
   );
 
@@ -277,6 +290,31 @@ void main() {
     expect(replacesBeforeMark, 0);
     expect(adapter.restoreCalls, 1);
   });
+
+  test(
+    'a restore whose marker cannot be recorded stops before the swap',
+    () async {
+      final adapter = _FileWritingAdapter(_validDb(tmp.path, 'live.db'));
+      final service = BackupService(
+        dbAdapter: adapter,
+        preferences: prefs,
+        safPort: _FakeSafPort(),
+        syncRepository: _SpySync(),
+        onRestoring: (_) async => throw StateError('prefs unavailable'),
+      );
+      final record = BackupRecord(
+        id: 'r',
+        filename: 'b.db',
+        timestamp: DateTime(2026),
+        sizeBytes: 1,
+        location: BackupLocation.local,
+        localPath: _validDb(tmp.path, 'b.db'),
+      );
+
+      await expectLater(service.restoreFromBackup(record), throwsA(anything));
+      expect(adapter.restoreCalls, 0, reason: 'the live database is untouched');
+    },
+  );
 
   test('restoreFromBackup throws when the SAF document is gone', () async {
     final port = _FakeSafPort()..wroteFrom = null;

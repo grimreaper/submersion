@@ -63,6 +63,16 @@ class _RepeatingStore extends InMemoryMediaObjectStore {
   }
 }
 
+/// Lists objects without a size, as a provider that omits it would.
+class _SizelessStore extends InMemoryMediaObjectStore {
+  @override
+  Stream<StoreObjectInfo> list(String keyPrefix) async* {
+    await for (final info in super.list(keyPrefix)) {
+      yield StoreObjectInfo(key: info.key, lastModified: info.lastModified);
+    }
+  }
+}
+
 class _ReapThrowingStore extends InMemoryMediaObjectStore {
   @override
   Future<int> reapStaleUploadSessions({required DateTime olderThan}) async {
@@ -395,6 +405,21 @@ void main() {
   });
 
   group('storage GC', () {
+    test('stops deleting once the delete guard turns false', () async {
+      // A sync that starts mid-sweep may bring rows the sweep's reference
+      // snapshot does not have; nothing may be deleted after that.
+      await insertDive('d1');
+      seedObject(StoreKeys.objectKey('dead1', extension: 'jpg'), modified: old);
+      seedObject(StoreKeys.objectKey('dead2', extension: 'jpg'), modified: old);
+      var allowed = true;
+      store.onDelete = (_) => allowed = false;
+
+      final report = await service.run(deleteGuard: () => allowed);
+
+      expect(report.orphansRemoved, 1);
+      expect(store.objects.keys.where((k) => k.contains('dead')), hasLength(1));
+    });
+
     test('dry run deletes nothing and reports reclaimable bytes', () async {
       await insertDive('d1');
       seedObject(StoreKeys.objectKey('dead', extension: 'jpg'), modified: old);
@@ -571,6 +596,23 @@ void main() {
 
       expect(store.objects.keys, contains(key));
       expect(report.orphansRemoved, 0);
+    });
+
+    test('an object without a size marks the totals incomplete', () async {
+      await insertDive('d1');
+      final sizeless = _SizelessStore();
+      sizeless.objects[StoreKeys.objectKey('dead', extension: 'jpg')] = [1];
+      sizeless.modified[StoreKeys.objectKey('dead', extension: 'jpg')] = old;
+      final sweep = MediaVerifyService(
+        store: sizeless,
+        mediaRepository: repo,
+        queue: queue,
+        now: () => now,
+      );
+
+      final report = await sweep.run(dryRun: true);
+
+      expect(report.sizesUnknown, isTrue);
     });
 
     test('totalBytes sums every listed object', () async {

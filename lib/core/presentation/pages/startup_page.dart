@@ -1095,7 +1095,9 @@ class _StartupWrapperState extends State<StartupWrapper>
 
     // The scratch-file and local cache sweeps run from the storage cleanup
     // coordinator (storageGcCoordinatorProvider, issue #3396), which the app
-    // kicks once the first frame is up, alongside every other storage sweep.
+    // kicks once the first frame is up. The two jobs above stay here: the sync
+    // temp sweep must run before the database opens, and the unlinked-media
+    // sweep deletes rows, not files.
     // coverage:ignore-end
   }
 

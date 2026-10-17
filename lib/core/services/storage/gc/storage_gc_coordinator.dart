@@ -70,7 +70,7 @@ class StorageGcCoordinator {
     mediaSweep,
     required Future<bool> Function(DateTime now) fleetSweepDue,
     required Future<void> Function(DateTime now) stampFleetSweep,
-    required Future<int?> Function() measureSync,
+    required Future<({int bytes, bool partial})?> Function() measureSync,
     required Future<({int bytes, bool partial})?> Function() measureLibraries,
     required StorageGcStore store,
     DateTime Function()? now,
@@ -103,7 +103,7 @@ class StorageGcCoordinator {
   _mediaSweep;
   final Future<bool> Function(DateTime now) _fleetSweepDue;
   final Future<void> Function(DateTime now) _stampFleetSweep;
-  final Future<int?> Function() _measureSync;
+  final Future<({int bytes, bool partial})?> Function() _measureSync;
   final Future<({int bytes, bool partial})?> Function() _measureLibraries;
   final StorageGcStore _store;
   final DateTime Function() _now;
@@ -200,19 +200,24 @@ class StorageGcCoordinator {
       return;
     }
     var total = ScratchSweepReport.empty;
+    var failed = false;
     for (final sweep in _deviceSweeps) {
       try {
         total += await sweep(now: now, dryRun: false);
       } catch (e) {
+        failed = true;
         _log.warning('Device sweep failed (will retry)', error: e);
       }
     }
     try {
       await _localCacheSweep(now);
     } catch (e) {
+      failed = true;
       _log.warning('Local cache sweep failed (will retry)', error: e);
     }
-    await _store.setLastDeviceRun(now);
+    // Stamped only after a clean pass, so a failure retries on the next
+    // trigger rather than a day later.
+    if (!failed) await _store.setLastDeviceRun(now);
     if (!total.isEmpty) {
       await _store.setLastDeviceResult(
         AreaResult(
@@ -274,10 +279,12 @@ class StorageGcCoordinator {
       }
     }
 
-    var partial = false;
+    var partial = report?.sizesUnknown ?? false;
     int? syncBytes;
     try {
-      syncBytes = await _measureSync();
+      final sync = await _measureSync();
+      syncBytes = sync?.bytes;
+      partial = partial || (sync?.partial ?? false);
     } catch (e) {
       partial = true;
       _log.warning('Sync folder measurement failed', error: e);

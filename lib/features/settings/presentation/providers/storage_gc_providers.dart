@@ -163,11 +163,16 @@ Future<VerifyLibraryReport?> _mediaSweep(
 }) async {
   final runtime = await ref.read(mediaStoreRuntimeProvider.future);
   if (runtime == null) return null;
-  final report = await MediaVerifyService(
-    store: runtime.store,
-    mediaRepository: ref.read(mediaRepositoryProvider),
-    queue: ref.read(mediaTransferQueueRepositoryProvider),
-  ).run(policy: ref.read(orphanDeletePolicyFactoryProvider)(), dryRun: dryRun);
+  final report =
+      await MediaVerifyService(
+        store: runtime.store,
+        mediaRepository: ref.read(mediaRepositoryProvider),
+        queue: ref.read(mediaTransferQueueRepositoryProvider),
+      ).run(
+        policy: ref.read(orphanDeletePolicyFactoryProvider)(),
+        dryRun: dryRun,
+        deleteGuard: SyncCoordinator.quietGuard(),
+      );
   // Repairs the sweep queued drain now rather than on the next trigger.
   if (!dryRun) unawaited(runtime.worker?.drain());
   return report;

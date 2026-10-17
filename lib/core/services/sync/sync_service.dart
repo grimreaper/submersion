@@ -580,12 +580,10 @@ class SyncService {
       }
       // Until this sync reaches its clean end, the storage cleanup must not
       // trust the previous snapshot: an adoption halt or a failure below
-      // leaves this device behind its peers (storage GC design, safety).
-      try {
-        await _peerSnapshots?.markNotCaughtUp();
-      } catch (e) {
-        _log.warning('Peer sync snapshot reset failed (non-fatal): $e');
-      }
+      // leaves this device behind its peers (storage GC design, safety). A
+      // reset that cannot be written fails this sync rather than leave a
+      // stale caught-up snapshot behind it.
+      await _peerSnapshots?.markNotCaughtUp();
       var deviceId = await _syncRepository.getDeviceId();
       // Scoped to this provider: a cursor minted against a backend we switched
       // away from reads as null here, forcing a full cold-start reconcile on

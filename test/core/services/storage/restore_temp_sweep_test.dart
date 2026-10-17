@@ -47,6 +47,25 @@ void main() {
     expect(report.bytesReclaimed, 500);
   });
 
+  test('deletes old restore copies and pre-migration copies', () async {
+    final restoreCopy = await write(
+      'restore-0b9d2f7e-6c1a-4d3e-9f2b-1a2b3c4d5e6f-submersion_backup_2026-10-01_101500.db',
+      100,
+      const Duration(days: 3),
+    );
+    final preMigration = await write(
+      '20261001-101500123-v120-v121.db',
+      50,
+      const Duration(days: 3),
+    );
+
+    final report = await build().run(now: now);
+
+    expect(restoreCopy.existsSync(), isFalse);
+    expect(preMigration.existsSync(), isFalse);
+    expect(report.bytesReclaimed, 150);
+  });
+
   test('keeps a backup-named file younger than 24 hours', () async {
     // The share sheet exports under the same name into the same folder.
     final fresh = await write(

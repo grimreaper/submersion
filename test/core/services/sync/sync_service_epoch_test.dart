@@ -314,6 +314,27 @@ void main() {
       },
     );
 
+    test('a sync that cannot reset the snapshot does not run', () async {
+      final service = SyncService(
+        syncRepository: SyncRepository(),
+        serializer: SyncDataSerializer(),
+        cloudProvider: cloud,
+        epochStore: epochStore,
+        peerSnapshots: _ThrowingSnapshots(
+          await SharedPreferences.getInstance(),
+        ),
+      );
+      cloud.operationLog.clear();
+
+      final result = await service.performSync();
+
+      expect(result.isSuccess, isFalse);
+      expect(
+        cloud.operationLog.where((op) => op.startsWith('upload:')),
+        isEmpty,
+      );
+    });
+
     test('missing marker with accepted epoch self-heals the marker', () async {
       await SyncRepository().setLastAcceptedEpochId('e1');
       await epochStore.setLastAccepted(marker);
@@ -1227,4 +1248,13 @@ class _SlowEpochListCloud extends FakeCloudStorageProvider {
     if (namePattern == libraryEpochFileName) await Future.delayed(delay);
     return super.listFiles(folderId: folderId, namePattern: namePattern);
   }
+}
+
+/// A snapshot store whose fail-closed reset cannot be written.
+class _ThrowingSnapshots extends PeerSyncSnapshotStore {
+  _ThrowingSnapshots(super.prefs);
+
+  @override
+  Future<void> markNotCaughtUp() async =>
+      throw StateError('prefs write failed');
 }

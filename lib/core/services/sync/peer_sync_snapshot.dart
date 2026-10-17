@@ -120,8 +120,13 @@ class PeerSyncSnapshotStore {
     }
   }
 
-  Future<void> write(PeerSyncSnapshot snapshot) =>
-      _prefs.setString(key, jsonEncode(snapshot.toJson()));
+  /// Throws when the platform reports the write did not persist: callers
+  /// rely on it to hold cloud deletes back.
+  Future<void> write(PeerSyncSnapshot snapshot) async {
+    if (!await _prefs.setString(key, jsonEncode(snapshot.toJson()))) {
+      throw StateError('Peer sync snapshot was not saved');
+    }
+  }
 
   /// Marks the last snapshot as not caught up, keeping its peers and time.
   ///

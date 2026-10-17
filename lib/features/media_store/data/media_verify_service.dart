@@ -39,6 +39,10 @@ class VerifyLibraryReport {
   /// True when the policy allowed no deletes at all this run.
   final bool deferred;
 
+  /// True when the store listed an object without a size, so the byte
+  /// figures above are a floor rather than the truth.
+  final bool sizesUnknown;
+
   const VerifyLibraryReport({
     required this.objectsChecked,
     required this.originalsChecked,
@@ -52,6 +56,7 @@ class VerifyLibraryReport {
     this.reclaimableBytes = 0,
     this.waitingBytes = 0,
     this.deferred = false,
+    this.sizesUnknown = false,
   });
 }
 
@@ -110,10 +115,16 @@ class MediaVerifyService {
   /// [policy] decides when an unreferenced object may go; null keeps the
   /// original behaviour (7-day grace, nothing else). A [dryRun] lists and
   /// measures only: no deletes, no reverse repair, no session reap.
+  ///
+  /// [deleteGuard] is asked before every delete; once it returns false the
+  /// sweep deletes nothing more. The reference set is read once, at the
+  /// start, so a sync that starts during the listing may bring rows it does
+  /// not have: the caller's guard reports that.
   Future<VerifyLibraryReport> run({
     void Function(int objectsChecked)? onProgress,
     OrphanDeletePolicy? policy,
     bool dryRun = false,
+    bool Function()? deleteGuard,
   }) async {
     final now = _now();
     final rules = policy ?? OrphanDeletePolicy.unrestricted(now);
@@ -125,6 +136,7 @@ class MediaVerifyService {
     var totalBytes = 0;
     var reclaimableBytes = 0;
     var waitingBytes = 0;
+    var sizesUnknown = false;
 
     // Hashes actually present per tier, for reverse repair below.
     final presentOriginals = <String>{};
@@ -146,7 +158,9 @@ class MediaVerifyService {
         listed++;
         objectsChecked++;
         onProgress?.call(objectsChecked);
-        totalBytes += info.sizeBytes ?? 0;
+        final listedSize = info.sizeBytes;
+        if (listedSize == null) sizesUnknown = true;
+        totalBytes += listedSize ?? 0;
         final prev = keys[info.key];
         keys[info.key] = _Listed(prev?.info ?? info, (prev?.copies ?? 0) + 1);
       }
@@ -176,8 +190,16 @@ class MediaVerifyService {
       }
     }
 
+    var guardTripped = false;
+    bool mayDelete() {
+      if (guardTripped) return false;
+      if (deleteGuard != null && !deleteGuard()) guardTripped = true;
+      return !guardTripped;
+    }
+
     Future<void> deleteCopies(String key, int copies, int size) async {
       for (var i = 0; i < copies; i++) {
+        if (!mayDelete()) return;
         try {
           await _store.delete(key);
           orphansRemoved++;
@@ -225,6 +247,7 @@ class MediaVerifyService {
             } else if (dryRun) {
               reclaimableBytes += extras * size;
             } else {
+              if (!mayDelete()) continue;
               try {
                 final removed = await store.deleteExtraCopies(info.key);
                 orphansRemoved += removed;
@@ -271,6 +294,7 @@ class MediaVerifyService {
         reclaimableBytes: reclaimableBytes,
         waitingBytes: waitingBytes,
         deferred: !rules.deletesAllowed,
+        sizesUnknown: sizesUnknown,
       );
     }
 
@@ -326,6 +350,7 @@ class MediaVerifyService {
       reclaimableBytes: reclaimableBytes,
       waitingBytes: waitingBytes,
       deferred: !rules.deletesAllowed,
+      sizesUnknown: sizesUnknown,
     );
   }
 

@@ -767,7 +767,7 @@ class BackupService {
         );
       }
       final tempDir = await resolveSyncTempDir();
-      sourcePath = p.join(tempDir.path, record.filename);
+      sourcePath = p.join(tempDir.path, _restoreCopyName(record.filename));
       madeCopy = true;
       try {
         await _safPort.readBackup(documentUri: localRef, destPath: sourcePath);
@@ -784,7 +784,7 @@ class BackupService {
       madeCopy = true;
       sourcePath = await _downloadFromCloud(
         record.cloudFileId!,
-        record.filename,
+        _restoreCopyName(record.filename),
       );
     } else {
       throw const BackupException('Backup file not found locally or in cloud');
@@ -801,6 +801,12 @@ class BackupService {
       await _MaterializedBackup(sourcePath, isTemp: madeCopy).cleanUp();
     }
   }
+
+  /// A temp name for the copy a restore makes, unique per restore. The
+  /// record's own name would collide with a share-sheet export of the same
+  /// backup, which [exportBackupToTemp] writes to the same folder; the
+  /// RestoreTempSweep matches this prefix for copies a killed restore left.
+  String _restoreCopyName(String filename) => 'restore-${_uuid.v4()}-$filename';
 
   Future<void> _restoreFromSource(
     BackupRecord record,
@@ -1027,12 +1033,9 @@ class BackupService {
     // cleanup's cloud deletes back until a sync after the restore has run,
     // so it must exist even if the app dies between the replace and the
     // steps after it. A restore that then fails only defers cleanup until
-    // the next pull, which is the safe direction.
-    try {
-      await _onRestoring?.call(DateTime.now());
-    } catch (e) {
-      _log.warning('Recording the restore for storage cleanup failed: $e');
-    }
+    // the next pull, which is the safe direction. A marker that cannot be
+    // recorded stops the restore here, before the live database is touched.
+    await _onRestoring?.call(DateTime.now());
     String liveDeviceId;
     try {
       liveDeviceId = await _syncRepository.getDeviceId();

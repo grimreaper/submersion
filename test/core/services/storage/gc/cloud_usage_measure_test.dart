@@ -44,7 +44,20 @@ void main() {
     await cloud.uploadFile(Uint8List(99), 'submersion_backup_x.db');
     await cloud.uploadFile(Uint8List(7), 'ssv1.bogus');
 
-    expect(await measureSyncFolderBytes(cloud), 30);
+    final measured = await measureSyncFolderBytes(cloud);
+    expect(measured.bytes, 30);
+    expect(measured.partial, isFalse);
+  });
+
+  test('a sync file without a size marks the figure partial', () async {
+    final cloud = _PathProvider();
+    cloud.files['ssv1.dev1.manifest.json'] = 10;
+    cloud.files['ssv1.dev1.cs.000000000001.json'] = null;
+
+    final measured = await measureSyncFolderBytes(cloud);
+
+    expect(measured.bytes, 10);
+    expect(measured.partial, isTrue);
   });
 
   test('library measure ignores nested library folders', () async {
