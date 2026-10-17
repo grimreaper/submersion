@@ -1,5 +1,6 @@
 import 'package:flutter/foundation.dart';
 import 'package:flutter/material.dart';
+import 'package:flutter/rendering.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -9,11 +10,37 @@ import 'package:submersion/features/settings/presentation/providers/settings_pro
 import 'package:submersion/features/settings/presentation/widgets/display_zoom_settings_tile.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 
-/// Narrow enough for the stacked layout.
-const double _narrow = DisplayZoomSettingsTile.oneRowMinWidth - 1;
+// The test font draws every glyph a full em wide, so text here is wider
+// than in a real font; these widths are chosen against that font.
 
-/// Wide enough for the one-row layout.
-const double _wide = DisplayZoomSettingsTile.oneRowMinWidth;
+/// Narrow enough for the stacked layout in English.
+const double _narrow = 400;
+
+/// Wide enough for the one-row layout in English at the default text size.
+const double _wide = 800;
+
+/// Wide enough for one row even with a long title or large text.
+const double _extraWide = 1600;
+
+/// Whether [finder]'s text laid out on a single line.
+bool _isOneLine(WidgetTester tester, Finder finder) {
+  final paragraph = tester.renderObject<RenderParagraph>(finder);
+  final lineHeight = paragraph.getFullHeightForCaret(
+    const TextPosition(offset: 0),
+  );
+  return paragraph.size.height < lineHeight * 1.5;
+}
+
+/// Whether the slider shares a row with the title rather than sitting below.
+bool _isOneRow(WidgetTester tester, String title) =>
+    tester.getRect(find.byType(Slider)).left >
+    tester.getRect(find.text(title)).right;
+
+void _useWideView(WidgetTester tester) {
+  tester.view.physicalSize = const Size(_extraWide, 800);
+  tester.view.devicePixelRatio = 1;
+  addTearDown(tester.view.reset);
+}
 
 Future<ProviderContainer> _pumpTile(
   WidgetTester tester,
@@ -21,6 +48,7 @@ Future<ProviderContainer> _pumpTile(
   double width = _narrow,
   double textScale = 1,
   ValueListenable<double>? widthListenable,
+  Locale locale = const Locale('en'),
 }) async {
   SharedPreferences.setMockInitialValues(initial);
   final prefs = await SharedPreferences.getInstance();
@@ -35,7 +63,7 @@ Future<ProviderContainer> _pumpTile(
       child: MaterialApp(
         localizationsDelegates: AppLocalizations.localizationsDelegates,
         supportedLocales: AppLocalizations.supportedLocales,
-        locale: const Locale('en'),
+        locale: locale,
         builder: (context, child) => MediaQuery(
           data: MediaQuery.of(
             context,
@@ -153,6 +181,7 @@ void main() {
       final title = tester.getRect(find.text('Display size'));
       final percent = tester.getRect(find.text('85%'));
       expect(slider.left, greaterThan(title.right));
+      expect(_isOneLine(tester, find.text('Display size')), isTrue);
       expect(slider.center.dy, greaterThan(title.top));
       expect(slider.center.dy, lessThan(percent.bottom));
 
@@ -189,7 +218,7 @@ void main() {
       expect(tester.getRect(find.byType(Slider)), before);
     });
 
-    testWidgets('large text keeps the stacked layout at the 1x threshold', (
+    testWidgets('large text keeps the stacked layout until it fits', (
       tester,
     ) async {
       await _pumpTile(
@@ -200,30 +229,49 @@ void main() {
       );
 
       expect(tester.takeException(), isNull);
-      final slider = tester.getRect(find.byType(Slider));
-      final percent = tester.getRect(find.text('75%'));
-      expect(slider.top, greaterThanOrEqualTo(percent.bottom));
+      expect(_isOneRow(tester, 'Display size'), isFalse);
     });
 
-    testWidgets('large text gets one row once the width scales with it', (
+    testWidgets('large text gets one row once there is room for it', (
       tester,
     ) async {
-      tester.view.physicalSize = const Size(1400, 800);
-      tester.view.devicePixelRatio = 1;
-      addTearDown(tester.view.reset);
-
+      _useWideView(tester);
       await _pumpTile(
         tester,
         {'display_zoom': 0.75},
-        width: _wide * 2,
+        width: _extraWide,
         textScale: 2,
       );
 
       expect(tester.takeException(), isNull);
-      final slider = tester.getRect(find.byType(Slider));
-      final title = tester.getRect(find.text('Display size'));
-      expect(slider.left, greaterThan(title.right));
+      expect(_isOneRow(tester, 'Display size'), isTrue);
+      expect(_isOneLine(tester, find.text('Display size')), isTrue);
       expect(find.byTooltip('Reset'), findsOneWidget);
+    });
+
+    testWidgets('a long translated title keeps the stacked layout '
+        'where it would wrap on one row', (tester) async {
+      // Italian: "Dimensione di visualizzazione".
+      await _pumpTile(tester, {}, width: _wide, locale: const Locale('it'));
+
+      expect(tester.takeException(), isNull);
+      expect(_isOneRow(tester, 'Dimensione di visualizzazione'), isFalse);
+    });
+
+    testWidgets('a long translated title gets one row, unwrapped, '
+        'once there is room for it', (tester) async {
+      _useWideView(tester);
+      await _pumpTile(
+        tester,
+        {},
+        width: _extraWide,
+        locale: const Locale('it'),
+      );
+
+      expect(tester.takeException(), isNull);
+      final title = find.text('Dimensione di visualizzazione');
+      expect(_isOneRow(tester, 'Dimensione di visualizzazione'), isTrue);
+      expect(_isOneLine(tester, title), isTrue);
     });
 
     testWidgets('a drag survives the layout changing under it', (tester) async {
@@ -257,6 +305,26 @@ void main() {
         prefs.getDouble('display_zoom'),
         lessThan(DisplayZoom.defaultValue),
       );
+    });
+
+    testWidgets('no locale wraps its title on one row', (tester) async {
+      _useWideView(tester);
+      for (final locale in AppLocalizations.supportedLocales) {
+        for (final width in [_wide, _extraWide]) {
+          await _pumpTile(tester, {}, width: width, locale: locale);
+          expect(tester.takeException(), isNull, reason: '$locale @ $width');
+
+          final l10n = lookupAppLocalizations(locale);
+          final title = l10n.settings_appearance_displaySize;
+          if (_isOneRow(tester, title)) {
+            expect(
+              _isOneLine(tester, find.text(title)),
+              isTrue,
+              reason: '$locale @ $width',
+            );
+          }
+        }
+      }
     });
   });
 }
