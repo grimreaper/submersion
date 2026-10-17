@@ -47566,6 +47566,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get transmitters_field_label => '标签';
 
   @override
+  String get transmitters_field_label_helper => '一旦此发射器匹配成功，将成为潜水记录中气瓶的名称';
+
+  @override
   String get transmitters_field_serial => '发射器序列号';
 
   @override
@@ -47581,13 +47584,22 @@ class AppLocalizationsZh extends AppLocalizations {
   String get transmitters_field_gear => '来自装备的气瓶';
 
   @override
+  String get transmitters_field_gear_subtitle => '此发射器报告压力所对应的气瓶';
+
+  @override
   String get transmitters_field_transmitterGear => '来自装备的无线发射器';
+
+  @override
+  String get transmitters_field_transmitterGear_subtitle => '电池/保养追踪，不用于匹配';
 
   @override
   String get transmitters_field_material => '材质';
 
   @override
   String get transmitters_gear_none => '无';
+
+  @override
+  String get transmitters_hint_missingSize => '此气瓶未记录容量或压力，因此潜水记录中容量将留空';
 
   @override
   String get transmitters_validation_key => '请输入发射器序列号，或选择潜水电脑和通道';

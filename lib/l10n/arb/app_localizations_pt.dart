@@ -50691,6 +50691,10 @@ class AppLocalizationsPt extends AppLocalizations {
   String get transmitters_field_label => 'Rótulo';
 
   @override
+  String get transmitters_field_label_helper =>
+      'Torna-se o nome do cilindro no mergulho assim que este transmissor for associado';
+
+  @override
   String get transmitters_field_serial => 'Número de série do transmissor';
 
   @override
@@ -50707,13 +50711,25 @@ class AppLocalizationsPt extends AppLocalizations {
   String get transmitters_field_gear => 'Cilindro do equipamento';
 
   @override
+  String get transmitters_field_gear_subtitle =>
+      'O cilindro cuja pressão este transmissor reporta';
+
+  @override
   String get transmitters_field_transmitterGear => 'Transmissor do equipamento';
+
+  @override
+  String get transmitters_field_transmitterGear_subtitle =>
+      'Monitorização de bateria/manutenção, não usado na correspondência';
 
   @override
   String get transmitters_field_material => 'Material';
 
   @override
   String get transmitters_gear_none => 'Nenhum';
+
+  @override
+  String get transmitters_hint_missingSize =>
+      'Este cilindro não tem tamanho nem pressão registados, por isso o tamanho ficará vazio no mergulho';
 
   @override
   String get transmitters_validation_key =>

@@ -49616,6 +49616,10 @@ class AppLocalizationsHe extends AppLocalizations {
   String get transmitters_field_label => 'תווית';
 
   @override
+  String get transmitters_field_label_helper =>
+      'הופך לשם המיכל בצלילה ברגע שהמשדר הזה משויך';
+
+  @override
   String get transmitters_field_serial => 'מספר סידורי של המשדר';
 
   @override
@@ -49632,13 +49636,25 @@ class AppLocalizationsHe extends AppLocalizations {
   String get transmitters_field_gear => 'מיכל מהציוד';
 
   @override
+  String get transmitters_field_gear_subtitle =>
+      'המיכל שעבורו משדר זה מדווח על הלחץ';
+
+  @override
   String get transmitters_field_transmitterGear => 'משדר מהציוד';
+
+  @override
+  String get transmitters_field_transmitterGear_subtitle =>
+      'מעקב סוללה/תחזוקה, לא משמש להתאמה';
 
   @override
   String get transmitters_field_material => 'חומר';
 
   @override
   String get transmitters_gear_none => 'ללא';
+
+  @override
+  String get transmitters_hint_missingSize =>
+      'למיכל זה אין גודל או לחץ רשומים, לכן הגודל יישאר ריק בצלילה';
 
   @override
   String get transmitters_validation_key =>

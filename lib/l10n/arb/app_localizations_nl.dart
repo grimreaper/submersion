@@ -50365,6 +50365,10 @@ class AppLocalizationsNl extends AppLocalizations {
   String get transmitters_field_label => 'Label';
 
   @override
+  String get transmitters_field_label_helper =>
+      'Wordt de naam van de fles in de duik zodra deze zender is gekoppeld';
+
+  @override
   String get transmitters_field_serial => 'Serienummer van de zender';
 
   @override
@@ -50381,13 +50385,25 @@ class AppLocalizationsNl extends AppLocalizations {
   String get transmitters_field_gear => 'Fles uit uitrusting';
 
   @override
+  String get transmitters_field_gear_subtitle =>
+      'De fles waarvan deze zender de druk meldt';
+
+  @override
   String get transmitters_field_transmitterGear => 'Zender uit uitrusting';
+
+  @override
+  String get transmitters_field_transmitterGear_subtitle =>
+      'Batterij-/onderhoudsregistratie, niet voor koppeling';
 
   @override
   String get transmitters_field_material => 'Materiaal';
 
   @override
   String get transmitters_gear_none => 'Geen';
+
+  @override
+  String get transmitters_hint_missingSize =>
+      'Voor deze fles zijn geen afmeting of druk vastgelegd, dus de afmeting blijft leeg bij de duik';
 
   @override
   String get transmitters_validation_key =>

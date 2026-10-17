@@ -51339,6 +51339,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get transmitters_field_label => 'التسمية';
 
   @override
+  String get transmitters_field_label_helper =>
+      'يصبح اسم الأسطوانة في الغطسة بمجرد مطابقة جهاز الإرسال هذا';
+
+  @override
   String get transmitters_field_serial => 'الرقم التسلسلي لجهاز الإرسال';
 
   @override
@@ -51355,13 +51359,25 @@ class AppLocalizationsAr extends AppLocalizations {
   String get transmitters_field_gear => 'أسطوانة من المعدات';
 
   @override
+  String get transmitters_field_gear_subtitle =>
+      'الأسطوانة التي يبلغ جهاز الإرسال هذا عن ضغطها';
+
+  @override
   String get transmitters_field_transmitterGear => 'جهاز إرسال من المعدات';
+
+  @override
+  String get transmitters_field_transmitterGear_subtitle =>
+      'تتبع البطارية/الصيانة، لا يُستخدم للمطابقة';
 
   @override
   String get transmitters_field_material => 'المادة';
 
   @override
   String get transmitters_gear_none => 'لا شيء';
+
+  @override
+  String get transmitters_hint_missingSize =>
+      'لا يوجد حجم أو ضغط مسجل لهذه الأسطوانة، لذا سيبقى الحجم فارغًا في الغطسة';
 
   @override
   String get transmitters_validation_key =>
