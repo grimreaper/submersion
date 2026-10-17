@@ -26,6 +26,12 @@ final storageGcStoreProvider = Provider<StorageGcStore>(
   (ref) => StorageGcStore(ref.watch(sharedPreferencesProvider)),
 );
 
+/// The connection the cleanup checks before cloud work: unmetered, metered
+/// or offline. A seam so tests can choose one without the platform plugin.
+final storageGcNetworkProvider = Provider<Future<NetworkKind> Function()>(
+  (ref) => NetworkStatusService().current,
+);
+
 /// The storage cleanup coordinator, wired to the live services. Also runs it
 /// every six hours, since a desktop app can stay open for days without a
 /// launch or a resume.
@@ -33,7 +39,6 @@ final storageGcStoreProvider = Provider<StorageGcStore>(
 // closures at run time via ref.read, so there is no cached row to go stale.
 final storageGcCoordinatorProvider = Provider<StorageGcCoordinator>((ref) {
   final store = ref.watch(storageGcStoreProvider);
-  final network = NetworkStatusService();
   final coordinator = StorageGcCoordinator(
     store: store,
     deviceSweeps: [
@@ -46,7 +51,7 @@ final storageGcCoordinatorProvider = Provider<StorageGcCoordinator>((ref) {
       ).run(now: now, dryRun: dryRun),
     ],
     localCacheSweep: (now) => _localCacheSweepIfDue(ref, now),
-    network: network.current,
+    network: () => ref.read(storageGcNetworkProvider)(),
     isSyncBusy: () => SyncCoordinator.busy,
     hasTransferringUploads: () =>
         ref.read(mediaTransferQueueRepositoryProvider).hasTransferringUploads(),
@@ -179,7 +184,11 @@ Future<VerifyLibraryReport?> _mediaSweep(
 }
 
 Future<({int bytes, bool partial})?> _measureLibraries(Ref ref) async {
-  final libraries = await ref.read(sharedLibrariesProvider.future);
+  // Straight from the store, never `sharedLibrariesProvider.future`: Riverpod
+  // pauses a stream provider nobody listens to, and the cleanup usually runs
+  // with no library page open, so that future would never complete and the
+  // whole run (and every run that joins it) would hang.
+  final libraries = await ref.read(sharedLibraryStoreProvider).getLibraries();
   if (libraries.isEmpty) return null;
   final transportFor = ref.read(sharedLibraryTransportFactoryProvider);
   var bytes = 0;
