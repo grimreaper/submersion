@@ -5,7 +5,9 @@ import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart'
     as domain;
+import 'package:submersion/features/dive_log/data/repositories/tank_pressure_repository.dart';
 import 'package:submersion/features/dive_log/domain/services/as_imported_gas_cylinder.dart';
+import 'package:submersion/features/dive_log/domain/services/ccr_bailout_timeline.dart';
 
 /// What [TankRoleRepairRepository.useAsBailout] changed, for undo.
 typedef UseAsBailoutUndo = ({
@@ -20,11 +22,13 @@ typedef UseAsBailoutUndo = ({
 class TankRoleRepairRepository {
   TankRoleRepairRepository({AppDatabase? database})
     : _database = database,
-      _sync = SyncRepository(database: database);
+      _sync = SyncRepository(database: database),
+      _pressures = TankPressureRepository(database: database);
 
   final AppDatabase? _database;
   AppDatabase get _db => _database ?? DatabaseService.instance.database;
   final SyncRepository _sync;
+  final TankPressureRepository _pressures;
 
   /// Re-roles [tankId] to bailout, clears its role source and takes
   /// [ocTankId]'s mix. When [ocTankId] is an as-imported gas cylinder of the
@@ -44,7 +48,11 @@ class TankRoleRepairRepository {
 
     await (_db.update(_db.diveTanks)..where((t) => t.id.equals(tankId))).write(
       DiveTanksCompanion(
-        tankRole: const Value('bailout'),
+        // The open-circuit role the gas was breathed as (bailout, or a deco
+        // or stage gas); bailout when that cylinder is gone.
+        tankRole: Value(
+          oc != null && !isLoopTankRole(oc.tankRole) ? oc.tankRole : 'bailout',
+        ),
         roleSource: const Value(null),
         o2Percent: oc == null ? const Value.absent() : Value(oc.o2Percent),
         hePercent: oc == null ? const Value.absent() : Value(oc.hePercent),
@@ -58,7 +66,7 @@ class TankRoleRepairRepository {
         oc.computerId == tank.computerId &&
         isAsImportedGasCylinder(
           _asDomain(oc),
-          hasPressureSeries: await _hasSeries(ocTankId),
+          hasPressureSeries: await _pressures.hasTankSeries(diveId, ocTankId),
         );
     var moved = const <GasSwitche>[];
     if (merge) {
@@ -120,16 +128,6 @@ class TankRoleRepairRepository {
   Future<DiveTank?> _tank(String diveId, String id) => (_db.select(
     _db.diveTanks,
   )..where((t) => t.id.equals(id) & t.diveId.equals(diveId))).getSingleOrNull();
-
-  Future<bool> _hasSeries(String tankId) async {
-    final count = _db.tankPressureSeries.id.count();
-    final row =
-        await (_db.selectOnly(_db.tankPressureSeries)
-              ..addColumns([count])
-              ..where(_db.tankPressureSeries.tankId.equals(tankId)))
-            .getSingle();
-    return (row.read(count) ?? 0) > 0;
-  }
 
   static domain.DiveTank _asDomain(DiveTank row) => domain.DiveTank(
     id: row.id,

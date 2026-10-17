@@ -370,7 +370,12 @@ class TransmitterRepository {
         tanks++;
       }
     });
-    if (tanks > 0) SyncEventBus.notifyLocalChange();
+    if (tanks > 0) {
+      SyncEventBus.notifyLocalChange();
+      // The scan create/update queued ran on the roles before this apply,
+      // so a finding about a role it just fixed would stay open (#3307).
+      scheduleQualityScan(touchedDives);
+    }
     return (
       tanksUpdated: tanks,
       divesUpdated: touchedDives.length,

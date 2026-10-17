@@ -1,5 +1,6 @@
 import 'package:drift/drift.dart' show Value, Variable;
 
+import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/database_service.dart';
@@ -75,6 +76,7 @@ class QualityRepairExecutor {
   final QualityFindingsRepository _findings;
   final ProfileRepairService _profiles;
   AppDatabase get _db => DatabaseService.instance.database;
+  static const _log = LoggerService('QualityRepairExecutor');
 
   /// Queues the targeted quality rescan and a forced rebuild of the
   /// dives' sensor summaries, which the condition engine reads. Forced
@@ -334,10 +336,22 @@ class QualityRepairExecutor {
     var registered = false;
     final normalized = normalizeTransmitterSerial(serial);
     if (registerTransmitter && normalized != null) {
-      final entry = await _registerBailout(normalized, label, diverId);
-      if (entry != null) {
-        registered = true;
-        mixesKept = (await _transmitters.applyToExistingDives(entry)).mixesKept;
+      // This dive's repair is committed: a registry failure must not take
+      // its undo away or leave the finding open.
+      try {
+        final entry = await _registerBailout(normalized, label, diverId);
+        if (entry != null) {
+          registered = true;
+          mixesKept = (await _transmitters.applyToExistingDives(
+            entry,
+          )).mixesKept;
+        }
+      } catch (e, stackTrace) {
+        _log.error(
+          'Registering bailout transmitter failed',
+          error: e,
+          stackTrace: stackTrace,
+        );
       }
     }
     await _finish(findingId, [diveId]);

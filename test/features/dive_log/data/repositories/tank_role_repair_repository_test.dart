@@ -255,4 +255,19 @@ void main() {
     )..where((d) => d.recordId.equals('oc'))).get();
     expect(tombstones, isEmpty);
   });
+
+  // Review: a transmitter breathed as a deco gas takes that cylinder's role,
+  // not Bailout.
+  test('takes the role of the OC cylinder it was breathed as', () async {
+    await seed();
+    await (db.update(db.diveTanks)..where((t) => t.id.equals('oc'))).write(
+      const DiveTanksCompanion(
+        tankRole: Value('deco'),
+        o2Percent: Value(100),
+        hePercent: Value(0),
+      ),
+    );
+    await repo.useAsBailout(diveId: 'd1', tankId: 'tx', ocTankId: 'oc');
+    expect((await row('tx'))!.tankRole, 'deco');
+  });
 }

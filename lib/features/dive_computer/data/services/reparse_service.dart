@@ -258,11 +258,15 @@ class ReparseService {
       //    no cylinder at all (see [resolvedTanks] above).
       // ------------------------------------------------------------------
       if (rewritesTanks) {
+        // Resolved once: the bailout claim reads them, and so does the
+        // switch rewrite below.
+        final switches = resolveGasSwitches(parsed);
         final tankIdsByIndex = await _carryOverTanks(
           diveId: diveId,
           computerId: computerId,
           resolvedTanks: resolvedTanks,
           parsed: parsed,
+          switches: switches,
         );
         // A tank this parse gained is new, with no source yet (v251, issue
         // #2716); a single-source dive's one source is it.
@@ -282,7 +286,7 @@ class ReparseService {
         await _insertGasSwitches(
           diveId: diveId,
           computerId: computerId,
-          parsed: parsed,
+          switches: switches,
           tankIdsByIndex: tankIdsByIndex,
           now: now,
         );
@@ -831,11 +835,10 @@ class ReparseService {
   Future<void> _insertGasSwitches({
     required String diveId,
     required String? computerId,
-    required pigeon.ParsedDive parsed,
+    required List<GasSwitchEvent> switches,
     required Map<int, String> tankIdsByIndex,
     required DateTime now,
   }) async {
-    final switches = resolveGasSwitches(parsed);
     if (switches.isEmpty) return;
 
     final nowMs = now.millisecondsSinceEpoch;
@@ -868,6 +871,7 @@ class ReparseService {
     required String? computerId,
     required List<DownloadedTank> resolvedTanks,
     required pigeon.ParsedDive parsed,
+    required List<GasSwitchEvent> switches,
   }) async {
     final tankIdsByIndex = <int, String>{};
     // Get existing tanks
@@ -926,8 +930,8 @@ class ReparseService {
             _ => tank,
           },
       ],
-      diveMode: parsed.diveMode,
-      switches: resolveGasSwitches(parsed),
+      diveMode: mapLibdcDiveModeCode(parsed.diveMode),
+      switches: switches,
       samples: [
         for (final s in parsed.samples)
           (

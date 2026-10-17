@@ -10,6 +10,8 @@
 /// which bleeds at one rate throughout, from ever looking like a bailout.
 library;
 
+import 'package:submersion/core/constants/enums.dart';
+
 /// Smallest drop on open circuit, in bar, that can flag a cylinder.
 const double kBailoutMinOcDropBar = 20.0;
 
@@ -19,6 +21,11 @@ const int kBailoutMinOcSeconds = 120;
 /// How many times faster than on the loop a cylinder must drain on open
 /// circuit to count as the bailout.
 const double kBailoutMinRateRatio = 4.0;
+
+/// Whether a cylinder of [roleName] (a [TankRole] name) is breathed on the
+/// loop. Everything else a CCR diver switches to is open circuit.
+bool isLoopTankRole(String? roleName) =>
+    roleName == TankRole.diluent.name || roleName == TankRole.oxygenSupply.name;
 
 typedef TimelineSwitch<K> = ({int t, K tankKey});
 typedef TimelinePressure = ({int t, double bar});

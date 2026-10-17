@@ -46,9 +46,7 @@ class TransmitterRoleDetector extends QualityDetector {
             if (tank.computerId == null || sw.appliesTo(tank.computerId!))
               (t: sw.timestamp, tankKey: sw.tankId),
         ],
-        isLoopTank: (id) =>
-            roleById[id] == TankRole.diluent ||
-            roleById[id] == TankRole.oxygenSupply,
+        isLoopTank: (id) => isLoopTankRole(roleById[id]?.name),
         pressures: {
           tank.id: [
             for (final s

@@ -45,7 +45,7 @@ BailoutClaim claimBailoutGases({
     switches: [
       for (final sw in switches) (t: sw.timeSeconds, tankKey: sw.toTankIndex),
     ],
-    isLoopTank: (i) => _isLoopRole(byIndex[i]?.role),
+    isLoopTank: (i) => isLoopTankRole(byIndex[i]?.role),
     pressures: pressuresByIndex,
     candidates: claimers.map((t) => t.index),
     inWaterEndSeconds: inWaterEndSeconds,
@@ -144,6 +144,3 @@ bool _isClaimer(TankData t) =>
 /// A cylinder that is only a gas from the computer's list: no transmitter,
 /// and a mix the computer recorded.
 bool _isGasCylinder(TankData t) => t.transmitterSerial == null && t.mixRecorded;
-
-bool _isLoopRole(String? role) =>
-    role == TankRole.diluent.name || role == TankRole.oxygenSupply.name;

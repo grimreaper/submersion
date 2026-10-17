@@ -203,4 +203,38 @@ void main() {
     expect(outcome.registered, isFalse);
     expect(await TransmitterRepository().getForDiver('diver-1'), isEmpty);
   });
+
+  // Review: once this dive is repaired, a registry failure must not take
+  // the undo away or leave the finding open.
+  test(
+    'a registry failure still resolves the finding and keeps undo',
+    () async {
+      final finding = await seedFinding();
+      final failing = QualityRepairExecutor(
+        transmitterRepository: _ThrowingTransmitterRepository(),
+      );
+
+      final outcome = await failing.useAsBailout(
+        diveId: 'd1',
+        tankId: 'tx-d1',
+        ocTankId: 'oc-d1',
+        findingId: finding.id,
+        registerTransmitter: true,
+        serial: '180777',
+        diverId: 'diver-1',
+      );
+
+      expect(outcome.result.changed, isTrue);
+      expect(outcome.result.undo, isNotNull);
+      expect(outcome.registered, isFalse);
+      final findings = await findingsRepo.getFindings(diveId: 'd1');
+      expect(findings.single.status, QualityStatus.resolved);
+    },
+  );
+}
+
+class _ThrowingTransmitterRepository extends TransmitterRepository {
+  @override
+  Future<List<Transmitter>> getForDiver(String? diverId) async =>
+      throw StateError('registry unavailable');
 }

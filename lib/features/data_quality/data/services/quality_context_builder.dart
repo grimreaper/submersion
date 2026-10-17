@@ -145,8 +145,14 @@ class QualityContextBuilder {
     final ownComputerPressures = <String, List<QualityPressureSample>>{};
     for (final tank in dive.tanks) {
       if (tank.roleSource != TankRoleSource.transmitterName) continue;
+      // Same pick getTankPressuresForComputer makes: this computer's series,
+      // then one source per stretch, so two recordings never interleave.
       final own = [
-        for (final s in selectTankSeriesForComputer(allSeries, tank.computerId))
+        for (final s in selectTankSeriesPerSource(
+          selectTankSeriesForComputer(allSeries, tank.computerId),
+          preferredSourceId: sources.where((s) => s.isPrimary).firstOrNull?.id,
+          preferredComputerId: tank.computerId,
+        ))
           if (s.tankId == tank.id) s,
       ];
       if (own.isEmpty) continue;

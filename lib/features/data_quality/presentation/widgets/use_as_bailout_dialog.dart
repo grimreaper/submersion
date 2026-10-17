@@ -3,6 +3,7 @@ import 'package:flutter/material.dart';
 import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/dive_log/domain/services/as_imported_gas_cylinder.dart';
+import 'package:submersion/features/dive_log/domain/services/ccr_bailout_timeline.dart';
 import 'package:submersion/features/dive_log/presentation/widgets/tank_enum_display.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 
@@ -88,7 +89,10 @@ class _UseAsBailoutDialogState extends State<UseAsBailoutDialog> {
                 l10n.diveLog_tank_roleFromTransmitterName(
                   tank.role.localizedName(l10n),
                 ),
-                TankRole.bailout.localizedName(l10n),
+                (oc != null && !isLoopTankRole(oc.role.name)
+                        ? oc.role
+                        : TankRole.bailout)
+                    .localizedName(l10n),
               ),
             ),
             if (oc != null && oc.gasMix.name != tank.gasMix.name)

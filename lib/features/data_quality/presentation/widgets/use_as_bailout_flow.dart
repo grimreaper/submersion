@@ -27,7 +27,7 @@ Future<void> runUseAsBailoutRepair(
   required QualityRepairExecutor executor,
   required RepairRunner withUndo,
   DiveRepository? diveRepository,
-  Future<Set<String>> Function(String diveId)? hasPressureSeries,
+  Future<bool> Function(String diveId, String tankId)? hasPressureSeries,
 }) async {
   final dive = await (diveRepository ?? DiveRepository()).getDiveById(
     action.diveId,
@@ -37,16 +37,18 @@ Future<void> runUseAsBailoutRepair(
   final index = tanks.indexWhere((t) => t.id == action.tankId);
   if (index < 0) return;
   final tank = tanks[index];
-  final seriesTanks = await (hasPressureSeries ?? _hasPressureSeries)(
-    action.diveId,
-  );
+  final ocHasSeries =
+      await (hasPressureSeries ?? TankPressureRepository().hasTankSeries)(
+        action.diveId,
+        action.ocTankId,
+      );
   if (!context.mounted) return;
   final choice = await showUseAsBailoutDialog(
     context,
     tank: tank,
     tankNumber: index + 1,
     ocTank: tanks.where((t) => t.id == action.ocTankId).firstOrNull,
-    ocHasPressureSeries: seriesTanks.contains(action.ocTankId),
+    ocHasPressureSeries: ocHasSeries,
   );
   if (choice == null || !context.mounted) return;
 
@@ -78,9 +80,3 @@ Future<void> runUseAsBailoutRepair(
         : null,
   );
 }
-
-/// Ids of the dive's tanks that carry a pressure series.
-Future<Set<String>> _hasPressureSeries(String diveId) async =>
-    (await TankPressureRepository().getTankPressuresForDive(
-      diveId,
-    )).keys.toSet();

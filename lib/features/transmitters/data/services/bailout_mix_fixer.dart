@@ -54,9 +54,7 @@ class BailoutMixFixer {
     final roleById = {for (final t in tanks) t.id: t.tankRole};
     final evidence = bailoutEvidence<String>(
       switches: [for (final s in switches) (t: s.timestamp, tankKey: s.tankId)],
-      isLoopTank: (id) =>
-          roleById[id] == TankRole.diluent.name ||
-          roleById[id] == TankRole.oxygenSupply.name,
+      isLoopTank: (id) => isLoopTankRole(roleById[id]),
       pressures: {
         if (series[row.id] != null)
           row.id: [
