@@ -26,6 +26,7 @@ import '../../../../helpers/mock_providers.dart';
 import '../../../../helpers/test_app.dart';
 import '../../../../helpers/test_database.dart';
 import '../../domain/support/synthetic_dives.dart';
+import '../../../../helpers/pdf_roboto.dart';
 
 class _Recorder extends LabShareActions {
   _Recorder(this.fileToPick);
@@ -78,6 +79,9 @@ class _Host extends StatelessWidget {
 }
 
 void main() {
+  setUpAll(loadPdfRoboto);
+  tearDownAll(unloadPdfRoboto);
+
   setUp(setUpTestDatabase);
   tearDown(tearDownTestDatabase);
 

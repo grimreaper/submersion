@@ -4,6 +4,8 @@ import 'dart:ui' as ui;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/features/dive_lab/data/services/dive_lab_slate_pdf_service.dart';
 
+import '../../../helpers/pdf_roboto.dart';
+
 const _labels = LabSlateLabels(
   title: 'Dive Lab slate',
   actual: 'Actual',
@@ -63,6 +65,9 @@ LabSlateScenario _scenario({Uint8List? png, bool replan = true}) =>
     );
 
 void main() {
+  setUpAll(loadPdfRoboto);
+  tearDownAll(unloadPdfRoboto);
+
   TestWidgetsFlutterBinding.ensureInitialized();
 
   test(

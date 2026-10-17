@@ -22,6 +22,7 @@ import 'package:submersion/features/settings/presentation/providers/settings_pro
 import '../../../../helpers/mock_providers.dart';
 import '../../../../helpers/test_app.dart';
 import '../../domain/support/synthetic_dives.dart';
+import '../../../../helpers/pdf_roboto.dart';
 
 class _Recorder extends LabShareActions {
   final pdfs = <List<int>>[];
@@ -80,6 +81,9 @@ List<Object> _overrides({
 ];
 
 void main() {
+  setUpAll(loadPdfRoboto);
+  tearDownAll(unloadPdfRoboto);
+
   testWidgets('opening a saved scenario that is gone starts a fresh draft', (
     tester,
   ) async {

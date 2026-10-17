@@ -399,8 +399,8 @@ class ScenarioEngine {
           : engine.ascentPlanFor(plan.tanks),
       loop: plan.mode == domain.PlanMode.ccr
           ? LoopSetpoints(
-              low: plan.effectiveSetpointLow,
-              high: plan.effectiveSetpointHigh,
+              low: engine.config.setpointLowFor(plan),
+              high: engine.config.setpointHighFor(plan),
               switchDepth: plan.effectiveSetpointSwitchDepth,
               diluent: plan.segments.isEmpty
                   ? const GasMix()
@@ -455,8 +455,8 @@ class ScenarioEngine {
             scrTail?[i] ?? 0.0
           else if (isLoop)
             (spliced.depths[i] > plan.effectiveSetpointSwitchDepth
-                ? plan.effectiveSetpointHigh
-                : plan.effectiveSetpointLow)
+                ? engine.config.setpointHighFor(plan)
+                : engine.config.setpointLowFor(plan))
           else
             _ocPpO2(
               spliced.gasSegments,

@@ -73,8 +73,12 @@ void main() {
     // The newest rung owns the exact assertion; relax it to
     // greaterThanOrEqualTo when the next one lands.
     expect(AppDatabase.migrationStepCount(234), greaterThanOrEqualTo(1));
-    // A new table is additive: the compatibility floor stays put.
-    expect(AppDatabase.minimumCompatibleSchemaVersion, 240);
+    // A new table is additive, so v236 did not move the compatibility
+    // floor; later rungs raised it for their own reasons.
+    expect(
+      AppDatabase.minimumCompatibleSchemaVersion,
+      greaterThanOrEqualTo(240),
+    );
   });
 
   test('fresh database exposes the scenarios table via Drift', () async {

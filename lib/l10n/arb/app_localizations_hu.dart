@@ -50096,7 +50096,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String get diveLab_tile_backGas => 'Hátigáz';
 
   @override
-  String get diveLab_value_none => 'n/a';
+  String get diveLab_value_none => 'n. a.';
 
   @override
   String get diveLab_action_save => 'Mentés';
