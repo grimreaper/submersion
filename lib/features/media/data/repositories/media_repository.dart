@@ -2584,12 +2584,15 @@ class MediaRepository {
   }
 
   /// Rows with a content hash and at least one remote stamp, for the
-  /// verify sweep's reverse repair (orphan-prevention spec 6.2).
+  /// verify sweep's reverse repair (orphan-prevention spec 6.2). The
+  /// extension and media type say which exact keys the row resolves to.
   Future<
     List<
       ({
         String id,
         String contentHash,
+        String originalExtension,
+        bool isVideo,
         bool hasOriginal,
         bool hasThumb,
         bool hasRendition,
@@ -2599,14 +2602,16 @@ class MediaRepository {
   getRemoteStampedSummaries() async {
     // selectOnly projection: full rows would drag the imageData BLOB
     // (signature bytes) into memory for every stamped row, and the verify
-    // sweep only needs five scalars.
+    // sweep only needs a few scalars.
     final id = _db.media.id;
     final hash = _db.media.contentHash;
+    final filename = _db.media.originalFilename;
+    final fileType = _db.media.fileType;
     final original = _db.media.remoteUploadedAt;
     final thumb = _db.media.remoteThumbUploadedAt;
     final rendition = _db.media.remoteCompressedUploadedAt;
     final query = _db.selectOnly(_db.media)
-      ..addColumns([id, hash, original, thumb, rendition])
+      ..addColumns([id, hash, filename, fileType, original, thumb, rendition])
       ..where(
         hash.isNotNull() &
             (original.isNotNull() | thumb.isNotNull() | rendition.isNotNull()),
@@ -2617,6 +2622,8 @@ class MediaRepository {
         (
           id: row.read(id)!,
           contentHash: row.read(hash)!,
+          originalExtension: StoreKeys.extensionFor(row.read(filename)),
+          isVideo: row.read(fileType) == 'video',
           hasOriginal: row.read(original) != null,
           hasThumb: row.read(thumb) != null,
           hasRendition: row.read(rendition) != null,

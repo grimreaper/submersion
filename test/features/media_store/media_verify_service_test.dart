@@ -24,6 +24,9 @@ class _DuplicatingStore extends InMemoryMediaObjectStore
     implements DuplicateKeyStore {
   final copies = <String, int>{};
 
+  /// Per-copy modification times, in listing order, where they differ.
+  final copyModified = <String, List<DateTime>>{};
+
   @override
   Future<int> deleteExtraCopies(
     String key, {
@@ -42,7 +45,14 @@ class _DuplicatingStore extends InMemoryMediaObjectStore
   Stream<StoreObjectInfo> list(String keyPrefix) async* {
     await for (final info in super.list(keyPrefix)) {
       for (var i = 0; i < (copies[info.key] ?? 1); i++) {
-        yield info;
+        final times = copyModified[info.key];
+        yield times == null
+            ? info
+            : StoreObjectInfo(
+                key: info.key,
+                sizeBytes: info.sizeBytes,
+                lastModified: times[i],
+              );
       }
     }
   }
@@ -207,6 +217,47 @@ void main() {
     store.objects[key] = List.filled(size, 7);
     store.modified[key] = modified;
   }
+
+  test(
+    'repair re-uploads an original present only under another extension',
+    () async {
+      // The resolver reads the exact key the row derives from its filename;
+      // a sibling under another extension does not serve it.
+      await insertDive('d1');
+      final row = await photo(
+        'a.jpg',
+        hash: 'aabb',
+        uploadedAt: DateTime(2026, 2),
+      );
+      seedObject(StoreKeys.objectKey('aabb', extension: 'jpeg'), modified: old);
+
+      final report = await service.run();
+
+      expect((await repo.getMediaById(row.id))!.remoteUploadedAt, isNull);
+      expect(report.repairsQueued, 1);
+    },
+  );
+
+  test(
+    'repair re-uploads a rendition present only in the wrong format',
+    () async {
+      await insertDive('d1');
+      final row = await photo(
+        'a.jpg',
+        hash: 'aabb',
+        compressedAt: DateTime(2026, 2),
+      );
+      seedObject(StoreKeys.renditionKey('aabb', ext: 'mp4'), modified: old);
+
+      final report = await service.run();
+
+      expect(
+        (await repo.getMediaById(row.id))!.remoteCompressedUploadedAt,
+        isNull,
+      );
+      expect(report.repairsQueued, 1);
+    },
+  );
 
   test('deletes old unreferenced objects across all three namespaces, '
       'sparing referenced, young, and marker objects', () async {
@@ -647,6 +698,32 @@ void main() {
 
       expect(dup.copies[key], 3, reason: 'one copy went before the sync');
       expect(report.orphansRemoved, 1);
+    });
+
+    test('an orphan with a fresh copy is not deleted for an old one', () async {
+      // Copies are listed in no particular order; judged by the first, a
+      // copy uploaded minutes ago would go with an old one.
+      await insertDive('d1');
+      await photo('kept.jpg', hash: 'aabb', uploadedAt: DateTime(2026, 2));
+      final dup = _DuplicatingStore();
+      final kept = StoreKeys.objectKey('aabb', extension: 'jpg');
+      dup.objects[kept] = [1];
+      dup.modified[kept] = old;
+      final key = StoreKeys.objectKey('dead', extension: 'jpg');
+      dup.objects[key] = List.filled(3, 7);
+      dup.copies[key] = 2;
+      dup.copyModified[key] = [old, now.subtract(const Duration(hours: 1))];
+      final sweep = MediaVerifyService(
+        store: dup,
+        mediaRepository: repo,
+        queue: queue,
+        now: () => now,
+      );
+
+      final report = await sweep.run();
+
+      expect(dup.copies[key], 2, reason: 'the fresh copy is in its grace');
+      expect(report.orphansRemoved, 0);
     });
 
     test('a store that cannot hold duplicates is never asked to', () async {

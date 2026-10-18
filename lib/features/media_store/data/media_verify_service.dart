@@ -1,6 +1,7 @@
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/services/media_store/media_key_reference.dart';
 import 'package:submersion/core/services/media_store/media_object_store.dart';
+import 'package:submersion/core/services/media_store/store_keys.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media_store/data/media_key_references.dart';
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
@@ -122,16 +123,11 @@ class MediaVerifyService {
     var waitingBytes = 0;
     var sizesUnknown = false;
 
-    // Hashes actually present per tier, for reverse repair below.
-    final presentOriginals = <String>{};
-    final presentThumbs = <String>{};
-    final presentRenditions = <String>{};
-
     // Every namespace is listed before anything is deleted: whether a
     // sibling may go depends on whether a copy some row resolves to exists
-    // in ANY namespace (the resolver falls back across extension variants,
-    // StoreKeys.objectKeyPrefix), and a key listed more than once (two
-    // devices racing one key on Google Drive) has to be counted first.
+    // in either namespace (the resolver falls back from the original to the
+    // rendition, each under its exact key), and a key listed more than once
+    // (two devices racing one key on Google Drive) has to be counted first.
     // One listing serves every namespace: most adapters list the whole
     // folder whatever the prefix, so a listing per namespace fetched it
     // three times.
@@ -157,7 +153,13 @@ class MediaVerifyService {
       if (info.sizeBytes == null) sizesUnknown = true;
       final keys = listings[ns]!;
       final prev = keys[info.key];
-      keys[info.key] = _Listed(prev?.info ?? info, (prev?.copies ?? 0) + 1);
+      // Copies list in no set order; the newest decides the key's age, so a
+      // copy uploaded minutes ago never goes with an old one.
+      final newest =
+          prev == null || info.lastModified.isAfter(prev.info.lastModified)
+          ? info
+          : prev.info;
+      keys[info.key] = _Listed(newest, (prev?.copies ?? 0) + 1);
     }
     // A key listed twice is two objects only on a store that can hold
     // copies; anywhere else the repeat is a listing artefact.
@@ -234,11 +236,6 @@ class MediaVerifyService {
     }
 
     for (final ns in StoreNamespace.values) {
-      final present = switch (ns) {
-        StoreNamespace.objects => presentOriginals,
-        StoreNamespace.thumbs => presentThumbs,
-        StoreNamespace.renditions => presentRenditions,
-      };
       for (final listed in listings[ns]!.values) {
         await yieldNow();
         final info = listed.info;
@@ -246,7 +243,6 @@ class MediaVerifyService {
         final parsed = _parseKey(info.key, _prefixFor(ns));
         if (parsed == null) continue; // malformed keys are never deleted
         final refs = references[parsed.hash] ?? const <MediaKeyReference>[];
-        if (refs.isNotEmpty) present.add(parsed.hash);
 
         final referenced = isKeyReferenced(
           namespace: ns,
@@ -334,16 +330,33 @@ class MediaVerifyService {
     var repairsQueued = 0;
     if (!deferred) {
       for (final row in await _mediaRepository.getRemoteStampedSummaries()) {
+        // The exact keys the row resolves to: a sibling under another
+        // extension, or a rendition in the other format, does not serve it.
+        final hash = row.contentHash;
+        bool present(StoreNamespace ns, String key) =>
+            listings[ns]!.containsKey(key);
         var repaired = false;
-        if (row.hasOriginal && !presentOriginals.contains(row.contentHash)) {
+        if (row.hasOriginal &&
+            !present(
+              StoreNamespace.objects,
+              StoreKeys.objectKey(hash, extension: row.originalExtension),
+            )) {
           await _mediaRepository.clearRemoteUploaded(row.id);
           repaired = true;
         }
-        if (row.hasThumb && !presentThumbs.contains(row.contentHash)) {
+        if (row.hasThumb &&
+            !present(StoreNamespace.thumbs, StoreKeys.thumbKey(hash))) {
           await _mediaRepository.clearRemoteThumbUploaded(row.id);
           repaired = true;
         }
-        if (row.hasRendition && !presentRenditions.contains(row.contentHash)) {
+        if (row.hasRendition &&
+            !present(
+              StoreNamespace.renditions,
+              StoreKeys.renditionKey(
+                hash,
+                ext: StoreKeys.renditionExtension(isVideo: row.isVideo),
+              ),
+            )) {
           await _mediaRepository.clearRemoteCompressed(row.id);
           repaired = true;
         }
