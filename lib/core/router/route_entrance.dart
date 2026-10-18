@@ -15,15 +15,15 @@ import 'package:flutter/widgets.dart';
 mixin RouteEntranceSettled<T extends StatefulWidget> on State<T> {
   ModalRoute<Object?>? _route;
   Animation<double>? _entrance;
-  bool? _settled;
+  bool _settled = false;
 
   /// Whether the route's entrance animation has completed.
-  bool get isRouteEntranceSettled => _settled ?? true;
+  bool get isRouteEntranceSettled => _settled;
 
   @override
   void didChangeDependencies() {
     super.didChangeDependencies();
-    if (_settled ?? false) return;
+    if (_settled) return;
     final route = ModalRoute.of(context);
     final entrance = route?.animation;
     if (route == null || entrance == null) {
@@ -36,20 +36,23 @@ mixin RouteEntranceSettled<T extends StatefulWidget> on State<T> {
       _stopListening();
       _entrance = entrance..addStatusListener(_onEntranceStatus);
     }
-    _settled = _hasArrived(entrance.status);
-    if (_settled!) _stopListening();
+    _settled = !_isEntering(entrance.status);
+    if (_settled) _stopListening();
   }
 
-  /// Whether the entrance has nothing left to wait for. A hero controller
-  /// builds a pushed route offstage for its first frame, its animation
-  /// reading complete, to measure where heroes land; the slide only starts
-  /// once the route comes back onstage. A slide running backwards, because
-  /// the push was undone, has nothing left to clear the way for either.
-  bool _hasArrived(AnimationStatus status) =>
-      !(_route?.offstage ?? false) && status != AnimationStatus.forward;
+  /// Whether the route is still on its way in. A hero controller builds a
+  /// pushed route offstage for its first frame, its animation reading
+  /// complete, to measure where heroes land; the slide only starts once the
+  /// route comes back onstage.
+  bool _isEntering(AnimationStatus status) =>
+      (_route?.offstage ?? false) || status == AnimationStatus.forward;
 
+  /// Settles only when the slide arrives. One that turns back, because the
+  /// page was popped or a back swipe began mid-entrance, builds nothing on
+  /// its way out; one that a cancelled swipe sends forward again still
+  /// arrives.
   void _onEntranceStatus(AnimationStatus status) {
-    if (!_hasArrived(status)) return;
+    if (status != AnimationStatus.completed || _isEntering(status)) return;
     _stopListening();
     if (mounted) setState(() => _settled = true);
   }

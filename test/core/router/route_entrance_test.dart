@@ -92,6 +92,28 @@ void main() {
     expect(find.text('ENTERING'), findsNothing);
   });
 
+  testWidgets('a page popped before it arrives never settles on the way out', (
+    tester,
+  ) async {
+    final navigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(navigatorKey: navigator, home: const Text('HOME')),
+    );
+    navigator.currentState!.push(
+      MaterialPageRoute<void>(builder: (_) => const _Probe()),
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('ENTERING'), findsOneWidget);
+
+    navigator.currentState!.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 50));
+
+    expect(find.text('ENTERING'), findsOneWidget);
+    expect(find.text('SETTLED'), findsNothing);
+  });
+
   testWidgets('a page outside any route counts as settled', (tester) async {
     await tester.pumpWidget(
       const Directionality(textDirection: TextDirection.ltr, child: _Probe()),
