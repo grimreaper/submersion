@@ -223,8 +223,6 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
       worker = null;
     }
     if (worker != null) {
-      // Through the worker, so a resumable session the rows held is
-      // abandoned rather than left for the verify sweep's weekly reap.
       await worker.deleteEntries(ids.toList());
     } else {
       for (final id in ids) {

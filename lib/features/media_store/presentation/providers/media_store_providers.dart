@@ -329,18 +329,29 @@ final mediaVerifyRunnerProvider =
           policy: ref.read(orphanDeletePolicyFactoryProvider)(),
           deleteGuard: await mediaSweepDeleteGuard(ref),
         );
-        // The Storage usage page shows what this run reclaimed and found.
-        await ref.read(storageGcCoordinatorProvider).recordMediaSweep(report);
-        // Drain queued repairs BEFORE stamping: a stamp failure (DB/sync)
-        // must not strand repairs the sweep just queued.
+        // Drain queued repairs BEFORE anything else that can fail: a stamp
+        // or record failure must not strand repairs the sweep just queued.
         unawaited(runtime.worker?.drain());
+        // The Storage usage page shows what this run reclaimed and found.
+        // Display only, so a failed write costs the figures, not the sweep.
+        try {
+          await ref.read(storageGcCoordinatorProvider).recordMediaSweep(report);
+        } catch (e) {
+          LoggerService.forClass(
+            MediaVerifyService,
+          ).warning('Recording the verify result failed', error: e);
+        }
         // A deferred run deleted nothing; stamping it would hold every
         // device's cleanup off for the fleet cadence.
         if (report.deferred) return report;
+        // The swept store's row, as the scheduled cleanup stamps: the newest
+        // row may be another store's.
         final storesRepository = ref.read(mediaStoresRepositoryProvider);
-        final active = await storesRepository.getActive();
-        if (active != null) {
-          await storesRepository.stampLastSweep(active.id, DateTime.now());
+        if (await storesRepository.getById(runtime.storeId) != null) {
+          await storesRepository.stampLastSweep(
+            runtime.storeId,
+            DateTime.now(),
+          );
         }
         return report;
       };

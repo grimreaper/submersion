@@ -160,8 +160,8 @@ final storageGcStateProvider = StreamProvider<StorageGcView>((ref) async* {
 
 /// Bytes the device sweeps could reclaim right now, from a dry run.
 // no-tick: a filesystem walk, not a table read. It is recomputed after a
-// cleanup pass reclaims on the device (its watch on storageGcStateProvider),
-// and the page's Recalculate action invalidates it.
+// cleanup pass records a new device result (its listener on the
+// coordinator's changes), and the page's Recalculate action invalidates it.
 final deviceReclaimableBytesProvider = FutureProvider.autoDispose<int>((ref) {
   final coordinator = ref.watch(storageGcCoordinatorProvider);
   // Recomputed only when a device pass recorded a new result: a run that
@@ -220,7 +220,9 @@ Future<VerifyLibraryReport?> _mediaSweep(
       ).run(
         policy: ref.read(orphanDeletePolicyFactoryProvider)(),
         dryRun: dryRun,
-        deleteGuard: await mediaSweepDeleteGuard(ref),
+        // A measurement deletes nothing, so it needs no guard (and no
+        // transfer-queue query to build one).
+        deleteGuard: dryRun ? null : await mediaSweepDeleteGuard(ref),
       );
   // Repairs the sweep queued drain now rather than on the next trigger.
   if (!dryRun) unawaited(runtime.worker?.drain());

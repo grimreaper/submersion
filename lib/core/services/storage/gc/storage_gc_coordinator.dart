@@ -154,16 +154,26 @@ class StorageGcCoordinator {
     final usage =
         _store.cloudUsage ?? CloudUsage(scannedAt: now, partial: true);
     await _store.setCloudUsage(
-      usage.copyWith(
-        mediaBytes: report.totalBytes - report.bytesReclaimed,
-        mediaReclaimableBytes: report.reclaimableBytes - report.bytesReclaimed,
-        mediaWaitingBytes: report.waitingBytes,
-        mediaDeferred: report.deferred,
-        partial: usage.partial || report.sizesUnknown,
-      ),
+      _withMedia(
+        usage,
+        report,
+      ).copyWith(partial: usage.partial || report.sizesUnknown),
     );
     _notify();
   }
+
+  /// [usage] with the media figures [report] found: what the store holds,
+  /// and could still give back, after the sweep's own deletes.
+  static CloudUsage _withMedia(
+    CloudUsage usage,
+    VerifyLibraryReport report, {
+    bool deferred = false,
+  }) => usage.copyWith(
+    mediaBytes: report.totalBytes - report.bytesReclaimed,
+    mediaReclaimableBytes: report.reclaimableBytes - report.bytesReclaimed,
+    mediaWaitingBytes: report.waitingBytes,
+    mediaDeferred: report.deferred || deferred,
+  );
 
   Future<void> _recordCloudResult(VerifyLibraryReport report, DateTime at) {
     if (report.orphansRemoved == 0) return Future.value();
@@ -384,30 +394,25 @@ class StorageGcCoordinator {
     }
 
     final previous = _store.cloudUsage;
+    final scan = CloudUsage(
+      scannedAt: now,
+      syncBytes: syncBytes,
+      librariesBytes: libraries?.bytes,
+      partial: partial || (libraries?.partial ?? false),
+    );
     final r = report;
     await _store.setCloudUsage(
-      CloudUsage(
-        scannedAt: now,
-        mediaBytes: mediaFailed
-            ? previous?.mediaBytes
-            : r == null
-            ? null
-            : r.totalBytes - r.bytesReclaimed,
-        mediaReclaimableBytes: mediaFailed
-            ? previous?.mediaReclaimableBytes
-            : r == null
-            ? null
-            : r.reclaimableBytes - r.bytesReclaimed,
-        mediaWaitingBytes: mediaFailed
-            ? previous?.mediaWaitingBytes
-            : r?.waitingBytes,
-        mediaDeferred: mediaFailed
-            ? previous?.mediaDeferred ?? false
-            : (r?.deferred ?? false) || _lastPassCloudDeferred,
-        syncBytes: syncBytes,
-        librariesBytes: libraries?.bytes,
-        partial: partial || (libraries?.partial ?? false),
-      ),
+      mediaFailed
+          // The last known media figures stay; the total is already partial.
+          ? scan.copyWith(
+              mediaBytes: previous?.mediaBytes,
+              mediaReclaimableBytes: previous?.mediaReclaimableBytes,
+              mediaWaitingBytes: previous?.mediaWaitingBytes,
+              mediaDeferred: previous?.mediaDeferred,
+            )
+          : r == null
+          ? scan
+          : _withMedia(scan, r, deferred: _lastPassCloudDeferred),
     );
     await _store.setLastCloudMeasure(now);
     return reclaimed;

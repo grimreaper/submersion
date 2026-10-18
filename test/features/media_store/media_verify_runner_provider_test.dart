@@ -3,6 +3,7 @@ import 'dart:io';
 
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
+import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -10,6 +11,10 @@ import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/local_cache_database.dart';
 import 'package:submersion/core/services/media_store/media_store_attach_state.dart';
 import 'package:submersion/core/services/media_store/store_keys.dart';
+import 'package:submersion/core/services/media_store/network_status_service.dart';
+import 'package:submersion/core/services/storage/gc/storage_gc_coordinator.dart';
+import 'package:submersion/core/services/storage/gc/storage_gc_store.dart';
+import 'package:submersion/features/media_store/data/media_verify_service.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media/data/resolvers/media_store_resolver.dart';
 import 'package:submersion/features/media/domain/entities/media_item.dart';
@@ -65,6 +70,7 @@ void main() {
   ProviderContainer container({
     bool attached = true,
     OrphanDeletePolicy Function()? policy,
+    List<Override> extraOverrides = const [],
   }) {
     final cache = MediaCacheStore(database: cacheDb, root: root);
     final c = ProviderContainer(
@@ -87,6 +93,7 @@ void main() {
                 )
               : null,
         ),
+        ...extraOverrides,
       ],
     );
     addTearDown(c.dispose);
@@ -188,6 +195,51 @@ void main() {
     expect(c.read(storageGcStoreProvider).lastCloudResult!.bytes, 2);
   });
 
+  test("Verify Library stamps the attached store's row", () async {
+    // Not the newest row: a device still attached to an older store would
+    // otherwise mark the other store swept.
+    final stores = MediaStoresRepository();
+    await stores.upsertActive(
+      storeId: 'store-1',
+      providerType: 's3',
+      displayHint: 'attached',
+    );
+    await stores.upsertActive(
+      storeId: 'store-2',
+      providerType: 's3',
+      displayHint: 'newer',
+    );
+
+    await container().read(mediaVerifyRunnerProvider)();
+
+    expect((await stores.getById('store-1'))!.lastSweepAt, isNotNull);
+    expect((await stores.getById('store-2'))!.lastSweepAt, isNull);
+  });
+
+  test(
+    'a failure recording the page figures does not fail the sweep',
+    () async {
+      final stores = MediaStoresRepository();
+      await stores.upsertActive(
+        storeId: 'store-1',
+        providerType: 's3',
+        displayHint: 'attached',
+      );
+      final c = container(
+        extraOverrides: [
+          storageGcCoordinatorProvider.overrideWith(
+            (ref) => _FailingRecordCoordinator(StorageGcStore(prefs)),
+          ),
+        ],
+      );
+
+      final report = await c.read(mediaVerifyRunnerProvider)();
+
+      expect(report.deferred, isFalse);
+      expect((await stores.getById('store-1'))!.lastSweepAt, isNotNull);
+    },
+  );
+
   test('runner without an active descriptor still returns a report', () async {
     final report = await container().read(mediaVerifyRunnerProvider)();
     expect(report.orphansRemoved, 0);
@@ -209,6 +261,29 @@ void main() {
       throwsStateError,
     );
   });
+}
+
+/// A coordinator whose page record fails, as a failed prefs write would.
+class _FailingRecordCoordinator extends StorageGcCoordinator {
+  _FailingRecordCoordinator(StorageGcStore store)
+    : super(
+        deviceSweeps: const [],
+        localCacheSweep: (_, {required force}) async {},
+        network: () async => NetworkKind.offline,
+        isSyncBusy: () => false,
+        hasTransferringUploads: () async => false,
+        mediaSweep: ({required dryRun}) async => null,
+        deletesAllowed: () async => false,
+        fleetSweepDue: (_) async => false,
+        stampFleetSweep: (_) async {},
+        measureSync: () async => null,
+        measureLibraries: () async => null,
+        store: store,
+      );
+
+  @override
+  Future<void> recordMediaSweep(VerifyLibraryReport report) async =>
+      throw StateError('prefs write failed');
 }
 
 /// Points the temporary directory at the test's own folder: the store

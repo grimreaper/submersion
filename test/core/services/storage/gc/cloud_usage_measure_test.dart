@@ -36,34 +36,12 @@ class _PathProvider extends FakeCloudStorageProvider {
   ];
 }
 
-/// A reader's view of a WebDAV library: folders that exist resolve, and
-/// creating one that does not is refused.
-class _ReadOnlyProvider extends _PathProvider {
-  final created = <String>[];
-
-  @override
-  Future<String> createFolder(
-    String folderName, {
-    String? parentFolderId,
-  }) async {
-    final path = await super.createFolder(
-      folderName,
-      parentFolderId: parentFolderId,
-    );
-    final exists =
-        path.split('/').length < 3 ||
-        files.keys.any((k) => k.startsWith('$path/'));
-    if (!exists) {
-      created.add(path);
-      throw CloudStorageException('MKCOL refused: $path');
-    }
-    return path;
-  }
-}
-
 /// Looks folders up without creating them, as WebDAV does.
 class _LookupProvider extends _PathProvider implements FolderLookup {
   final created = <String>[];
+
+  /// Folders whose lookup fails, as a server that times out would.
+  final failing = <String>{};
 
   @override
   Future<String> createFolder(
@@ -87,6 +65,9 @@ class _LookupProvider extends _PathProvider implements FolderLookup {
       folderName,
       parentFolderId: parentFolderId,
     );
+    if (failing.contains(folderName)) {
+      throw CloudStorageException('PROPFIND timed out: $path');
+    }
     return files.keys.any((k) => k.startsWith('$path/')) ? path : null;
   }
 }
@@ -140,29 +121,6 @@ void main() {
     expect(measured.partial, isFalse);
   });
 
-  test(
-    'a library without suggestions or backups is measured in full',
-    () async {
-      // A reader may not create the folders a library has never needed; the
-      // measurement must not try, nor call the total partial for their lack.
-      final cloud = _ReadOnlyProvider();
-      const root = 'submersion-sites/site-sync';
-      cloud.files.addAll({
-        '$root/keyslots.json': 6,
-        '$root/sites/site-a.json': 10,
-        '$root/members/member-m1.json': 3,
-      });
-
-      final measured = await SharedLibraryTransport(
-        cloud,
-        prefix: 'site-sync',
-      ).measureBytes();
-
-      expect(measured.bytes, 6 + 10 + 3);
-      expect(measured.partial, isFalse);
-    },
-  );
-
   test('measuring creates no missing optional folder', () async {
     // A size scan must not write to a library, even one it may write to.
     final cloud = _LookupProvider();
@@ -182,6 +140,23 @@ void main() {
     expect(measured.partial, isFalse);
     expect(cloud.created, isNot(contains('$root/suggestions')));
   });
+
+  test(
+    'an optional folder that cannot be looked up marks it partial',
+    () async {
+      // Missing is a null lookup; a lookup that fails may be hiding bytes.
+      final cloud = _LookupProvider()..failing.add('backups');
+      cloud.files['submersion-sites/site-sync/sites/site-a.json'] = 10;
+
+      final measured = await SharedLibraryTransport(
+        cloud,
+        prefix: 'site-sync',
+      ).measureBytes();
+
+      expect(measured.bytes, 10);
+      expect(measured.partial, isTrue);
+    },
+  );
 
   test('a file without a size marks the library partial', () async {
     final cloud = _PathProvider();

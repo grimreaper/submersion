@@ -15,8 +15,9 @@ extension SharedLibraryTransportMeasure on SharedLibraryTransport {
     final seen = <String>{};
     // A library that has never had a suggestion or a backup has no folder
     // for them. A measurement looks those up rather than creating them where
-    // creating writes (WebDAV), and a folder it cannot find or create is
-    // simply empty, not a reason to call the figure partial.
+    // creating writes (WebDAV); a folder the lookup does not find is simply
+    // empty, while a lookup that fails may hide bytes, so it marks the
+    // figure partial like any other failure.
     Future<String?> optional(String dir) async {
       final root = await _rootId();
       return switch (_provider) {
@@ -28,18 +29,18 @@ extension SharedLibraryTransportMeasure on SharedLibraryTransport {
       };
     }
 
-    for (final (folder, mayBeAbsent) in <(Future<String?> Function(), bool)>[
-      (_rootId, false),
-      (_membersId, false),
-      (_sitesId, false),
-      (() => optional(SharedLibraryLayout.suggestionsDir), true),
-      (() => optional(SharedLibraryLayout.backupsDir), true),
+    for (final folder in <Future<String?> Function()>[
+      _rootId,
+      _membersId,
+      _sitesId,
+      () => optional(SharedLibraryLayout.suggestionsDir),
+      () => optional(SharedLibraryLayout.backupsDir),
     ]) {
       final String? folderId;
       try {
         folderId = await folder();
       } on Exception {
-        if (!mayBeAbsent) partial = true;
+        partial = true;
         continue;
       }
       if (folderId == null) continue;
