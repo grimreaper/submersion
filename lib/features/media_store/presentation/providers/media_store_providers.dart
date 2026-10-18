@@ -21,7 +21,6 @@ import 'package:submersion/core/services/media_store/media_upload_quality_policy
 import 'package:submersion/core/services/media_store/network_status_service.dart';
 import 'package:submersion/core/services/storage/gc/storage_gc_store.dart';
 import 'package:submersion/core/services/sync/peer_sync_snapshot.dart';
-import 'package:submersion/core/services/sync/sync_coordinator.dart';
 import 'package:submersion/features/media/data/media_cache_settings.dart';
 import 'package:submersion/features/media/data/resolvers/media_store_resolver.dart';
 import 'package:submersion/features/media/domain/entities/media_item.dart';
@@ -38,14 +37,12 @@ import 'package:submersion/features/media_store/data/media_store_service.dart';
 import 'package:submersion/features/media_store/data/media_store_worker.dart';
 import 'package:submersion/features/media_store/data/media_stores_repository.dart';
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
-import 'package:submersion/features/media_store/data/media_verify_service.dart';
 import 'package:submersion/features/media_store/data/orphan_delete_policy.dart';
 import 'package:submersion/features/media_store/data/media_upload_pipeline.dart';
 import 'package:submersion/features/media_store/data/platform_video_transcoder.dart';
 import 'package:submersion/features/media_store/domain/media_transfer_summary.dart';
 import 'package:submersion/features/media_store/domain/media_upload_quality.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
-import 'package:submersion/features/settings/presentation/providers/storage_gc_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 
 /// Everything a configured media store needs at runtime. Built once per
@@ -257,115 +254,6 @@ final orphanDeletePolicyFactoryProvider =
           snapshot: PeerSyncSnapshotStore(prefs).read(),
           lastRestoreAt: StorageGcStore(prefs).lastRestoreAt,
         );
-      };
-    });
-
-/// The runtime a media store sweep may run against.
-///
-/// Null when no store is attached. Throws when one is attached but cannot be
-/// built right now (a lapsed session, a missing credential), so a caller
-/// does not mistake it for "not set up"; and when the store fails the marker
-/// check the upload worker runs before every transfer (detached, wiped or
-/// repointed), since sweeping it would judge another library's objects, or
-/// an empty store, against this library's rows.
-Future<MediaStoreRuntime?> sweepableMediaStoreRuntime(Ref ref) async {
-  final attachState = ref.read(mediaStoreAttachStateProvider);
-  final runtime = await ref.read(mediaStoreRuntimeProvider.future);
-  if (runtime == null) {
-    if (await attachState.attachedStoreId() != null) {
-      throw StateError('The attached media store is unavailable');
-    }
-    return null;
-  }
-  final refusal = await MediaStorePreflight(
-    attachState: attachState,
-    store: runtime.store,
-    attachedStoreId: runtime.storeId,
-  ).check();
-  if (refusal != null) {
-    throw StateError('The media store failed its marker check ($refusal)');
-  }
-  return runtime;
-}
-
-/// Asked before every cloud media delete, by the scheduled cleanup and by
-/// Verify Library alike: false throughout while an upload is transferring,
-/// and false once a sync or a restore has started since the sweep began
-/// (the sweep judged orphans against the rows it read at its start), or the
-/// store was detached or repointed (what is left of the listing is no
-/// longer this device's store to judge). The attachment is read the same
-/// synchronous way it is written, so a change shows at the next delete.
-Future<bool Function()> mediaSweepDeleteGuard(Ref ref) async {
-  final transferring = await ref
-      .read(mediaTransferQueueRepositoryProvider)
-      .hasTransferringUploads();
-  final prefs = ref.read(sharedPreferencesProvider);
-  final quiet = SyncCoordinator.quietGuard();
-  final notRestored = StorageGcStore.restoreGuard(prefs);
-  int generation() => prefs.getInt(MediaStoreAttachState.generationKey) ?? 0;
-  String? storeId() => prefs.getString(MediaStoreAttachState.storeIdKey);
-  final attachedGeneration = generation();
-  final attachedStoreId = storeId();
-  return () =>
-      !transferring &&
-      quiet() &&
-      notRestored() &&
-      generation() == attachedGeneration &&
-      storeId() == attachedStoreId;
-}
-
-/// Runs a Verify Library sweep against the attached store, stamps the
-/// fleet-wide timestamp on success, and kicks a drain for any queued
-/// repairs (orphan-prevention spec 6.3). Throws StateError when no store
-/// is attached; the settings action only renders in the connected state.
-// no-tick: the value is a CLOSURE, not a query result. Every repository read
-// happens inside it at call time via ref.read, so there is no cached row that
-// could go stale.
-final mediaVerifyRunnerProvider =
-    Provider<Future<VerifyLibraryReport> Function()>((ref) {
-      return () async {
-        final runtime = await sweepableMediaStoreRuntime(ref);
-        if (runtime == null) {
-          throw StateError('no media store attached');
-        }
-        final service = MediaVerifyService(
-          store: runtime.store,
-          mediaRepository: ref.read(mediaRepositoryProvider),
-          queue: ref.read(mediaTransferQueueRepositoryProvider),
-        );
-        // The same gates as the scheduled cleanup: no delete while an upload is
-        // transferring, nor during or after a merge, a restore or an
-        // attachment change that started once this run began, and none at
-        // all from a database that never registered this store (a restore
-        // from before it was attached does not know which objects are its).
-        final storesRepository = ref.read(mediaStoresRepositoryProvider);
-        final registered =
-            await storesRepository.getById(runtime.storeId) != null;
-        final guard = await mediaSweepDeleteGuard(ref);
-        final report = await service.run(
-          policy: ref.read(orphanDeletePolicyFactoryProvider)(),
-          deleteGuard: registered ? guard : () => false,
-        );
-        // Drain queued repairs BEFORE anything else that can fail: a stamp
-        // or record failure must not strand repairs the sweep just queued.
-        unawaited(runtime.worker?.drain());
-        // The Storage usage page shows what this run reclaimed and found.
-        // Display only, so a failed write costs the figures, not the sweep.
-        try {
-          await ref.read(storageGcCoordinatorProvider).recordMediaSweep(report);
-        } catch (e) {
-          LoggerService.forClass(
-            MediaVerifyService,
-          ).warning('Recording the verify result failed', error: e);
-        }
-        // A deferred run deleted nothing; stamping it would hold every
-        // device's cleanup off for the fleet cadence.
-        if (report.deferred) return report;
-        // The swept store's row, as the scheduled cleanup stamps: the newest
-        // row may be another store's. A deferred run returned above, and an
-        // unregistered store's run is always deferred.
-        await storesRepository.stampLastSweep(runtime.storeId, DateTime.now());
-        return report;
       };
     });
 

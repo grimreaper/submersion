@@ -2,6 +2,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:submersion/core/services/media_store/icloud_media_object_store.dart';
 import 'package:submersion/core/services/media_store/icloud_media_platform.dart';
 import 'package:submersion/core/services/media_store/media_object_store.dart';
@@ -52,6 +53,16 @@ void main() {
 
   late Directory container;
   late Directory tmp;
+
+  /// A media object's path inside the container's store root.
+  String objectPath(String shard, String name) => p.join(
+    container.path,
+    'submersion-media',
+    'smv1',
+    'objects',
+    shard,
+    name,
+  );
 
   ICloudMediaObjectStore build({int? smallFileThresholdBytes}) {
     return ICloudMediaObjectStore(
@@ -162,7 +173,7 @@ void main() {
       // must not pull the whole media library back onto the disk.
       final platform = _CountingPlatform(container);
       final store = ICloudMediaObjectStore(platform: platform);
-      File('${container.path}/submersion-media/smv1/objects/aa/aabb.jpg')
+      File(objectPath('aa', 'aabb.jpg'))
         ..createSync(recursive: true)
         ..writeAsBytesSync([1, 2, 3]);
 
@@ -179,9 +190,7 @@ void main() {
       final store = ICloudMediaObjectStore(
         platform: DirectoryICloudMediaPlatform(container),
       );
-      File(
-          '${container.path}/submersion-media/smv1/objects/aa/.aabb.jpg.icloud',
-        )
+      File(objectPath('aa', '.aabb.jpg.icloud'))
         ..createSync(recursive: true)
         ..writeAsBytesSync([9]);
 
@@ -198,6 +207,58 @@ void main() {
       await store.list('smv1/').toList();
 
       expect(platform.refreshes, 1);
+    });
+  });
+
+  group('evicted objects and ages', () {
+    test('the full listing reports an evicted object under its key', () async {
+      // A deleting sweep's reverse repair checks exact keys: a placeholder
+      // listed under its own name made a present object look missing, and
+      // the repair cleared its synced upload stamps on every device.
+      final store = ICloudMediaObjectStore(
+        platform: DirectoryICloudMediaPlatform(container),
+      );
+      File(objectPath('aa', '.aabb.jpg.icloud'))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([9]);
+
+      final listed = await store.list('smv1/').toList();
+
+      expect(listed.single.key, 'smv1/objects/aa/aabb.jpg');
+      expect(listed.single.sizeBytes, isNull);
+    });
+
+    test('an object copied with an old date is aged by its arrival', () async {
+      // Builds before the upload-time fix staged copies with the source's
+      // modification time; the change time still says when the file
+      // arrived, so the grace window starts there.
+      final store = ICloudMediaObjectStore(
+        platform: DirectoryICloudMediaPlatform(container),
+      );
+      final before = DateTime.now().subtract(const Duration(seconds: 5));
+      File(objectPath('aa', 'aabb.jpg'))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([1, 2, 3])
+        ..setLastModifiedSync(DateTime(2024, 1, 1));
+
+      final listed = await store.list('smv1/').single;
+      final head = await store.head('smv1/objects/aa/aabb.jpg');
+
+      expect(listed.lastModified.isAfter(before), isTrue);
+      expect(head!.lastModified.isAfter(before), isTrue);
+    });
+
+    test('deleting an evicted object removes its placeholder', () async {
+      final store = ICloudMediaObjectStore(
+        platform: DirectoryICloudMediaPlatform(container),
+      );
+      final placeholder = File(objectPath('aa', '.aabb.jpg.icloud'))
+        ..createSync(recursive: true)
+        ..writeAsBytesSync([9]);
+
+      await store.delete('smv1/objects/aa/aabb.jpg');
+
+      expect(placeholder.existsSync(), isFalse);
     });
   });
 

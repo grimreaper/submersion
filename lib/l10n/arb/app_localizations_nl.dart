@@ -35374,6 +35374,14 @@ class AppLocalizationsNl extends AppLocalizations {
       'Er is niets verwijderd: verwijderingen wachten tot dit apparaat klaar is met synchroniseren.';
 
   @override
+  String get settings_mediaStorage_verify_unregistered =>
+      'Er is niets verwijderd: verbind de mediaopslag opnieuw zodat dit duiklogboek weet welke bestanden van hem zijn.';
+
+  @override
+  String get settings_mediaStorage_verify_uploads =>
+      'Er is niets verwijderd: verwijderingen wachten tot de uploads klaar zijn.';
+
+  @override
   String get settings_mediaStorage_backfill_action =>
       'Bestaande bibliotheek uploaden';
 
@@ -50035,6 +50043,16 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
+  String settings_storageUsage_reclaimWaitingUnregistered(String size) {
+    return 'Nog $size is terug te winnen nadat je de mediaopslag opnieuw verbindt';
+  }
+
+  @override
+  String settings_storageUsage_reclaimWaitingUploads(String size) {
+    return 'Nog $size is terug te winnen zodra de uploads klaar zijn';
+  }
+
+  @override
   String get settings_storageUsage_reclaimAction => 'Opslag terugwinnen';
 
   @override
@@ -50045,6 +50063,16 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String settings_storageUsage_reclaimDoneDeferred(String size) {
     return '$size teruggewonnen. De opschoning in de cloud wacht tot dit apparaat klaar is met synchroniseren.';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUnregistered(String size) {
+    return '$size teruggewonnen. Verbind de mediaopslag opnieuw om de cloud op te schonen.';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUploads(String size) {
+    return '$size teruggewonnen. De opschoning in de cloud wacht tot de uploads klaar zijn.';
   }
 
   @override

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 
 import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/core/services/storage/gc/cloud_usage_measure.dart';
 import 'package:submersion/core/services/storage/gc/storage_gc_coordinator.dart';
 import 'package:submersion/core/utils/byte_format.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
@@ -39,15 +40,19 @@ class _StorageReclaimCardState extends ConsumerState<StorageReclaimCard> {
       if (mounted) setState(() => _running = false);
     }
     if (!mounted) return;
-    // Held-back cloud deletes are not "nothing left": they wait on a sync.
+    // Held-back cloud deletes are not "nothing left": say what they wait on.
     final size = formatBytes(bytes);
     messenger.showSnackBar(
       SnackBar(
-        content: Text(
-          coordinator.lastPassCloudDeferred
-              ? l10n.settings_storageUsage_reclaimDoneDeferred(size)
-              : l10n.settings_storageUsage_reclaimDone(size),
-        ),
+        content: Text(switch (coordinator.lastPassCloudHold) {
+          null => l10n.settings_storageUsage_reclaimDone(size),
+          CloudDeleteHold.sync =>
+            l10n.settings_storageUsage_reclaimDoneDeferred(size),
+          CloudDeleteHold.unregistered =>
+            l10n.settings_storageUsage_reclaimDoneUnregistered(size),
+          CloudDeleteHold.uploads =>
+            l10n.settings_storageUsage_reclaimDoneUploads(size),
+        }),
       ),
     );
   }
@@ -96,16 +101,23 @@ class _StorageReclaimCardState extends ConsumerState<StorageReclaimCard> {
             ],
             if (waiting > 0) ...[
               const SizedBox(height: 4),
-              Text(
-                cloud?.mediaDeferred ?? false
-                    ? l10n.settings_storageUsage_reclaimWaitingSync(
-                        formatBytes(waiting),
-                      )
-                    : l10n.settings_storageUsage_reclaimWaiting(
-                        formatBytes(waiting),
-                      ),
-                style: muted,
-              ),
+              Text(switch (cloud?.mediaHold) {
+                null => l10n.settings_storageUsage_reclaimWaiting(
+                  formatBytes(waiting),
+                ),
+                CloudDeleteHold.sync =>
+                  l10n.settings_storageUsage_reclaimWaitingSync(
+                    formatBytes(waiting),
+                  ),
+                CloudDeleteHold.unregistered =>
+                  l10n.settings_storageUsage_reclaimWaitingUnregistered(
+                    formatBytes(waiting),
+                  ),
+                CloudDeleteHold.uploads =>
+                  l10n.settings_storageUsage_reclaimWaitingUploads(
+                    formatBytes(waiting),
+                  ),
+              }, style: muted),
             ],
             const SizedBox(height: 12),
             FilledButton.icon(

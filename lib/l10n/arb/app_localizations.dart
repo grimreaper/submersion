@@ -56024,6 +56024,18 @@ abstract class AppLocalizations {
   /// **'Nothing was deleted: deletes wait until this device has finished syncing.'**
   String get settings_mediaStorage_verify_deferred;
 
+  /// No description provided for @settings_mediaStorage_verify_unregistered.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing was deleted: reconnect the media store so this dive log knows which files are its own.'**
+  String get settings_mediaStorage_verify_unregistered;
+
+  /// No description provided for @settings_mediaStorage_verify_uploads.
+  ///
+  /// In en, this message translates to:
+  /// **'Nothing was deleted: deletes wait until uploads finish.'**
+  String get settings_mediaStorage_verify_uploads;
+
   /// No description provided for @settings_mediaStorage_backfill_action.
   ///
   /// In en, this message translates to:
@@ -79861,6 +79873,18 @@ abstract class AppLocalizations {
   /// **'{size} more will be reclaimable once this device has finished syncing'**
   String settings_storageUsage_reclaimWaitingSync(String size);
 
+  /// No description provided for @settings_storageUsage_reclaimWaitingUnregistered.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} more will be reclaimable after you reconnect the media store'**
+  String settings_storageUsage_reclaimWaitingUnregistered(String size);
+
+  /// No description provided for @settings_storageUsage_reclaimWaitingUploads.
+  ///
+  /// In en, this message translates to:
+  /// **'{size} more will be reclaimable once uploads finish'**
+  String settings_storageUsage_reclaimWaitingUploads(String size);
+
   /// No description provided for @settings_storageUsage_reclaimAction.
   ///
   /// In en, this message translates to:
@@ -79878,6 +79902,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Reclaimed {size}. The cloud cleanup waits until this device has finished syncing.'**
   String settings_storageUsage_reclaimDoneDeferred(String size);
+
+  /// No description provided for @settings_storageUsage_reclaimDoneUnregistered.
+  ///
+  /// In en, this message translates to:
+  /// **'Reclaimed {size}. Reconnect the media store to clean up the cloud.'**
+  String settings_storageUsage_reclaimDoneUnregistered(String size);
+
+  /// No description provided for @settings_storageUsage_reclaimDoneUploads.
+  ///
+  /// In en, this message translates to:
+  /// **'Reclaimed {size}. The cloud cleanup waits until uploads finish.'**
+  String settings_storageUsage_reclaimDoneUploads(String size);
 
   /// No description provided for @settings_storageUsage_group_cloud.
   ///

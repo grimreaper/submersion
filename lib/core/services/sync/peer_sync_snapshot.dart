@@ -10,7 +10,8 @@ class PeerPublish {
 
   final String deviceId;
 
-  /// The peer's own wall clock at its last publish (manifest `updatedAt`).
+  /// When the peer last published: its own clock (manifest `updatedAt`),
+  /// capped by the cloud's listing time of that manifest.
   final DateTime publishedAt;
 }
 
@@ -108,6 +109,7 @@ PeerSyncSnapshot buildPeerSyncSnapshot({
   required Set<String> unpublishedPeerIds,
   required Set<String> skippedPeerIds,
   required int recordsFailed,
+  Map<String, DateTime> manifestListedAt = const {},
 }) {
   return PeerSyncSnapshot(
     takenAt: now,
@@ -124,11 +126,19 @@ PeerSyncSnapshot buildPeerSyncSnapshot({
         if (m.deviceId != selfDeviceId && !fencedPeerIds.contains(m.deviceId))
           PeerPublish(
             deviceId: m.deviceId,
-            publishedAt: DateTime.fromMillisecondsSinceEpoch(m.updatedAt),
+            publishedAt: _earlier(
+              DateTime.fromMillisecondsSinceEpoch(m.updatedAt),
+              manifestListedAt[m.deviceId],
+            ),
           ),
     ],
   );
 }
+
+/// A peer's clock can run ahead, claiming a publish after an upload it never
+/// saw; the cloud's listing time of its manifest caps that claim.
+DateTime _earlier(DateTime own, DateTime? listed) =>
+    listed != null && listed.isBefore(own) ? listed : own;
 
 /// Device-local persistence for the last [PeerSyncSnapshot].
 class PeerSyncSnapshotStore {

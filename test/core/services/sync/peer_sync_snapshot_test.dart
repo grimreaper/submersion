@@ -22,6 +22,7 @@ void main() {
     Set<String> unpublished = const {},
     Set<String> skipped = const {},
     int recordsFailed = 0,
+    Map<String, DateTime> listedAt = const {},
   }) => buildPeerSyncSnapshot(
     now: now,
     providerId: 'dropbox',
@@ -34,6 +35,7 @@ void main() {
     unpublishedPeerIds: unpublished,
     skippedPeerIds: skipped,
     recordsFailed: recordsFailed,
+    manifestListedAt: listedAt,
   );
 
   test('excludes self and fenced peers', () {
@@ -51,6 +53,28 @@ void main() {
     expect(snapshot.peers.map((p) => p.deviceId), ['a']);
     expect(
       snapshot.peers.single.publishedAt,
+      DateTime.fromMillisecondsSinceEpoch(1000),
+    );
+  });
+
+  test('dates a publish by the earlier of its own clock and the cloud', () {
+    // A peer whose clock runs ahead claims a publish after an upload it has
+    // not seen; the cloud's own listing time caps that claim.
+    final ahead = build(
+      manifests: [_manifest('a', 5000)],
+      listedAt: {'a': DateTime.fromMillisecondsSinceEpoch(3000)},
+    );
+    expect(
+      ahead.peers.single.publishedAt,
+      DateTime.fromMillisecondsSinceEpoch(3000),
+    );
+
+    final behind = build(
+      manifests: [_manifest('a', 1000)],
+      listedAt: {'a': DateTime.fromMillisecondsSinceEpoch(3000)},
+    );
+    expect(
+      behind.peers.single.publishedAt,
       DateTime.fromMillisecondsSinceEpoch(1000),
     );
   });

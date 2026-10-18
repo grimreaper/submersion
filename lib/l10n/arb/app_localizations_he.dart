@@ -34733,6 +34733,14 @@ class AppLocalizationsHe extends AppLocalizations {
       'דבר לא נמחק: המחיקות ימתינו עד שהמכשיר הזה יסיים לסנכרן.';
 
   @override
+  String get settings_mediaStorage_verify_unregistered =>
+      'דבר לא נמחק: חבר מחדש את אחסון המדיה כדי שיומן הצלילות הזה ידע אילו קבצים שייכים לו.';
+
+  @override
+  String get settings_mediaStorage_verify_uploads =>
+      'דבר לא נמחק: המחיקות ימתינו עד שההעלאות יסתיימו.';
+
+  @override
   String get settings_mediaStorage_backfill_action => 'העלה ספריה קיימת';
 
   @override
@@ -49294,6 +49302,16 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
+  String settings_storageUsage_reclaimWaitingUnregistered(String size) {
+    return 'עוד $size יהיו ניתנים לפינוי לאחר שתחבר מחדש את אחסון המדיה';
+  }
+
+  @override
+  String settings_storageUsage_reclaimWaitingUploads(String size) {
+    return 'עוד $size יהיו ניתנים לפינוי לאחר שההעלאות יסתיימו';
+  }
+
+  @override
   String get settings_storageUsage_reclaimAction => 'פינוי אחסון';
 
   @override
@@ -49304,6 +49322,16 @@ class AppLocalizationsHe extends AppLocalizations {
   @override
   String settings_storageUsage_reclaimDoneDeferred(String size) {
     return 'פונו $size. הניקוי בענן ימתין עד שהמכשיר הזה יסיים לסנכרן.';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUnregistered(String size) {
+    return 'פונו $size. חבר מחדש את אחסון המדיה כדי לנקות את הענן.';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUploads(String size) {
+    return 'פונו $size. הניקוי בענן ימתין עד שההעלאות יסתיימו.';
   }
 
   @override

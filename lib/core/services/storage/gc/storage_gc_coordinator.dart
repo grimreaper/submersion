@@ -72,6 +72,8 @@ class StorageGcCoordinator {
     required Future<VerifyLibraryReport?> Function({required bool dryRun})
     mediaSweep,
     required Future<bool> Function() deletesAllowed,
+    required Future<bool> Function() isStoreRegistered,
+    required Future<String?> Function() attachedStoreId,
     required Future<bool> Function(DateTime now) fleetSweepDue,
     required Future<void> Function(DateTime now) stampFleetSweep,
     required Future<({int bytes, bool partial})?> Function() measureSync,
@@ -85,6 +87,8 @@ class StorageGcCoordinator {
        _hasTransferringUploads = hasTransferringUploads,
        _mediaSweep = mediaSweep,
        _deletesAllowed = deletesAllowed,
+       _isStoreRegistered = isStoreRegistered,
+       _attachedStoreId = attachedStoreId,
        _fleetSweepDue = fleetSweepDue,
        _stampFleetSweep = stampFleetSweep,
        _measureSync = measureSync,
@@ -116,10 +120,16 @@ class StorageGcCoordinator {
   final Future<VerifyLibraryReport?> Function({required bool dryRun})
   _mediaSweep;
 
-  /// Whether cloud deletes could happen at all right now (the delete policy
-  /// and the store's registration in this database). Checked before a
-  /// deleting sweep is started, so a deferral costs no listing.
+  /// Whether the delete policy allows cloud deletes at all right now (this
+  /// device caught up with sync). Checked before a deleting sweep is
+  /// started, so a deferral costs no deleting listing.
   final Future<bool> Function() _deletesAllowed;
+
+  /// Whether this database registered the attached store.
+  final Future<bool> Function() _isStoreRegistered;
+
+  /// The media store this device is attached to, or null.
+  final Future<String?> Function() _attachedStoreId;
   final Future<bool> Function(DateTime now) _fleetSweepDue;
   final Future<void> Function(DateTime now) _stampFleetSweep;
   final Future<({int bytes, bool partial})?> Function() _measureSync;
@@ -131,17 +141,16 @@ class StorageGcCoordinator {
   final _changes = StreamController<void>.broadcast();
   Future<int>? _current;
   bool _disposed = false;
-  bool _lastPassCloudDeferred = false;
+  CloudDeleteHold? _lastPassCloudHold;
 
   StorageGcStore get store => _store;
 
   /// Whether a run is in progress.
   bool get isRunning => _current != null;
 
-  /// Whether the last pass wanted cloud deletes and held them back (not
-  /// caught up with sync, a sync running, an upload transferring). Read
-  /// after awaiting [run], it describes that pass.
-  bool get lastPassCloudDeferred => _lastPassCloudDeferred;
+  /// Why the last pass held back the cloud deletes it wanted, or null when
+  /// it held none back. Read after awaiting [run], it describes that pass.
+  CloudDeleteHold? get lastPassCloudHold => _lastPassCloudHold;
 
   /// Records a media sweep run outside a pass (Verify Library), so the
   /// Storage usage page shows what it reclaimed and the media figures it
@@ -157,6 +166,7 @@ class StorageGcCoordinator {
       _withMedia(
         usage,
         report,
+        storeId: await _attachedStoreId(),
       ).copyWith(partial: usage.partial || report.sizesUnknown),
     );
     _notify();
@@ -164,16 +174,62 @@ class StorageGcCoordinator {
 
   /// [usage] with the media figures [report] found: what the store holds,
   /// and could still give back, after the sweep's own deletes.
+  ///
+  /// Held back by [hold], what the sweep's policy would allow is not
+  /// reclaimable now (Reclaim would delete none of it), so it counts as
+  /// waiting, on that hold.
   static CloudUsage _withMedia(
     CloudUsage usage,
     VerifyLibraryReport report, {
-    bool deferred = false,
-  }) => usage.copyWith(
-    mediaBytes: report.totalBytes - report.bytesReclaimed,
-    mediaReclaimableBytes: report.reclaimableBytes - report.bytesReclaimed,
-    mediaWaitingBytes: report.waitingBytes,
-    mediaDeferred: report.deferred || deferred,
-  );
+    required String? storeId,
+    CloudDeleteHold? hold,
+  }) {
+    final held =
+        hold ?? report.hold ?? (report.deferred ? CloudDeleteHold.sync : null);
+    final reclaimable = report.reclaimableBytes - report.bytesReclaimed;
+    return CloudUsage(
+      scannedAt: usage.scannedAt,
+      mediaBytes: report.totalBytes - report.bytesReclaimed,
+      mediaReclaimableBytes: held == null ? reclaimable : 0,
+      mediaWaitingBytes: report.waitingBytes + (held == null ? 0 : reclaimable),
+      syncBytes: usage.syncBytes,
+      librariesBytes: usage.librariesBytes,
+      partial: usage.partial,
+      mediaHold: held,
+      mediaStoreId: storeId,
+    );
+  }
+
+  /// [scan] with the last known media figures, after a failed sweep (the
+  /// total is already partial). Only if they are [storeId]'s: another
+  /// store's figures say nothing about this one, so they are unknown.
+  static CloudUsage _withLastMedia(
+    CloudUsage scan,
+    CloudUsage? previous, {
+    required String? storeId,
+  }) {
+    final last = previous?.mediaStoreId == storeId ? previous : null;
+    return CloudUsage(
+      scannedAt: scan.scannedAt,
+      mediaBytes: last?.mediaBytes,
+      mediaReclaimableBytes: last?.mediaReclaimableBytes,
+      mediaWaitingBytes: last?.mediaWaitingBytes,
+      syncBytes: scan.syncBytes,
+      librariesBytes: scan.librariesBytes,
+      partial: scan.partial,
+      mediaHold: last?.mediaHold,
+      mediaStoreId: storeId,
+    );
+  }
+
+  /// Why cloud deletes would be held back now, first the one a sync can
+  /// clear (a sync can also bring the store's row from a peer).
+  Future<CloudDeleteHold?> _deleteHold({required bool syncBusy}) async {
+    if (syncBusy || !await _deletesAllowed()) return CloudDeleteHold.sync;
+    if (!await _isStoreRegistered()) return CloudDeleteHold.unregistered;
+    if (await _hasTransferringUploads()) return CloudDeleteHold.uploads;
+    return null;
+  }
 
   Future<void> _recordCloudResult(VerifyLibraryReport report, DateTime at) {
     if (report.orphansRemoved == 0) return Future.value();
@@ -195,13 +251,36 @@ class StorageGcCoordinator {
   Future<int> run(StorageGcTrigger trigger) {
     final running = _current;
     if (running != null) return running;
-    final pass = _run(trigger).whenComplete(() {
+    final pass = _serial(() => _run(trigger)).whenComplete(() {
       _current = null;
       _notify();
     });
     _current = pass;
     _notify();
     return pass;
+  }
+
+  /// Runs [sweep] (a Verify Library run) once no pass is in flight, and
+  /// holds any pass that starts meanwhile until it ends: two sweeps of one
+  /// store at once would each judge the listing the other is deleting from.
+  Future<T> exclusive<T>(Future<T> Function() sweep) => _serial(sweep);
+
+  /// The end of the last queued pass or Verify run, null when none is
+  /// queued; failures are absorbed so one never blocks the next.
+  Future<void>? _tail;
+
+  Future<T> _serial<T>(Future<T> Function() work) {
+    final previous = _tail;
+    // Idle: start now, as a pass always did, rather than a microtask later.
+    final result = previous == null
+        ? Future.sync(work)
+        : previous.then((_) => work());
+    final tail = result.then<void>((_) {}, onError: (Object _) {});
+    _tail = tail;
+    tail.whenComplete(() {
+      if (identical(_tail, tail)) _tail = null;
+    });
+    return result;
   }
 
   /// Bytes the device sweeps would reclaim now (a dry run of each).
@@ -219,9 +298,10 @@ class StorageGcCoordinator {
   }
 
   /// Stops notifying and makes a run in flight skip whatever it has not
-  /// started yet. A soft restart after a restore disposes the provider while
-  /// a run may still be listing the store; that run must not go on against
-  /// services that were torn down.
+  /// started yet, and write nothing once its media sweep returns. A soft
+  /// restart after a restore disposes the provider while a run may still be
+  /// listing the store; that run must not go on against services that were
+  /// torn down, nor overwrite what the new scope's pass records.
   void dispose() {
     _disposed = true;
     _changes.close();
@@ -233,7 +313,7 @@ class StorageGcCoordinator {
 
   Future<int> _run(StorageGcTrigger trigger) async {
     final now = _now();
-    _lastPassCloudDeferred = false;
+    _lastPassCloudHold = null;
     var effective = trigger;
     final automatic =
         trigger == StorageGcTrigger.launch ||
@@ -344,16 +424,18 @@ class StorageGcCoordinator {
         trigger == StorageGcTrigger.postRestore ||
         isCadenceDue(_store.lastCloudMeasure, now, measurePeriod);
 
-    final deleting =
-        wantDelete &&
-        !syncBusy &&
-        await _deletesAllowed() &&
-        !await _hasTransferringUploads();
+    if (!wantDelete && !measureDue) return 0;
+    // Asked even for a scan: one that counted held objects as reclaimable
+    // would promise what Reclaim cannot give.
+    final hold = await _deleteHold(syncBusy: syncBusy);
+    final deleting = wantDelete && hold == null;
     if (!deleting && !measureDue) return 0;
     if (!requested) await _store.setLastCloudAttempt(now);
 
     // A media failure must not cost the other areas their figures; the last
     // known media figures stay, and the total is marked partial.
+    // Read before the sweep: the figures describe the store it swept.
+    final storeId = await _attachedStoreId();
     VerifyLibraryReport? report;
     var mediaFailed = false;
     try {
@@ -362,12 +444,17 @@ class StorageGcCoordinator {
       mediaFailed = true;
       _log.warning('Media store sweep failed', error: e);
     }
+    // Disposed meanwhile (a soft restart): the new scope runs its own pass,
+    // and this one must not stamp or overwrite what that pass records.
+    if (_disposed) return report?.bytesReclaimed ?? 0;
 
     var reclaimed = 0;
     if (report != null) {
       reclaimed = report.bytesReclaimed;
       await _recordCloudResult(report, now);
-      _lastPassCloudDeferred = wantDelete && (!deleting || report.deferred);
+      if (wantDelete && (hold != null || report.deferred)) {
+        _lastPassCloudHold = hold ?? CloudDeleteHold.sync;
+      }
     }
     // Only a completed sweep counts: a deferred or failed one is retried.
     if (deleting && !mediaFailed && (report == null || !report.deferred)) {
@@ -393,6 +480,7 @@ class StorageGcCoordinator {
       _log.warning('Shared library measurement failed', error: e);
     }
 
+    if (_disposed) return reclaimed;
     final previous = _store.cloudUsage;
     final scan = CloudUsage(
       scannedAt: now,
@@ -403,16 +491,10 @@ class StorageGcCoordinator {
     final r = report;
     await _store.setCloudUsage(
       mediaFailed
-          // The last known media figures stay; the total is already partial.
-          ? scan.copyWith(
-              mediaBytes: previous?.mediaBytes,
-              mediaReclaimableBytes: previous?.mediaReclaimableBytes,
-              mediaWaitingBytes: previous?.mediaWaitingBytes,
-              mediaDeferred: previous?.mediaDeferred,
-            )
+          ? _withLastMedia(scan, previous, storeId: storeId)
           : r == null
           ? scan
-          : _withMedia(scan, r, deferred: _lastPassCloudDeferred),
+          : _withMedia(scan, r, storeId: storeId, hold: hold),
     );
     await _store.setLastCloudMeasure(now);
     return reclaimed;

@@ -150,10 +150,15 @@ reclaimable figure. A sync-folder deletion sweep is not part of this work.
   `lastModified`, as today. The iCloud store sets each staged copy's modification
   time to the upload time: a file copy keeps the source's time, which would make
   a new upload look as old as the photo. An upload it cannot date is not
-  published; the retry dates it again.
+  published; the retry dates it again. Its age is the later of the modified and
+  changed times, so an object an older build staged without setting the time
+  is aged from its arrival, not from the photo.
 - **Early delete:** an orphan may go sooner once every other known sync device has
   synced since it was uploaded, meaning, for each peer, its manifest `updatedAt`
-  is later than the object's `lastModified` plus a clock-skew margin (an hour),
+  (capped by the time the cloud listed that manifest, since a peer's clock can
+  run ahead; and dated when its content was exported, not when a retried upload
+  finished) is later than the object's `lastModified` plus a clock-skew margin
+  (an hour),
   this device's last clean pull started later than that too, and this device has
   applied that peer through its manifest's `publishedHlcHigh`. Retired peers
   (`ssv1.<id>.retired.json`) do not count. A peer whose manifest cannot be read
@@ -172,9 +177,14 @@ reclaimable figure. A sync-folder deletion sweep is not part of this work.
   restore. Otherwise the media sweep measures and defers. Each sync marks this
   device not caught up before it authenticates, so a sync that fails, halts or
   cannot sign in leaves it that way, and a sync that cannot write that mark does
-  not run. Every restore path (Settings and the startup screen) records the
-  restore before it swaps the database, and a restore that cannot record it does
-  not go ahead. The post-restore run therefore does its device part at once and
+  not run. The pull's result is recorded once the pull and the retirement sweep
+  are done: a publish or cleanup that fails after a clean pull does not change
+  which peer rows this device holds (and a full cloud fails every publish, while
+  the cleanup is what frees the space). Every restore path (Settings and the
+  startup screen) records the restore before it swaps the database, and a
+  restore that cannot record it does not go ahead. Switching to another
+  database (an existing one at a new location, or back to the default) records
+  it the same way. The post-restore run therefore does its device part at once and
   its cloud deletes after the first reconciling sync completes.
 - **A database that does not know the store deletes nothing from it:** the
   automatic cleanup and Reclaim delete only while the dive log has an active
@@ -204,7 +214,13 @@ reclaimable figure. A sync-folder deletion sweep is not part of this work.
   the cloud part while a sync runs; Reclaim and Rescan still measure then, but
   delete nothing. A sync, a restore or a change of media store attachment that
   starts while a sweep is deleting stops the deletes, and that run counts as deferred: it neither stamps the fleet sweep
-  nor clears the post-restore flag. A post-restore device pass with a failed
+  nor clears the post-restore flag. That check starts before the store is
+  connected, so a change during the connect counts too. Before each delete the
+  sweep re-reads the rows for that hash, and keeps the object if they changed
+  since its listing (an import that found the object already there, a quality
+  switch). The cleanup and Verify Library never sweep at once: one waits for
+  the other. The launch and resume runs start once the syncs those triggers
+  start have ended, so they are not skipped for a sync they began beside. A post-restore device pass with a failed
   sweep stays pending, so the forced retry is not lost.
 - **Never another device's in-progress files:** only this device's own superseded
   sync files and temp files; malformed or unexpected keys are skipped. A device
@@ -241,7 +257,10 @@ Schedule (approved):
   container, since the refresh starts downloading every evicted item; an
   evicted item that left a placeholder counts with no size, so the total reads
   as partial. The weekly
-  fleet cleanup, which deletes and repairs, still refreshes.
+  fleet cleanup, which deletes and repairs, still refreshes, and reads a
+  placeholder as the object it stands for (deleting it removes the
+  placeholder). A media store that takes over a minute to connect fails that
+  sweep rather than holding the pass.
 - **After a restore:** an extra run of both, regardless of cadence (cloud still
   needs an unmetered network). A restore ends in a soft restart that does not
   re-run `StartupPage`, so trigger it from the post-restore path (for example the
@@ -271,7 +290,10 @@ Extend `StorageUsagePage`:
 - **Reclaim card** at the top: "About N can be reclaimed", "Last reclaimed X, <when>",
   a "Reclaim storage" button, progress while it runs, and a short result when done.
   When some cloud bytes are only waiting for the grace window, say so in one line
-  rather than counting them as reclaimable.
+  rather than counting them as reclaimable. Bytes the cleanup holds back say
+  what they wait on: a sync, uploads finishing, or reconnecting the media store
+  (a dive log that never registered it); the Reclaim result and Verify Library
+  name the same reason. Held-back bytes never count as reclaimable.
 - **On this device:** the existing groups, unchanged, plus the reclaimable amount
   inline on rows that have one (temporary files, for example). The database row
   keeps its Compact row.
@@ -282,7 +304,10 @@ Extend `StorageUsagePage`:
   not set up are hidden, but the group and its Rescan always show (approved
   follow-up), so an area connected since the last scan can be measured at once.
   "Set up" is checked now, not at the last scan: an area disconnected since
-  drops out of the rows, the header and the reclaim card.
+  drops out of the rows, the header and the reclaim card. Media figures carry
+  the store they were measured on, and show only while that store is attached;
+  a scan whose media listing fails keeps the last figures only if they are the
+  same store's.
 
 Cloud measurement:
 

@@ -35415,6 +35415,14 @@ class AppLocalizationsHu extends AppLocalizations {
       'Semmi sem lett törölve: a törlések megvárják, amíg ez az eszköz befejezi a szinkronizálást.';
 
   @override
+  String get settings_mediaStorage_verify_unregistered =>
+      'Semmi sem lett törölve: csatlakoztasd újra a médiatárolót, hogy ez a merülésnapló tudja, mely fájlok az övéi.';
+
+  @override
+  String get settings_mediaStorage_verify_uploads =>
+      'Semmi sem lett törölve: a törlések megvárják, amíg a feltöltések befejeződnek.';
+
+  @override
   String get settings_mediaStorage_backfill_action =>
       'Meglévő könyvtár feltöltése';
 
@@ -50088,6 +50096,16 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String settings_storageUsage_reclaimWaitingUnregistered(String size) {
+    return 'További $size szabadítható fel, miután újra csatlakoztatod a médiatárolót';
+  }
+
+  @override
+  String settings_storageUsage_reclaimWaitingUploads(String size) {
+    return 'További $size szabadítható fel, amint a feltöltések befejeződnek';
+  }
+
+  @override
   String get settings_storageUsage_reclaimAction => 'Tárhely felszabadítása';
 
   @override
@@ -50098,6 +50116,16 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String settings_storageUsage_reclaimDoneDeferred(String size) {
     return '$size felszabadítva. A felhőbeli takarítás megvárja, amíg ez az eszköz befejezi a szinkronizálást.';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUnregistered(String size) {
+    return '$size felszabadítva. Csatlakoztasd újra a médiatárolót a felhő takarításához.';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUploads(String size) {
+    return '$size felszabadítva. A felhőbeli takarítás megvárja, amíg a feltöltések befejeződnek.';
   }
 
   @override

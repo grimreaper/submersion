@@ -26,6 +26,20 @@ Future<({int bytes, bool partial})> measureSyncFolderBytes(
   return (bytes: bytes, partial: partial);
 }
 
+/// Why this device holds its cloud media deletes back.
+enum CloudDeleteHold {
+  /// Not caught up with sync, or a sync is running or started meanwhile.
+  sync,
+
+  /// This dive log never registered the attached store (a fresh dive log, a
+  /// restore from before it was connected), so it cannot tell which objects
+  /// are its own. Connecting the store again registers it.
+  unregistered,
+
+  /// An upload is transferring, and its object may look unreferenced.
+  uploads,
+}
+
 /// What the last cloud scan found, kept device-locally between scans
 /// (storage GC design, Storage usage page).
 ///
@@ -42,7 +56,8 @@ class CloudUsage {
     this.syncBytes,
     this.librariesBytes,
     this.partial = false,
-    this.mediaDeferred = false,
+    this.mediaHold,
+    this.mediaStoreId,
   });
 
   final DateTime scannedAt;
@@ -53,10 +68,13 @@ class CloudUsage {
   final int? librariesBytes;
   final bool partial;
 
-  /// Whether the last media sweep held its deletes back (this device was
-  /// not caught up with sync, or a sync started during it), so the waiting
-  /// figure waits on a sync rather than on the safety wait.
-  final bool mediaDeferred;
+  /// Why the last media sweep held its deletes back, or null when it did
+  /// not: the waiting figure then waits on that, not on the safety wait.
+  final CloudDeleteHold? mediaHold;
+
+  /// The media store the media figures describe: after a switch to another
+  /// store they are not that store's figures.
+  final String? mediaStoreId;
 
   CloudUsage copyWith({
     DateTime? scannedAt,
@@ -66,7 +84,6 @@ class CloudUsage {
     int? syncBytes,
     int? librariesBytes,
     bool? partial,
-    bool? mediaDeferred,
   }) => CloudUsage(
     scannedAt: scannedAt ?? this.scannedAt,
     mediaBytes: mediaBytes ?? this.mediaBytes,
@@ -75,7 +92,8 @@ class CloudUsage {
     syncBytes: syncBytes ?? this.syncBytes,
     librariesBytes: librariesBytes ?? this.librariesBytes,
     partial: partial ?? this.partial,
-    mediaDeferred: mediaDeferred ?? this.mediaDeferred,
+    mediaHold: mediaHold,
+    mediaStoreId: mediaStoreId,
   );
 
   /// Sum of every measured area, or null when no area is set up.
@@ -85,21 +103,27 @@ class CloudUsage {
   }
 
   /// This usage without the figures of areas that are not set up now: a
-  /// scan from before an area was disconnected still holds its figure.
+  /// scan from before an area was disconnected still holds its figure. The
+  /// media figures show only for the store attached now ([mediaStoreId],
+  /// null when none is).
   CloudUsage onlyAreas({
-    required bool media,
+    required String? mediaStoreId,
     required bool sync,
     required bool libraries,
-  }) => CloudUsage(
-    scannedAt: scannedAt,
-    mediaBytes: media ? mediaBytes : null,
-    mediaReclaimableBytes: media ? mediaReclaimableBytes : null,
-    mediaWaitingBytes: media ? mediaWaitingBytes : null,
-    syncBytes: sync ? syncBytes : null,
-    librariesBytes: libraries ? librariesBytes : null,
-    partial: partial,
-    mediaDeferred: media && mediaDeferred,
-  );
+  }) {
+    final media = mediaStoreId != null && mediaStoreId == this.mediaStoreId;
+    return CloudUsage(
+      scannedAt: scannedAt,
+      mediaBytes: media ? mediaBytes : null,
+      mediaReclaimableBytes: media ? mediaReclaimableBytes : null,
+      mediaWaitingBytes: media ? mediaWaitingBytes : null,
+      syncBytes: sync ? syncBytes : null,
+      librariesBytes: libraries ? librariesBytes : null,
+      partial: partial,
+      mediaHold: media ? mediaHold : null,
+      mediaStoreId: media ? mediaStoreId : null,
+    );
+  }
 
   Map<String, Object?> toJson() => {
     'scannedAt': scannedAt.millisecondsSinceEpoch,
@@ -109,7 +133,8 @@ class CloudUsage {
     'syncBytes': syncBytes,
     'librariesBytes': librariesBytes,
     'partial': partial,
-    'mediaDeferred': mediaDeferred,
+    'mediaHold': mediaHold?.name,
+    'mediaStoreId': mediaStoreId,
   };
 
   factory CloudUsage.fromJson(Map<String, Object?> json) => CloudUsage(
@@ -120,6 +145,7 @@ class CloudUsage {
     syncBytes: json['syncBytes'] as int?,
     librariesBytes: json['librariesBytes'] as int?,
     partial: json['partial'] as bool? ?? false,
-    mediaDeferred: json['mediaDeferred'] as bool? ?? false,
+    mediaHold: CloudDeleteHold.values.asNameMap()[json['mediaHold']],
+    mediaStoreId: json['mediaStoreId'] as String?,
   );
 }

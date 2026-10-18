@@ -2,6 +2,7 @@ import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/services/media_store/media_key_reference.dart';
 import 'package:submersion/core/services/media_store/media_object_store.dart';
 import 'package:submersion/core/services/media_store/store_keys.dart';
+import 'package:submersion/core/services/storage/gc/cloud_usage_measure.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media_store/data/media_key_references.dart';
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
@@ -39,6 +40,10 @@ class VerifyLibraryReport {
   /// True when the policy allowed no deletes at all this run.
   final bool deferred;
 
+  /// Why the deletes were held back, when the caller knows a reason other
+  /// than this device not being caught up with sync; see [heldBy].
+  final CloudDeleteHold? hold;
+
   /// True when the store listed an object without a size, so the byte
   /// figures above are a floor rather than the truth.
   final bool sizesUnknown;
@@ -56,8 +61,28 @@ class VerifyLibraryReport {
     this.reclaimableBytes = 0,
     this.waitingBytes = 0,
     this.deferred = false,
+    this.hold,
     this.sizesUnknown = false,
   });
+
+  /// This report with its deletes held back by [reason], which a caller that
+  /// refused them knows better than the sweep did.
+  VerifyLibraryReport heldBy(CloudDeleteHold reason) => VerifyLibraryReport(
+    objectsChecked: objectsChecked,
+    originalsChecked: originalsChecked,
+    thumbsChecked: thumbsChecked,
+    renditionsChecked: renditionsChecked,
+    orphansRemoved: orphansRemoved,
+    bytesReclaimed: bytesReclaimed,
+    sessionsAborted: sessionsAborted,
+    repairsQueued: repairsQueued,
+    totalBytes: totalBytes,
+    reclaimableBytes: reclaimableBytes,
+    waitingBytes: waitingBytes,
+    deferred: true,
+    hold: reason,
+    sizesUnknown: sizesUnknown,
+  );
 }
 
 /// Verify Library sweep (orphan-prevention spec section 6): reconciles the
@@ -293,6 +318,15 @@ class MediaVerifyService {
         // Only a store that can hold copies holds more than one; elsewhere a
         // repeated key is a listing artefact and one delete removes it.
         final copies = holdsCopies ? listed.copies : 1;
+        // The judgment above used references read at the start. A row can
+        // start using this object since (an import whose upload found it
+        // already there, a quality switch rewriting the key), so its rows
+        // are read again: any change, and the object stays for a later
+        // sweep to judge.
+        if (!dryRun && !await _referencesUnchanged(parsed.hash, refs)) {
+          waitingBytes += copies * size;
+          continue;
+        }
         reclaimableBytes += copies * size;
         if (!dryRun) await deleteCopies(info.key, copies, size);
       }
@@ -397,6 +431,23 @@ class MediaVerifyService {
       deferred: deferred,
       sizesUnknown: sizesUnknown,
     );
+  }
+
+  Future<bool> _referencesUnchanged(
+    String hash,
+    List<MediaKeyReference> before,
+  ) async {
+    final now =
+        (await _mediaRepository.getContentReferences(
+          contentHash: hash,
+        ))[hash] ??
+        const <MediaKeyReference>[];
+    if (now.length != before.length) return false;
+    final remaining = [...before];
+    for (final r in now) {
+      if (!remaining.remove(r)) return false;
+    }
+    return true;
   }
 
   static StoreNamespace? _namespaceOf(String key) {

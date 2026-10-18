@@ -26,6 +26,8 @@ class _RecordingCoordinator extends StorageGcCoordinator {
         hasTransferringUploads: () async => false,
         mediaSweep: ({required dryRun}) async => null,
         deletesAllowed: () async => false,
+        isStoreRegistered: () async => true,
+        attachedStoreId: () async => null,
         fleetSweepDue: (_) async => false,
         stampFleetSweep: (_) async {},
         measureSync: () async => null,
@@ -36,10 +38,10 @@ class _RecordingCoordinator extends StorageGcCoordinator {
   final runs = <StorageGcTrigger>[];
   Completer<void>? hold;
   int reclaims = 0;
-  bool cloudDeferred = false;
+  CloudDeleteHold? cloudHold;
 
   @override
-  bool get lastPassCloudDeferred => cloudDeferred;
+  CloudDeleteHold? get lastPassCloudHold => cloudHold;
 
   @override
   Future<int> run(StorageGcTrigger trigger) async {
@@ -154,7 +156,7 @@ void main() {
               scannedAt: at,
               mediaBytes: 1,
               mediaWaitingBytes: 7 * 1024 * 1024,
-              mediaDeferred: true,
+              mediaHold: CloudDeleteHold.sync,
             ),
           ),
         ),
@@ -167,6 +169,40 @@ void main() {
         findsOneWidget,
       );
     });
+
+    // Not every hold clears with a sync: naming the wrong one sends the
+    // diver to wait for something that will never come.
+    for (final (hold, text) in [
+      (
+        CloudDeleteHold.unregistered,
+        '7.0 MB more will be reclaimable after you reconnect the media store',
+      ),
+      (
+        CloudDeleteHold.uploads,
+        '7.0 MB more will be reclaimable once uploads finish',
+      ),
+    ]) {
+      testWidgets('a waiting line held back by ${hold.name} says so', (
+        tester,
+      ) async {
+        await tester.pumpWidget(
+          harness(
+            const StorageReclaimCard(),
+            view: StorageGcView(
+              running: false,
+              cloudUsage: CloudUsage(
+                scannedAt: at,
+                mediaBytes: 1,
+                mediaWaitingBytes: 7 * 1024 * 1024,
+                mediaHold: hold,
+              ),
+            ),
+          ),
+        );
+        await tester.pumpAndSettle();
+        expect(find.text(text), findsOneWidget);
+      });
+    }
 
     testWidgets('no waiting line at zero', (tester) async {
       await tester.pumpWidget(harness(const StorageReclaimCard()));
@@ -214,7 +250,7 @@ void main() {
     tester,
   ) async {
     coordinator.reclaims = 5 * 1024 * 1024;
-    coordinator.cloudDeferred = true;
+    coordinator.cloudHold = CloudDeleteHold.sync;
     await tester.pumpWidget(harness(const StorageReclaimCard()));
     await tester.pumpAndSettle();
 
@@ -229,6 +265,29 @@ void main() {
       findsOneWidget,
     );
   });
+
+  for (final (hold, text) in [
+    (
+      CloudDeleteHold.unregistered,
+      'Reclaimed 5.0 MB. Reconnect the media store to clean up the cloud.',
+    ),
+    (
+      CloudDeleteHold.uploads,
+      'Reclaimed 5.0 MB. The cloud cleanup waits until uploads finish.',
+    ),
+  ]) {
+    testWidgets('the snackbar names a ${hold.name} hold', (tester) async {
+      coordinator.reclaims = 5 * 1024 * 1024;
+      coordinator.cloudHold = hold;
+      await tester.pumpWidget(harness(const StorageReclaimCard()));
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Reclaim storage'));
+      await tester.pumpAndSettle();
+
+      expect(find.text(text), findsOneWidget);
+    });
+  }
 
   group('CloudStorageGroup', () {
     testWidgets('cloud group shows only areas that are set up', (tester) async {

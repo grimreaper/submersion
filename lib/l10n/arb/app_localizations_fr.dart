@@ -35727,6 +35727,14 @@ class AppLocalizationsFr extends AppLocalizations {
       'Rien n\'a été supprimé : les suppressions attendent que cet appareil ait terminé sa synchronisation.';
 
   @override
+  String get settings_mediaStorage_verify_unregistered =>
+      'Rien n\'a été supprimé : reconnectez le stockage multimédia pour que ce carnet de plongée sache quels fichiers sont les siens.';
+
+  @override
+  String get settings_mediaStorage_verify_uploads =>
+      'Rien n\'a été supprimé : les suppressions attendent la fin des envois.';
+
+  @override
   String get settings_mediaStorage_backfill_action =>
       'Envoyer la bibliothèque existante';
 
@@ -50474,6 +50482,16 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String settings_storageUsage_reclaimWaitingUnregistered(String size) {
+    return '$size de plus seront récupérables une fois le stockage multimédia reconnecté';
+  }
+
+  @override
+  String settings_storageUsage_reclaimWaitingUploads(String size) {
+    return '$size de plus seront récupérables une fois les envois terminés';
+  }
+
+  @override
   String get settings_storageUsage_reclaimAction => 'Récupérer de l\'espace';
 
   @override
@@ -50484,6 +50502,16 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String settings_storageUsage_reclaimDoneDeferred(String size) {
     return '$size récupérés. Le nettoyage du cloud attend que cet appareil ait terminé sa synchronisation.';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUnregistered(String size) {
+    return '$size récupérés. Reconnectez le stockage multimédia pour nettoyer le cloud.';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUploads(String size) {
+    return '$size récupérés. Le nettoyage du cloud attend la fin des envois.';
   }
 
   @override

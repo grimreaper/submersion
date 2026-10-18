@@ -4,6 +4,7 @@ import 'package:fake_async/fake_async.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:submersion/core/services/media_store/network_status_service.dart';
+import 'package:submersion/core/services/storage/gc/cloud_usage_measure.dart';
 import 'package:submersion/core/services/storage/gc/storage_gc_coordinator.dart';
 import 'package:submersion/core/services/storage/gc/storage_gc_store.dart';
 import 'package:submersion/core/services/storage/scratch_sweep.dart';
@@ -45,6 +46,8 @@ class _Harness {
   bool fleetDue = true;
   bool hasMediaStore = true;
   bool deletesAllowed = true;
+  bool storeRegistered = true;
+  String? storeId = 'store-a';
   Object? mediaError;
   VerifyLibraryReport mediaReport = _report();
   int syncBytes = 30;
@@ -60,6 +63,7 @@ class _Harness {
   var fleetStamps = 0;
   Completer<void>? holdFirstSweep;
   Completer<void>? holdSyncMeasure;
+  Completer<void>? holdMediaSweep;
 
   StorageGcCoordinator build() => StorageGcCoordinator(
     deviceSweeps: [
@@ -83,11 +87,14 @@ class _Harness {
     hasTransferringUploads: () async => transferring,
     mediaSweep: ({required dryRun}) async {
       mediaRuns.add(dryRun);
+      await holdMediaSweep?.future;
       final error = mediaError;
       if (error != null) throw error;
       return hasMediaStore ? mediaReport : null;
     },
     deletesAllowed: () async => deletesAllowed,
+    isStoreRegistered: () async => storeRegistered,
+    attachedStoreId: () async => storeId,
     fleetSweepDue: (now) async => fleetDue,
     stampFleetSweep: (now) async => fleetStamps++,
     measureSync: () async {
@@ -396,13 +403,62 @@ void main() {
 
     await coordinator.run(StorageGcTrigger.manual);
 
-    expect(coordinator.lastPassCloudDeferred, isTrue);
-    expect(h.store.cloudUsage!.mediaDeferred, isTrue);
+    expect(coordinator.lastPassCloudHold, CloudDeleteHold.sync);
+    expect(h.store.cloudUsage!.mediaHold, CloudDeleteHold.sync);
 
     h.mediaReport = _report();
     await coordinator.run(StorageGcTrigger.manual);
-    expect(coordinator.lastPassCloudDeferred, isFalse);
-    expect(h.store.cloudUsage!.mediaDeferred, isFalse);
+    expect(coordinator.lastPassCloudHold, isNull);
+    expect(h.store.cloudUsage!.mediaHold, isNull);
+  });
+
+  group('deletes held back by this device', () {
+    // The sweep's own policy cannot see these holds, so its dry run counts
+    // the objects as reclaimable; Reclaim would then delete none of them.
+    test('an unregistered store counts nothing as reclaimable', () async {
+      h.storeRegistered = false;
+      h.mediaReport = _report(reclaimable: 40, waiting: 10);
+
+      await coordinator.run(StorageGcTrigger.manual);
+
+      expect(h.mediaRuns, [true]);
+      expect(coordinator.lastPassCloudHold, CloudDeleteHold.unregistered);
+      final usage = h.store.cloudUsage!;
+      expect(usage.mediaHold, CloudDeleteHold.unregistered);
+      expect(usage.mediaReclaimableBytes, 0);
+      expect(usage.mediaWaitingBytes, 50);
+    });
+
+    test('an upload in flight is named as the reason', () async {
+      h.transferring = true;
+      h.mediaReport = _report(reclaimable: 40);
+
+      await coordinator.run(StorageGcTrigger.manual);
+
+      expect(coordinator.lastPassCloudHold, CloudDeleteHold.uploads);
+      expect(h.store.cloudUsage!.mediaHold, CloudDeleteHold.uploads);
+    });
+
+    test('a scan names the hold too', () async {
+      h.storeRegistered = false;
+      h.mediaReport = _report(reclaimable: 40);
+
+      await coordinator.run(StorageGcTrigger.rescan);
+
+      expect(h.store.cloudUsage!.mediaReclaimableBytes, 0);
+      expect(h.store.cloudUsage!.mediaHold, CloudDeleteHold.unregistered);
+    });
+
+    test('not caught up with sync comes before the others', () async {
+      // A sync can bring the store's row from a peer; reconnecting is the
+      // remedy only once this device is caught up.
+      h.deletesAllowed = false;
+      h.storeRegistered = false;
+
+      await coordinator.run(StorageGcTrigger.manual);
+
+      expect(coordinator.lastPassCloudHold, CloudDeleteHold.sync);
+    });
   });
 
   test(
@@ -501,6 +557,75 @@ void main() {
     },
   );
 
+  test('a pass disposed during its media sweep writes nothing after', () async {
+    // A soft restart while the store is listed: the new scope runs its own
+    // pass, and the old one must not stamp the fleet or overwrite figures
+    // with a scan it could not finish.
+    h.holdMediaSweep = Completer<void>();
+    h.mediaReport = _report(reclaimable: 40, reclaimed: 40, removed: 4);
+    final pass = coordinator.run(StorageGcTrigger.manual);
+    await Future<void>.delayed(Duration.zero);
+    while (h.mediaRuns.isEmpty) {
+      await Future<void>.delayed(const Duration(milliseconds: 1));
+    }
+    coordinator.dispose();
+    h.holdMediaSweep!.complete();
+
+    await expectLater(pass, completes);
+    expect(h.fleetStamps, 0);
+    expect(h.store.cloudUsage, isNull);
+    expect(h.store.lastCloudResult, isNull);
+  });
+
+  group('Verify Library and a pass', () {
+    // Two sweeps of one store at once judge the same listing twice: each
+    // counts what the other removes, and their delete guards miss each
+    // other's work.
+    test('a Verify run waits for the pass in flight', () async {
+      h.holdMediaSweep = Completer<void>();
+      final pass = coordinator.run(StorageGcTrigger.manual);
+      while (h.mediaRuns.isEmpty) {
+        await Future<void>.delayed(const Duration(milliseconds: 1));
+      }
+      var verified = false;
+      final verify = coordinator.exclusive(() async => verified = true);
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      expect(verified, isFalse);
+
+      h.holdMediaSweep!.complete();
+      await pass;
+      await verify;
+
+      expect(verified, isTrue);
+    });
+
+    test('a pass waits for the Verify run in flight', () async {
+      final release = Completer<void>();
+      final verify = coordinator.exclusive(() => release.future);
+      final pass = coordinator.run(StorageGcTrigger.manual);
+      await Future<void>.delayed(const Duration(milliseconds: 5));
+      expect(h.mediaRuns, isEmpty);
+      expect(coordinator.isRunning, isTrue);
+
+      release.complete();
+      await verify;
+      await pass;
+
+      expect(h.mediaRuns, isNotEmpty);
+    });
+
+    test('a failed Verify run does not block the next pass', () async {
+      await expectLater(
+        coordinator.exclusive<void>(() async => throw StateError('offline')),
+        throwsStateError,
+      );
+
+      await coordinator.run(StorageGcTrigger.manual);
+
+      expect(h.mediaRuns, isNotEmpty);
+    });
+  });
+
   test(
     'a run returns what the pass reclaimed on the device and in the cloud',
     () async {
@@ -536,6 +661,31 @@ void main() {
         before.mediaBytes,
         reason: 'the last known media figure stays, flagged partial',
       );
+    },
+  );
+
+  test('a scan records which media store it measured', () async {
+    await coordinator.run(StorageGcTrigger.rescan);
+
+    expect(h.store.cloudUsage!.mediaStoreId, 'store-a');
+  });
+
+  test(
+    'a failing sweep of a newly attached store keeps no old figures',
+    () async {
+      // Store A's 40 GB are not the figure of store B, which could not be
+      // listed: the media figures are unknown, not A's.
+      await coordinator.run(StorageGcTrigger.rescan);
+      h.storeId = 'store-b';
+      h.mediaError = Exception('list failed');
+
+      await coordinator.run(StorageGcTrigger.rescan);
+
+      final usage = h.store.cloudUsage!;
+      expect(usage.mediaBytes, isNull);
+      expect(usage.mediaReclaimableBytes, isNull);
+      expect(usage.mediaStoreId, 'store-b');
+      expect(usage.partial, isTrue);
     },
   );
 

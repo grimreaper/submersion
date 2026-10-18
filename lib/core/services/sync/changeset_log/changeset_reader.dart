@@ -34,6 +34,7 @@ class ChangesetReadResult {
     required this.peersProcessed,
     required this.payloadsApplied,
     this.peerManifests = const [],
+    this.peerManifestListedAt = const {},
     this.skippedPeerDeviceIds = const {},
     this.skippedPeerNames = const {},
     this.newerSchemaPeerDeviceIds = const {},
@@ -53,6 +54,10 @@ class ChangesetReadResult {
   /// Every non-retired peer manifest seen this pull (including stale-epoch
   /// ones, which stay inert for merging but still block/inform tombstone GC).
   final List<SyncManifest> peerManifests;
+
+  /// When the cloud listed each entry of [peerManifests], keyed by device
+  /// id: the server's clock, where a manifest's own updatedAt is the peer's.
+  final Map<String, DateTime> peerManifestListedAt;
 
   /// Peers whose manifests were deliberately not applied because they do not
   /// belong to the current library epoch. The caller should surface these to
@@ -174,6 +179,7 @@ class ChangesetReader {
           retiredPeerIds.contains(ChangesetLogLayout.deviceIdOf(f.name)),
     );
     final peerManifests = <SyncManifest>[];
+    final peerManifestListedAt = <String, DateTime>{};
     final skippedPeerDeviceIds = <String>{};
     final skippedPeerNames = <String, String>{};
     final newerSchemaPeerDeviceIds = <String>{};
@@ -206,6 +212,7 @@ class ChangesetReader {
           await provider.downloadFile(manifestFile.id),
         );
         peerManifests.add(manifest);
+        peerManifestListedAt[manifest.deviceId] = manifestFile.modifiedTime;
         final manifestName = manifest.deviceName;
         if (manifestName != null && manifestName.isNotEmpty) {
           peerName = manifestName;
@@ -402,6 +409,7 @@ class ChangesetReader {
       peersProcessed: peersProcessed,
       payloadsApplied: payloadsApplied,
       peerManifests: peerManifests,
+      peerManifestListedAt: peerManifestListedAt,
       skippedPeerDeviceIds: skippedPeerDeviceIds,
       skippedPeerNames: skippedPeerNames,
       newerSchemaPeerDeviceIds: newerSchemaPeerDeviceIds,

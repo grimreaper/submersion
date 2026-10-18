@@ -156,10 +156,9 @@ class _SubmersionAppState extends ConsumerState<SubmersionApp>
     // names it, and leaves the clocks idle otherwise (#2365).
     ref.listenManual(serviceStatusKeeperProvider, (_, _) {});
     WidgetsBinding.instance.addPostFrameCallback((_) {
-      _maybeSyncOnLaunch();
+      _runStorageCleanupAfter(_maybeSyncOnLaunch(), StorageGcTrigger.launch);
       _resumeMediaTransfers();
       _republishOwnedMedia();
-      _runStorageCleanup(StorageGcTrigger.launch);
       _convertGearFiles();
       _fileShareHandler.initialize();
       _passportLinks.start();
@@ -214,9 +213,8 @@ class _SubmersionAppState extends ConsumerState<SubmersionApp>
         ref.read(appLockNotifierProvider.notifier).noteBackgrounded();
       case LifecycleMeaning.resumed:
         ref.read(appLockNotifierProvider.notifier).noteResumed();
-        _maybeSyncOnResume();
+        _runStorageCleanupAfter(_maybeSyncOnResume(), StorageGcTrigger.resume);
         _resumeMediaTransfers();
-        _runStorageCleanup(StorageGcTrigger.resume);
         // NFC may have been turned on in the system settings meanwhile, as
         // the passport screens tell the diver to do.
         ref.invalidate(nfcSupportProvider);
@@ -244,13 +242,21 @@ class _SubmersionAppState extends ConsumerState<SubmersionApp>
     unawaited(ref.read(mediaTransferResumeProvider)());
   }
 
-  /// Runs the storage cleanup coordinator (issue #3396): device sweeps at
-  /// most daily, the cloud cleanup on its own cadence, and a post-restore
-  /// pass when a restore left its marker. Same database timing argument as
-  /// [_resumeMediaTransfers]; the coordinator contains its own failures, so
-  /// it is safe to leave unawaited.
-  void _runStorageCleanup(StorageGcTrigger trigger) {
-    unawaited(ref.read(storageGcCoordinatorProvider).run(trigger));
+  /// Runs the storage cleanup coordinator (issue #3396) once [syncs] end:
+  /// device sweeps at most daily, the cloud cleanup on its own cadence, and
+  /// a post-restore pass when a restore left its marker. After the syncs,
+  /// because an automatic pass that finds one running skips its cloud part,
+  /// and one started beside the launch or resume sync never deleted. Same
+  /// database timing argument as [_resumeMediaTransfers]; the syncs and the
+  /// coordinator contain their own failures, so it is safe to leave
+  /// unawaited.
+  void _runStorageCleanupAfter(Future<void> syncs, StorageGcTrigger trigger) {
+    unawaited(
+      syncs.whenComplete(() {
+        if (!mounted) return;
+        unawaited(ref.read(storageGcCoordinatorProvider).run(trigger));
+      }),
+    );
   }
 
   /// One-time repair of media rows whose cloud stamps a peer dropped before
@@ -286,15 +292,24 @@ class _SubmersionAppState extends ConsumerState<SubmersionApp>
       // Already logged inside reconcileDeviceIdentity; proceed with the sync.
     }
     if (!mounted) return;
-    ref.read(syncStateProvider.notifier).performSync(auto: true);
-    ref.read(sharedLibrarySyncProvider.notifier).syncAll(auto: true);
+    await _syncAll();
   }
 
-  void _maybeSyncOnResume() {
+  Future<void> _maybeSyncOnResume() async {
     final settings = ref.read(syncBehaviorProvider);
     if (!settings.autoSyncEnabled || !settings.syncOnResume) return;
-    ref.read(syncStateProvider.notifier).performSync(auto: true);
-    ref.read(sharedLibrarySyncProvider.notifier).syncAll(auto: true);
+    await _syncAll();
+  }
+
+  /// The library sync and every shared library's, at once; completes when
+  /// both have ended, however they ended.
+  Future<void> _syncAll() async {
+    await Future.wait(
+      [
+        ref.read(syncStateProvider.notifier).performSync(auto: true),
+        ref.read(sharedLibrarySyncProvider.notifier).syncAll(auto: true),
+      ].map((sync) => sync.catchError((Object _) {})),
+    );
   }
 
   void _onSyncStateChanged(SyncState? prev, SyncState next) {

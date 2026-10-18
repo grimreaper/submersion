@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:typed_data';
@@ -29,6 +30,7 @@ import 'package:submersion/features/media_store/data/media_cache_store.dart';
 import 'package:submersion/features/media_store/data/media_stores_repository.dart';
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
 import 'package:submersion/features/media_store/presentation/providers/media_store_providers.dart';
+import 'package:submersion/features/media_store/presentation/providers/media_sweep_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/storage_gc_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
@@ -126,10 +128,16 @@ void main() {
     List<SharedLibrary> libraries = const [],
     bool syncOn = true,
     bool runtimeAvailable = true,
+    bool runtimeHangs = false,
+    Future<void> Function()? whileRuntimeBuilds,
   }) {
     final cache = MediaCacheStore(database: cacheDb, root: root);
     final c = ProviderContainer(
       overrides: [
+        if (runtimeHangs)
+          mediaStoreRuntimeWaitProvider.overrideWithValue(
+            const Duration(milliseconds: 50),
+          ),
         sharedPreferencesProvider.overrideWithValue(prefs),
         storageGcNetworkProvider.overrideWithValue(
           () async => NetworkKind.unmetered,
@@ -138,16 +146,17 @@ void main() {
         mediaTransferQueueRepositoryProvider.overrideWithValue(
           MediaTransferQueueRepository(database: cacheDb),
         ),
-        mediaStoreRuntimeProvider.overrideWith(
-          (ref) async => runtimeAvailable
-              ? MediaStoreRuntime(
-                  storeId: 'store-1',
-                  store: store,
-                  cache: cache,
-                  resolver: MediaStoreResolver(store: store, cache: cache),
-                )
-              : null,
-        ),
+        mediaStoreRuntimeProvider.overrideWith((ref) async {
+          if (runtimeHangs) return Completer<MediaStoreRuntime?>().future;
+          await whileRuntimeBuilds?.call();
+          if (!runtimeAvailable) return null;
+          return MediaStoreRuntime(
+            storeId: 'store-1',
+            store: store,
+            cache: cache,
+            resolver: MediaStoreResolver(store: store, cache: cache),
+          );
+        }),
         cloudStorageProviderProvider.overrideWithValue(
           syncOn ? syncCloud : null,
         ),
@@ -308,6 +317,27 @@ void main() {
     expect(survivors, hasLength(1), reason: 'one delete, then the restore');
   });
 
+  test('a restore while the store connects stops the deletes', () async {
+    // Building the runtime opens the keychain and reads the store marker;
+    // the guard's starting point must come before that wait, or a restore
+    // recorded during it reads as the state the sweep began from.
+    await registerStore();
+    await knownPhoto();
+    deadObject();
+    final c = container(
+      syncOn: false,
+      whileRuntimeBuilds: () =>
+          StorageGcStore.markRestored(prefs, DateTime.now()),
+    );
+
+    await c.read(storageGcCoordinatorProvider).run(StorageGcTrigger.manual);
+
+    expect(
+      store.objects.keys,
+      contains(StoreKeys.objectKey('dead', extension: 'jpg')),
+    );
+  });
+
   test('a store that fails its marker check is not swept', () async {
     // Repointed or wiped: the store's objects are not this library's.
     await registerStore();
@@ -334,6 +364,23 @@ void main() {
 
       final usage = c.read(storageGcStoreProvider).cloudUsage!;
       expect(usage.partial, isTrue, reason: 'attached, not "not set up"');
+    },
+  );
+
+  test(
+    'a runtime that never finishes building does not hang the pass',
+    () async {
+      // Riverpod retries a build that throws, and with nothing listening the
+      // future it hands out never completes: every later run (and every
+      // Reclaim or Rescan tap) would join a pass that never ends.
+      final c = container(runtimeHangs: true);
+
+      await c
+          .read(storageGcCoordinatorProvider)
+          .run(StorageGcTrigger.rescan)
+          .timeout(const Duration(seconds: 10));
+
+      expect(c.read(storageGcStoreProvider).cloudUsage!.partial, isTrue);
     },
   );
 
@@ -372,6 +419,8 @@ void main() {
             hasTransferringUploads: () async => false,
             mediaSweep: ({required dryRun}) async => null,
             deletesAllowed: () async => false,
+            isStoreRegistered: () async => true,
+            attachedStoreId: () async => null,
             fleetSweepDue: (_) async => false,
             stampFleetSweep: (_) async {},
             measureSync: () async => null,
@@ -400,6 +449,7 @@ void main() {
       CloudUsage(
         scannedAt: DateTime(2026, 10, 1),
         mediaBytes: 10,
+        mediaStoreId: 'store-1',
         syncBytes: 20,
         librariesBytes: 30,
       ),
@@ -412,6 +462,22 @@ void main() {
     expect(view.cloudUsage!.mediaBytes, 10, reason: 'store-1 is attached');
     expect(view.cloudUsage!.syncBytes, isNull);
     expect(view.cloudUsage!.librariesBytes, isNull);
+  });
+
+  test('the page hides the figures of a store no longer attached', () async {
+    await StorageGcStore(prefs).setCloudUsage(
+      CloudUsage(
+        scannedAt: DateTime(2026, 10, 1),
+        mediaBytes: 10,
+        mediaStoreId: 'old-store',
+      ),
+    );
+    final c = container(syncOn: false);
+    c.listen(storageGcStateProvider, (_, _) {});
+
+    final view = await c.read(storageGcStateProvider.future);
+
+    expect(view.cloudUsage!.mediaBytes, isNull);
   });
 
   test('last reclaimed adds the device and cloud results of one pass', () {

@@ -33539,6 +33539,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings_mediaStorage_verify_deferred => '未删除任何内容：删除操作将等待此设备完成同步。';
 
   @override
+  String get settings_mediaStorage_verify_unregistered =>
+      '未删除任何内容：请重新连接媒体存储，以便此潜水日志知道哪些文件属于它。';
+
+  @override
+  String get settings_mediaStorage_verify_uploads => '未删除任何内容：删除操作将等待上传完成。';
+
+  @override
   String get settings_mediaStorage_backfill_action => '上传现有媒体库';
 
   @override
@@ -47259,6 +47266,16 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String settings_storageUsage_reclaimWaitingUnregistered(String size) {
+    return '重新连接媒体存储后还可回收 $size';
+  }
+
+  @override
+  String settings_storageUsage_reclaimWaitingUploads(String size) {
+    return '上传完成后还可回收 $size';
+  }
+
+  @override
   String get settings_storageUsage_reclaimAction => '回收存储空间';
 
   @override
@@ -47269,6 +47286,16 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String settings_storageUsage_reclaimDoneDeferred(String size) {
     return '已回收 $size。云端清理将等待此设备完成同步。';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUnregistered(String size) {
+    return '已回收 $size。请重新连接媒体存储以清理云端。';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUploads(String size) {
+    return '已回收 $size。云端清理将等待上传完成。';
   }
 
   @override

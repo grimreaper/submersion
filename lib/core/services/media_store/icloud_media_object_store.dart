@@ -4,6 +4,7 @@ import 'package:path/path.dart' as p;
 
 import 'package:submersion/core/services/media_store/icloud_media_platform.dart';
 import 'package:submersion/core/services/media_store/media_object_store.dart';
+import 'package:submersion/core/services/storage/scratch_sweep.dart';
 
 /// iCloud-backed media object store (design spec section 8.2). Keys map to
 /// `<container>/[rootFolder]/<key>`; the ubiquity container behaves as a
@@ -61,7 +62,7 @@ class ICloudMediaObjectStore implements MediaObjectStore, LocalListingStore {
     return StoreObjectInfo(
       key: key,
       sizeBytes: stat.size,
-      lastModified: stat.modified,
+      lastModified: lastTouched(stat),
     );
   }
 
@@ -162,7 +163,13 @@ class ICloudMediaObjectStore implements MediaObjectStore, LocalListingStore {
     final file = File(path);
     if (await file.exists()) {
       await file.delete();
+      return;
     }
+    // Evicted: the object is only its `.<name>.icloud` placeholder here.
+    final placeholder = File(
+      p.join(p.dirname(path), '.${p.basename(path)}.icloud'),
+    );
+    if (await placeholder.exists()) await placeholder.delete();
   }
 
   @override
@@ -180,23 +187,23 @@ class ICloudMediaObjectStore implements MediaObjectStore, LocalListingStore {
   Stream<StoreObjectInfo> list(String keyPrefix) async* {
     final root = await _root();
     await _platform.refreshFolder(root);
-    yield* _walk(root, keyPrefix, placeholders: false);
+    yield* _walk(root, keyPrefix);
   }
 
   /// The container as this device has it, without the refresh [list] runs:
-  /// that refresh starts downloading every evicted item. An evicted item
-  /// that left a `.<name>.icloud` placeholder is listed under its own key
-  /// with no size.
+  /// that refresh starts downloading every evicted item.
   @override
   Stream<StoreObjectInfo> listLocal(String keyPrefix) async* {
-    yield* _walk(await _root(), keyPrefix, placeholders: true);
+    yield* _walk(await _root(), keyPrefix);
   }
 
-  Stream<StoreObjectInfo> _walk(
-    String root,
-    String keyPrefix, {
-    required bool placeholders,
-  }) async* {
+  /// Both listings report an evicted item (a `.<name>.icloud` placeholder)
+  /// under its own key with no size: the refresh only starts downloads, and
+  /// a sweep that saw the placeholder's name would take a present object
+  /// for a missing one. Ages are the later of modification and change
+  /// time: older builds staged uploads with the source's modification time,
+  /// while the change time says when the file arrived here.
+  Stream<StoreObjectInfo> _walk(String root, String keyPrefix) async* {
     final directory = Directory(root);
     if (!await directory.exists()) return;
     await for (final entity in directory.list(
@@ -207,7 +214,7 @@ class ICloudMediaObjectStore implements MediaObjectStore, LocalListingStore {
       var key = p
           .relative(entity.path, from: root)
           .replaceAll(p.separator, '/');
-      final placeholder = placeholders ? _placeholderKey(key) : null;
+      final placeholder = _placeholderKey(key);
       if (placeholder != null) key = placeholder;
       if (!key.startsWith(keyPrefix)) continue;
       if (key.endsWith('.uploading')) continue;
@@ -215,7 +222,7 @@ class ICloudMediaObjectStore implements MediaObjectStore, LocalListingStore {
       yield StoreObjectInfo(
         key: key,
         sizeBytes: placeholder == null ? stat.size : null,
-        lastModified: stat.modified,
+        lastModified: lastTouched(stat),
       );
     }
   }

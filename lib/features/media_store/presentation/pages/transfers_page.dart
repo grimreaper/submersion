@@ -7,6 +7,7 @@ import 'package:submersion/features/media/presentation/providers/resolved_asset_
 import 'package:submersion/features/media_store/data/media_store_worker.dart';
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
 import 'package:submersion/features/media_store/presentation/providers/media_store_providers.dart';
+import 'package:submersion/features/media_store/presentation/providers/media_sweep_providers.dart';
 import 'package:submersion/features/media_store/presentation/widgets/media_transfers_suspended_notice.dart';
 import 'package:submersion/features/media_store/presentation/widgets/transfers_view.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
@@ -218,7 +219,11 @@ class _TransfersPageState extends ConsumerState<TransfersPage> {
     // left to the verify sweep's reap.
     MediaStoreWorker? worker;
     try {
-      worker = (await ref.read(mediaStoreRuntimeProvider.future))?.worker;
+      worker =
+          (await ref
+                  .read(mediaStoreRuntimeProvider.future)
+                  .timeout(ref.read(mediaStoreRuntimeWaitProvider)))
+              ?.worker;
     } catch (_) {
       worker = null;
     }

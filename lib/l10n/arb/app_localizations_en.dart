@@ -35019,6 +35019,14 @@ class AppLocalizationsEn extends AppLocalizations {
       'Nothing was deleted: deletes wait until this device has finished syncing.';
 
   @override
+  String get settings_mediaStorage_verify_unregistered =>
+      'Nothing was deleted: reconnect the media store so this dive log knows which files are its own.';
+
+  @override
+  String get settings_mediaStorage_verify_uploads =>
+      'Nothing was deleted: deletes wait until uploads finish.';
+
+  @override
   String get settings_mediaStorage_backfill_action => 'Upload existing library';
 
   @override
@@ -49565,6 +49573,16 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String settings_storageUsage_reclaimWaitingUnregistered(String size) {
+    return '$size more will be reclaimable after you reconnect the media store';
+  }
+
+  @override
+  String settings_storageUsage_reclaimWaitingUploads(String size) {
+    return '$size more will be reclaimable once uploads finish';
+  }
+
+  @override
   String get settings_storageUsage_reclaimAction => 'Reclaim storage';
 
   @override
@@ -49575,6 +49593,16 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String settings_storageUsage_reclaimDoneDeferred(String size) {
     return 'Reclaimed $size. The cloud cleanup waits until this device has finished syncing.';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUnregistered(String size) {
+    return 'Reclaimed $size. Reconnect the media store to clean up the cloud.';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUploads(String size) {
+    return 'Reclaimed $size. The cloud cleanup waits until uploads finish.';
   }
 
   @override

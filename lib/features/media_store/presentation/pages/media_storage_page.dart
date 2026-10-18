@@ -12,11 +12,13 @@ import 'package:submersion/core/services/cloud_storage/s3/s3_credentials_store.d
 import 'package:submersion/core/services/cloud_storage/s3/s3_region.dart';
 import 'package:submersion/core/services/media_store/media_object_store.dart';
 import 'package:submersion/core/services/media_store/media_upload_quality_policy.dart';
+import 'package:submersion/core/services/storage/gc/cloud_usage_measure.dart';
 import 'package:submersion/core/utils/share_anchor.dart';
 import 'package:submersion/features/media/presentation/providers/media_health_providers.dart';
 import 'package:submersion/features/media_store/data/media_store_service.dart';
 import 'package:submersion/features/media_store/domain/media_upload_quality.dart';
 import 'package:submersion/features/media_store/presentation/providers/media_store_providers.dart';
+import 'package:submersion/features/media_store/presentation/providers/media_sweep_providers.dart';
 import 'package:submersion/features/media_store/presentation/widgets/media_transfer_summary_row.dart';
 import 'package:submersion/features/media_store/presentation/widgets/webdav_media_form.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
@@ -374,13 +376,19 @@ class _MediaStoragePageState extends ConsumerState<MediaStoragePage> {
         report.repairsQueued,
         report.sessionsAborted,
       );
-      // "Removed 0" alone would read as nothing to remove; deferred deletes
-      // wait on a sync.
-      _showSnack(
-        report.deferred
-            ? '$summary\n${l10n.settings_mediaStorage_verify_deferred}'
-            : summary,
-      );
+      // "Removed 0" alone would read as nothing to remove; say what the
+      // deferred deletes wait on.
+      final held = !report.deferred
+          ? null
+          : switch (report.hold) {
+              null || CloudDeleteHold.sync =>
+                l10n.settings_mediaStorage_verify_deferred,
+              CloudDeleteHold.unregistered =>
+                l10n.settings_mediaStorage_verify_unregistered,
+              CloudDeleteHold.uploads =>
+                l10n.settings_mediaStorage_verify_uploads,
+            };
+      _showSnack(held == null ? summary : '$summary\n$held');
     } on MediaStoreException catch (e) {
       if (mounted) _showSnack(e.message, isError: true);
     } catch (e) {

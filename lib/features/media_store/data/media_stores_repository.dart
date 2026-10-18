@@ -88,16 +88,14 @@ class MediaStoresRepository {
 
   /// Records a completed Verify Library sweep (orphan-prevention spec
   /// 6.4). Synced, so one device's sweep satisfies the fleet-wide 30-day
-  /// cadence for every device.
+  /// cadence for every device. Leaves updatedAt alone: it orders the
+  /// descriptors for [getActive], and a stamp is not a new announcement.
   Future<void> stampLastSweep(String storeId, DateTime at) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     await (_db.update(
       _db.mediaStores,
     )..where((t) => t.id.equals(storeId))).write(
-      MediaStoresCompanion(
-        lastSweepAt: Value(at.millisecondsSinceEpoch),
-        updatedAt: Value(now),
-      ),
+      MediaStoresCompanion(lastSweepAt: Value(at.millisecondsSinceEpoch)),
     );
     await _syncRepository.markRecordPending(
       entityType: 'mediaStores',

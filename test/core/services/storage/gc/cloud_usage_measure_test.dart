@@ -180,7 +180,8 @@ void main() {
       syncBytes: 30,
       librariesBytes: null,
       partial: true,
-      mediaDeferred: true,
+      mediaHold: CloudDeleteHold.unregistered,
+      mediaStoreId: 'store-1',
       scannedAt: DateTime(2026, 10, 17, 12),
     );
 
@@ -192,8 +193,27 @@ void main() {
     expect(back.syncBytes, 30);
     expect(back.librariesBytes, isNull);
     expect(back.partial, isTrue);
-    expect(back.mediaDeferred, isTrue);
+    expect(back.mediaHold, CloudDeleteHold.unregistered);
+    expect(back.mediaStoreId, 'store-1');
     expect(back.scannedAt, usage.scannedAt);
+  });
+
+  test('onlyAreas shows media figures only of the attached store', () {
+    final usage = CloudUsage(
+      scannedAt: DateTime(2026, 10, 17),
+      mediaBytes: 100,
+      mediaReclaimableBytes: 10,
+      mediaStoreId: 'store-a',
+      syncBytes: 30,
+    );
+    CloudUsage only(String? attached) =>
+        usage.onlyAreas(mediaStoreId: attached, sync: true, libraries: false);
+
+    expect(only('store-a').mediaBytes, 100);
+    expect(only('store-b').mediaBytes, isNull);
+    expect(only('store-b').mediaReclaimableBytes, isNull);
+    expect(only(null).mediaBytes, isNull);
+    expect(only('store-b').syncBytes, 30);
   });
 
   test('CloudUsage copyWith replaces only what it is given', () {
@@ -201,12 +221,13 @@ void main() {
       scannedAt: DateTime(2026, 10, 17),
       mediaBytes: 100,
       syncBytes: 30,
+      mediaHold: CloudDeleteHold.uploads,
     );
 
-    final next = usage.copyWith(mediaBytes: 60, mediaDeferred: true);
+    final next = usage.copyWith(mediaBytes: 60);
 
     expect(next.mediaBytes, 60);
-    expect(next.mediaDeferred, isTrue);
+    expect(next.mediaHold, CloudDeleteHold.uploads);
     expect(next.syncBytes, 30);
     expect(next.scannedAt, usage.scannedAt);
   });

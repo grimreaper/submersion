@@ -35549,6 +35549,14 @@ class AppLocalizationsDe extends AppLocalizations {
       'Nichts wurde gelöscht: Löschvorgänge warten, bis dieses Gerät die Synchronisierung abgeschlossen hat.';
 
   @override
+  String get settings_mediaStorage_verify_unregistered =>
+      'Nichts wurde gelöscht: Verbinde den Medienspeicher erneut, damit dieses Tauchlogbuch weiß, welche Dateien ihm gehören.';
+
+  @override
+  String get settings_mediaStorage_verify_uploads =>
+      'Nichts wurde gelöscht: Löschvorgänge warten, bis die Uploads abgeschlossen sind.';
+
+  @override
   String get settings_mediaStorage_backfill_action =>
       'Vorhandene Bibliothek hochladen';
 
@@ -50253,6 +50261,16 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String settings_storageUsage_reclaimWaitingUnregistered(String size) {
+    return 'Weitere $size werden freigebbar, wenn du den Medienspeicher erneut verbindest';
+  }
+
+  @override
+  String settings_storageUsage_reclaimWaitingUploads(String size) {
+    return 'Weitere $size werden freigebbar, sobald die Uploads abgeschlossen sind';
+  }
+
+  @override
   String get settings_storageUsage_reclaimAction => 'Speicher freigeben';
 
   @override
@@ -50263,6 +50281,16 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String settings_storageUsage_reclaimDoneDeferred(String size) {
     return '$size freigegeben. Die Cloud-Bereinigung wartet, bis dieses Gerät die Synchronisierung abgeschlossen hat.';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUnregistered(String size) {
+    return '$size freigegeben. Verbinde den Medienspeicher erneut, um die Cloud zu bereinigen.';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUploads(String size) {
+    return '$size freigegeben. Die Cloud-Bereinigung wartet, bis die Uploads abgeschlossen sind.';
   }
 
   @override

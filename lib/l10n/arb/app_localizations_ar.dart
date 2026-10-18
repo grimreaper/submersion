@@ -36110,6 +36110,14 @@ class AppLocalizationsAr extends AppLocalizations {
       'لم يُحذف أي شيء: تنتظر عمليات الحذف حتى ينتهي هذا الجهاز من المزامنة.';
 
   @override
+  String get settings_mediaStorage_verify_unregistered =>
+      'لم يُحذف أي شيء: أعد توصيل مخزن الوسائط ليعرف سجل الغوص هذا أي الملفات تخصه.';
+
+  @override
+  String get settings_mediaStorage_verify_uploads =>
+      'لم يُحذف أي شيء: تنتظر عمليات الحذف حتى تنتهي عمليات الرفع.';
+
+  @override
   String get settings_mediaStorage_backfill_action => 'رفع المكتبة الحالية';
 
   @override
@@ -50994,6 +51002,16 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String settings_storageUsage_reclaimWaitingUnregistered(String size) {
+    return 'سيصبح $size إضافية قابلة للاسترداد بعد إعادة توصيل مخزن الوسائط';
+  }
+
+  @override
+  String settings_storageUsage_reclaimWaitingUploads(String size) {
+    return 'سيصبح $size إضافية قابلة للاسترداد بعد انتهاء عمليات الرفع';
+  }
+
+  @override
   String get settings_storageUsage_reclaimAction => 'استرداد مساحة التخزين';
 
   @override
@@ -51004,6 +51022,16 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String settings_storageUsage_reclaimDoneDeferred(String size) {
     return 'تم استرداد $size. ينتظر تنظيف السحابة حتى ينتهي هذا الجهاز من المزامنة.';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUnregistered(String size) {
+    return 'تم استرداد $size. أعد توصيل مخزن الوسائط لتنظيف السحابة.';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUploads(String size) {
+    return 'تم استرداد $size. ينتظر تنظيف السحابة حتى تنتهي عمليات الرفع.';
   }
 
   @override

@@ -5,6 +5,7 @@ import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_riverpod/misc.dart' show Override;
 import 'package:flutter_test/flutter_test.dart';
+import 'package:submersion/core/services/storage/gc/cloud_usage_measure.dart';
 import 'package:path_provider_platform_interface/path_provider_platform_interface.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:submersion/core/database/app_sql_functions.dart';
@@ -25,6 +26,7 @@ import 'package:submersion/features/media_store/data/media_stores_repository.dar
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
 import 'package:submersion/features/media_store/data/orphan_delete_policy.dart';
 import 'package:submersion/features/media_store/presentation/providers/media_store_providers.dart';
+import 'package:submersion/features/media_store/presentation/providers/media_sweep_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/storage_gc_providers.dart';
 
@@ -134,6 +136,7 @@ void main() {
     ).read(mediaVerifyRunnerProvider)();
 
     expect(report.deferred, isTrue);
+    expect(report.hold, isNull, reason: 'not caught up: the sync wording');
     expect((await storesRepository.getActive())!.lastSweepAt, isNull);
   });
 
@@ -185,6 +188,7 @@ void main() {
       ).read(mediaVerifyRunnerProvider)();
 
       expect(report.deferred, isTrue);
+      expect(report.hold, CloudDeleteHold.uploads);
       expect(
         store.objects.keys,
         contains(StoreKeys.objectKey('dead', extension: 'jpg')),
@@ -233,6 +237,7 @@ void main() {
     ).read(mediaVerifyRunnerProvider)();
 
     expect(report.deferred, isTrue);
+    expect(report.hold, CloudDeleteHold.unregistered);
     expect(
       store.objects.keys,
       contains(StoreKeys.objectKey('dead', extension: 'jpg')),
@@ -318,6 +323,8 @@ class _FailingRecordCoordinator extends StorageGcCoordinator {
         hasTransferringUploads: () async => false,
         mediaSweep: ({required dryRun}) async => null,
         deletesAllowed: () async => false,
+        isStoreRegistered: () async => true,
+        attachedStoreId: () async => null,
         fleetSweepDue: (_) async => false,
         stampFleetSweep: (_) async {},
         measureSync: () async => null,

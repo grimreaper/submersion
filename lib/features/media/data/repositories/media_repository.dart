@@ -2556,7 +2556,12 @@ class MediaRepository {
   /// decide which media store keys it can resolve to (storage GC design,
   /// leak 3). The verify sweep uses it to tell a sibling object some row
   /// still needs from one nothing does.
-  Future<Map<String, List<MediaKeyReference>>> getContentReferences() async {
+  ///
+  /// [contentHash] limits the read to that hash's rows: the sweep asks again
+  /// just before a delete, since a row can start using an object meanwhile.
+  Future<Map<String, List<MediaKeyReference>>> getContentReferences({
+    String? contentHash,
+  }) async {
     // selectOnly projection, for the same reason as below: full rows would
     // drag signature BLOBs into memory for every hashed row.
     final hash = _db.media.contentHash;
@@ -2566,7 +2571,9 @@ class MediaRepository {
     final rendition = _db.media.remoteCompressedUploadedAt;
     final query = _db.selectOnly(_db.media)
       ..addColumns([hash, filename, fileType, original, rendition])
-      ..where(hash.isNotNull());
+      ..where(
+        contentHash == null ? hash.isNotNull() : hash.equals(contentHash),
+      );
     final out = <String, List<MediaKeyReference>>{};
     for (final row in await query.get()) {
       out

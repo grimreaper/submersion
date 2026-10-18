@@ -25,4 +25,20 @@ class MediaKeyReference {
 
   /// `remoteCompressedUploadedAt` is set: the rendition is this row's copy.
   final bool hasRenditionStamp;
+
+  @override
+  bool operator ==(Object other) =>
+      other is MediaKeyReference &&
+      other.originalExtension == originalExtension &&
+      other.isVideo == isVideo &&
+      other.hasOriginalStamp == hasOriginalStamp &&
+      other.hasRenditionStamp == hasRenditionStamp;
+
+  @override
+  int get hashCode => Object.hash(
+    originalExtension,
+    isVideo,
+    hasOriginalStamp,
+    hasRenditionStamp,
+  );
 }

@@ -35626,6 +35626,14 @@ class AppLocalizationsIt extends AppLocalizations {
       'Non è stato eliminato nulla: le eliminazioni attendono che questo dispositivo abbia finito di sincronizzare.';
 
   @override
+  String get settings_mediaStorage_verify_unregistered =>
+      'Non è stato eliminato nulla: ricollega l\'archivio multimediale perché questo registro immersioni sappia quali file sono suoi.';
+
+  @override
+  String get settings_mediaStorage_verify_uploads =>
+      'Non è stato eliminato nulla: le eliminazioni attendono il termine dei caricamenti.';
+
+  @override
   String get settings_mediaStorage_backfill_action =>
       'Carica libreria esistente';
 
@@ -50358,6 +50366,16 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
+  String settings_storageUsage_reclaimWaitingUnregistered(String size) {
+    return 'Altri $size saranno recuperabili dopo aver ricollegato l\'archivio multimediale';
+  }
+
+  @override
+  String settings_storageUsage_reclaimWaitingUploads(String size) {
+    return 'Altri $size saranno recuperabili al termine dei caricamenti';
+  }
+
+  @override
   String get settings_storageUsage_reclaimAction => 'Recupera spazio';
 
   @override
@@ -50368,6 +50386,16 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String settings_storageUsage_reclaimDoneDeferred(String size) {
     return '$size recuperati. La pulizia nel cloud attende che questo dispositivo abbia finito di sincronizzare.';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUnregistered(String size) {
+    return '$size recuperati. Ricollega l\'archivio multimediale per pulire il cloud.';
+  }
+
+  @override
+  String settings_storageUsage_reclaimDoneUploads(String size) {
+    return '$size recuperati. La pulizia nel cloud attende il termine dei caricamenti.';
   }
 
   @override

@@ -18,6 +18,7 @@ import 'package:submersion/features/media/presentation/providers/media_providers
 import 'package:submersion/features/media_store/data/media_stores_repository.dart';
 import 'package:submersion/features/media_store/data/media_verify_service.dart';
 import 'package:submersion/features/media_store/presentation/providers/media_store_providers.dart';
+import 'package:submersion/features/media_store/presentation/providers/media_sweep_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/shared_library/presentation/providers/shared_library_providers.dart';
@@ -58,13 +59,14 @@ final storageGcCoordinatorProvider = Provider<StorageGcCoordinator>((ref) {
     hasTransferringUploads: () =>
         ref.read(mediaTransferQueueRepositoryProvider).hasTransferringUploads(),
     mediaSweep: ({required dryRun}) => _mediaSweep(ref, dryRun: dryRun),
-    deletesAllowed: () async {
-      // A database with no media_stores row for this store never registered
-      // it (a fresh dive log, a restore from before it was attached): it
-      // must not decide what in the store is orphaned.
-      if (await _attachedDescriptor(ref) == null) return false;
-      return ref.read(orphanDeletePolicyFactoryProvider)().deletesAllowed;
-    },
+    deletesAllowed: () async =>
+        ref.read(orphanDeletePolicyFactoryProvider)().deletesAllowed,
+    // A database with no media_stores row for this store never registered
+    // it (a fresh dive log, a restore from before it was attached): it must
+    // not decide what in the store is orphaned.
+    isStoreRegistered: () async => await _attachedDescriptor(ref) != null,
+    attachedStoreId: () =>
+        ref.read(mediaStoreAttachStateProvider).attachedStoreId(),
     // The attached store's row, not the newest one: a device still attached
     // to an older store sweeps that store, and must neither skip it on
     // another store's stamp nor stamp the other store done.
@@ -138,6 +140,9 @@ final storageGcStateProvider = StreamProvider<StorageGcView>((ref) async* {
   // Only the areas set up now: the last scan may predate a disconnect.
   // Watched, so connecting or disconnecting an area rebuilds the view.
   final media = await ref.watch(mediaStoreAttachedProvider.future);
+  final mediaStoreId = media
+      ? await ref.read(mediaStoreAttachStateProvider).attachedStoreId()
+      : null;
   final sync = ref.watch(cloudStorageProviderProvider) != null;
   final libraries = (await ref.watch(
     sharedLibrariesProvider.future,
@@ -145,7 +150,7 @@ final storageGcStateProvider = StreamProvider<StorageGcView>((ref) async* {
   StorageGcView view() => StorageGcView(
     running: coordinator.isRunning,
     cloudUsage: coordinator.store.cloudUsage?.onlyAreas(
-      media: media,
+      mediaStoreId: mediaStoreId,
       sync: sync,
       libraries: libraries,
     ),
@@ -210,6 +215,9 @@ Future<VerifyLibraryReport?> _mediaSweep(
   Ref ref, {
   required bool dryRun,
 }) async {
+  // A measurement deletes nothing, so it needs no guard (and no
+  // transfer-queue query to build one).
+  final guard = dryRun ? null : await mediaSweepDeleteGuard(ref);
   final runtime = await sweepableMediaStoreRuntime(ref);
   if (runtime == null) return null;
   final report =
@@ -220,14 +228,17 @@ Future<VerifyLibraryReport?> _mediaSweep(
       ).run(
         policy: ref.read(orphanDeletePolicyFactoryProvider)(),
         dryRun: dryRun,
-        // A measurement deletes nothing, so it needs no guard (and no
-        // transfer-queue query to build one).
-        deleteGuard: dryRun ? null : await mediaSweepDeleteGuard(ref),
+        // A soft restart unmounts this ref: the sweep then judges a
+        // database that is being replaced.
+        deleteGuard: guard == null ? null : _whileMounted(ref, guard),
       );
   // Repairs the sweep queued drain now rather than on the next trigger.
   if (!dryRun) unawaited(runtime.worker?.drain());
   return report;
 }
+
+bool Function() _whileMounted(Ref ref, bool Function() guard) =>
+    () => ref.mounted && guard();
 
 Future<({int bytes, bool partial})?> _measureLibraries(Ref ref) async {
   // Straight from the store, never `sharedLibrariesProvider.future`: Riverpod

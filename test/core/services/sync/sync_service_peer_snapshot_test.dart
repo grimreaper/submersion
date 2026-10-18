@@ -128,10 +128,22 @@ void main() {
     expect(snapshots.read()!.caughtUp, isFalse);
   });
 
-  test('a sync whose cleanup fails leaves the cleanup not caught up', () async {
-    // Trusted only once the sync reached its clean end: a failure in its
-    // last steps must not leave a caught-up snapshot behind.
-    await seedCaughtUp();
+  test('a sync whose publish fails still records its clean pull', () async {
+    // Caught up describes the pull: this device holds every peer row. A
+    // full cloud makes every publish fail, and the cleanup is what frees
+    // space; tying the snapshot to the publish deadlocked the two.
+    await DiveRepository().createDive(
+      createTestDiveWithBottomTime(id: 'd1', diveNumber: 1),
+    );
+    cloud.failUploads = true;
+
+    final result = await buildService().performSync();
+
+    expect(result.isSuccess, isFalse);
+    expect(snapshots.read()!.caughtUp, isTrue);
+  });
+
+  test('a sync whose cleanup fails still records its clean pull', () async {
     await DiveRepository().createDive(
       createTestDiveWithBottomTime(id: 'd1', diveNumber: 1),
     );
@@ -141,7 +153,7 @@ void main() {
     ).performSync();
 
     expect(result.isSuccess, isFalse);
-    expect(snapshots.read()!.caughtUp, isFalse);
+    expect(snapshots.read()!.caughtUp, isTrue);
   });
 
   test('a sync that cannot reset the snapshot does not run', () async {

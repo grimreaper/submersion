@@ -40,6 +40,11 @@ class _FakeLocation implements DatabaseLocationService {
   @override
   Future<void> resetToDefault() async {}
 
+  int switchMarks = 0;
+
+  @override
+  Future<void> markDatabaseSwitched() async => switchMarks++;
+
   @override
   dynamic noSuchMethod(Invocation invocation) => super.noSuchMethod(invocation);
 }
@@ -74,8 +79,10 @@ void main() {
     }
   });
 
+  late _FakeLocation location;
+
   Future<DatabaseMigrationService> initServiceAt(String defaultDir) async {
-    final location = _FakeLocation(
+    location = _FakeLocation(
       currentPath: currentPath,
       defaultDir: defaultDir,
     );
@@ -200,6 +207,9 @@ void main() {
 
     expect(result.success, isTrue, reason: result.errorMessage);
     expect(DatabaseService.instance.currentPath, targetPath);
+    // Another dive log is open now: the storage cleanup must not trust what
+    // the last sync told it about the one it replaced.
+    expect(location.switchMarks, 1);
     final one = await DatabaseService.instance.database
         .customSelect('SELECT 1 AS v')
         .getSingle();

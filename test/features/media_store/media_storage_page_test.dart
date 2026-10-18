@@ -26,6 +26,7 @@ import 'package:submersion/features/media_store/data/media_transfer_queue_reposi
 import 'package:submersion/features/media_store/domain/media_transfer_summary.dart';
 import 'package:submersion/features/media_store/presentation/pages/media_storage_page.dart';
 import 'package:submersion/features/media_store/presentation/providers/media_store_providers.dart';
+import 'package:submersion/features/media_store/presentation/providers/media_sweep_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 

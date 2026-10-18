@@ -742,6 +742,36 @@ class SyncService {
         _log.warning('Device retirement sweep failed (non-fatal): $e');
       }
 
+      // What the storage cleanup needs from this pull once the manifests are
+      // gone: whether every live peer applied cleanly to its head, and when
+      // each last published. It describes the pull, so it is written once the
+      // pull and the retirement sweep are done: a publish or cleanup failure
+      // later in this sync does not change which peer rows this device holds,
+      // and tying the two together deadlocked a full cloud (every publish
+      // fails, so the cleanup that frees space never ran). Best-effort: a
+      // failed write leaves the not-caught-up mark this sync set at its
+      // start, the cautious state.
+      try {
+        await _peerSnapshots?.write(
+          buildPeerSyncSnapshot(
+            now: pullStartedAt,
+            providerId: provider.providerId,
+            selfDeviceId: deviceId,
+            peerManifests: pullResult.peerManifests,
+            fencedPeerIds: fencedPeerIds,
+            readFailedPeerIds: pullResult.readFailedPeerDeviceIds,
+            newerSchemaPeerIds: pullResult.newerSchemaPeerDeviceIds,
+            incompletePeerIds: pullResult.incompletePeerDeviceIds,
+            unpublishedPeerIds: pullResult.unpublishedPeerDeviceIds,
+            skippedPeerIds: pullResult.skippedPeerDeviceIds,
+            recordsFailed: recordsFailed,
+            manifestListedAt: pullResult.peerManifestListedAt,
+          ),
+        );
+      } catch (e) {
+        _log.warning('Peer sync snapshot write failed (non-fatal): $e');
+      }
+
       // ---- Upload: publish our delta ----
       _reportProgress(
         SyncPhase.uploading,
@@ -886,32 +916,6 @@ class SyncService {
         if (conflictsFound == 0) {
           await _syncRepository.clearAllSyncRecords(markedBefore: snapshotAt);
         }
-      }
-
-      // What the storage cleanup needs from this pull once the manifests are
-      // gone: whether every live peer applied cleanly to its head, and when
-      // each last published. Written last, after every step that can fail,
-      // so only a sync that reached its clean end is trusted. Best-effort: a
-      // failed write leaves the not-caught-up mark this sync set at its
-      // start, the cautious state.
-      try {
-        await _peerSnapshots?.write(
-          buildPeerSyncSnapshot(
-            now: pullStartedAt,
-            providerId: provider.providerId,
-            selfDeviceId: deviceId,
-            peerManifests: pullResult.peerManifests,
-            fencedPeerIds: fencedPeerIds,
-            readFailedPeerIds: pullResult.readFailedPeerDeviceIds,
-            newerSchemaPeerIds: pullResult.newerSchemaPeerDeviceIds,
-            incompletePeerIds: pullResult.incompletePeerDeviceIds,
-            unpublishedPeerIds: pullResult.unpublishedPeerDeviceIds,
-            skippedPeerIds: pullResult.skippedPeerDeviceIds,
-            recordsFailed: recordsFailed,
-          ),
-        );
-      } catch (e) {
-        _log.warning('Peer sync snapshot write failed (non-fatal): $e');
       }
 
       _reportProgress(
