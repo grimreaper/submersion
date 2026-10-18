@@ -290,17 +290,28 @@ Future<MediaStoreRuntime?> sweepableMediaStoreRuntime(Ref ref) async {
 
 /// Asked before every cloud media delete, by the scheduled cleanup and by
 /// Verify Library alike: false throughout while an upload is transferring,
-/// and false once a sync or a restore has started since the sweep began,
-/// because the sweep judged orphans against the rows it read at its start.
+/// and false once a sync or a restore has started since the sweep began
+/// (the sweep judged orphans against the rows it read at its start), or the
+/// store was detached or repointed (what is left of the listing is no
+/// longer this device's store to judge). The attachment is read the same
+/// synchronous way it is written, so a change shows at the next delete.
 Future<bool Function()> mediaSweepDeleteGuard(Ref ref) async {
   final transferring = await ref
       .read(mediaTransferQueueRepositoryProvider)
       .hasTransferringUploads();
+  final prefs = ref.read(sharedPreferencesProvider);
   final quiet = SyncCoordinator.quietGuard();
-  final notRestored = StorageGcStore.restoreGuard(
-    ref.read(sharedPreferencesProvider),
-  );
-  return () => !transferring && quiet() && notRestored();
+  final notRestored = StorageGcStore.restoreGuard(prefs);
+  int generation() => prefs.getInt(MediaStoreAttachState.generationKey) ?? 0;
+  String? storeId() => prefs.getString(MediaStoreAttachState.storeIdKey);
+  final attachedGeneration = generation();
+  final attachedStoreId = storeId();
+  return () =>
+      !transferring &&
+      quiet() &&
+      notRestored() &&
+      generation() == attachedGeneration &&
+      storeId() == attachedStoreId;
 }
 
 /// Runs a Verify Library sweep against the attached store, stamps the
@@ -323,11 +334,17 @@ final mediaVerifyRunnerProvider =
           queue: ref.read(mediaTransferQueueRepositoryProvider),
         );
         // The same gates as the scheduled cleanup: no delete while an upload is
-        // transferring, nor during or after a merge or a restore that started
-        // once this run began.
+        // transferring, nor during or after a merge, a restore or an
+        // attachment change that started once this run began, and none at
+        // all from a database that never registered this store (a restore
+        // from before it was attached does not know which objects are its).
+        final storesRepository = ref.read(mediaStoresRepositoryProvider);
+        final registered =
+            await storesRepository.getById(runtime.storeId) != null;
+        final guard = await mediaSweepDeleteGuard(ref);
         final report = await service.run(
           policy: ref.read(orphanDeletePolicyFactoryProvider)(),
-          deleteGuard: await mediaSweepDeleteGuard(ref),
+          deleteGuard: registered ? guard : () => false,
         );
         // Drain queued repairs BEFORE anything else that can fail: a stamp
         // or record failure must not strand repairs the sweep just queued.
@@ -345,14 +362,9 @@ final mediaVerifyRunnerProvider =
         // device's cleanup off for the fleet cadence.
         if (report.deferred) return report;
         // The swept store's row, as the scheduled cleanup stamps: the newest
-        // row may be another store's.
-        final storesRepository = ref.read(mediaStoresRepositoryProvider);
-        if (await storesRepository.getById(runtime.storeId) != null) {
-          await storesRepository.stampLastSweep(
-            runtime.storeId,
-            DateTime.now(),
-          );
-        }
+        // row may be another store's. A deferred run returned above, and an
+        // unregistered store's run is always deferred.
+        await storesRepository.stampLastSweep(runtime.storeId, DateTime.now());
         return report;
       };
     });

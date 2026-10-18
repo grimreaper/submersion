@@ -137,8 +137,16 @@ void main() {
     expect((await storesRepository.getActive())!.lastSweepAt, isNull);
   });
 
-  /// A photo this database knows, and an old object nothing references.
-  Future<void> knownPhotoAndDeadObject() async {
+  /// A photo this database knows, and an old object nothing references, in
+  /// a store this database registered.
+  Future<void> knownPhotoAndDeadObject({bool registered = true}) async {
+    if (registered) {
+      await MediaStoresRepository().upsertActive(
+        storeId: 'store-1',
+        providerType: 's3',
+        displayHint: 'attached',
+      );
+    }
     final repo = MediaRepository();
     final created = await repo.createMedia(
       MediaItem(
@@ -193,6 +201,42 @@ void main() {
     await c.read(mediaVerifyRunnerProvider)();
 
     expect(c.read(storageGcStoreProvider).lastCloudResult!.bytes, 2);
+  });
+
+  test('an attachment change during the sweep stops its deletes', () async {
+    // Disconnected or repointed mid-sweep: the rest of the listing is no
+    // longer this device's store to judge.
+    await knownPhotoAndDeadObject();
+    store.objects[StoreKeys.objectKey('dead2', extension: 'jpg')] = [6, 7];
+    store.modified[StoreKeys.objectKey('dead2', extension: 'jpg')] =
+        DateTime.now().subtract(const Duration(days: 30));
+    store.onDelete = (_) => prefs.setInt(
+      MediaStoreAttachState.generationKey,
+      (prefs.getInt(MediaStoreAttachState.generationKey) ?? 0) + 1,
+    );
+
+    final report = await container(
+      policy: () => OrphanDeletePolicy.unrestricted(DateTime.now()),
+    ).read(mediaVerifyRunnerProvider)();
+
+    expect(report.orphansRemoved, 1);
+    expect(report.deferred, isTrue);
+  });
+
+  test('a store this database never registered is not swept', () async {
+    // The scheduled cleanup's rule: a restore from before the store was
+    // attached does not know which of its objects are orphans.
+    await knownPhotoAndDeadObject(registered: false);
+
+    final report = await container(
+      policy: () => OrphanDeletePolicy.unrestricted(DateTime.now()),
+    ).read(mediaVerifyRunnerProvider)();
+
+    expect(report.deferred, isTrue);
+    expect(
+      store.objects.keys,
+      contains(StoreKeys.objectKey('dead', extension: 'jpg')),
+    );
   });
 
   test("Verify Library stamps the attached store's row", () async {

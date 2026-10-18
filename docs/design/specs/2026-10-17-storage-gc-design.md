@@ -129,8 +129,8 @@ assert it for each sweep.
    exists again (a peer's sync brings it back, or a reconnect writes it), as the
    old auto-verify required: a database without one may be a fresh or reset dive
    log that knows only some of the store's media, and would judge the rest
-   orphaned. Then the synced fleet stamp takes over. Verify Library keeps its
-   current behaviour. (Designer's call, narrowed by the review.)
+   orphaned. Then the synced fleet stamp takes over. Verify Library follows
+   the same rule. (Designer's call, narrowed by the review.)
 
    After a Merge restore (the default), rows for media added after the backup come
    back from peers on the next reconciling sync, so those objects are not orphans
@@ -202,8 +202,8 @@ reclaimable figure. A sync-folder deletion sweep is not part of this work.
   sync-folder work waits while `SyncCoordinator.busy`. A sweep that finds its area
   busy defers to the next opportunity rather than waiting. An automatic run skips
   the cloud part while a sync runs; Reclaim and Rescan still measure then, but
-  delete nothing. A sync or a restore that starts while a sweep is deleting stops
-  the deletes, and that run counts as deferred: it neither stamps the fleet sweep
+  delete nothing. A sync, a restore or a change of media store attachment that
+  starts while a sweep is deleting stops the deletes, and that run counts as deferred: it neither stamps the fleet sweep
   nor clears the post-restore flag. A post-restore device pass with a failed
   sweep stays pending, so the forced retry is not lost.
 - **Never another device's in-progress files:** only this device's own superseded
