@@ -156,8 +156,13 @@ class StorageGcCoordinator {
   /// Storage usage page shows what it reclaimed and the media figures it
   /// found. The other areas keep the figures of the last scan, whose time
   /// the page shows; with no scan yet, the record is this sweep's alone and
-  /// partial, since nothing else was measured.
-  Future<void> recordMediaSweep(VerifyLibraryReport report) async {
+  /// partial, since nothing else was measured. [storeId] is the store the
+  /// sweep listed: the attachment may have moved on since, and the figures
+  /// stay that store's (the page shows only the attached store's).
+  Future<void> recordMediaSweep(
+    VerifyLibraryReport report, {
+    required String storeId,
+  }) async {
     final now = _now();
     await _recordCloudResult(report, now);
     final usage =
@@ -166,7 +171,7 @@ class StorageGcCoordinator {
       _withMedia(
         usage,
         report,
-        storeId: await _attachedStoreId(),
+        storeId: storeId,
       ).copyWith(partial: usage.partial || report.sizesUnknown),
     );
     _notify();

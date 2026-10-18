@@ -133,7 +133,9 @@ final mediaVerifyRunnerProvider =
         // The Storage usage page shows what this run reclaimed and found.
         // Display only, so a failed write costs the figures, not the sweep.
         try {
-          await ref.read(storageGcCoordinatorProvider).recordMediaSweep(report);
+          await ref
+              .read(storageGcCoordinatorProvider)
+              .recordMediaSweep(report, storeId: runtime.storeId);
         } catch (e) {
           LoggerService.forClass(
             MediaVerifyService,

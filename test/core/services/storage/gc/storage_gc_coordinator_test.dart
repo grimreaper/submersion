@@ -466,6 +466,7 @@ void main() {
     () async {
       await coordinator.recordMediaSweep(
         _report(total: 90, reclaimable: 30, reclaimed: 30, removed: 3),
+        storeId: 'store-a',
       );
 
       final usage = h.store.cloudUsage!;
@@ -481,11 +482,28 @@ void main() {
       await coordinator.run(StorageGcTrigger.rescan);
       expect(h.store.cloudUsage!.partial, isFalse);
 
-      await coordinator.recordMediaSweep(_report(sizesUnknown: true));
+      await coordinator.recordMediaSweep(
+        _report(sizesUnknown: true),
+        storeId: 'store-a',
+      );
 
       expect(h.store.cloudUsage!.partial, isTrue);
     },
   );
+
+  test('a Verify Library result names the store it swept', () async {
+    // The attachment moved on while the old store was listed: its figures
+    // are that store's, not the newly attached one's.
+    await coordinator.run(StorageGcTrigger.rescan);
+    h.storeId = 'store-b';
+
+    await coordinator.recordMediaSweep(
+      _report(total: 90, reclaimable: 30),
+      storeId: 'store-a',
+    );
+
+    expect(h.store.cloudUsage!.mediaStoreId, 'store-a');
+  });
 
   test('a Verify Library result updates the page figures', () async {
     await coordinator.run(StorageGcTrigger.rescan);
@@ -495,6 +513,7 @@ void main() {
 
     await coordinator.recordMediaSweep(
       _report(total: 90, reclaimable: 30, reclaimed: 30, removed: 3),
+      storeId: 'store-a',
     );
     await Future<void>.delayed(Duration.zero);
 

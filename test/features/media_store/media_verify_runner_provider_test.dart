@@ -205,6 +205,11 @@ void main() {
     await c.read(mediaVerifyRunnerProvider)();
 
     expect(c.read(storageGcStoreProvider).lastCloudResult!.bytes, 2);
+    expect(
+      c.read(storageGcStoreProvider).cloudUsage!.mediaStoreId,
+      'store-1',
+      reason: 'the swept runtime\'s store',
+    );
   });
 
   test('an attachment change during the sweep stops its deletes', () async {
@@ -333,8 +338,10 @@ class _FailingRecordCoordinator extends StorageGcCoordinator {
       );
 
   @override
-  Future<void> recordMediaSweep(VerifyLibraryReport report) async =>
-      throw StateError('prefs write failed');
+  Future<void> recordMediaSweep(
+    VerifyLibraryReport report, {
+    required String storeId,
+  }) async => throw StateError('prefs write failed');
 }
 
 /// Points the temporary directory at the test's own folder: the store
