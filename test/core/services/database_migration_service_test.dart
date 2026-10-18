@@ -82,10 +82,7 @@ void main() {
   late _FakeLocation location;
 
   Future<DatabaseMigrationService> initServiceAt(String defaultDir) async {
-    location = _FakeLocation(
-      currentPath: currentPath,
-      defaultDir: defaultDir,
-    );
+    location = _FakeLocation(currentPath: currentPath, defaultDir: defaultDir);
     await DatabaseService.instance.initialize(locationService: location);
     // Force the background executor to materialize the file so the pre-close
     // backup/copy have real bytes.

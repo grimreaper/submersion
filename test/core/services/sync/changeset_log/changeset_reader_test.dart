@@ -84,9 +84,7 @@ void main() {
 
     final result = await pullAs('reader-device');
 
-    expect(result.peerManifestListedAt, {
-      peerId: listing.single.modifiedTime,
-    });
+    expect(result.peerManifestListedAt, {peerId: listing.single.modifiedTime});
   });
 
   test(
