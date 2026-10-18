@@ -14,32 +14,29 @@ import 'recording_tcp_server.dart';
 /// pipe from the recording server, in socks5_tunnel_socket_test.dart.
 void main() {
   test('the recording server survives a client that hangs up', () async {
-    final target = await RecordingTcpServer.start(reply: utf8.encode('ok'));
+    // A large answer keeps the server's writes in flight past the hang-up.
+    final target = await RecordingTcpServer.start(
+      reply: List<int>.filled(256 * 1024, 7),
+    );
     addTearDown(target.close);
 
-    for (var round = 0; round < 20; round++) {
+    for (var round = 0; round < 60; round++) {
       final client = await Socket.connect(
         InternetAddress.loopbackIPv4,
         target.port,
       );
-      client.add([1]);
-      await client.flush();
-      await client.first; // the first answer, then hang up mid-exchange
-      final late = await Socket.connect(
-        InternetAddress.loopbackIPv4,
-        target.port,
-      );
-      // Many reads the server answers after this client has gone.
+      // Many requests, one answer read, then hang up at once: the server
+      // is still writing the rest when this socket goes away.
       for (var i = 0; i < 50; i++) {
-        late.add([2]);
-        await late.flush();
+        client.add([i]);
+        await client.flush();
       }
-      late.destroy();
+      await client.first;
       client.destroy();
     }
 
     // Long enough for every answer still in flight to hit a closed socket.
-    await Future<void>.delayed(const Duration(milliseconds: 300));
+    await Future<void>.delayed(const Duration(milliseconds: 500));
   });
 
   test(
