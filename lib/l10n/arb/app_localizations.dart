@@ -57737,7 +57737,7 @@ abstract class AppLocalizations {
   /// No description provided for @settings_photosMedia_subtitle.
   ///
   /// In en, this message translates to:
-  /// **'Sources, storage & accounts'**
+  /// **'Sources & storage'**
   String get settings_photosMedia_subtitle;
 
   /// No description provided for @settings_photosMedia_sourcesHeader.
@@ -57751,12 +57751,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Where copies are kept'**
   String get settings_photosMedia_storageHeader;
-
-  /// No description provided for @settings_photosMedia_accountsHeader.
-  ///
-  /// In en, this message translates to:
-  /// **'Accounts'**
-  String get settings_photosMedia_accountsHeader;
 
   /// No description provided for @settings_photosMedia_displayHeader.
   ///
@@ -62129,6 +62123,22 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This tank lost {drop} while the gas timeline says it was not in use'**
   String dataQuality_msg_tankInactive(String drop);
+
+  /// No description provided for @dataQuality_detector_transmitter_role.
+  ///
+  /// In en, this message translates to:
+  /// **'Transmitter role'**
+  String get dataQuality_detector_transmitter_role;
+
+  /// No description provided for @dataQuality_msg_transmitterRoleBailout.
+  ///
+  /// In en, this message translates to:
+  /// **'Tank {tankNumber} is marked {role} from its transmitter\'s name, but it lost {ocDrop} after the switch to open circuit and almost none on the loop, so it looks like the bailout. A bailout that was never breathed, or one breathed without a gas switch on the computer, cannot be detected this way.'**
+  String dataQuality_msg_transmitterRoleBailout(
+    int tankNumber,
+    String role,
+    String ocDrop,
+  );
 
   /// No description provided for @dataQuality_msg_twinTanks.
   ///
@@ -81988,6 +81998,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Transmitter {serial} is not assigned to a cylinder'**
   String dataQuality_msg_unknownTransmitter(String serial);
+
+  /// No description provided for @dataQuality_repairLabel_useAsBailout.
+  ///
+  /// In en, this message translates to:
+  /// **'Use as bailout'**
+  String get dataQuality_repairLabel_useAsBailout;
+
+  /// No description provided for @dataQuality_useAsBailout_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Make this tank the bailout?'**
+  String get dataQuality_useAsBailout_title;
+
+  /// No description provided for @dataQuality_useAsBailout_merge.
+  ///
+  /// In en, this message translates to:
+  /// **'Removes the duplicate Bailout cylinder (switches move to Tank {tankNumber})'**
+  String dataQuality_useAsBailout_merge(int tankNumber);
+
+  /// No description provided for @dataQuality_useAsBailout_register.
+  ///
+  /// In en, this message translates to:
+  /// **'Also register this transmitter as {role}'**
+  String dataQuality_useAsBailout_register(String role);
+
+  /// No description provided for @dataQuality_useAsBailout_mixesKept.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} other dive kept its gas mix. Check it.} other{{count} other dives kept their gas mix. Check them.}}'**
+  String dataQuality_useAsBailout_mixesKept(int count);
+
+  /// No description provided for @dataQuality_useAsBailout_registered.
+  ///
+  /// In en, this message translates to:
+  /// **'Transmitter registered as {role}. Undo changes this dive only.'**
+  String dataQuality_useAsBailout_registered(String role);
 
   /// No description provided for @dataQuality_repairLabel_assignTransmitter.
   ///

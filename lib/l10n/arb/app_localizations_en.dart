@@ -36029,16 +36029,13 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settings_photosMedia_title => 'Photos & Media';
 
   @override
-  String get settings_photosMedia_subtitle => 'Sources, storage & accounts';
+  String get settings_photosMedia_subtitle => 'Sources & storage';
 
   @override
   String get settings_photosMedia_sourcesHeader => 'Where photos come from';
 
   @override
   String get settings_photosMedia_storageHeader => 'Where copies are kept';
-
-  @override
-  String get settings_photosMedia_accountsHeader => 'Accounts';
 
   @override
   String get settings_photosMedia_displayHeader => 'Display';
@@ -38706,6 +38703,18 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String dataQuality_msg_tankInactive(String drop) {
     return 'This tank lost $drop while the gas timeline says it was not in use';
+  }
+
+  @override
+  String get dataQuality_detector_transmitter_role => 'Transmitter role';
+
+  @override
+  String dataQuality_msg_transmitterRoleBailout(
+    int tankNumber,
+    String role,
+    String ocDrop,
+  ) {
+    return 'Tank $tankNumber is marked $role from its transmitter\'s name, but it lost $ocDrop after the switch to open circuit and almost none on the loop, so it looks like the bailout. A bailout that was never breathed, or one breathed without a gas switch on the computer, cannot be detected this way.';
   }
 
   @override
@@ -50928,6 +50937,38 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String dataQuality_msg_unknownTransmitter(String serial) {
     return 'Transmitter $serial is not assigned to a cylinder';
+  }
+
+  @override
+  String get dataQuality_repairLabel_useAsBailout => 'Use as bailout';
+
+  @override
+  String get dataQuality_useAsBailout_title => 'Make this tank the bailout?';
+
+  @override
+  String dataQuality_useAsBailout_merge(int tankNumber) {
+    return 'Removes the duplicate Bailout cylinder (switches move to Tank $tankNumber)';
+  }
+
+  @override
+  String dataQuality_useAsBailout_register(String role) {
+    return 'Also register this transmitter as $role';
+  }
+
+  @override
+  String dataQuality_useAsBailout_mixesKept(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count other dives kept their gas mix. Check them.',
+      one: '$count other dive kept its gas mix. Check it.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String dataQuality_useAsBailout_registered(String role) {
+    return 'Transmitter registered as $role. Undo changes this dive only.';
   }
 
   @override

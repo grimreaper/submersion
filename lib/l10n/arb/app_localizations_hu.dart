@@ -36432,16 +36432,13 @@ class AppLocalizationsHu extends AppLocalizations {
   String get settings_photosMedia_title => 'Fotók és média';
 
   @override
-  String get settings_photosMedia_subtitle => 'Források, tárolás és fiókok';
+  String get settings_photosMedia_subtitle => 'Források és tárolás';
 
   @override
   String get settings_photosMedia_sourcesHeader => 'Honnan érkeznek a fotók';
 
   @override
   String get settings_photosMedia_storageHeader => 'Hol tároljuk a másolatokat';
-
-  @override
-  String get settings_photosMedia_accountsHeader => 'Fiókok';
 
   @override
   String get settings_photosMedia_displayHeader => 'Megjelenítés';
@@ -39135,6 +39132,18 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String dataQuality_msg_tankInactive(String drop) {
     return 'Ez a palack $drop nyomást veszített, miközben a gáz-idővonal szerint nem volt használatban';
+  }
+
+  @override
+  String get dataQuality_detector_transmitter_role => 'Jeladó szerepe';
+
+  @override
+  String dataQuality_msg_transmitterRoleBailout(
+    int tankNumber,
+    String role,
+    String ocDrop,
+  ) {
+    return 'A(z) $tankNumber. palack a jeladó neve alapján $role szerepű, de a nyitott körre váltás után $ocDrop nyomást veszített, a hurkon szinte semmit, így valószínűleg ez a bailout. A soha be nem lélegzett, vagy a komputeren gázváltás nélkül használt bailout így nem ismerhető fel.';
   }
 
   @override
@@ -51461,6 +51470,38 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String dataQuality_msg_unknownTransmitter(String serial) {
     return 'A(z) $serial jeladó nincs palackhoz rendelve';
+  }
+
+  @override
+  String get dataQuality_repairLabel_useAsBailout => 'Használat bailoutként';
+
+  @override
+  String get dataQuality_useAsBailout_title => 'Legyen ez a palack a bailout?';
+
+  @override
+  String dataQuality_useAsBailout_merge(int tankNumber) {
+    return 'Eltávolítja a duplikált bailout palackot (a gázváltások a(z) $tankNumber. palackra kerülnek)';
+  }
+
+  @override
+  String dataQuality_useAsBailout_register(String role) {
+    return 'A jeladó regisztrálása $role szerepben is';
+  }
+
+  @override
+  String dataQuality_useAsBailout_mixesKept(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count másik merülés megtartotta a gázkeverékét, érdemes ellenőrizni.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String dataQuality_useAsBailout_registered(String role) {
+    return 'Jeladó $role szerepben regisztrálva. A visszavonás csak ezt a merülést módosítja.';
   }
 
   @override

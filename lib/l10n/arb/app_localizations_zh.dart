@@ -34524,16 +34524,13 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings_photosMedia_title => '照片与媒体';
 
   @override
-  String get settings_photosMedia_subtitle => '来源、存储与账户';
+  String get settings_photosMedia_subtitle => '来源与存储';
 
   @override
   String get settings_photosMedia_sourcesHeader => '照片来源';
 
   @override
   String get settings_photosMedia_storageHeader => '副本保存位置';
-
-  @override
-  String get settings_photosMedia_accountsHeader => '账户';
 
   @override
   String get settings_photosMedia_displayHeader => '显示';
@@ -37118,6 +37115,18 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String dataQuality_msg_tankInactive(String drop) {
     return '该气瓶损失了 $drop，而气体时间线显示它未在使用';
+  }
+
+  @override
+  String get dataQuality_detector_transmitter_role => '发射器角色';
+
+  @override
+  String dataQuality_msg_transmitterRoleBailout(
+    int tankNumber,
+    String role,
+    String ocDrop,
+  ) {
+    return '气瓶 $tankNumber 根据发射器名称被标记为$role，但切换到开路后损失了 $ocDrop，在回路上几乎没有消耗，因此看起来是应急气瓶。从未呼吸过的应急气瓶，或在电脑上未切换气体就使用的应急气瓶，无法用此方法检测。';
   }
 
   @override
@@ -48557,6 +48566,37 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String dataQuality_msg_unknownTransmitter(String serial) {
     return '发射器 $serial 未分配到气瓶';
+  }
+
+  @override
+  String get dataQuality_repairLabel_useAsBailout => '用作应急气瓶';
+
+  @override
+  String get dataQuality_useAsBailout_title => '将此气瓶设为应急气瓶？';
+
+  @override
+  String dataQuality_useAsBailout_merge(int tankNumber) {
+    return '删除重复的应急气瓶（气体切换转到气瓶 $tankNumber）';
+  }
+
+  @override
+  String dataQuality_useAsBailout_register(String role) {
+    return '同时将此发射器登记为$role';
+  }
+
+  @override
+  String dataQuality_useAsBailout_mixesKept(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '另有 $count 次潜水保留了原气体混合，请检查。',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String dataQuality_useAsBailout_registered(String role) {
+    return '发射器已登记为$role。撤销只会更改本次潜水。';
   }
 
   @override
