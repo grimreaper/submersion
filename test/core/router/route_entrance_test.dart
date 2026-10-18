@@ -1,0 +1,102 @@
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+
+import 'package:submersion/core/router/route_entrance.dart';
+
+/// A page that shows whether its route's entrance has settled.
+class _Probe extends StatefulWidget {
+  const _Probe();
+
+  @override
+  State<_Probe> createState() => _ProbeState();
+}
+
+class _ProbeState extends State<_Probe> with RouteEntranceSettled<_Probe> {
+  @override
+  Widget build(BuildContext context) =>
+      Text(isRouteEntranceSettled ? 'SETTLED' : 'ENTERING');
+}
+
+void main() {
+  testWidgets('a page that is the initial route is settled at once', (
+    tester,
+  ) async {
+    await tester.pumpWidget(const MaterialApp(home: _Probe()));
+
+    expect(find.text('SETTLED'), findsOneWidget);
+  });
+
+  testWidgets('a pushed page is entering until its slide completes', (
+    tester,
+  ) async {
+    final navigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(navigatorKey: navigator, home: const Text('HOME')),
+    );
+
+    navigator.currentState!.push(
+      MaterialPageRoute<void>(builder: (_) => const _Probe()),
+    );
+    // The app's hero controller builds the pushed route offstage for its
+    // first frame, with an animation that reads complete. That frame is
+    // still part of the entrance.
+    await tester.pump();
+    expect(find.text('ENTERING', skipOffstage: false), findsOneWidget);
+    expect(find.text('SETTLED', skipOffstage: false), findsNothing);
+
+    await tester.pump(const Duration(milliseconds: 100));
+    expect(find.text('ENTERING'), findsOneWidget);
+
+    await tester.pumpAndSettle();
+    expect(find.text('SETTLED'), findsOneWidget);
+  });
+
+  testWidgets('a page pushed without a transition is settled at once', (
+    tester,
+  ) async {
+    final navigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(navigatorKey: navigator, home: const Text('HOME')),
+    );
+
+    navigator.currentState!.push(
+      PageRouteBuilder<void>(
+        transitionDuration: Duration.zero,
+        reverseTransitionDuration: Duration.zero,
+        pageBuilder: (_, _, _) => const _Probe(),
+      ),
+    );
+    await tester.pump();
+
+    expect(find.text('SETTLED'), findsOneWidget);
+  });
+
+  testWidgets('a settled page stays settled while it slides out', (
+    tester,
+  ) async {
+    final navigator = GlobalKey<NavigatorState>();
+    await tester.pumpWidget(
+      MaterialApp(navigatorKey: navigator, home: const Text('HOME')),
+    );
+    navigator.currentState!.push(
+      MaterialPageRoute<void>(builder: (_) => const _Probe()),
+    );
+    await tester.pumpAndSettle();
+    expect(find.text('SETTLED'), findsOneWidget);
+
+    navigator.currentState!.pop();
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 100));
+
+    expect(find.text('SETTLED'), findsOneWidget);
+    expect(find.text('ENTERING'), findsNothing);
+  });
+
+  testWidgets('a page outside any route counts as settled', (tester) async {
+    await tester.pumpWidget(
+      const Directionality(textDirection: TextDirection.ltr, child: _Probe()),
+    );
+
+    expect(find.text('SETTLED'), findsOneWidget);
+  });
+}

@@ -46,6 +46,7 @@ import 'package:submersion/core/tide/entities/tide_extremes.dart';
 import 'package:submersion/core/utils/share_anchor.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/core/router/pushed_route.dart';
+import 'package:submersion/core/router/route_entrance.dart';
 import 'package:submersion/features/buddies/domain/entities/buddy.dart';
 import 'package:submersion/features/buddies/presentation/providers/buddy_providers.dart';
 import 'package:submersion/features/buddies/presentation/widgets/legacy_buddy_text_section.dart';
@@ -197,7 +198,8 @@ class DiveDetailPage extends ConsumerStatefulWidget {
   ConsumerState<DiveDetailPage> createState() => _DiveDetailPageState();
 }
 
-class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
+class _DiveDetailPageState extends ConsumerState<DiveDetailPage>
+    with RouteEntranceSettled<DiveDetailPage> {
   /// Track if we've already initiated a redirect to prevent multiple calls
   bool _hasRedirected = false;
 
@@ -1187,16 +1189,20 @@ class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
             // when the pane is wide enough. Gauge dives hide
             // gas/deco sections (deco status, tissue loading, SAC segments,
             // cylinders). The list layout folds each section to a header row.
-            ..._buildOrderedSections(
-              context: context,
-              ref: ref,
-              dive: dive,
-              units: units,
-              computerReadingsAsync: computerReadingsAsync,
-              settings: settings,
-              layout: layout,
-              builders: builders,
-            ),
+            // They wait for the page to finish sliding in: built in the
+            // slide's opening frames they made it stutter on a phone, while
+            // the header alone slides in smoothly (#3489).
+            if (isRouteEntranceSettled)
+              ..._buildOrderedSections(
+                context: context,
+                ref: ref,
+                dive: dive,
+                units: units,
+                computerReadingsAsync: computerReadingsAsync,
+                settings: settings,
+                layout: layout,
+                builders: builders,
+              ),
             const SizedBox(height: 32),
           ],
         ),
