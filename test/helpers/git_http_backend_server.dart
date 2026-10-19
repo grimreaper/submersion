@@ -39,6 +39,9 @@ final class GitTestServer {
   /// Requests served, in order, as `METHOD path?query`.
   final List<String> requests = [];
 
+  /// Body sizes of the fetch (upload-pack POST) replies, in order.
+  final List<int> fetchResponseBytes = [];
+
   /// Called with each request before it is served; return false to drop the
   /// connection without a reply (a lost response).
   bool Function(HttpRequest request)? beforeServe;
@@ -76,6 +79,16 @@ final class GitTestServer {
       await runGit(dir, ['update-ref', 'refs/heads/main', commit]);
     }
     return dir;
+  }
+
+  /// Makes every push to [repo] fail in its pre-receive hook, printing
+  /// [message] to the pusher the way a host's policy check does.
+  Future<void> refusePushes(Directory repo, String message) async {
+    final hook = File(p.join(repo.path, 'hooks', 'pre-receive'));
+    await hook.parent.create(recursive: true);
+    final quoted = message.replaceAll("'", "'\\''");
+    await hook.writeAsString("#!/bin/sh\necho '$quoted' >&2\nexit 1\n");
+    await Process.run('chmod', ['+x', hook.path]);
   }
 
   Future<void> close() async {
@@ -157,6 +170,10 @@ final class GitTestServer {
       }
     }
     if (err.isNotEmpty) response.headers.set('x-git-stderr', err.trim());
+    if (request.method == 'POST' &&
+        request.uri.path.endsWith('/git-upload-pack')) {
+      fetchResponseBytes.add(cgi.length - split.bodyStart);
+    }
     response.add(cgi.sublist(split.bodyStart));
     if (afterServe != null && !afterServe!(request)) {
       final socket = await response.detachSocket(writeHeaders: false);

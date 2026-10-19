@@ -116,7 +116,12 @@ final class FileGitObjectStore implements GitObjectStore {
     if (index.containsKey(file.path)) return;
     await file.parent.create(recursive: true);
     final tmp = File('${file.path}.tmp');
-    await tmp.writeAsBytes([object.type.packCode, ...object.body], flush: true);
+    // Header byte and body as one buffer: a List<int> spread would cost
+    // about eight bytes per body byte.
+    final bytes = Uint8List(object.body.length + 1)
+      ..[0] = object.type.packCode
+      ..setRange(1, object.body.length + 1, object.body);
+    await tmp.writeAsBytes(bytes, flush: true);
     await tmp.rename(file.path);
     final size = object.body.length + 1;
     index[file.path] = (size: size, recency: ++_clock);

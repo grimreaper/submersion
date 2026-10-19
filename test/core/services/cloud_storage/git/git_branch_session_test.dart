@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -319,6 +320,124 @@ void main() {
     expect(
       await runGit(repo, ['rev-list', '--count', 'refs/heads/$_branch']),
       count,
+    );
+  }, skip: skip);
+
+  test('a put and a delete of the same path keep the new file', () async {
+    final server = await startGitTestServer();
+    await server.createBareRepo('sync');
+    const path = 'Submersion Sync/submersion_library_epoch.json';
+    final s = _session(server.repoUrl('sync'));
+    await s.open();
+    await s.commit(
+      GitChange(puts: {path: _text('epoch 1')}),
+      messagePrefix: 'Sync',
+    );
+    final old = s.current!.index.entries[path]!.blobId;
+    await s.commit(
+      GitChange(puts: {path: _text('epoch 2')}, deletes: {path: old}),
+      messagePrefix: 'Sync',
+    );
+    final fresh = _session(server.repoUrl('sync'));
+    await fresh.open();
+    expect(utf8.decode(await fresh.readFile(path)), 'epoch 2');
+  }, skip: skip);
+
+  test(
+    'a reset the host refuses as a non-fast-forward is protectedBranch',
+    () async {
+      final server = await startGitTestServer();
+      final repo = await server.createBareRepo('sync');
+      final s = _session(server.repoUrl('sync'));
+      await s.open();
+      await runGit(repo, ['config', 'receive.denyNonFastForwards', 'true']);
+      await expectLater(
+        s.resetHistoryIfDue(force: true),
+        throwsA(
+          isA<GitException>().having(
+            (e) => e.code,
+            'code',
+            GitErrorCode.protectedBranch,
+          ),
+        ),
+      );
+    },
+    skip: skip,
+  );
+
+  test('a too-large refusal names the size of the file', () async {
+    final server = await startGitTestServer();
+    final repo = await server.createBareRepo('sync');
+    final s = _session(server.repoUrl('sync'));
+    await s.open();
+    await server.refusePushes(repo, 'GH001: Large files detected.');
+    await expectLater(
+      s.commit(
+        GitChange(puts: {'Submersion Backups/b.db': _text('x' * 5000)}),
+        messagePrefix: 'Backup',
+      ),
+      throwsA(
+        isA<GitException>()
+            .having((e) => e.code, 'code', GitErrorCode.tooLarge)
+            .having((e) => e.sizeBytes, 'sizeBytes', 5000),
+      ),
+    );
+  }, skip: skip);
+
+  test(
+    'a host without filter still follows a peer, commit after commit',
+    () async {
+      final server = await startGitTestServer(allowFilter: false);
+      await server.createBareRepo('sync');
+      final a = _session(server.repoUrl('sync'));
+      await a.open();
+      final b = _session(server.repoUrl('sync'));
+      await b.open();
+      for (var i = 0; i < 3; i++) {
+        await a.commit(
+          GitChange(
+            puts: {'Submersion Sync/f$i.json': _text('v$i ${'x' * 3000}')},
+          ),
+          messagePrefix: 'Sync',
+        );
+        await b.refresh();
+        expect(
+          utf8.decode(await b.readFile('Submersion Sync/f$i.json')),
+          startsWith('v$i '),
+        );
+      }
+    },
+    skip: skip,
+  );
+
+  test('a host without filter sends only what a peer changed', () async {
+    final server = await startGitTestServer(allowFilter: false);
+    await server.createBareRepo('sync');
+    final a = _session(server.repoUrl('sync'));
+    await a.open();
+    final r = Random(7);
+    final big = List.generate(
+      200000,
+      (_) => r.nextInt(16).toRadixString(16),
+    ).join();
+    await a.commit(
+      GitChange(puts: {'Submersion Backups/b.db': _text(big)}),
+      messagePrefix: 'Backup',
+    );
+    final b = _session(server.repoUrl('sync'));
+    await b.open();
+    server.fetchResponseBytes.clear();
+    await a.commit(
+      GitChange(puts: {'Submersion Sync/small.json': _text('{"x":1}')}),
+      messagePrefix: 'Sync',
+    );
+    await b.refresh();
+    final fetched = server.fetchResponseBytes.fold<int>(0, (a, b) => a + b);
+    // The unchanged 200 KB backup must not travel again.
+    expect(fetched, lessThan(20000));
+    expect(
+      utf8.decode(await b.readFile('Submersion Sync/small.json')),
+      '{"x":1}',
     );
   }, skip: skip);
 }

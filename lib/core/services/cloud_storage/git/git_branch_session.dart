@@ -154,15 +154,26 @@ class GitBranchSession {
       tip,
       isDefault:
           known.isDefaultBranch || refs.headSymref == 'refs/heads/$branch',
+      have: known.tip,
     );
   }
 
+  /// Reads [tip]'s snapshot, fetching what is missing. [have] is a tip this
+  /// device already holds whole; telling the host about it means only the
+  /// objects that changed travel, which matters most on hosts without
+  /// partial-clone filters, where every blob would come again.
   Future<GitBranchSnapshot> _load(
     GitObjectId tip, {
     required bool isDefault,
+    GitObjectId? have,
   }) async {
     if (!await store.has(tip)) {
-      await transport.fetch([tip], store, blobless: true);
+      await transport.fetch(
+        [tip],
+        store,
+        blobless: true,
+        haves: have != null && await store.has(have) ? {have} : const {},
+      );
     }
     final commit = GitCommit.decode(await _objectBody(tip));
     final meta = await lookupTreePath(store, commit.tree, kGitMetaPath);
@@ -379,9 +390,12 @@ class GitBranchSession {
     final prepared = await _prepare(change.puts);
     for (var attempt = 1; ; attempt++) {
       final snap = _current ?? await open();
+      // A path the change also puts is replaced, not deleted.
       final deletes = <String>{
         for (final MapEntry(:key, :value) in change.deletes.entries)
-          if (snap.index.entries[key]?.blobId == value) key,
+          if (!prepared.containsKey(key) &&
+              snap.index.entries[key]?.blobId == value)
+            key,
       };
       final changedPuts = {
         for (final MapEntry(:key, :value) in prepared.entries)
@@ -440,6 +454,21 @@ class GitBranchSession {
           metaBlobSize: metaBytes.length,
         );
       } on GitException catch (e) {
+        if (e.code == GitErrorCode.tooLarge && e.sizeBytes == null) {
+          final biggest = changedPuts.values.fold<int>(
+            0,
+            (m, p) => p.size > m ? p.size : m,
+          );
+          throw GitException(
+            e.message,
+            code: e.code,
+            statusCode: e.statusCode,
+            host: e.host,
+            sizeBytes: biggest == 0 ? null : biggest,
+            serverReason: e.serverReason,
+            cause: e.cause,
+          );
+        }
         if (e.code == GitErrorCode.staleTip) {
           if (attempt >= maxAttempts) rethrow;
           await Future<void>.delayed(_retryDelay(attempt));
@@ -500,7 +529,18 @@ class GitBranchSession {
       return true;
     } on GitException catch (e) {
       if (e.code != GitErrorCode.staleTip) rethrow;
-      await refresh();
+      final now = await refresh();
+      // The tip did not move, so no peer raced us: the host refused the
+      // history rewrite itself (receive.denyNonFastForwards, or a branch
+      // rule worded as a non-fast-forward).
+      if (now.tip == snap.tip) {
+        throw GitException(
+          'The Git host refused to reset the branch history.',
+          code: GitErrorCode.protectedBranch,
+          serverReason: e.serverReason,
+          cause: e,
+        );
+      }
       return false;
     }
   }

@@ -12,6 +12,7 @@ import 'package:submersion/core/data/repositories/sync_repository.dart';
 import 'package:submersion/core/services/accounts/account_identity.dart';
 import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.dart';
 import 'package:submersion/core/services/cloud_storage/deferred_write_provider.dart';
+import 'package:submersion/core/services/cloud_storage/git/git_branch_files.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_branch_session.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_config.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_credentials_store.dart';
@@ -83,6 +84,7 @@ class GitStorageProvider
     this.maxPacingWait = const Duration(seconds: 10),
     this.minPushSpacing = const Duration(seconds: 10),
     this.uploadBudget = const Duration(seconds: 45),
+    this.resetThresholdBytes = kGitHistoryResetThresholdBytes,
   }) : _store = store ?? GitCredentialsStore(),
        _transportFactory =
            transportFactory ?? ((c) => GitHttpTransport(c.toRemote())),
@@ -104,10 +106,13 @@ class GitStorageProvider
   final Duration minPushSpacing;
   final Duration uploadBudget;
 
+  /// Deleted bytes after which the branch history is reset.
+  final int resetThresholdBytes;
+
   GitConfig? _cachedConfig;
   GitBranchSession? _session;
   int _generation = 0;
-  bool _publicChecked = false;
+  bool? _knownPublic;
   DateTime? _lastPushStart;
   Timer? _deleteTimer;
   Future<void> _lock = Future.value();
@@ -174,6 +179,14 @@ class GitStorageProvider
   /// the Cloud sync page reads.
   static final Map<String, DateTime> _lastResetByEndpoint = {};
 
+  /// Repositories and branches whose host refused a history reset.
+  static final Set<String> _resetRefusedEndpoints = {};
+
+  /// Whether the host refused the last history reset of [config]'s branch
+  /// (branch protection); the Cloud sync page says how to allow it.
+  static bool resetRefusedFor(GitConfig config) =>
+      _resetRefusedEndpoints.contains(gitNaturalKey(config));
+
   /// When [config]'s branch was last reset, as far as this process has
   /// seen; no network.
   static DateTime? lastKnownResetFor(GitConfig config) =>
@@ -233,6 +246,7 @@ class GitStorageProvider
         store: store,
         branch: config.branch,
         identity: _identity,
+        resetThresholdBytes: resetThresholdBytes,
       );
     }
   }
@@ -260,7 +274,7 @@ class GitStorageProvider
     _session?.transport.close();
     _session = null;
     _cachedConfig = null;
-    _publicChecked = false;
+    _knownPublic = null;
     _pendingDeletes.clear();
   }
 
@@ -272,11 +286,12 @@ class GitStorageProvider
   }
 
   /// Refuses data uploads to a public repository while sync is unencrypted.
-  /// The check runs once per session; a failed check is not cached, so
-  /// turning encryption on takes effect on the next upload.
+  /// Whether the repository is public is asked once per session (an unclear
+  /// answer is asked again next time); whether sync is encrypted is checked
+  /// on every upload, so turning encryption off later is still caught.
   Future<void> _ensurePublicSafe(GitBranchSession session) async {
-    if (_publicChecked) return;
-    final public = await session.transport.isPubliclyReadable();
+    final public = _knownPublic ??= await session.transport
+        .isPubliclyReadable();
     if (public == true && !await _encryptionEnabled()) {
       throw GitException(
         'The repository is public. Turn on encrypted sync or make the '
@@ -284,7 +299,6 @@ class GitStorageProvider
         code: GitErrorCode.publicRepoUnencrypted,
       );
     }
-    _publicChecked = true;
   }
 
   Future<void> _pace() async {
@@ -351,13 +365,15 @@ class GitStorageProvider
     GitPut put, {
     required String messagePrefix,
   }) {
-    return _serial(() async {
+    final run = _serial(() async {
       final session = await _opened();
       // The keyslot file holds only a wrapped key, so it may land in a
       // public repository: without it, encryption could never be turned on.
       if (p.posix.basename(path) != KeyslotFile.cloudFileName) {
         await _ensurePublicSafe(session);
       }
+      // Uploading a path replaces it: an older delete of it is void.
+      _pendingDeletes.remove(path);
       final deletes = Map<String, GitObjectId>.of(_pendingDeletes);
       await _pace();
       await session.commit(
@@ -369,7 +385,13 @@ class GitStorageProvider
         if (_pendingDeletes[key] == value) _pendingDeletes.remove(key);
       }
       return UploadResult(fileId: path, uploadTime: DateTime.now().toUtc());
-    }).timeout(
+    });
+    // Sync files are small and the engine's callers wrap them in their own
+    // short timeouts, so they get a budget. Backups are large; a budget
+    // would give up on a slow link while the push still lands, leaving a
+    // copy the backup history never tracks.
+    if (path.startsWith('$backupFolderName/')) return run;
+    return run.timeout(
       uploadBudget,
       onTimeout: () => throw GitException(
         'The upload to the Git host took too long.',
@@ -443,26 +465,43 @@ class GitStorageProvider
       }
     }
     if (session.current != null) {
+      // Best effort: the deletes above already landed, so a reset that
+      // fails must not make the caller report them as failed. A due reset
+      // is tried again on the next flush.
       try {
-        await session.resetHistoryIfDue();
-        _noteSnapshot(session);
+        await _resetIfDue(session, force: false);
       } on GitException catch (e) {
-        if (e.code != GitErrorCode.protectedBranch) rethrow;
-        _log.warning(
-          'History reset refused: the branch is protected',
-          error: e,
-        );
+        _log.warning('History reset not done; retried later', error: e);
       }
     }
   });
+
+  /// Resets [session]'s history when due (or always, with [force]) and
+  /// records the outcome for the Cloud sync page: a reset the host refuses
+  /// as a protected branch is shown there, since it otherwise only logs.
+  Future<void> _resetIfDue(
+    GitBranchSession session, {
+    required bool force,
+  }) async {
+    final config = _cachedConfig;
+    final key = config == null ? null : gitNaturalKey(config);
+    try {
+      final reset = await session.resetHistoryIfDue(force: force);
+      if (reset && key != null) _resetRefusedEndpoints.remove(key);
+      _noteSnapshot(session);
+    } on GitException catch (e) {
+      if (e.code == GitErrorCode.protectedBranch && key != null) {
+        _resetRefusedEndpoints.add(key);
+      }
+      rethrow;
+    }
+  }
 
   @override
   Future<void> resetHistoryNow() async {
     await flush();
     await _serial(() async {
-      final session = await _opened();
-      await session.resetHistoryIfDue(force: true);
-      _noteSnapshot(session);
+      await _resetIfDue(await _opened(), force: true);
     });
   }
 

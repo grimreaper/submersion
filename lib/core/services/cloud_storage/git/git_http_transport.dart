@@ -8,6 +8,7 @@ import 'package:http/http.dart' as http;
 import 'package:submersion/core/services/cloud_storage/git/git_errors.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_object_id.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_object_store.dart';
+import 'package:submersion/core/services/cloud_storage/git/git_push_refusal.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_remote.dart';
 import 'package:submersion/core/services/cloud_storage/git/pack_reader.dart';
 import 'package:submersion/core/services/cloud_storage/git/pkt_line.dart';
@@ -444,6 +445,13 @@ class GitHttpTransport {
       for (final id in wants) {
         body.add(pktText('want ${id.hex}'));
       }
+      // Every commit this client has is shallow (it keeps no history), so
+      // each have is also declared shallow. Without that the host would
+      // assume the ancestors are here too and send deltas against objects
+      // this client never fetched.
+      for (final id in haves) {
+        body.add(pktText('shallow ${id.hex}'));
+      }
       for (final id in haves) {
         body.add(pktText('have ${id.hex}'));
       }
@@ -465,6 +473,9 @@ class GitHttpTransport {
               : 'want ${wants[i].hex}',
         ),
       );
+    }
+    for (final id in haves) {
+      body.add(pktText('shallow ${id.hex}'));
     }
     if (deepen != null) body.add(pktText('deepen $deepen'));
     if (filter) body.add(pktText('filter blob:none'));
@@ -573,23 +584,61 @@ class GitHttpTransport {
       request,
       timeout: TimeoutHttpClient.defaultUploadTimeout,
     );
-    request.sink
-      ..add(pktData([...utf8.encode(command), 0, ...utf8.encode(capList)]))
-      ..add(pktFlushBytes);
-    await request.sink.addStream(pack);
-    await request.sink.close();
+    // The body is written in its own future. When the connection fails
+    // before the client reads the body, the sink's close never completes;
+    // awaiting it first would hang the push, and the caller's write lock,
+    // for good. The response settles either way, so it is awaited first,
+    // and a body error is turned into a value rather than left unhandled.
+    final body = _writePushBody(request, command, capList, pack);
     final response = await sending;
+    final bodyError = await body;
+    if (bodyError != null) {
+      throw GitException(
+        'The push could not be sent.',
+        code: GitErrorCode.unexpected,
+        cause: bodyError,
+      );
+    }
     await _check(response, 'application/x-git-receive-pack-result');
-    final body = await _readBody(response);
-    var reader = PktLineReader(Stream.value(body));
+    final reply = await _readBody(response);
+    var reader = PktLineReader(Stream.value(reply));
+    final remoteLines = <String>[];
     if (sideBand) {
       final status = BytesBuilder(copy: false);
-      await for (final chunk in demuxSideBand(reader)) {
+      await for (final chunk in demuxSideBand(
+        reader,
+        onProgress: remoteLines.add,
+      )) {
         status.add(chunk);
       }
       reader = PktLineReader(Stream.value(status.takeBytes()));
     }
-    await _readReportStatus(reader, ref);
+    await _readReportStatus(reader, ref, remoteLines);
+  }
+
+  /// Writes the ref update and [pack] into [request]. Completes with the
+  /// error instead of throwing it.
+  static Future<Object?> _writePushBody(
+    http.StreamedRequest request,
+    String command,
+    String capList,
+    Stream<List<int>> pack,
+  ) async {
+    try {
+      request.sink
+        ..add(pktData([...utf8.encode(command), 0, ...utf8.encode(capList)]))
+        ..add(pktFlushBytes);
+      await request.sink.addStream(pack);
+      await request.sink.close();
+      return null;
+    } on Object catch (e) {
+      try {
+        await request.sink.close();
+      } on Object {
+        // Already closed or failed; the original error is what matters.
+      }
+      return e;
+    }
   }
 
   Future<Set<String>> _receivePackCaps() async {
@@ -608,7 +657,11 @@ class GitHttpTransport {
     return _v0Caps(await reader.next());
   }
 
-  Future<void> _readReportStatus(PktLineReader reader, String ref) async {
+  Future<void> _readReportStatus(
+    PktLineReader reader,
+    String ref,
+    List<String> remoteLines,
+  ) async {
     String? unpack;
     String? refResult;
     while (true) {
@@ -623,7 +676,7 @@ class GitHttpTransport {
       }
     }
     if (unpack != null && unpack != 'ok') {
-      throw _pushRefused(unpack);
+      throw classifyPushRefusal(unpack, remoteLines);
     }
     if (refResult == null) throw _protocol('no status for $ref');
     if (refResult.startsWith('ok ')) return;
@@ -631,39 +684,7 @@ class GitHttpTransport {
     final reason = rest.startsWith('$ref ')
         ? rest.substring(ref.length + 1)
         : rest;
-    throw _pushRefused(reason);
-  }
-
-  static GitException _pushRefused(String reason) {
-    final r = reason.toLowerCase();
-    final GitErrorCode code;
-    if (r.contains('fetch first') ||
-        r.contains('non-fast-forward') ||
-        r.contains('stale info') ||
-        r.contains('failed to lock') ||
-        r.contains('cannot lock') ||
-        r.contains('failed to update') ||
-        r.contains('already exists') ||
-        r.contains('incorrect old value') ||
-        r.contains('expected')) {
-      code = GitErrorCode.staleTip;
-    } else if (r.contains('protected') ||
-        (r.contains('denied') && r.contains('force')) ||
-        r.contains('force push') ||
-        r.contains('force-push')) {
-      code = GitErrorCode.protectedBranch;
-    } else if (r.contains('too large') ||
-        r.contains('exceeds') ||
-        r.contains('size')) {
-      code = GitErrorCode.tooLarge;
-    } else {
-      code = GitErrorCode.server;
-    }
-    return GitException(
-      'The Git host refused the push.',
-      code: code,
-      serverReason: reason,
-    );
+    throw classifyPushRefusal(reason, remoteLines);
   }
 
   // ---- Access checks --------------------------------------------------------

@@ -29,6 +29,8 @@ class GitProviderTile extends ConsumerWidget {
     final reset = config == null
         ? null
         : GitStorageProvider.lastKnownResetFor(config);
+    final resetRefused =
+        config != null && GitStorageProvider.resetRefusedFor(config);
     return Semantics(
       selected: isSelected,
       child: ListTile(
@@ -48,6 +50,15 @@ class GitProviderTile extends ConsumerWidget {
                         UnitFormatter(
                           ref.watch(settingsProvider),
                         ).formatDate(reset.toLocal()),
+                      ),
+                    ),
+                  if (resetRefused)
+                    Text(
+                      l10n.settings_gitConfig_error_protectedBranch(
+                        config.branch,
+                      ),
+                      style: TextStyle(
+                        color: Theme.of(context).colorScheme.error,
                       ),
                     ),
                 ],

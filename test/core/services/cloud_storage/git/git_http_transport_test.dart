@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:http/http.dart' as http;
 import 'package:submersion/core/services/cloud_storage/git/git_errors.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_http_transport.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_object_id.dart';
@@ -275,4 +276,93 @@ void main() {
       );
     });
   });
+
+  group('push failures', () {
+    test(
+      'a push whose request cannot be sent fails instead of hanging',
+      () async {
+        final server = await startGitTestServer();
+        await server.createBareRepo('sync');
+        final remote = GitRemote(
+          cloneUrl: server.repoUrl('sync'),
+          username: 'u',
+          token: 't',
+        );
+        final t = GitHttpTransport(remote, client: _PostRefused(http.Client()));
+        addTearDown(t.close);
+        final c = _commit('{"a":1}\n');
+        await expectLater(
+          t
+              .push(
+                branch: 'submersion-sync',
+                oldTip: null,
+                newTip: c.commit,
+                pack: writePack(c.pack),
+              )
+              .timeout(const Duration(seconds: 20)),
+          _gitError(GitErrorCode.unreachable),
+        );
+      },
+      skip: skip,
+    );
+
+    Future<GitException> refusedWith(String hookMessage) async {
+      final server = await startGitTestServer();
+      final repo = await server.createBareRepo('sync');
+      await server.refusePushes(repo, hookMessage);
+      final c = _commit('{"a":1}\n');
+      try {
+        await _transport(server.repoUrl('sync')).push(
+          branch: 'submersion-sync',
+          oldTip: null,
+          newTip: c.commit,
+          pack: writePack(c.pack),
+        );
+      } on GitException catch (e) {
+        return e;
+      }
+      fail('the push was not refused');
+    }
+
+    test('a host size limit explained by its hook is tooLarge', () async {
+      final e = await refusedWith(
+        'GH001: Large files detected. You may want to try Git Large File Storage.',
+      );
+      expect(e.code, GitErrorCode.tooLarge);
+    }, skip: skip);
+
+    test('a protected branch explained by its hook is protectedBranch', () async {
+      final e = await refusedWith(
+        'You are not allowed to force push code to a protected branch on this project.',
+      );
+      expect(e.code, GitErrorCode.protectedBranch);
+    }, skip: skip);
+
+    test('an unexpected refusal is not mistaken for a stale tip', () async {
+      final e = await refusedWith(
+        'An unexpected error occurred on the server.',
+      );
+      expect(e.code, GitErrorCode.server);
+      expect(e.serverReason, contains('unexpected error'));
+    }, skip: skip);
+  });
+}
+
+/// Refuses every POST without reading its body, as a dropped connection
+/// between discovery and the push does.
+class _PostRefused extends http.BaseClient {
+  _PostRefused(this._inner);
+
+  final http.Client _inner;
+
+  @override
+  Future<http.StreamedResponse> send(http.BaseRequest request) {
+    if (request.method == 'POST') {
+      return Future.error(http.ClientException('Connection refused'));
+    }
+    return _inner.send(request);
+  }
+
+  @override
+  void close() => _inner.close();
 }

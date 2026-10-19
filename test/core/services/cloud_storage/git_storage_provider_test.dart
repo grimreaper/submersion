@@ -3,6 +3,7 @@ import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:submersion/core/services/cloud_storage/git/git_branch_files.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_config.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_credentials_store.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_errors.dart';
@@ -18,8 +19,11 @@ const _deviceId = '1234abcd-0000-4000-8000-000000000001';
 Future<GitStorageProvider> _provider(
   Uri repoUrl, {
   bool encrypted = false,
+  Future<bool> Function()? encryption,
   String token = 'tok',
   Duration deleteQuietPeriod = const Duration(minutes: 10),
+  Duration uploadBudget = const Duration(seconds: 45),
+  int? resetThresholdBytes,
 }) async {
   final store = GitCredentialsStore(storage: InMemoryKeychain());
   await store.save(
@@ -29,9 +33,11 @@ Future<GitStorageProvider> _provider(
     store: store,
     storeFactory: (_) async => MemoryGitObjectStore(),
     device: () async => (deviceId: _deviceId, deviceName: "Eric's iPhone"),
-    encryptionEnabled: () async => encrypted,
+    encryptionEnabled: encryption ?? () async => encrypted,
     deleteQuietPeriod: deleteQuietPeriod,
     minPushSpacing: Duration.zero,
+    uploadBudget: uploadBudget,
+    resetThresholdBytes: resetThresholdBytes ?? kGitHistoryResetThresholdBytes,
   );
   addTearDown(provider.dispose);
   return provider;
@@ -454,5 +460,120 @@ void main() {
     );
     expect(p.providerId, 'git');
     expect(p.providerName, 'Git');
+  });
+
+  group('review fixes', () {
+    test('an upload replaces a pending delete of the same path', () async {
+      final server = await startGitTestServer(
+        requireUser: 'diver',
+        requirePassword: 'tok',
+      );
+      await server.createBareRepo('sync');
+      final p = await _provider(server.repoUrl('sync'));
+      final up = await p.uploadFile(
+        _bytes('one'),
+        'epoch.json',
+        folderId: 'Submersion Sync',
+      );
+      await p.listFiles(folderId: 'Submersion Sync');
+      await p.deleteFile(up.fileId);
+      await p.uploadFile(
+        _bytes('two'),
+        'epoch.json',
+        folderId: 'Submersion Sync',
+      );
+      final reader = await _provider(server.repoUrl('sync'));
+      expect(String.fromCharCodes(await reader.downloadFile(up.fileId)), 'two');
+    }, skip: skip);
+
+    test(
+      'a refused history reset neither fails the flush nor goes unseen',
+      () async {
+        final server = await startGitTestServer(
+          requireUser: 'diver',
+          requirePassword: 'tok',
+        );
+        final repo = await server.createBareRepo('sync');
+        final p = await _provider(
+          server.repoUrl('sync'),
+          resetThresholdBytes: 1,
+        );
+        final up = await p.uploadFile(
+          _bytes('x' * 100),
+          'x.json',
+          folderId: 'Submersion Sync',
+        );
+        await p.listFiles(folderId: 'Submersion Sync');
+        await runGit(repo, ['config', 'receive.denyNonFastForwards', 'true']);
+        await p.deleteFile(up.fileId);
+        await p.flush();
+        final config = (await p.loadConfig())!;
+        expect(GitStorageProvider.resetRefusedFor(config), isTrue);
+        final files = await runGit(repo, [
+          'ls-tree',
+          '-r',
+          '--name-only',
+          'refs/heads/$kDefaultGitBranch',
+        ]);
+        expect(files, isNot(contains('Submersion Sync/x.json')));
+      },
+      skip: skip,
+    );
+
+    test(
+      'turning encryption off later is noticed over a public repository',
+      () async {
+        final server = await startGitTestServer(
+          requireUser: 'diver',
+          requirePassword: 'tok',
+          anonymousRead: true,
+        );
+        await server.createBareRepo('open');
+        var encrypted = true;
+        final p = await _provider(
+          server.repoUrl('open'),
+          encryption: () async => encrypted,
+        );
+        await p.uploadFile(
+          _bytes('sealed'),
+          'a.json',
+          folderId: 'Submersion Sync',
+        );
+        encrypted = false;
+        await expectLater(
+          p.uploadFile(_bytes('plain'), 'b.json', folderId: 'Submersion Sync'),
+          throwsA(
+            isA<GitException>().having(
+              (e) => e.code,
+              'code',
+              GitErrorCode.publicRepoUnencrypted,
+            ),
+          ),
+        );
+      },
+      skip: skip,
+    );
+
+    test('a backup is not cut off by the sync upload budget', () async {
+      final server = await startGitTestServer(
+        requireUser: 'diver',
+        requirePassword: 'tok',
+      );
+      await server.createBareRepo('sync');
+      final p = await _provider(
+        server.repoUrl('sync'),
+        uploadBudget: const Duration(microseconds: 1),
+      );
+      await expectLater(
+        p.uploadFile(_bytes('x'), 'x.json', folderId: 'Submersion Sync'),
+        throwsA(isA<GitException>()),
+      );
+      final up = await p.uploadFile(
+        _bytes('backup'),
+        'submersion_backup_1.db',
+        folderId: 'Submersion Backups',
+      );
+      expect(up.fileId, 'Submersion Backups/submersion_backup_1.db');
+    }, skip: skip);
   });
 }
