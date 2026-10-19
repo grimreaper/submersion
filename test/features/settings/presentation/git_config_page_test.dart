@@ -321,7 +321,8 @@ void main() {
     await fillValidForm(tester);
     await tester.tap(find.byKey(const Key('git-save')));
     await tester.pumpAndSettle();
-    await tester.tap(find.text('Save and turn on encryption'));
+    // The dialog only saves; encryption is turned on from Cloud sync.
+    await tester.tap(find.byKey(const Key('git-public-save')));
     await tester.pumpAndSettle();
     expect(git.saves, 1);
     expect(

@@ -145,10 +145,15 @@ class GitConfig {
 
   /// Every problem with this config, in field order: address, username,
   /// token, branch. The settings form shows each under its own field.
-  List<GitConfigProblem> problems() {
+  ///
+  /// The address must be https. [allowLoopbackHttp] also accepts plain http
+  /// to this machine, for tests against a local server only: the token
+  /// travels in every request, so the app never sets it.
+  List<GitConfigProblem> problems({bool allowLoopbackHttp = false}) {
     final out = <GitConfigProblem>[];
     final uri = Uri.tryParse(repoUrl);
     final loopbackHttp =
+        allowLoopbackHttp &&
         uri != null &&
         uri.scheme == 'http' &&
         _loopbackHosts.contains(uri.host);
@@ -176,8 +181,8 @@ class GitConfig {
   /// English description of the first problem, or null when valid. The
   /// settings form validates field by field with localized text; this is
   /// the service-layer backstop.
-  String? validate() {
-    final first = problems().firstOrNull;
+  String? validate({bool allowLoopbackHttp = false}) {
+    final first = problems(allowLoopbackHttp: allowLoopbackHttp).firstOrNull;
     return switch (first) {
       null => null,
       GitConfigProblem.repoUrl =>

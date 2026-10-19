@@ -38,6 +38,8 @@ Future<GitStorageProvider> _provider(
     minPushSpacing: Duration.zero,
     uploadBudget: uploadBudget,
     resetThresholdBytes: resetThresholdBytes ?? kGitHistoryResetThresholdBytes,
+    // The tests' server is plain http on loopback.
+    allowLoopbackHttp: true,
   );
   addTearDown(provider.dispose);
   return provider;
@@ -630,4 +632,54 @@ void main() {
       );
     }, skip: skip);
   });
+
+  test(
+    'only the sync folder keyslot file may land unencrypted on a public repo',
+    () async {
+      final server = await startGitTestServer(
+        requireUser: 'diver',
+        requirePassword: 'tok',
+        anonymousRead: true,
+      );
+      await server.createBareRepo('open');
+      final plain = await _provider(server.repoUrl('open'));
+      await expectLater(
+        plain.uploadFile(
+          _bytes('plain backup'),
+          'submersion_keyslots.json',
+          folderId: 'Submersion Backups',
+        ),
+        throwsA(
+          isA<GitException>().having(
+            (e) => e.code,
+            'code',
+            GitErrorCode.publicRepoUnencrypted,
+          ),
+        ),
+      );
+    },
+    skip: skip,
+  );
+
+  test(
+    'a provider refuses plain http unless loopback http is allowed',
+    () async {
+      final p = GitStorageProvider(
+        store: GitCredentialsStore(storage: InMemoryKeychain()),
+      );
+      addTearDown(p.dispose);
+      await expectLater(
+        p.testConnection(
+          GitConfig(repoUrl: 'http://127.0.0.1:9/r', username: 'd', token: 't'),
+        ),
+        throwsA(
+          isA<GitException>().having(
+            (e) => e.code,
+            'code',
+            GitErrorCode.invalidConfig,
+          ),
+        ),
+      );
+    },
+  );
 }

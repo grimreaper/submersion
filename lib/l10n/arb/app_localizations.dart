@@ -42798,6 +42798,12 @@ abstract class AppLocalizations {
   /// **'This token cannot push to the repository. Give it write access to the repository\'s contents.'**
   String get settings_gitConfig_error_forbidden;
 
+  /// No description provided for @settings_gitConfig_error_indexUnreadable.
+  ///
+  /// In en, this message translates to:
+  /// **'The file index on the branch {branch} is missing, damaged or from a newer Submersion version. Syncing stopped so no files are lost; update Submersion, or choose a new branch.'**
+  String settings_gitConfig_error_indexUnreadable(String branch);
+
   /// No description provided for @settings_gitConfig_error_invalidConfig.
   ///
   /// In en, this message translates to:
@@ -42995,12 +43001,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This repository is public'**
   String get settings_gitConfig_public_title;
-
-  /// No description provided for @settings_gitConfig_public_turnOnEncryption.
-  ///
-  /// In en, this message translates to:
-  /// **'Save and turn on encryption'**
-  String get settings_gitConfig_public_turnOnEncryption;
 
   /// No description provided for @settings_gitConfig_remove_confirm_action.
   ///

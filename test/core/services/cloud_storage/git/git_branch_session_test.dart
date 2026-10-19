@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:math';
 import 'dart:typed_data';
 
@@ -440,4 +441,61 @@ void main() {
       '{"x":1}',
     );
   }, skip: skip);
+
+  group('an unreadable index stops the session', () {
+    Future<void> replaceIndex(Directory repo, String content) async {
+      final tmpIndex = joinPath(tempDirForTest('git_idx_'), 'index');
+      final env = {'GIT_INDEX_FILE': tmpIndex};
+      await runGit(repo, ['read-tree', 'refs/heads/$_branch'], env: env);
+      final blob = await runGit(repo, [
+        'hash-object',
+        '-w',
+        '--stdin',
+      ], stdin: content);
+      await runGit(repo, [
+        'update-index',
+        '--add',
+        '--cacheinfo',
+        '100644,$blob,$kGitIndexPath',
+      ], env: env);
+      final tree = await runGit(repo, ['write-tree'], env: env);
+      final tip = await runGit(repo, ['rev-parse', 'refs/heads/$_branch']);
+      final commit = await runGit(repo, [
+        'commit-tree',
+        tree,
+        '-p',
+        tip,
+        '-m',
+        'damage',
+      ]);
+      await runGit(repo, ['update-ref', 'refs/heads/$_branch', commit]);
+    }
+
+    for (final (name, content) in [
+      ('corrupt', '{not json'),
+      ('from a newer version', '{"version":2,"files":{}}'),
+    ]) {
+      test('a $name index is refused, not read as empty', () async {
+        final server = await startGitTestServer();
+        final repo = await server.createBareRepo('sync');
+        final s = _session(server.repoUrl('sync'));
+        await s.open();
+        await s.commit(
+          GitChange(puts: {'Submersion Sync/keep.json': _text('keep')}),
+          messagePrefix: 'Sync',
+        );
+        await replaceIndex(repo, content);
+        await expectLater(
+          _session(server.repoUrl('sync')).open(),
+          throwsA(
+            isA<GitException>().having(
+              (e) => e.code,
+              'code',
+              GitErrorCode.indexUnreadable,
+            ),
+          ),
+        );
+      }, skip: skip);
+    }
+  });
 }

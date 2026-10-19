@@ -186,4 +186,15 @@ void main() {
     );
     expect(gitNaturalKey(a), isNot(gitNaturalKey(a.copyWith(branch: 'other'))));
   });
+
+  test('plain http is refused even on loopback unless explicitly allowed', () {
+    final c = _config('http://127.0.0.1:8080/r');
+    expect(c.problems(), contains(GitConfigProblem.repoUrl));
+    expect(c.validate(), isNotNull);
+    expect(c.problems(allowLoopbackHttp: true), isEmpty);
+    expect(
+      _config('http://github.com/you/r').problems(allowLoopbackHttp: true),
+      contains(GitConfigProblem.repoUrl),
+    );
+  });
 }

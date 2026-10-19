@@ -26693,6 +26693,11 @@ class AppLocalizationsFr extends AppLocalizations {
       'Ce jeton ne peut pas pousser vers le dépôt. Donnez-lui l\'accès en écriture au contenu du dépôt.';
 
   @override
+  String settings_gitConfig_error_indexUnreadable(String branch) {
+    return 'L\'index des fichiers de la branche $branch est absent, endommagé ou issu d\'une version plus récente de Submersion. La synchronisation s\'est arrêtée pour ne perdre aucun fichier ; mettez Submersion à jour ou choisissez une nouvelle branche.';
+  }
+
+  @override
   String get settings_gitConfig_error_invalidConfig =>
       'Vérifiez les informations du dépôt.';
 
@@ -26820,10 +26825,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settings_gitConfig_public_title => 'Ce dépôt est public';
-
-  @override
-  String get settings_gitConfig_public_turnOnEncryption =>
-      'Enregistrer et activer le chiffrement';
 
   @override
   String get settings_gitConfig_remove_confirm_action => 'Supprimer';

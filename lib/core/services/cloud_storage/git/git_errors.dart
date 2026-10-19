@@ -26,6 +26,9 @@ enum GitErrorCode {
 
   /// The repository is public and encrypted sync is off.
   publicRepoUnencrypted,
+
+  /// The branch's file index is missing, damaged, or from a newer version.
+  indexUnreadable,
   server,
   unexpected,
 }

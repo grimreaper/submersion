@@ -25940,6 +25940,11 @@ class AppLocalizationsHe extends AppLocalizations {
       'האסימון הזה לא יכול לבצע push למאגר. תנו לו הרשאת כתיבה לתוכן המאגר.';
 
   @override
+  String settings_gitConfig_error_indexUnreadable(String branch) {
+    return 'אינדקס הקבצים בענף $branch חסר, פגום או שייך לגרסה חדשה יותר של Submersion. הסנכרון נעצר כדי שלא יאבדו קבצים; עדכנו את Submersion או בחרו ענף חדש.';
+  }
+
+  @override
   String get settings_gitConfig_error_invalidConfig => 'בדקו את פרטי המאגר.';
 
   @override
@@ -26064,10 +26069,6 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get settings_gitConfig_public_title => 'המאגר הזה ציבורי';
-
-  @override
-  String get settings_gitConfig_public_turnOnEncryption =>
-      'שמירה והפעלת ההצפנה';
 
   @override
   String get settings_gitConfig_remove_confirm_action => 'הסרה';

@@ -15146,6 +15146,14 @@
     }
   },
   "settings_gitConfig_error_forbidden": "This token cannot push to the repository. Give it write access to the repository's contents.",
+  "settings_gitConfig_error_indexUnreadable": "The file index on the branch {branch} is missing, damaged or from a newer Submersion version. Syncing stopped so no files are lost; update Submersion, or choose a new branch.",
+  "@settings_gitConfig_error_indexUnreadable": {
+    "placeholders": {
+      "branch": {
+        "type": "String"
+      }
+    }
+  },
   "settings_gitConfig_error_invalidConfig": "Check the repository details.",
   "settings_gitConfig_error_notFound": "No repository at this address. Check the address, and that the token can see the repository.",
   "settings_gitConfig_error_notGit": "This address is not a Git repository.",
@@ -15200,7 +15208,6 @@
   "settings_gitConfig_public_body": "Anyone can read a public repository, so Submersion syncs to it only with encryption on. Turn on encrypted sync next, or make the repository private on the host.",
   "settings_gitConfig_public_saved": "Saved. Turn on encrypted sync below to start syncing.",
   "settings_gitConfig_public_title": "This repository is public",
-  "settings_gitConfig_public_turnOnEncryption": "Save and turn on encryption",
   "settings_gitConfig_remove_confirm_action": "Remove",
   "settings_gitConfig_remove_confirm_body": "The repository address and token are removed from this device. The repository is kept.",
   "settings_gitConfig_remove_confirm_title": "Remove Git configuration?",

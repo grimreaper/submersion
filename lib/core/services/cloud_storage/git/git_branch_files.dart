@@ -85,6 +85,10 @@ final class GitIndex {
     if (json is! Map<String, Object?>) {
       throw const FormatException('Git index is not an object');
     }
+    final version = json['version'];
+    if (version is! int || version != 1) {
+      throw FormatException('Git index version $version is not supported');
+    }
     final files = json['files'];
     if (files is! Map<String, Object?>) {
       throw const FormatException('Git index has no files map');

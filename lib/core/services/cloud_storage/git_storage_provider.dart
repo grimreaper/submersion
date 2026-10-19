@@ -85,6 +85,7 @@ class GitStorageProvider
     this.minPushSpacing = const Duration(seconds: 10),
     this.uploadBudget = const Duration(seconds: 45),
     this.resetThresholdBytes = kGitHistoryResetThresholdBytes,
+    this.allowLoopbackHttp = false,
   }) : _store = store ?? GitCredentialsStore(),
        _transportFactory =
            transportFactory ?? ((c) => GitHttpTransport(c.toRemote())),
@@ -95,6 +96,10 @@ class GitStorageProvider
   static final _log = LoggerService.forClass(GitStorageProvider);
 
   static const String backupFolderName = 'Submersion Backups';
+
+  /// The one file allowed into a public repository before encryption is on.
+  static const String _keyslotPath =
+      '${CloudStorageProviderMixin.syncFolderName}/${KeyslotFile.cloudFileName}';
 
   final GitCredentialsStore _store;
   final GitTransportFactory _transportFactory;
@@ -108,6 +113,10 @@ class GitStorageProvider
 
   /// Deleted bytes after which the branch history is reset.
   final int resetThresholdBytes;
+
+  /// Accept plain http to this machine. Tests only: see
+  /// [GitConfig.problems].
+  final bool allowLoopbackHttp;
 
   GitConfig? _cachedConfig;
   GitBranchSession? _session;
@@ -321,7 +330,7 @@ class GitStorageProvider
 
   /// Validates unsaved [config] against the host without writing anything.
   Future<GitConnectionReport> testConnection(GitConfig config) async {
-    final error = config.validate();
+    final error = config.validate(allowLoopbackHttp: allowLoopbackHttp);
     if (error != null) {
       throw GitException(error, code: GitErrorCode.invalidConfig);
     }
@@ -370,7 +379,7 @@ class GitStorageProvider
       final session = await _opened();
       // The keyslot file holds only a wrapped key, so it may land in a
       // public repository: without it, encryption could never be turned on.
-      if (p.posix.basename(path) != KeyslotFile.cloudFileName) {
+      if (path != _keyslotPath) {
         await _ensurePublicSafe(session);
       }
       // Uploading a path replaces it: an older delete of it is void.

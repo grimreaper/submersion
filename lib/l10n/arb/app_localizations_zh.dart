@@ -25137,6 +25137,11 @@ class AppLocalizationsZh extends AppLocalizations {
       '此令牌无法推送到该仓库。请为其授予仓库内容的写入权限。';
 
   @override
+  String settings_gitConfig_error_indexUnreadable(String branch) {
+    return '分支 $branch 上的文件索引缺失、已损坏或来自更新版本的 Submersion。同步已停止，以免丢失文件；请更新 Submersion，或选择新的分支。';
+  }
+
+  @override
   String get settings_gitConfig_error_invalidConfig => '请检查仓库信息。';
 
   @override
@@ -25251,9 +25256,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settings_gitConfig_public_title => '此仓库是公开的';
-
-  @override
-  String get settings_gitConfig_public_turnOnEncryption => '保存并开启加密';
 
   @override
   String get settings_gitConfig_remove_confirm_action => '移除';

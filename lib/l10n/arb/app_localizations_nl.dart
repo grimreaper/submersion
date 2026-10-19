@@ -26435,6 +26435,11 @@ class AppLocalizationsNl extends AppLocalizations {
       'Dit token mag niet naar de repository pushen. Geef het schrijftoegang tot de inhoud van de repository.';
 
   @override
+  String settings_gitConfig_error_indexUnreadable(String branch) {
+    return 'De bestandsindex op de branch $branch ontbreekt, is beschadigd of komt van een nieuwere Submersion-versie. De synchronisatie is gestopt zodat er geen bestanden verloren gaan; werk Submersion bij of kies een nieuwe branch.';
+  }
+
+  @override
   String get settings_gitConfig_error_invalidConfig =>
       'Controleer de gegevens van de repository.';
 
@@ -26563,10 +26568,6 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get settings_gitConfig_public_title => 'Deze repository is openbaar';
-
-  @override
-  String get settings_gitConfig_public_turnOnEncryption =>
-      'Opslaan en versleuteling aanzetten';
 
   @override
   String get settings_gitConfig_remove_confirm_action => 'Verwijderen';

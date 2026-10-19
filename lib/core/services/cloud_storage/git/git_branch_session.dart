@@ -186,14 +186,22 @@ class GitBranchSession {
     }
     final metaBytes = await _blob(meta.id, tip);
     final indexEntry = await lookupTreePath(store, commit.tree, kGitIndexPath);
-    final indexBytes = indexEntry == null || indexEntry.isTree
-        ? null
-        : await _blob(indexEntry.id, tip);
-    GitIndex index;
+    // Every Submersion branch carries a readable index. Reading a missing,
+    // damaged or newer one as empty would hide every file, and the next
+    // commit would write that empty index back: refuse instead.
+    GitException unreadable(Object? cause) => GitException(
+      'The file index on the branch $branch is missing, damaged or from a '
+      'newer version.',
+      code: GitErrorCode.indexUnreadable,
+      cause: cause,
+    );
+    if (indexEntry == null || indexEntry.isTree) throw unreadable(null);
+    final indexBytes = await _blob(indexEntry.id, tip);
+    final GitIndex index;
     try {
-      index = indexBytes == null ? GitIndex.empty : GitIndex.decode(indexBytes);
-    } on FormatException {
-      index = GitIndex.empty;
+      index = GitIndex.decode(indexBytes);
+    } on FormatException catch (e) {
+      throw unreadable(e);
     }
     return GitBranchSnapshot(
       tip: tip,
@@ -201,7 +209,7 @@ class GitBranchSession {
       index: index,
       meta: GitBranchMeta.decode(metaBytes),
       isDefaultBranch: isDefault,
-      indexBlobSize: indexBytes?.length ?? 0,
+      indexBlobSize: indexBytes.length,
       metaBlobSize: metaBytes.length,
     );
   }

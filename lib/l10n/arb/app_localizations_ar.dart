@@ -26828,6 +26828,11 @@ class AppLocalizationsAr extends AppLocalizations {
       'لا يمكن لهذا الرمز الدفع إلى المستودع. امنحه صلاحية الكتابة على محتوى المستودع.';
 
   @override
+  String settings_gitConfig_error_indexUnreadable(String branch) {
+    return 'فهرس الملفات في الفرع $branch مفقود أو تالف أو من إصدار أحدث من Submersion. توقفت المزامنة حتى لا تُفقد أي ملفات؛ حدّث Submersion أو اختر فرعًا جديدًا.';
+  }
+
+  @override
   String get settings_gitConfig_error_invalidConfig =>
       'تحقق من بيانات المستودع.';
 
@@ -26953,9 +26958,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get settings_gitConfig_public_title => 'هذا المستودع عام';
-
-  @override
-  String get settings_gitConfig_public_turnOnEncryption => 'احفظ وفعّل التشفير';
 
   @override
   String get settings_gitConfig_remove_confirm_action => 'إزالة';

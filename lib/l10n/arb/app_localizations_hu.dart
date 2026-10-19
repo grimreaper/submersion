@@ -26487,6 +26487,11 @@ class AppLocalizationsHu extends AppLocalizations {
       'Ez a token nem küldhet változásokat a tárolóba. Adjon neki írási hozzáférést a tároló tartalmához.';
 
   @override
+  String settings_gitConfig_error_indexUnreadable(String branch) {
+    return 'A(z) $branch ág fájlindexe hiányzik, sérült, vagy a Submersion egy újabb verziójából származik. A szinkronizálás leállt, hogy ne vesszenek el fájlok; frissítse a Submersiont, vagy válasszon új ágat.';
+  }
+
+  @override
   String get settings_gitConfig_error_invalidConfig =>
       'Ellenőrizze a tároló adatait.';
 
@@ -26613,10 +26618,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get settings_gitConfig_public_title => 'Ez a tároló nyilvános';
-
-  @override
-  String get settings_gitConfig_public_turnOnEncryption =>
-      'Mentés és titkosítás bekapcsolása';
 
   @override
   String get settings_gitConfig_remove_confirm_action => 'Eltávolítás';

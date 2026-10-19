@@ -195,10 +195,12 @@ class _GitConfigPageState extends ConsumerState<GitConfigPage> {
             onPressed: () => Navigator.pop(dialogContext, false),
             child: Text(l10n.common_action_cancel),
           ),
+          // Only saves: encryption is turned on from the Cloud sync page this
+          // page returns to, as the dialog text and the snack say.
           FilledButton(
-            key: const Key('git-public-encrypt'),
+            key: const Key('git-public-save'),
             onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(l10n.settings_gitConfig_public_turnOnEncryption),
+            child: Text(l10n.common_action_save),
           ),
         ],
       ),

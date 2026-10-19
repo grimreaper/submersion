@@ -26567,6 +26567,11 @@ class AppLocalizationsDe extends AppLocalizations {
       'Dieses Token kann nicht in das Repository pushen. Geben Sie ihm Schreibzugriff auf die Inhalte des Repositorys.';
 
   @override
+  String settings_gitConfig_error_indexUnreadable(String branch) {
+    return 'Der Dateiindex im Branch $branch fehlt, ist beschädigt oder stammt aus einer neueren Submersion-Version. Die Synchronisierung wurde angehalten, damit keine Dateien verloren gehen; aktualisieren Sie Submersion oder wählen Sie einen neuen Branch.';
+  }
+
+  @override
   String get settings_gitConfig_error_invalidConfig =>
       'Prüfen Sie die Angaben zum Repository.';
 
@@ -26695,10 +26700,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get settings_gitConfig_public_title =>
       'Dieses Repository ist öffentlich';
-
-  @override
-  String get settings_gitConfig_public_turnOnEncryption =>
-      'Speichern und Verschlüsselung einschalten';
 
   @override
   String get settings_gitConfig_remove_confirm_action => 'Entfernen';

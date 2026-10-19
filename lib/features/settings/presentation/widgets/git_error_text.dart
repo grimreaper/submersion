@@ -35,6 +35,8 @@ String gitErrorText(
       l10n.settings_gitConfig_error_branchHasOtherContent(branch),
     GitErrorCode.publicRepoUnencrypted =>
       l10n.settings_gitConfig_error_publicRepoUnencrypted,
+    GitErrorCode.indexUnreadable =>
+      l10n.settings_gitConfig_error_indexUnreadable(branch),
     GitErrorCode.server => l10n.settings_gitConfig_error_server,
     GitErrorCode.unexpected => l10n.settings_gitConfig_error_unexpected,
   };
