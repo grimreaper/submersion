@@ -1,5 +1,7 @@
 import 'package:equatable/equatable.dart';
 
+import 'package:submersion/core/services/accounts/account_kind.dart';
+
 /// How often automatic backups should run
 enum BackupFrequency { daily, weekly, monthly }
 
@@ -46,6 +48,13 @@ class BackupSettings extends Equatable {
   /// one that syncs today. Null for any other destination.
   final String? lastBackupCloudAccountId;
 
+  /// The roster row the cloud copy goes to, with its kind; both null means
+  /// the copy goes to the same account as sync (spec section 7.3). The kind
+  /// travels with the id so the scheduled backup, which has no database
+  /// registry, can still build the provider.
+  final String? copyAccountId;
+  final AccountKind? copyAccountKind;
+
   const BackupSettings({
     this.enabled = false,
     this.frequency = BackupFrequency.weekly,
@@ -59,6 +68,8 @@ class BackupSettings extends Equatable {
     this.lastCloudCopyMissing = false,
     this.lastBackupDestination,
     this.lastBackupCloudAccountId,
+    this.copyAccountId,
+    this.copyAccountKind,
   });
 
   BackupSettings copyWith({
@@ -74,6 +85,8 @@ class BackupSettings extends Equatable {
     bool? lastCloudCopyMissing,
     LastBackupDestination? lastBackupDestination,
     String? lastBackupCloudAccountId,
+    String? copyAccountId,
+    AccountKind? copyAccountKind,
   }) {
     return BackupSettings(
       enabled: enabled ?? this.enabled,
@@ -93,6 +106,8 @@ class BackupSettings extends Equatable {
           lastBackupDestination ?? this.lastBackupDestination,
       lastBackupCloudAccountId:
           lastBackupCloudAccountId ?? this.lastBackupCloudAccountId,
+      copyAccountId: copyAccountId ?? this.copyAccountId,
+      copyAccountKind: copyAccountKind ?? this.copyAccountKind,
     );
   }
 
@@ -129,5 +144,7 @@ class BackupSettings extends Equatable {
     lastCloudCopyMissing,
     lastBackupDestination,
     lastBackupCloudAccountId,
+    copyAccountId,
+    copyAccountKind,
   ];
 }

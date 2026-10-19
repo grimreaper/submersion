@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:submersion/core/services/accounts/account_kind.dart';
 import 'package:submersion/features/backup/data/repositories/backup_preferences.dart';
 import 'package:submersion/features/backup/domain/entities/backup_record.dart';
 import 'package:submersion/features/backup/domain/entities/backup_settings.dart';
@@ -78,6 +79,32 @@ void main() {
         LastBackupDestination.device,
       );
       expect(backupPreferences.getSettings().lastBackupCloudAccountId, isNull);
+    });
+
+    test('copy destination defaults null and round-trips', () async {
+      expect(backupPreferences.getSettings().copyAccountId, isNull);
+      await backupPreferences.setCopyDestination(
+        accountId: 'acct-b',
+        kind: AccountKind.webdav,
+      );
+      final read = backupPreferences.getSettings();
+      expect(read.copyAccountId, 'acct-b');
+      expect(read.copyAccountKind, AccountKind.webdav);
+
+      await backupPreferences.setCopyDestination(accountId: null, kind: null);
+      expect(backupPreferences.getSettings().copyAccountId, isNull);
+      expect(backupPreferences.getSettings().copyAccountKind, isNull);
+    });
+
+    test('an unknown stored copy kind reads as no destination', () async {
+      SharedPreferences.setMockInitialValues({
+        'backup_copy_account_id': 'acct-x',
+        'backup_copy_account_kind': 'ftp',
+      });
+      final prefs = await SharedPreferences.getInstance();
+      final read = BackupPreferences(prefs).getSettings();
+      expect(read.copyAccountId, isNull);
+      expect(read.copyAccountKind, isNull);
     });
 
     test('an unknown stored destination reads as null', () async {

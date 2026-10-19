@@ -786,7 +786,7 @@ void main() {
       expect(find.text('Default location'), findsNothing);
     });
 
-    testWidgets('choosing a custom directory turns cloud backup off', (
+    testWidgets('choosing a custom directory keeps the cloud copy on', (
       tester,
     ) async {
       await pumpApp(tester, initialPrefs: {'backup_cloud_enabled': true});
@@ -795,9 +795,8 @@ void main() {
       await tester.tap(find.text('Change'));
       await tester.pumpAndSettle();
 
-      expect(cloudSwitch(tester).value, isFalse);
-      expect(find.text('/custom/dir'), findsOneWidget);
-      expect(find.text('Test Cloud'), findsNothing);
+      expect(cloudSwitch(tester).value, isTrue);
+      expect(backupPrefs.getSettings().backupLocation, '/custom/dir');
     });
 
     testWidgets('location row sits between retention and cloud backup', (
@@ -854,7 +853,7 @@ void main() {
       );
     });
 
-    testWidgets('enabling cloud backup clears a custom location', (
+    testWidgets('enabling cloud backup keeps a custom location', (
       tester,
     ) async {
       await pumpApp(tester, initialPrefs: {'backup_location': '/custom/dir'});
@@ -864,8 +863,7 @@ void main() {
       await tester.pumpAndSettle();
 
       expect(cloudSwitch(tester).value, isTrue);
-      expect(find.text('Test Cloud'), findsOneWidget);
-      expect(find.text('/custom/dir'), findsNothing);
+      expect(backupPrefs.getSettings().backupLocation, '/custom/dir');
     });
   });
 }

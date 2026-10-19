@@ -3,6 +3,8 @@ import 'dart:typed_data';
 
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:submersion/core/services/accounts/account_kind.dart';
+
 import 'package:submersion/features/backup/domain/entities/backup_record.dart';
 import 'package:submersion/features/backup/domain/entities/backup_settings.dart';
 
@@ -31,6 +33,8 @@ class BackupPreferences {
   static const String _lastBackupDestinationKey = 'backup_last_destination';
   static const String _lastBackupCloudAccountIdKey =
       'backup_last_cloud_account_id';
+  static const String _copyAccountIdKey = 'backup_copy_account_id';
+  static const String _copyAccountKindKey = 'backup_copy_account_kind';
 
   final SharedPreferences _prefs;
 
@@ -43,6 +47,13 @@ class BackupPreferences {
   BackupSettings getSettings() {
     final lastBackupMs = _prefs.getInt(_lastBackupTimeKey);
     final failedMs = _prefs.getInt(_lastScheduledFailureAtKey);
+    // An id without a kind this build knows is no destination: the copy
+    // then goes where sync goes, as it did before destinations existed.
+    final copyKind = AccountKind.values
+        .asNameMap()[_prefs.getString(_copyAccountKindKey)];
+    final copyId = copyKind == null
+        ? null
+        : _prefs.getString(_copyAccountIdKey);
     return BackupSettings(
       enabled: _prefs.getBool(_enabledKey) ?? false,
       frequency: _parseFrequency(_prefs.getString(_frequencyKey)),
@@ -64,6 +75,8 @@ class BackupPreferences {
       lastBackupDestination: LastBackupDestination.values
           .asNameMap()[_prefs.getString(_lastBackupDestinationKey)],
       lastBackupCloudAccountId: _prefs.getString(_lastBackupCloudAccountIdKey),
+      copyAccountId: copyId,
+      copyAccountKind: copyId == null ? null : copyKind,
     );
   }
 
@@ -114,6 +127,23 @@ class BackupPreferences {
     } else {
       await _prefs.remove(_lastBackupCloudAccountIdKey);
     }
+  }
+
+  /// The roster row the cloud copy goes to (Settings > Data, #3482); null
+  /// for both means the same account as sync. The kind is written first and
+  /// removed last, so a crash between the writes never leaves an id that
+  /// reads without its kind.
+  Future<void> setCopyDestination({
+    required String? accountId,
+    required AccountKind? kind,
+  }) async {
+    if (accountId == null || kind == null) {
+      await _prefs.remove(_copyAccountIdKey);
+      await _prefs.remove(_copyAccountKindKey);
+      return;
+    }
+    await _prefs.setString(_copyAccountKindKey, kind.name);
+    await _prefs.setString(_copyAccountIdKey, accountId);
   }
 
   Future<void> setCloudBackupEnabled(bool value) async {
