@@ -1,7 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
-import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_branch_files.dart';
@@ -9,13 +8,11 @@ import 'package:submersion/core/services/cloud_storage/git/git_branch_session.da
 import 'package:submersion/core/services/cloud_storage/git/git_errors.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_http_transport.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_object_id.dart';
-import 'package:submersion/core/services/cloud_storage/git/git_object_store.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_remote.dart';
 
 import '../../../../helpers/git_cli.dart';
 import '../../../../helpers/git_http_backend_server.dart';
-
-const _branch = 'submersion-sync';
+import '../../../../helpers/git_test_session.dart';
 
 /// A push that reaches the server and then loses its reply.
 class _LostReplyTransport extends GitHttpTransport {
@@ -29,12 +26,14 @@ class _LostReplyTransport extends GitHttpTransport {
     required GitObjectId? oldTip,
     required GitObjectId newTip,
     required Stream<List<int>> pack,
+    int packBytes = 0,
   }) async {
     await super.push(
       branch: branch,
       oldTip: oldTip,
       newTip: newTip,
       pack: pack,
+      packBytes: packBytes,
     );
     if (loseNextReply) {
       loseNextReply = false;
@@ -47,33 +46,6 @@ class _LostReplyTransport extends GitHttpTransport {
   }
 }
 
-GitBranchSession _session(
-  Uri url, {
-  String branch = _branch,
-  GitHttpTransport? transport,
-  int resetThresholdBytes = kGitHistoryResetThresholdBytes,
-  DateTime Function()? clock,
-}) {
-  final t =
-      transport ??
-      GitHttpTransport(GitRemote(cloneUrl: url, username: 'u', token: 't'));
-  addTearDown(t.close);
-  return GitBranchSession(
-    transport: t,
-    store: MemoryGitObjectStore(),
-    branch: branch,
-    identity: () async => const GitCommitIdentity(
-      name: 'Submersion 1234abcd',
-      messageLabel: 'Submersion 1234abcd',
-    ),
-    clock: clock ?? () => DateTime.utc(2026, 10, 18, 12),
-    retryDelay: (_) => Duration.zero,
-    resetThresholdBytes: resetThresholdBytes,
-  );
-}
-
-GitPut _text(String s) => GitPut.bytes(Uint8List.fromList(utf8.encode(s)));
-
 void main() {
   final skip = skipUnlessGit();
 
@@ -82,21 +54,21 @@ void main() {
     () async {
       final server = await startGitTestServer();
       final repo = await server.createBareRepo('empty');
-      final snap = await _session(server.repoUrl('empty')).open();
+      final snap = await gitTestSession(server.repoUrl('empty')).open();
       expect(snap.isDefaultBranch, isTrue);
       expect(snap.index.entries, isEmpty);
       final files = await runGit(repo, [
         'ls-tree',
         '-r',
         '--name-only',
-        'refs/heads/$_branch',
+        'refs/heads/$gitTestBranch',
       ]);
       expect(
         files.split('\n'),
         unorderedEquals([kGitReadmePath, kGitMetaPath, kGitIndexPath]),
       );
       // Another device adopts the branch rather than creating a second one.
-      final again = await _session(server.repoUrl('empty')).open();
+      final again = await gitTestSession(server.repoUrl('empty')).open();
       expect(again.tip, snap.tip);
     },
     skip: skip,
@@ -109,7 +81,7 @@ void main() {
       final repo = await server.createBareRepo('mine', withMainCommit: true);
       final before = await runGit(repo, ['rev-parse', 'refs/heads/main']);
       await expectLater(
-        _session(server.repoUrl('mine'), branch: 'main').open(),
+        gitTestSession(server.repoUrl('mine'), branch: 'main').open(),
         throwsA(
           isA<GitException>().having(
             (e) => e.code,
@@ -132,16 +104,18 @@ void main() {
     () async {
       final server = await startGitTestServer();
       await server.createBareRepo('sync');
-      final writer = _session(
+      final writer = gitTestSession(
         server.repoUrl('sync'),
         clock: () => DateTime.utc(2026, 10, 18, 9, 30),
       );
       await writer.open();
       await writer.commit(
-        GitChange(puts: {'Submersion Sync/ssv1.a.cs.1.json': _text('{"x":1}')}),
+        GitChange(
+          puts: {'Submersion Sync/ssv1.a.cs.1.json': gitText('{"x":1}')},
+        ),
         messagePrefix: 'Sync',
       );
-      final reader = _session(server.repoUrl('sync'));
+      final reader = gitTestSession(server.repoUrl('sync'));
       final snap = await reader.open();
       final entry = snap.index.entries['Submersion Sync/ssv1.a.cs.1.json']!;
       expect(entry.size, 7);
@@ -160,24 +134,24 @@ void main() {
   test('two devices committing at once both land', () async {
     final server = await startGitTestServer();
     final repo = await server.createBareRepo('sync');
-    final a = _session(server.repoUrl('sync'));
+    final a = gitTestSession(server.repoUrl('sync'));
     await a.open();
-    final b = _session(server.repoUrl('sync'));
+    final b = gitTestSession(server.repoUrl('sync'));
     await b.open();
     await a.commit(
-      GitChange(puts: {'Submersion Sync/a.json': _text('a')}),
+      GitChange(puts: {'Submersion Sync/a.json': gitText('a')}),
       messagePrefix: 'Sync',
     );
     // b still believes the old tip; its push is stale and must be rebuilt.
     await b.commit(
-      GitChange(puts: {'Submersion Sync/b.json': _text('b')}),
+      GitChange(puts: {'Submersion Sync/b.json': gitText('b')}),
       messagePrefix: 'Sync',
     );
     final files = await runGit(repo, [
       'ls-tree',
       '-r',
       '--name-only',
-      'refs/heads/$_branch',
+      'refs/heads/$gitTestBranch',
     ]);
     expect(files, contains('Submersion Sync/a.json'));
     expect(files, contains('Submersion Sync/b.json'));
@@ -189,20 +163,20 @@ void main() {
       final server = await startGitTestServer();
       await server.createBareRepo('sync');
       const path = 'Submersion Sync/submersion_library_epoch.json';
-      final a = _session(server.repoUrl('sync'));
+      final a = gitTestSession(server.repoUrl('sync'));
       await a.open();
       await a.commit(
-        GitChange(puts: {path: _text('epoch 1')}),
+        GitChange(puts: {path: gitText('epoch 1')}),
         messagePrefix: 'Sync',
       );
-      final b = _session(server.repoUrl('sync'));
+      final b = gitTestSession(server.repoUrl('sync'));
       final seen = (await b.open()).index.entries[path]!.blobId;
       await a.commit(
-        GitChange(puts: {path: _text('epoch 2')}),
+        GitChange(puts: {path: gitText('epoch 2')}),
         messagePrefix: 'Sync',
       );
       await b.commit(GitChange(deletes: {path: seen}), messagePrefix: 'Sync');
-      final fresh = _session(server.repoUrl('sync'));
+      final fresh = gitTestSession(server.repoUrl('sync'));
       await fresh.open();
       expect(utf8.decode(await fresh.readFile(path)), 'epoch 2');
     },
@@ -217,18 +191,26 @@ void main() {
       final transport = _LostReplyTransport(
         GitRemote(cloneUrl: server.repoUrl('sync'), username: 'u', token: 't'),
       );
-      final s = _session(server.repoUrl('sync'), transport: transport);
+      final s = gitTestSession(server.repoUrl('sync'), transport: transport);
       await s.open();
       final before = int.parse(
-        await runGit(repo, ['rev-list', '--count', 'refs/heads/$_branch']),
+        await runGit(repo, [
+          'rev-list',
+          '--count',
+          'refs/heads/$gitTestBranch',
+        ]),
       );
       transport.loseNextReply = true;
       await s.commit(
-        GitChange(puts: {'Submersion Sync/x.json': _text('x')}),
+        GitChange(puts: {'Submersion Sync/x.json': gitText('x')}),
         messagePrefix: 'Sync',
       );
       final after = int.parse(
-        await runGit(repo, ['rev-list', '--count', 'refs/heads/$_branch']),
+        await runGit(repo, [
+          'rev-list',
+          '--count',
+          'refs/heads/$gitTestBranch',
+        ]),
       );
       expect(after, before + 1);
     },
@@ -238,17 +220,17 @@ void main() {
   test('a due history reset leaves one commit with the same files', () async {
     final server = await startGitTestServer();
     final repo = await server.createBareRepo('sync');
-    final s = _session(server.repoUrl('sync'), resetThresholdBytes: 1024);
+    final s = gitTestSession(server.repoUrl('sync'), resetThresholdBytes: 1024);
     await s.open();
     final big = 'x' * 2000;
     await s.commit(
-      GitChange(puts: {'Submersion Sync/old.json': _text(big)}),
+      GitChange(puts: {'Submersion Sync/old.json': gitText(big)}),
       messagePrefix: 'Sync',
     );
     final oldId = s.current!.index.entries['Submersion Sync/old.json']!.blobId;
     await s.commit(
       GitChange(
-        puts: {'Submersion Sync/keep.json': _text('keep')},
+        puts: {'Submersion Sync/keep.json': gitText('keep')},
         deletes: {'Submersion Sync/old.json': oldId},
       ),
       messagePrefix: 'Sync',
@@ -258,11 +240,11 @@ void main() {
       'ls-tree',
       '-r',
       '--name-only',
-      'refs/heads/$_branch',
+      'refs/heads/$gitTestBranch',
     ]);
     expect(await s.resetHistoryIfDue(), isTrue);
     expect(
-      await runGit(repo, ['rev-list', '--count', 'refs/heads/$_branch']),
+      await runGit(repo, ['rev-list', '--count', 'refs/heads/$gitTestBranch']),
       '1',
     );
     expect(
@@ -270,7 +252,7 @@ void main() {
         'ls-tree',
         '-r',
         '--name-only',
-        'refs/heads/$_branch',
+        'refs/heads/$gitTestBranch',
       ]),
       filesBefore,
     );
@@ -279,47 +261,82 @@ void main() {
     expect(await s.resetHistoryIfDue(), isFalse);
   }, skip: skip);
 
-  test('a reset that races a peer commit gives up and loses nothing', () async {
-    final server = await startGitTestServer();
-    final repo = await server.createBareRepo('sync');
-    final a = _session(server.repoUrl('sync'));
-    await a.open();
-    final b = _session(server.repoUrl('sync'));
-    await b.open();
-    await b.commit(
-      GitChange(puts: {'Submersion Sync/peer.json': _text('p')}),
-      messagePrefix: 'Sync',
-    );
-    expect(await a.resetHistoryIfDue(force: true), isFalse);
-    final files = await runGit(repo, [
-      'ls-tree',
-      '-r',
-      '--name-only',
-      'refs/heads/$_branch',
-    ]);
-    expect(files, contains('Submersion Sync/peer.json'));
-  }, skip: skip);
+  test(
+    'a forced reset that races a peer commit is rebuilt on the new tip',
+    () async {
+      final server = await startGitTestServer();
+      final repo = await server.createBareRepo('sync');
+      final a = gitTestSession(server.repoUrl('sync'));
+      await a.open();
+      final b = gitTestSession(server.repoUrl('sync'));
+      await b.open();
+      await b.commit(
+        GitChange(puts: {'Submersion Sync/peer.json': gitText('p')}),
+        messagePrefix: 'Sync',
+      );
+      // Asked for (a privacy purge), so it must not be dropped.
+      expect(await a.resetHistoryIfDue(force: true), isTrue);
+      final files = await runGit(repo, [
+        'ls-tree',
+        '-r',
+        '--name-only',
+        'refs/heads/$gitTestBranch',
+      ]);
+      expect(files, contains('Submersion Sync/peer.json'));
+      expect(
+        await runGit(repo, [
+          'rev-list',
+          '--count',
+          'refs/heads/$gitTestBranch',
+        ]),
+        '1',
+      );
+    },
+    skip: skip,
+  );
+
+  test(
+    'a due reset that races a peer commit waits for the next sync',
+    () async {
+      final server = await startGitTestServer();
+      await server.createBareRepo('sync');
+      final a = gitTestSession(server.repoUrl('sync'), resetThresholdBytes: 1);
+      await a.open();
+      await a.commit(
+        GitChange(puts: {'Submersion Sync/mine.json': gitText('m')}),
+        messagePrefix: 'Sync',
+      );
+      final b = gitTestSession(server.repoUrl('sync'));
+      await b.open();
+      await b.commit(
+        GitChange(puts: {'Submersion Sync/peer.json': gitText('p')}),
+        messagePrefix: 'Sync',
+      );
+      expect(await a.resetHistoryIfDue(), isFalse);
+    },
+    skip: skip,
+  );
 
   test('a change that alters nothing makes no commit', () async {
     final server = await startGitTestServer();
     final repo = await server.createBareRepo('sync');
-    final s = _session(server.repoUrl('sync'));
+    final s = gitTestSession(server.repoUrl('sync'));
     await s.open();
     await s.commit(
-      GitChange(puts: {'Submersion Sync/x.json': _text('x')}),
+      GitChange(puts: {'Submersion Sync/x.json': gitText('x')}),
       messagePrefix: 'Sync',
     );
     final count = await runGit(repo, [
       'rev-list',
       '--count',
-      'refs/heads/$_branch',
+      'refs/heads/$gitTestBranch',
     ]);
     await s.commit(
-      GitChange(puts: {'Submersion Sync/x.json': _text('x')}),
+      GitChange(puts: {'Submersion Sync/x.json': gitText('x')}),
       messagePrefix: 'Sync',
     );
     expect(
-      await runGit(repo, ['rev-list', '--count', 'refs/heads/$_branch']),
+      await runGit(repo, ['rev-list', '--count', 'refs/heads/$gitTestBranch']),
       count,
     );
   }, skip: skip);
@@ -328,18 +345,18 @@ void main() {
     final server = await startGitTestServer();
     await server.createBareRepo('sync');
     const path = 'Submersion Sync/submersion_library_epoch.json';
-    final s = _session(server.repoUrl('sync'));
+    final s = gitTestSession(server.repoUrl('sync'));
     await s.open();
     await s.commit(
-      GitChange(puts: {path: _text('epoch 1')}),
+      GitChange(puts: {path: gitText('epoch 1')}),
       messagePrefix: 'Sync',
     );
     final old = s.current!.index.entries[path]!.blobId;
     await s.commit(
-      GitChange(puts: {path: _text('epoch 2')}, deletes: {path: old}),
+      GitChange(puts: {path: gitText('epoch 2')}, deletes: {path: old}),
       messagePrefix: 'Sync',
     );
-    final fresh = _session(server.repoUrl('sync'));
+    final fresh = gitTestSession(server.repoUrl('sync'));
     await fresh.open();
     expect(utf8.decode(await fresh.readFile(path)), 'epoch 2');
   }, skip: skip);
@@ -349,7 +366,7 @@ void main() {
     () async {
       final server = await startGitTestServer();
       final repo = await server.createBareRepo('sync');
-      final s = _session(server.repoUrl('sync'));
+      final s = gitTestSession(server.repoUrl('sync'));
       await s.open();
       await runGit(repo, ['config', 'receive.denyNonFastForwards', 'true']);
       await expectLater(
@@ -369,12 +386,12 @@ void main() {
   test('a too-large refusal names the size of the file', () async {
     final server = await startGitTestServer();
     final repo = await server.createBareRepo('sync');
-    final s = _session(server.repoUrl('sync'));
+    final s = gitTestSession(server.repoUrl('sync'));
     await s.open();
     await server.refusePushes(repo, 'GH001: Large files detected.');
     await expectLater(
       s.commit(
-        GitChange(puts: {'Submersion Backups/b.db': _text('x' * 5000)}),
+        GitChange(puts: {'Submersion Backups/b.db': gitText('x' * 5000)}),
         messagePrefix: 'Backup',
       ),
       throwsA(
@@ -390,14 +407,14 @@ void main() {
     () async {
       final server = await startGitTestServer(allowFilter: false);
       await server.createBareRepo('sync');
-      final a = _session(server.repoUrl('sync'));
+      final a = gitTestSession(server.repoUrl('sync'));
       await a.open();
-      final b = _session(server.repoUrl('sync'));
+      final b = gitTestSession(server.repoUrl('sync'));
       await b.open();
       for (var i = 0; i < 3; i++) {
         await a.commit(
           GitChange(
-            puts: {'Submersion Sync/f$i.json': _text('v$i ${'x' * 3000}')},
+            puts: {'Submersion Sync/f$i.json': gitText('v$i ${'x' * 3000}')},
           ),
           messagePrefix: 'Sync',
         );
@@ -414,7 +431,7 @@ void main() {
   test('a host without filter sends only what a peer changed', () async {
     final server = await startGitTestServer(allowFilter: false);
     await server.createBareRepo('sync');
-    final a = _session(server.repoUrl('sync'));
+    final a = gitTestSession(server.repoUrl('sync'));
     await a.open();
     final r = Random(7);
     final big = List.generate(
@@ -422,14 +439,14 @@ void main() {
       (_) => r.nextInt(16).toRadixString(16),
     ).join();
     await a.commit(
-      GitChange(puts: {'Submersion Backups/b.db': _text(big)}),
+      GitChange(puts: {'Submersion Backups/b.db': gitText(big)}),
       messagePrefix: 'Backup',
     );
-    final b = _session(server.repoUrl('sync'));
+    final b = gitTestSession(server.repoUrl('sync'));
     await b.open();
     server.fetchResponseBytes.clear();
     await a.commit(
-      GitChange(puts: {'Submersion Sync/small.json': _text('{"x":1}')}),
+      GitChange(puts: {'Submersion Sync/small.json': gitText('{"x":1}')}),
       messagePrefix: 'Sync',
     );
     await b.refresh();
@@ -442,11 +459,71 @@ void main() {
     );
   }, skip: skip);
 
+  test('a host without filter can send a peer edit of a file this device '
+      'uploaded', () async {
+    final server = await startGitTestServer(allowFilter: false);
+    await server.createBareRepo('sync');
+    final a = gitTestSession(server.repoUrl('sync'));
+    await a.open();
+    final r = Random(11);
+    final original = List.generate(
+      60000,
+      (_) => r.nextInt(16).toRadixString(16),
+    ).join();
+    await a.commit(
+      GitChange(puts: {'Submersion Sync/f.json': gitText(original)}),
+      messagePrefix: 'Sync',
+    );
+    final b = gitTestSession(server.repoUrl('sync'));
+    await b.open();
+    final edited = 'x${original.substring(1)}';
+    await b.commit(
+      GitChange(puts: {'Submersion Sync/f.json': gitText(edited)}),
+      messagePrefix: 'Sync',
+    );
+    // a never stored the blob it uploaded, so a delta against it would be
+    // unreadable here.
+    await a.refresh();
+    expect(utf8.decode(await a.readFile('Submersion Sync/f.json')), edited);
+  }, skip: skip);
+
+  test(
+    'a delta against an upload this device did not keep is fetched whole',
+    () async {
+      final server = await startGitTestServer(allowFilter: false);
+      await server.createBareRepo('sync');
+      final a = gitTestSession(server.repoUrl('sync'));
+      await a.open();
+      final r = Random(12);
+      final original = List.generate(
+        60000,
+        (_) => r.nextInt(16).toRadixString(16),
+      ).join();
+      // Streamed from disk, so not copied into the store.
+      final file = File(joinPath(tempDirForTest('git_up_'), 'b.db'))
+        ..writeAsStringSync(original);
+      await a.commit(
+        GitChange(puts: {'Submersion Backups/b.db': GitPut.file(file)}),
+        messagePrefix: 'Backup',
+      );
+      final b = gitTestSession(server.repoUrl('sync'));
+      await b.open();
+      final edited = 'y${original.substring(1)}';
+      await b.commit(
+        GitChange(puts: {'Submersion Backups/b.db': gitText(edited)}),
+        messagePrefix: 'Backup',
+      );
+      await a.refresh();
+      expect(utf8.decode(await a.readFile('Submersion Backups/b.db')), edited);
+    },
+    skip: skip,
+  );
+
   group('an unreadable index stops the session', () {
     Future<void> replaceIndex(Directory repo, String content) async {
       final tmpIndex = joinPath(tempDirForTest('git_idx_'), 'index');
       final env = {'GIT_INDEX_FILE': tmpIndex};
-      await runGit(repo, ['read-tree', 'refs/heads/$_branch'], env: env);
+      await runGit(repo, ['read-tree', 'refs/heads/$gitTestBranch'], env: env);
       final blob = await runGit(repo, [
         'hash-object',
         '-w',
@@ -459,7 +536,10 @@ void main() {
         '100644,$blob,$kGitIndexPath',
       ], env: env);
       final tree = await runGit(repo, ['write-tree'], env: env);
-      final tip = await runGit(repo, ['rev-parse', 'refs/heads/$_branch']);
+      final tip = await runGit(repo, [
+        'rev-parse',
+        'refs/heads/$gitTestBranch',
+      ]);
       final commit = await runGit(repo, [
         'commit-tree',
         tree,
@@ -468,7 +548,7 @@ void main() {
         '-m',
         'damage',
       ]);
-      await runGit(repo, ['update-ref', 'refs/heads/$_branch', commit]);
+      await runGit(repo, ['update-ref', 'refs/heads/$gitTestBranch', commit]);
     }
 
     for (final (name, content) in [
@@ -478,15 +558,15 @@ void main() {
       test('a $name index is refused, not read as empty', () async {
         final server = await startGitTestServer();
         final repo = await server.createBareRepo('sync');
-        final s = _session(server.repoUrl('sync'));
+        final s = gitTestSession(server.repoUrl('sync'));
         await s.open();
         await s.commit(
-          GitChange(puts: {'Submersion Sync/keep.json': _text('keep')}),
+          GitChange(puts: {'Submersion Sync/keep.json': gitText('keep')}),
           messagePrefix: 'Sync',
         );
         await replaceIndex(repo, content);
         await expectLater(
-          _session(server.repoUrl('sync')).open(),
+          gitTestSession(server.repoUrl('sync')).open(),
           throwsA(
             isA<GitException>().having(
               (e) => e.code,

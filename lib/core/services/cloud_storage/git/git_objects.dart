@@ -96,7 +96,7 @@ final class GitCommit {
 
   Uint8List encode() {
     final seconds = when.toUtc().millisecondsSinceEpoch ~/ 1000;
-    final person = '$authorName <$authorEmail> $seconds +0000';
+    final person = '${_identName(authorName)} <$authorEmail> $seconds +0000';
     final buffer = StringBuffer()..write('tree ${tree.hex}\n');
     for (final parent in parents) {
       buffer.write('parent ${parent.hex}\n');
@@ -110,6 +110,17 @@ final class GitCommit {
   }
 
   static final RegExp _person = RegExp(r'^(.*) <([^>]*)> (\d+) [+-]\d{4}$');
+
+  /// [name] as Git accepts it in an author line: angle brackets delimit the
+  /// email, and a line break or other control character would end the
+  /// header, so hosts that check pushed objects refuse either.
+  static String _identName(String name) {
+    final cleaned = name
+        .replaceAll(RegExp('[<>]'), '')
+        .replaceAll(RegExp(r'[\x00-\x1f\x7f\s]+'), ' ')
+        .trim();
+    return cleaned.isEmpty ? 'Submersion' : cleaned;
+  }
 
   /// Decodes a commit body. Throws [FormatException] when the tree or author
   /// header is missing or malformed. Extra headers (gpgsig, encoding) are

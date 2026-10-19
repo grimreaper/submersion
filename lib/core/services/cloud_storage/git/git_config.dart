@@ -61,7 +61,8 @@ enum GitConfigProblem {
 /// Immutable. The factory normalizes its inputs so the same repository typed
 /// different ways is one address and one account: whitespace trimmed, the
 /// host lowercased, `www.github.com` folded into `github.com`, trailing
-/// slashes dropped and `.git` appended. [toString] never prints the token.
+/// slashes dropped, and `.git` appended for a host family known to accept
+/// it. [toString] never prints the token.
 class GitConfig {
   const GitConfig._({
     required this.repoUrl,
@@ -107,7 +108,14 @@ class GitConfig {
     while (path.endsWith('/')) {
       path = path.substring(0, path.length - 1);
     }
-    if (path.isNotEmpty && !path.endsWith('.git')) path = '$path.git';
+    // Hosts known to take the suffix get it, so the same repository typed
+    // either way is one account; any other address is kept as typed, since
+    // some hosts (Azure DevOps, AWS CodeCommit) refuse it.
+    final knownHost =
+        detectGitHost(Uri(scheme: 'https', host: host)) != GitHostKind.other;
+    if (knownHost && path.isNotEmpty && !path.endsWith('.git')) {
+      path = '$path.git';
+    }
     return Uri(
       scheme: uri.scheme.toLowerCase(),
       userInfo: uri.userInfo.isEmpty ? null : uri.userInfo,

@@ -52,6 +52,23 @@ final class GitPut {
 
   final Uint8List? _data;
   final File? _file;
+
+  /// How many bytes there are.
+  Future<int> length() async => _data?.length ?? await _file!.length();
+
+  /// The first [n] bytes, or all of them when there are fewer.
+  Future<Uint8List> head(int n) async {
+    final data = _data;
+    if (data != null) {
+      return Uint8List.sublistView(data, 0, min(n, data.length));
+    }
+    final raf = await _file!.open();
+    try {
+      return await raf.read(n);
+    } finally {
+      await raf.close();
+    }
+  }
 }
 
 /// One commit's worth of change. [deletes] maps each path to the blob id the
@@ -97,33 +114,104 @@ class GitBranchSession {
   GitBranchSnapshot? _current;
   GitBranchSnapshot? get current => _current;
 
+  /// Looks at the remote tip, numbered in the order they were taken: a read
+  /// is numbered before its request goes out, a push once it has landed. A
+  /// snapshot from an earlier look never replaces a later one, so a slow
+  /// read cannot undo a commit that landed while it ran.
+  int _looks = 0;
+  int _appliedLook = 0;
+
   static final Random _random = Random();
   static Duration _jitter(int attempt) =>
       Duration(milliseconds: 200 * attempt + _random.nextInt(300));
+
+  int _look() => ++_looks;
+
+  /// Makes [snap] current unless a later look already applied one, then
+  /// trims the store around what is current. Returns the current snapshot.
+  Future<GitBranchSnapshot> _apply(GitBranchSnapshot snap, int look) async {
+    final current = _current;
+    if (current != null && look < _appliedLook) return current;
+    _appliedLook = look;
+    _current = snap;
+    await store.trim(keep: await _keepFor(snap));
+    return snap;
+  }
+
+  /// What [snap] cannot do without: its commit, every tree under its root,
+  /// and the index and meta blobs. A tree the store lost is skipped here and
+  /// fetched again when next needed.
+  Future<Set<GitObjectId>> _keepFor(GitBranchSnapshot snap) async {
+    final keep = <GitObjectId>{snap.tip};
+    Future<void> walk(GitObjectId treeId, String prefix) async {
+      if (!keep.add(treeId)) return;
+      final stored = await store.get(treeId);
+      if (stored == null) return;
+      for (final e in decodeTree(stored.body)) {
+        final path = '$prefix${e.name}';
+        if (e.isTree) {
+          await walk(e.id, '$path/');
+        } else if (path == kGitIndexPath || path == kGitMetaPath) {
+          keep.add(e.id);
+        }
+      }
+    }
+
+    await walk(snap.rootTree, '');
+    return keep;
+  }
+
+  /// Runs [read], and once more after fetching [tip]'s commit and trees
+  /// again when the store lost an object [read] needed.
+  Future<T> _refetchingOnce<T>(
+    GitObjectId tip,
+    Future<T> Function() read,
+  ) async {
+    try {
+      return await read();
+    } on GitObjectMissing {
+      await transport.fetch([tip], store, blobless: true);
+    }
+    try {
+      return await read();
+    } on GitObjectMissing catch (e) {
+      throw GitException(
+        'Object ${e.id} is missing after a fetch.',
+        code: GitErrorCode.unexpected,
+        cause: e,
+      );
+    }
+  }
 
   // ---- Reading --------------------------------------------------------------
 
   /// Opens the branch: adopts it when it is Submersion's, creates it when it
   /// does not exist, refuses it otherwise.
   Future<GitBranchSnapshot> open() async {
+    final look = _look();
     final refs = await transport.lsRefs(branch);
     final tip = refs.branchTip;
     if (tip != null) {
-      return _current = await _load(
-        tip,
-        isDefault: refs.headSymref == 'refs/heads/$branch',
+      return _apply(
+        await _load(tip, isDefault: refs.headSymref == 'refs/heads/$branch'),
+        look,
       );
     }
     try {
-      return _current = await _create(isDefault: refs.isEmpty);
+      final created = await _create(isDefault: refs.isEmpty);
+      return await _apply(created, _look());
     } on GitException catch (e) {
       // Another device created it first; adopt theirs.
       if (e.code != GitErrorCode.staleTip) rethrow;
+      final lookAgain = _look();
       final again = await transport.lsRefs(branch);
       if (again.branchTip == null) rethrow;
-      return _current = await _load(
-        again.branchTip!,
-        isDefault: again.headSymref == 'refs/heads/$branch',
+      return _apply(
+        await _load(
+          again.branchTip!,
+          isDefault: again.headSymref == 'refs/heads/$branch',
+        ),
+        lookAgain,
       );
     }
   }
@@ -140,22 +228,29 @@ class GitBranchSession {
     return (exists: true, willBecomeDefault: false);
   }
 
-  /// Re-reads the tip; fetches only when it moved.
+  /// Re-reads the tip; fetches only when it moved. Returns the current
+  /// snapshot, which is newer than what this read found when a commit
+  /// landed while it ran.
   Future<GitBranchSnapshot> refresh() async {
     final known = _current;
     if (known == null) return open();
+    final look = _look();
     final refs = await transport.lsRefs(branch);
     final tip = refs.branchTip;
     if (tip == null) {
+      if (look < _appliedLook) return _current ?? open();
       _current = null;
       return open();
     }
-    if (tip == known.tip) return known;
-    return _current = await _load(
-      tip,
-      isDefault:
-          known.isDefaultBranch || refs.headSymref == 'refs/heads/$branch',
-      have: known.tip,
+    if (tip == known.tip) return _current ?? known;
+    return _apply(
+      await _load(
+        tip,
+        isDefault:
+            known.isDefaultBranch || refs.headSymref == 'refs/heads/$branch',
+        have: known.tip,
+      ),
+      look,
     );
   }
 
@@ -176,6 +271,13 @@ class GitBranchSession {
         haves: have != null && await store.has(have) ? {have} : const {},
       );
     }
+    return _refetchingOnce(tip, () => _read(tip, isDefault: isDefault));
+  }
+
+  Future<GitBranchSnapshot> _read(
+    GitObjectId tip, {
+    required bool isDefault,
+  }) async {
     final commit = GitCommit.decode(await _objectBody(tip));
     final meta = await lookupTreePath(store, commit.tree, kGitMetaPath);
     if (meta == null || meta.isTree) {
@@ -216,12 +318,7 @@ class GitBranchSession {
 
   Future<Uint8List> _objectBody(GitObjectId id) async {
     final stored = await store.get(id);
-    if (stored == null) {
-      throw GitException(
-        'Object $id is missing after a fetch.',
-        code: GitErrorCode.unexpected,
-      );
-    }
+    if (stored == null) throw GitObjectMissing(id);
     return stored.body;
   }
 
@@ -241,21 +338,18 @@ class GitBranchSession {
     return _objectBody(id);
   }
 
-  Future<GitObjectId> _requirePath(String path) async {
-    final snap = _current ?? await open();
-    final entry = await lookupTreePath(store, snap.rootTree, path);
-    if (entry == null || entry.isTree) {
-      throw GitException(
-        '$path is not on the branch.',
-        code: GitErrorCode.notFound,
-      );
-    }
-    return entry.id;
-  }
-
   Future<Uint8List> readFile(String path) async {
-    final id = await _requirePath(path);
-    return _blob(id, _current!.tip);
+    final snap = _current ?? await open();
+    return _refetchingOnce(snap.tip, () async {
+      final entry = await lookupTreePath(store, snap.rootTree, path);
+      if (entry == null || entry.isTree) {
+        throw GitException(
+          '$path is not on the branch.',
+          code: GitErrorCode.notFound,
+        );
+      }
+      return _blob(entry.id, snap.tip);
+    });
   }
 
   /// Writes the file to [destination] whole, or not at all.
@@ -344,6 +438,7 @@ class GitBranchSession {
         ...objects,
         PackEntrySource.bytes(GitObjectType.commit, commit),
       ]),
+      packBytes: objects.fold(commit.length, (sum, o) => sum + o.size),
     );
     await store.put(
       GitStoredObject(id: commitId, type: GitObjectType.commit, body: commit),
@@ -356,11 +451,10 @@ class GitBranchSession {
     for (final MapEntry(:key, :value) in puts.entries) {
       final data = value._data;
       if (data != null) {
-        out[key] = (
-          id: hashGitObject(GitObjectType.blob, data),
-          size: data.length,
-          source: PackEntrySource.bytes(GitObjectType.blob, data),
-        );
+        // Kept like the branch's own files: a host's thin pack may later send
+        // a peer's edit of this file as a delta against it.
+        final put = await _bytesPut(data);
+        out[key] = (id: put.id, size: data.length, source: put.source!);
       } else {
         final file = value._file!;
         final size = await file.length();
@@ -433,16 +527,15 @@ class GitBranchSession {
       );
       final indexBytes = index.encode();
       final metaBytes = meta.encode();
-      final edit = await editTree(
-        store,
-        snap.rootTree,
-        puts: {
-          for (final MapEntry(:key, :value) in changedPuts.entries)
-            key: (id: value.id, source: value.source),
-          kGitIndexPath: await _bytesPut(indexBytes),
-          kGitMetaPath: await _bytesPut(metaBytes),
-        },
-        deletes: deletes,
+      final treePuts = <String, GitTreePut>{
+        for (final MapEntry(:key, :value) in changedPuts.entries)
+          key: (id: value.id, source: value.source),
+        kGitIndexPath: await _bytesPut(indexBytes),
+        kGitMetaPath: await _bytesPut(metaBytes),
+      };
+      final edit = await _refetchingOnce(
+        snap.tip,
+        () => editTree(store, snap.rootTree, puts: treePuts, deletes: deletes),
       );
       final who = await identity();
       try {
@@ -454,14 +547,17 @@ class GitBranchSession {
           objects: edit.newObjects,
           oldTip: snap.tip,
         );
-        return _current = GitBranchSnapshot(
-          tip: tip,
-          rootTree: edit.root,
-          index: index,
-          meta: meta,
-          isDefaultBranch: snap.isDefaultBranch,
-          indexBlobSize: indexBytes.length,
-          metaBlobSize: metaBytes.length,
+        return await _apply(
+          GitBranchSnapshot(
+            tip: tip,
+            rootTree: edit.root,
+            index: index,
+            meta: meta,
+            isDefaultBranch: snap.isDefaultBranch,
+            indexBlobSize: indexBytes.length,
+            metaBlobSize: metaBytes.length,
+          ),
+          _look(),
         );
       } on GitException catch (e) {
         if (e.code == GitErrorCode.tooLarge && e.sizeBytes == null) {
@@ -499,59 +595,80 @@ class GitBranchSession {
 
   /// Replaces the branch history with one parentless commit of the current
   /// files once enough bytes were deleted since the last reset (or always,
-  /// with [force]). Returns false when a peer moved the tip first; the next
-  /// sync tries again. Rethrows [GitErrorCode.protectedBranch].
+  /// with [force]). When a peer moves the tip first, a due reset returns
+  /// false and waits for the next sync; a forced one (a privacy purge the
+  /// diver asked for) is rebuilt on the new tip, up to [maxAttempts], then
+  /// throws [GitErrorCode.staleTip]. Throws [GitErrorCode.protectedBranch]
+  /// when the host refuses the rewrite itself.
   Future<bool> resetHistoryIfDue({bool force = false}) async {
-    final snap = _current ?? await open();
-    if (!force && snap.meta.deletedBytesSinceReset < resetThresholdBytes) {
-      return false;
-    }
-    final meta = GitBranchMeta(
-      formatVersion: snap.meta.formatVersion,
-      lastResetAtMs: _clock().toUtc().millisecondsSinceEpoch,
-    );
-    final metaBytes = meta.encode();
-    final edit = await editTree(
-      store,
-      snap.rootTree,
-      puts: {kGitMetaPath: await _bytesPut(metaBytes)},
-      deletes: const {},
-    );
-    final who = await identity();
-    try {
-      final tip = await _pushCommit(
-        tree: edit.root,
-        parents: const [],
-        message: 'Reset history from ${who.messageLabel}',
-        who: who,
-        objects: edit.newObjects,
-        oldTip: snap.tip,
-      );
-      _current = GitBranchSnapshot(
-        tip: tip,
-        rootTree: edit.root,
-        index: snap.index,
-        meta: meta,
-        isDefaultBranch: snap.isDefaultBranch,
-        indexBlobSize: snap.indexBlobSize,
-        metaBlobSize: metaBytes.length,
-      );
-      return true;
-    } on GitException catch (e) {
-      if (e.code != GitErrorCode.staleTip) rethrow;
-      final now = await refresh();
-      // The tip did not move, so no peer raced us: the host refused the
-      // history rewrite itself (receive.denyNonFastForwards, or a branch
-      // rule worded as a non-fast-forward).
-      if (now.tip == snap.tip) {
-        throw GitException(
-          'The Git host refused to reset the branch history.',
-          code: GitErrorCode.protectedBranch,
-          serverReason: e.serverReason,
-          cause: e,
-        );
+    for (var attempt = 1; ; attempt++) {
+      final snap = _current ?? await open();
+      if (!force && snap.meta.deletedBytesSinceReset < resetThresholdBytes) {
+        return false;
       }
-      return false;
+      final meta = GitBranchMeta(
+        formatVersion: snap.meta.formatVersion,
+        lastResetAtMs: _clock().toUtc().millisecondsSinceEpoch,
+      );
+      final metaBytes = meta.encode();
+      final metaPut = await _bytesPut(metaBytes);
+      final edit = await _refetchingOnce(
+        snap.tip,
+        () => editTree(
+          store,
+          snap.rootTree,
+          puts: {kGitMetaPath: metaPut},
+          deletes: const {},
+        ),
+      );
+      final who = await identity();
+      try {
+        final tip = await _pushCommit(
+          tree: edit.root,
+          parents: const [],
+          message: 'Reset history from ${who.messageLabel}',
+          who: who,
+          objects: edit.newObjects,
+          oldTip: snap.tip,
+        );
+        await _apply(
+          GitBranchSnapshot(
+            tip: tip,
+            rootTree: edit.root,
+            index: snap.index,
+            meta: meta,
+            isDefaultBranch: snap.isDefaultBranch,
+            indexBlobSize: snap.indexBlobSize,
+            metaBlobSize: metaBytes.length,
+          ),
+          _look(),
+        );
+        return true;
+      } on GitException catch (e) {
+        if (e.code != GitErrorCode.staleTip) rethrow;
+        final now = await refresh();
+        // The tip did not move, so no peer raced us: the host refused the
+        // history rewrite itself (receive.denyNonFastForwards, or a branch
+        // rule worded as a non-fast-forward).
+        if (now.tip == snap.tip) {
+          throw GitException(
+            'The Git host refused to reset the branch history.',
+            code: GitErrorCode.protectedBranch,
+            serverReason: e.serverReason,
+            cause: e,
+          );
+        }
+        if (!force) return false;
+        if (attempt >= maxAttempts) {
+          throw GitException(
+            'Other devices kept changing the branch, so its history was not '
+            'reset.',
+            code: GitErrorCode.staleTip,
+            cause: e,
+          );
+        }
+        await Future<void>.delayed(_retryDelay(attempt));
+      }
     }
   }
 }

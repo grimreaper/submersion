@@ -3,6 +3,17 @@ import 'package:submersion/core/services/cloud_storage/git/git_object_store.dart
 import 'package:submersion/core/services/cloud_storage/git/git_objects.dart';
 import 'package:submersion/core/services/cloud_storage/git/pack_writer.dart';
 
+/// An object the local store should hold is not there: evicted, or removed
+/// by another store on the same directory. The caller fetches it again.
+final class GitObjectMissing implements Exception {
+  const GitObjectMissing(this.id);
+
+  final GitObjectId id;
+
+  @override
+  String toString() => 'GitObjectMissing($id)';
+}
+
 /// A file to place at a path: its blob id, and where to read the blob from
 /// when it must travel in the pack (null when the host already has it).
 typedef GitTreePut = ({GitObjectId id, PackEntrySource? source});
@@ -21,7 +32,8 @@ List<String> _segments(String path) {
 /// Intermediate directories are created as needed and removed once empty;
 /// unchanged subtrees keep their ids. [newObjects] holds every blob and tree
 /// the result introduces, ready to pack; new trees are also put into [store]
-/// so the next edit can read them. Existing trees must already be in [store].
+/// so the next edit can read them. Throws [GitObjectMissing] for an existing
+/// tree that [store] does not hold.
 Future<({GitObjectId root, List<PackEntrySource> newObjects})> editTree(
   GitObjectStore store,
   GitObjectId? root, {
@@ -48,7 +60,7 @@ Future<({GitObjectId root, List<PackEntrySource> newObjects})> editTree(
     if (treeId != null) {
       final stored = await store.get(treeId);
       if (stored == null) {
-        throw StateError('Tree $treeId is not in the local object store');
+        throw GitObjectMissing(treeId);
       }
       for (final e in decodeTree(stored.body)) {
         entries[e.name] = e;
@@ -115,7 +127,7 @@ Future<GitTreeEntry?> lookupTreePath(
   for (var i = 0; i < parts.length; i++) {
     final stored = await store.get(treeId);
     if (stored == null) {
-      throw StateError('Tree $treeId is not in the local object store');
+      throw GitObjectMissing(treeId);
     }
     GitTreeEntry? found;
     for (final e in decodeTree(stored.body)) {

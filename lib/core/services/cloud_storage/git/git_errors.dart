@@ -1,4 +1,5 @@
 import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.dart';
+import 'package:submersion/core/services/cloud_storage/git/git_object_id.dart';
 import 'package:submersion/core/services/cloud_storage/webdav/webdav_tls.dart';
 
 /// Why a Git operation failed. The settings UI localizes from this; the
@@ -60,6 +61,19 @@ class GitException extends CloudStorageException {
   String toString() =>
       'GitException(${code.name}): $message'
       '${serverReason == null ? '' : ' [$serverReason]'}';
+}
+
+/// A thin pack's delta against an object this device does not hold: one it
+/// pushed and never kept, or one evicted since. A fetch without haves gets
+/// whole objects instead.
+class GitDeltaBaseMissingException extends GitException {
+  GitDeltaBaseMissingException(this.baseId)
+    : super(
+        'The server sent a corrupt pack (delta base $baseId missing).',
+        code: GitErrorCode.unexpected,
+      );
+
+  final GitObjectId baseId;
 }
 
 /// A TLS certificate the platform does not trust and the user has not

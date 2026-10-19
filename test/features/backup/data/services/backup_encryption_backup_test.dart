@@ -31,12 +31,16 @@ const _fastKdf = KdfParams(m: 1024, t: 3, p: 1);
 class _HistoryKeepingCloud extends FakeCloudStorageProvider
     implements DeferredWriteProvider, HistoryResettable {
   final calls = <String>[];
+  bool failReset = false;
 
   @override
   Future<void> flush() async => calls.add('flush');
 
   @override
-  Future<void> resetHistoryNow() async => calls.add('reset');
+  Future<void> resetHistoryNow() async {
+    calls.add('reset');
+    if (failReset) throw StateError('host unreachable');
+  }
 }
 
 class _FakeBackupDatabaseAdapter implements BackupDatabaseAdapter {
@@ -320,6 +324,21 @@ void main() {
     expect(result.reencrypted, 1);
     expect(keeping.calls, contains('reset'));
   });
+
+  test(
+    'reencrypt: a history reset that fails discloses the replaced copies',
+    () async {
+      final keeping = _HistoryKeepingCloud()..failReset = true;
+      cloud = keeping;
+      await preferences.setCloudBackupEnabled(true);
+      await buildService().performBackup();
+      await enableBackupEncryption();
+      final result = await buildService().reencryptExistingBackups();
+      // The plaintext copy is still readable in the backend's history.
+      expect(result.reencrypted, 0);
+      expect(result.failed, 1);
+    },
+  );
 
   test(
     'reencrypt: plaintext local history entries become .sbe, .sbe skipped',

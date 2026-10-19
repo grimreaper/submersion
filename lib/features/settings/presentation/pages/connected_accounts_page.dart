@@ -9,6 +9,7 @@ import 'package:submersion/core/services/accounts/connected_account.dart'
     as domain;
 import 'package:submersion/core/services/media_store/media_store_attach_state.dart';
 import 'package:submersion/core/services/sync/sync_event_bus.dart';
+import 'package:submersion/features/settings/presentation/providers/git_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/webdav_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/pending_setup_card.dart';
@@ -263,6 +264,9 @@ class _AccountTile extends ConsumerWidget {
           // too; the Cloud Sync tile reads them through this provider.
           if (account.kind == AccountKind.webdav) {
             container.invalidate(webdavConfigProvider);
+          }
+          if (account.kind == AccountKind.git) {
+            container.invalidate(gitConfigProvider);
           }
         },
         itemBuilder: (_) => [

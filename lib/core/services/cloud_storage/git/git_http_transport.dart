@@ -62,24 +62,43 @@ final class _UploadPackCaps {
 /// ref update with a pack. Protocol v2 is used for reads where offered, v0
 /// otherwise; pushes are always v0, as in stock Git.
 class GitHttpTransport {
-  GitHttpTransport(this.remote, {http.Client? client})
-    : _recorder = client == null
-          ? CertificateTrustRecorder(
-              expectedHost: remote.host,
-              expectedPort: remote.port,
-              pinnedSha256: remote.pinnedCertSha256,
-            )
-          : null {
+  GitHttpTransport(
+    this.remote, {
+    http.Client? client,
+    this.pushDeadline = pushDeadlineFor,
+  }) : _recorder = client == null
+           ? CertificateTrustRecorder(
+               expectedHost: remote.host,
+               expectedPort: remote.port,
+               pinnedSha256: remote.pinnedCertSha256,
+             )
+           : null {
     _client = client ?? createWebDavHttpClient(_recorder!);
   }
 
   final GitRemote remote;
+
+  /// How long a push of a pack of that many bytes may take.
+  final Duration Function(int packBytes) pushDeadline;
   final CertificateTrustRecorder? _recorder;
   late final http.Client _client;
   _UploadPackCaps? _caps;
 
   static const String _userAgent = 'git/submersion';
   static const String _agent = 'agent=git/submersion';
+
+  /// Slowest upload rate a push deadline allows for (1 Mbit/s), as for
+  /// WebDAV uploads.
+  static const int minPushBytesPerSecond = 128 * 1024;
+
+  /// The upload deadline, or longer for a pack too large to send within it
+  /// at 1 Mbit/s.
+  static Duration pushDeadlineFor(int packBytes) {
+    final scaled = Duration(seconds: packBytes ~/ minPushBytesPerSecond);
+    return scaled > TimeoutHttpClient.defaultUploadTimeout
+        ? scaled
+        : TimeoutHttpClient.defaultUploadTimeout;
+  }
 
   void close() => _client.close();
 
@@ -405,14 +424,21 @@ class GitHttpTransport {
     final caps = await _capabilities();
     final deepen = depth > 0 && caps.shallow ? depth : null;
     final filter = blobless && caps.filter;
-    await _fetch(
-      caps,
-      wants,
-      into,
-      deepen: deepen,
-      filter: filter,
-      haves: haves,
-    );
+    try {
+      await _fetch(
+        caps,
+        wants,
+        into,
+        deepen: deepen,
+        filter: filter,
+        haves: haves,
+      );
+    } on GitDeltaBaseMissingException {
+      // The thin pack deltas against an object behind a have that this
+      // device does not hold; without haves the host sends whole objects.
+      if (haves.isEmpty) rethrow;
+      await _fetch(caps, wants, into, deepen: deepen, filter: filter);
+    }
   }
 
   /// Fetches individual blobs by id (the on-demand half of a blobless
@@ -551,7 +577,9 @@ class GitHttpTransport {
   // ---- Push -----------------------------------------------------------------
 
   /// Updates `refs/heads/[branch]` from [oldTip] (null: create it) to
-  /// [newTip], sending [pack] (the objects the host lacks).
+  /// [newTip], sending [pack] (the objects the host lacks, [packBytes] of
+  /// them before compression, which sets the deadline). A push still running
+  /// at its deadline is aborted rather than left to land unseen.
   ///
   /// The host applies the update only if the ref still points at [oldTip],
   /// so this is a compare-and-swap; a history reset is just a push whose
@@ -564,6 +592,7 @@ class GitHttpTransport {
     required GitObjectId? oldTip,
     required GitObjectId newTip,
     required Stream<List<int>> pack,
+    int packBytes = 0,
   }) async {
     final caps = await _receivePackCaps();
     final sideBand = caps.contains('side-band-64k');
@@ -574,23 +603,34 @@ class GitHttpTransport {
       if (sideBand) 'side-band-64k',
       _agent,
     ].join(' ');
-    final request = http.StreamedRequest('POST', _endpoint('git-receive-pack'))
-      ..headers.addAll(_headers())
-      ..headers[HttpHeaders.contentTypeHeader] =
-          'application/x-git-receive-pack-request'
-      ..headers[HttpHeaders.acceptHeader] =
-          'application/x-git-receive-pack-result';
-    final sending = _send(
-      request,
-      timeout: TimeoutHttpClient.defaultUploadTimeout,
-    );
+    final abort = Completer<void>();
+    final request =
+        http.AbortableStreamedRequest(
+            'POST',
+            _endpoint('git-receive-pack'),
+            abortTrigger: abort.future,
+          )
+          ..headers.addAll(_headers())
+          ..headers[HttpHeaders.contentTypeHeader] =
+              'application/x-git-receive-pack-request'
+          ..headers[HttpHeaders.acceptHeader] =
+              'application/x-git-receive-pack-result';
+    final sending = _send(request, timeout: pushDeadline(packBytes));
     // The body is written in its own future. When the connection fails
     // before the client reads the body, the sink's close never completes;
     // awaiting it first would hang the push, and the caller's write lock,
     // for good. The response settles either way, so it is awaited first,
     // and a body error is turned into a value rather than left unhandled.
     final body = _writePushBody(request, command, capList, pack);
-    final response = await sending;
+    final http.StreamedResponse response;
+    try {
+      response = await sending;
+    } on Object {
+      // Past its deadline the body would keep streaming, and the push could
+      // land after the caller was told it failed.
+      if (!abort.isCompleted) abort.complete();
+      rethrow;
+    }
     final bodyError = await body;
     if (bodyError != null) {
       throw GitException(
@@ -695,19 +735,31 @@ class GitHttpTransport {
     await _receivePackCaps();
   }
 
-  /// True when anyone can read the repository without signing in, false when
-  /// the host demands credentials, null when the answer is unclear.
-  Future<bool?> isPubliclyReadable() async {
+  /// True when anyone can read the repository without signing in; false when
+  /// an anonymous request is refused or answered with something that is not
+  /// Git. Rethrows the [GitException] of an answer that says neither (rate
+  /// limit, server error, unreachable host).
+  Future<bool> checkPubliclyReadable() async {
     try {
       await _uploadPackDiscovery(auth: false);
       return true;
     } on GitException catch (e) {
       return switch (e.code) {
-        GitErrorCode.unauthorized ||
-        GitErrorCode.forbidden ||
-        GitErrorCode.notFound => false,
-        _ => null,
+        GitErrorCode.rateLimited ||
+        GitErrorCode.server ||
+        GitErrorCode.unreachable ||
+        GitErrorCode.untrustedCertificate => throw e,
+        _ => false,
       };
+    }
+  }
+
+  /// [checkPubliclyReadable], with null for an unclear answer.
+  Future<bool?> isPubliclyReadable() async {
+    try {
+      return await checkPubliclyReadable();
+    } on GitException {
+      return null;
     }
   }
 }

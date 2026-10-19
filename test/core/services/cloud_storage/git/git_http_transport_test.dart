@@ -1,5 +1,6 @@
 import 'dart:convert';
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -11,6 +12,7 @@ import 'package:submersion/core/services/cloud_storage/git/git_object_store.dart
 import 'package:submersion/core/services/cloud_storage/git/git_objects.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_remote.dart';
 import 'package:submersion/core/services/cloud_storage/git/pack_writer.dart';
+import 'package:submersion/core/services/cloud_storage/http_timeouts.dart';
 
 import '../../../../helpers/git_cli.dart';
 import '../../../../helpers/git_http_backend_server.dart';
@@ -331,6 +333,18 @@ void main() {
       expect(e.code, GitErrorCode.tooLarge);
     }, skip: skip);
 
+    for (final wording in [
+      'GitLab: You are attempting to check in one or more files which exceed '
+          'the 100MiB limit',
+      'File "b.db" is larger than the allowed size of 100 MiB',
+      'Your repository has exceeded its size limit',
+    ]) {
+      test('a size limit worded "$wording" is tooLarge', () async {
+        final e = await refusedWith(wording);
+        expect(e.code, GitErrorCode.tooLarge);
+      }, skip: skip);
+    }
+
     test('a protected branch explained by its hook is protectedBranch', () async {
       final e = await refusedWith(
         'You are not allowed to force push code to a protected branch on this project.',
@@ -345,6 +359,65 @@ void main() {
       expect(e.code, GitErrorCode.server);
       expect(e.serverReason, contains('unexpected error'));
     }, skip: skip);
+  });
+  group('push deadlines', () {
+    test('grow with the pack past the upload deadline', () {
+      expect(
+        GitHttpTransport.pushDeadlineFor(1024),
+        TimeoutHttpClient.defaultUploadTimeout,
+      );
+      expect(
+        GitHttpTransport.pushDeadlineFor(150 * 1024 * 1024),
+        const Duration(seconds: 1200),
+      );
+    });
+
+    test(
+      'a push that misses its deadline is stopped and never lands',
+      () async {
+        final server = await startGitTestServer();
+        final repo = await server.createBareRepo('sync');
+        final t = GitHttpTransport(
+          GitRemote(
+            cloneUrl: server.repoUrl('sync'),
+            username: 'diver',
+            token: 'secret',
+          ),
+          pushDeadline: (_) => const Duration(milliseconds: 1),
+        );
+        addTearDown(t.close);
+        final r = Random(4);
+        final big = _commit(
+          List.generate(
+            4 * 1024 * 1024,
+            (_) => r.nextInt(16).toRadixString(16),
+          ).join(),
+        );
+        await expectLater(
+          t.push(
+            branch: 'submersion-sync',
+            oldTip: null,
+            newTip: big.commit,
+            pack: writePack(big.pack),
+          ),
+          _gitError(GitErrorCode.unreachable),
+        );
+        // Give a push that kept streaming every chance to land.
+        for (
+          var i = 0;
+          i < 40 &&
+              !server.requests.any(
+                (r) => r.startsWith('POST') && r.endsWith('/git-receive-pack'),
+              );
+          i++
+        ) {
+          await Future<void>.delayed(const Duration(milliseconds: 50));
+        }
+        await server.idle();
+        expect(await runGit(repo, ['for-each-ref', 'refs/heads/']), isEmpty);
+      },
+      skip: skip,
+    );
   });
 }
 

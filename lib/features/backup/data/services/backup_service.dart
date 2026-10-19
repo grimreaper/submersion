@@ -466,6 +466,10 @@ class BackupService {
     var reencrypted = 0;
     var skipped = 0;
     var failed = 0;
+    // Re-encrypted records whose plaintext cloud copy was replaced: that copy
+    // is gone only once a backend that defers deletes or keeps history (Git)
+    // has pushed the delete and reset its history.
+    var replacedInCloud = 0;
     for (final record in _preferences.getHistory()) {
       final localPath = record.localPath;
       if (localPath == null || isSafRef(localPath)) {
@@ -600,6 +604,7 @@ class BackupService {
           failed++;
         } else {
           reencrypted++;
+          if (record.cloudFileId != null) replacedInCloud++;
         }
       } catch (e, stack) {
         _log.error(
@@ -610,23 +615,27 @@ class BackupService {
         failed++;
       }
     }
-    _log.info(
-      'Re-encrypt done: $reencrypted rewritten, $skipped skipped, $failed failed',
-    );
     // The replaced plaintext copies would stay readable in a Git backend's
-    // history. Best-effort, like the rest of this pass.
+    // history, and its deletes above were only recorded. If either fails,
+    // those records are disclosed as failures, like any residual exposure.
     final provider = _cloudProvider;
-    if (reencrypted > 0 && provider != null) {
+    if (replacedInCloud > 0 && provider != null) {
       try {
+        await flushDeferredWrites(provider);
         await resetHistoryNowIfSupported(provider);
       } catch (e, stack) {
         _log.error(
-          'Re-encrypt: history not reset; old copies stay in it',
+          'Re-encrypt: old plaintext copies stay in the cloud or its history',
           error: e,
           stackTrace: stack,
         );
+        reencrypted -= replacedInCloud;
+        failed += replacedInCloud;
       }
     }
+    _log.info(
+      'Re-encrypt done: $reencrypted rewritten, $skipped skipped, $failed failed',
+    );
     return (reencrypted: reencrypted, skipped: skipped, failed: failed);
   }
 

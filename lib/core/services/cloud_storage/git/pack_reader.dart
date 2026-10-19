@@ -31,8 +31,9 @@ final class _Entry {
 /// already in [store] (a thin pack). Returns the ids in pack order.
 ///
 /// Throws [GitException] with [GitErrorCode.unexpected] on any malformed
-/// input: a bad header or trailer checksum, a corrupt stream, a delta whose
-/// base is missing, or a delta that does not fit its base.
+/// input: a bad header or trailer checksum, a corrupt stream, or a delta
+/// that does not fit its base; [GitDeltaBaseMissingException] for a delta
+/// whose base is neither in the pack nor in [store].
 Future<List<GitObjectId>> readPack(Uint8List pack, GitObjectStore store) async {
   if (pack.length < 32 ||
       pack[0] != 0x50 ||
@@ -138,7 +139,7 @@ Future<List<GitObjectId>> readPack(Uint8List pack, GitObjectStore store) async {
           }
         }
         base ??= await store.get(e.baseId!);
-        if (base == null) throw _corrupt('delta base ${e.baseId} missing');
+        if (base == null) throw GitDeltaBaseMissingException(e.baseId!);
       }
       final result = applyGitDelta(base.body, e.data);
       object = GitStoredObject(

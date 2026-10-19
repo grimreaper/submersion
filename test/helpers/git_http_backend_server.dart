@@ -50,6 +50,15 @@ final class GitTestServer {
   /// Return false to abort the response instead of completing it.
   bool Function(HttpRequest request)? afterServe;
 
+  int _inFlight = 0;
+  Completer<void>? _idle;
+
+  /// Completes once no request is being served.
+  Future<void> idle() {
+    if (_inFlight == 0) return Future.value();
+    return (_idle ??= Completer<void>()).future;
+  }
+
   Uri get baseUrl => Uri.parse('http://127.0.0.1:${_server.port}');
 
   /// The clone URL of repository [name].
@@ -109,6 +118,18 @@ final class GitTestServer {
   }
 
   Future<void> _serve(HttpRequest request) async {
+    _inFlight++;
+    try {
+      await _serveCounted(request);
+    } finally {
+      if (--_inFlight == 0) {
+        _idle?.complete();
+        _idle = null;
+      }
+    }
+  }
+
+  Future<void> _serveCounted(HttpRequest request) async {
     requests.add('${request.method} ${request.uri}');
     if (beforeServe != null && !beforeServe!(request)) {
       final socket = await request.response.detachSocket(writeHeaders: false);

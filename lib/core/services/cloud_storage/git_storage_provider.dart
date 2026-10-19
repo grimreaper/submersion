@@ -22,6 +22,7 @@ import 'package:submersion/core/services/cloud_storage/git/git_object_id.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_object_store.dart';
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/services/sync/crypto/keyslots.dart';
+import 'package:submersion/core/services/sync/crypto/sync_envelope.dart';
 import 'package:submersion/core/services/sync/sync_device_metadata.dart';
 import 'package:submersion/core/services/sync/sync_preferences.dart';
 
@@ -70,7 +71,8 @@ final class GitConnectionReport {
 /// - Uploads are committed and pushed before they return. Deletes are
 ///   deferred and batched into one commit ([flush]), since the sync engine
 ///   tolerates a file that outlives its delete for a while.
-/// - A public repository is refused for writes unless sync is encrypted.
+/// - Nothing unencrypted is written to a public repository, the keyslot
+///   file aside.
 class GitStorageProvider
     with CloudStorageProviderMixin
     implements CloudStorageProvider, DeferredWriteProvider, HistoryResettable {
@@ -109,6 +111,9 @@ class GitStorageProvider
   final Duration deleteQuietPeriod;
   final Duration maxPacingWait;
   final Duration minPushSpacing;
+
+  /// How long a sync upload may take once its push starts, stretched for a
+  /// large payload by [uploadBudgetFor].
   final Duration uploadBudget;
 
   /// Deleted bytes after which the branch history is reset.
@@ -120,6 +125,7 @@ class GitStorageProvider
 
   GitConfig? _cachedConfig;
   GitBranchSession? _session;
+  Future<GitBranchSession>? _starting;
   int _generation = 0;
   bool? _knownPublic;
   DateTime? _lastPushStart;
@@ -129,6 +135,16 @@ class GitStorageProvider
   /// path -> blob id seen when the delete was asked for, or null when this
   /// instance had not seen the path (deleted whatever it holds).
   final Map<String, GitObjectId?> _pendingDeletes = {};
+
+  /// Pending deletes whose push failed. They still go with the next commit,
+  /// but are listed again, since they are still on the branch: a caller that
+  /// retries must find them to delete them anew.
+  final Set<String> _unpushedDeletes = {};
+
+  /// Whether [path] is left out of listings: deleted here, not yet pushed,
+  /// and no push of it has failed.
+  bool _hidden(String path) =>
+      _pendingDeletes.containsKey(path) && !_unpushedDeletes.contains(path);
 
   static Future<GitObjectStore> _defaultStore(GitConfig config) async {
     final support = await getApplicationSupportDirectory();
@@ -243,7 +259,22 @@ class GitStorageProvider
     return config;
   }
 
+  /// The session, built once however many callers arrive first.
   Future<GitBranchSession> _requireSession() async {
+    final existing = _session;
+    if (existing != null) return existing;
+    final pending = _starting;
+    if (pending != null) return pending;
+    final start = _startSession();
+    _starting = start;
+    try {
+      return await start;
+    } finally {
+      if (identical(_starting, start)) _starting = null;
+    }
+  }
+
+  Future<GitBranchSession> _startSession() async {
     while (true) {
       final generation = _generation;
       final config = await _requireConfig();
@@ -283,9 +314,11 @@ class GitStorageProvider
     _generation++;
     _session?.transport.close();
     _session = null;
+    _starting = null;
     _cachedConfig = null;
     _knownPublic = null;
     _pendingDeletes.clear();
+    _unpushedDeletes.clear();
   }
 
   /// Runs [action] after every write started before it, one at a time.
@@ -295,20 +328,46 @@ class GitStorageProvider
     return result;
   }
 
-  /// Refuses data uploads to a public repository while sync is unencrypted.
-  /// Whether the repository is public is asked once per session (an unclear
-  /// answer is asked again next time); whether sync is encrypted is checked
-  /// on every upload, so turning encryption off later is still caught.
-  Future<void> _ensurePublicSafe(GitBranchSession session) async {
-    final public = _knownPublic ??= await session.transport
-        .isPubliclyReadable();
-    if (public == true && !await _encryptionEnabled()) {
+  /// Refuses to write plaintext to a repository anyone can read.
+  ///
+  /// Whether [put] is sealed is read from its first bytes (every encrypted
+  /// sync file and `.sbe` backup starts with the SBE1 magic), never from the
+  /// encryption setting: a locked device, or a sync begun before encryption
+  /// was turned on, can still hand over plaintext. Whether the repository is
+  /// public is asked once per session. An unclear answer (rate limit, server
+  /// error, timeout) holds the upload back and is asked again next time,
+  /// since guessing "private" could publish the data.
+  Future<void> _ensurePublicSafe(
+    GitBranchSession session,
+    String path,
+    GitPut put,
+  ) async {
+    // The keyslot file holds only a wrapped key, so it may land in a public
+    // repository: without it, encryption could never be turned on.
+    if (path == _keyslotPath) return;
+    final head = await put.head(SyncEnvelope.magic.length);
+    if (SyncEnvelope.hasMagic(head)) return;
+    final bool public;
+    try {
+      public = _knownPublic ??= await session.transport.checkPubliclyReadable();
+    } on GitException catch (e) {
       throw GitException(
-        'The repository is public. Turn on encrypted sync or make the '
-        'repository private.',
-        code: GitErrorCode.publicRepoUnencrypted,
+        'Could not check whether the repository is public, so nothing '
+        'unencrypted is uploaded yet.',
+        code: e.code,
+        host: e.host,
+        cause: e,
       );
     }
+    if (!public) return;
+    throw GitException(
+      path.startsWith('$backupFolderName/')
+          ? 'The repository is public. Turn on backup encryption or make the '
+                'repository private.'
+          : 'The repository is public. Turn on encrypted sync or make the '
+                'repository private.',
+      code: GitErrorCode.publicRepoUnencrypted,
+    );
   }
 
   Future<void> _pace() async {
@@ -375,25 +434,20 @@ class GitStorageProvider
     GitPut put, {
     required String messagePrefix,
   }) {
+    final pushing = Completer<int>();
     final run = _serial(() async {
       final session = await _opened();
-      // The keyslot file holds only a wrapped key, so it may land in a
-      // public repository: without it, encryption could never be turned on.
-      if (path != _keyslotPath) {
-        await _ensurePublicSafe(session);
-      }
+      await _ensurePublicSafe(session, path, put);
       // Uploading a path replaces it: an older delete of it is void.
       _pendingDeletes.remove(path);
-      final deletes = Map<String, GitObjectId?>.of(_pendingDeletes);
+      _unpushedDeletes.remove(path);
       await _pace();
-      await session.commit(
-        GitChange(puts: {path: put}, deletes: deletes),
+      pushing.complete(await put.length());
+      await _commitWithDeletes(
+        session,
+        puts: {path: put},
         messagePrefix: messagePrefix,
       );
-      _noteSnapshot(session);
-      for (final MapEntry(:key, :value) in deletes.entries) {
-        if (_pendingDeletes[key] == value) _pendingDeletes.remove(key);
-      }
       return UploadResult(fileId: path, uploadTime: DateTime.now().toUtc());
     });
     // Sync files are small and the engine's callers wrap them in their own
@@ -401,14 +455,80 @@ class GitStorageProvider
     // would give up on a slow link while the push still lands, leaving a
     // copy the backup history never tracks.
     if (path.startsWith('$backupFolderName/')) return run;
-    return run.timeout(
-      uploadBudget,
-      onTimeout: () => throw GitException(
-        'The upload to the Git host took too long.',
-        code: GitErrorCode.unreachable,
-        host: _cachedConfig?.host,
+    return _withinBudget(run, pushing.future);
+  }
+
+  /// [base], or longer for a payload too large to push within it at
+  /// [GitHttpTransport.minPushBytesPerSecond].
+  static Duration uploadBudgetFor(Duration base, int bytes) {
+    final scaled = Duration(
+      seconds: bytes ~/ GitHttpTransport.minPushBytesPerSecond,
+    );
+    return scaled > base ? scaled : base;
+  }
+
+  /// [run], or a [TimeoutException] once its push has run longer than its
+  /// budget. Time spent behind earlier writes and waiting for pacing does
+  /// not count, as [pushing] completes, with the payload size, only when
+  /// the push starts. A timeout rather than a failure: the push may still
+  /// land, and the sync engine keeps its upload nonce for that case.
+  Future<T> _withinBudget<T>(Future<T> run, Future<int> pushing) {
+    final result = Completer<T>();
+    Timer? timer;
+    unawaited(
+      pushing.then((bytes) {
+        if (result.isCompleted) return;
+        final budget = uploadBudgetFor(uploadBudget, bytes);
+        timer = Timer(budget, () {
+          if (result.isCompleted) return;
+          result.completeError(
+            TimeoutException(
+              'The upload to the Git host took too long.',
+              budget,
+            ),
+          );
+        });
+      }),
+    );
+    unawaited(
+      run.then(
+        (value) {
+          timer?.cancel();
+          if (!result.isCompleted) result.complete(value);
+        },
+        onError: (Object e, StackTrace stack) {
+          timer?.cancel();
+          if (!result.isCompleted) result.completeError(e, stack);
+        },
       ),
     );
+    return result.future;
+  }
+
+  /// Commits [puts] together with every pending delete. Deletes that landed
+  /// are done; when the push fails they stay pending and are listed again.
+  Future<void> _commitWithDeletes(
+    GitBranchSession session, {
+    Map<String, GitPut> puts = const {},
+    required String messagePrefix,
+  }) async {
+    final deletes = Map<String, GitObjectId?>.of(_pendingDeletes);
+    try {
+      await session.commit(
+        GitChange(puts: puts, deletes: deletes),
+        messagePrefix: messagePrefix,
+      );
+    } on Object {
+      _unpushedDeletes.addAll(deletes.keys.where(_pendingDeletes.containsKey));
+      rethrow;
+    }
+    _noteSnapshot(session);
+    for (final MapEntry(:key, :value) in deletes.entries) {
+      if (_pendingDeletes[key] == value) {
+        _pendingDeletes.remove(key);
+        _unpushedDeletes.remove(key);
+      }
+    }
   }
 
   String _pathIn(String? folderId, String filename) =>
@@ -448,6 +568,7 @@ class GitStorageProvider
     // A caller may delete by id without listing first (backup pruning on a
     // provider built for this account): record it unconditionally then.
     _pendingDeletes[fileId] = _session?.current?.index.entries[fileId]?.blobId;
+    _unpushedDeletes.remove(fileId);
     _deleteTimer?.cancel();
     _deleteTimer = Timer(deleteQuietPeriod, () {
       unawaited(
@@ -468,12 +589,8 @@ class GitStorageProvider
     final session = _pendingDeletes.isNotEmpty ? await _opened() : _session;
     if (session == null) return;
     if (_pendingDeletes.isNotEmpty) {
-      final deletes = Map<String, GitObjectId?>.of(_pendingDeletes);
       await _pace();
-      await session.commit(GitChange(deletes: deletes), messagePrefix: 'Sync');
-      for (final MapEntry(:key, :value) in deletes.entries) {
-        if (_pendingDeletes[key] == value) _pendingDeletes.remove(key);
-      }
+      await _commitWithDeletes(session, messagePrefix: 'Sync');
     }
     if (session.current != null) {
       // Best effort: the deletes above already landed, so a reset that
@@ -546,7 +663,7 @@ class GitStorageProvider
       if (!key.startsWith(prefix)) continue;
       final name = key.substring(prefix.length);
       if (name.contains('/')) continue;
-      if (_pendingDeletes.containsKey(key)) continue;
+      if (_hidden(key)) continue;
       if (namePattern != null && !name.contains(namePattern)) continue;
       out.add(_info(key, name, value.size, value.modifiedMs));
     }
@@ -566,7 +683,7 @@ class GitStorageProvider
 
   @override
   Future<CloudFileInfo?> getFileInfo(String fileId) async {
-    if (_pendingDeletes.containsKey(fileId)) return null;
+    if (_hidden(fileId)) return null;
     final session = await _opened();
     final snap = await session.refresh();
     final entry = snap.index.entries[fileId];
@@ -584,7 +701,7 @@ class GitStorageProvider
       (await getFileInfo(fileId)) != null;
 
   Future<GitBranchSession> _sessionHolding(String fileId) async {
-    if (_pendingDeletes.containsKey(fileId)) {
+    if (_hidden(fileId)) {
       throw GitException('$fileId was deleted.', code: GitErrorCode.notFound);
     }
     final session = await _opened();

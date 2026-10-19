@@ -19,6 +19,7 @@ import 'package:submersion/core/services/media_store/media_store_attach_state.da
 import 'package:submersion/core/services/shared_library/shared_library_models.dart';
 import 'package:submersion/core/services/shared_library/shared_library_store.dart';
 import 'package:submersion/features/settings/presentation/pages/connected_accounts_page.dart';
+import 'package:submersion/features/settings/presentation/providers/git_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/pending_setup_card.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
@@ -62,13 +63,14 @@ void main() {
   Future<void> pumpPage(
     WidgetTester tester, {
     List<Override> overrides = const [],
+    List<AccountProviderAdapter>? adapters,
   }) async {
     await tester.pumpWidget(
       ProviderScope(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(prefs),
           accountProviderRegistryProvider.overrideWithValue(
-            AccountProviderRegistry([dropbox]),
+            AccountProviderRegistry(adapters ?? [dropbox]),
           ),
           ...overrides,
         ],
@@ -142,6 +144,39 @@ void main() {
       ),
       findsOneWidget,
     );
+  });
+
+  testWidgets('signing out of Git refreshes the Cloud sync tile config', (
+    tester,
+  ) async {
+    final git = _RecordingAdapter(AccountKind.git);
+    await tester.runAsync(
+      () => accounts.create(kind: AccountKind.git, label: 'Git'),
+    );
+    var loads = 0;
+    await pumpPage(
+      tester,
+      adapters: [dropbox, git],
+      overrides: [
+        gitConfigProvider.overrideWith((ref) async {
+          loads++;
+          return null;
+        }),
+      ],
+    );
+    final container = ProviderScope.containerOf(
+      tester.element(find.byType(ConnectedAccountsPage)),
+    );
+    final listening = container.listen(gitConfigProvider, (_, _) {});
+    addTearDown(listening.close);
+    await settle(tester);
+    expect(loads, 1);
+
+    await openMenu(tester, 'Sign out on this device');
+    await settle(tester);
+
+    expect(git.disconnected, hasLength(1));
+    expect(loads, 2);
   });
 
   testWidgets('an unused account says so', (tester) async {

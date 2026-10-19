@@ -28,6 +28,17 @@ void main() {
       }
     });
 
+    test('an address on an unrecognized host is kept as typed', () {
+      // Azure DevOps and CodeCommit refuse a .git suffix.
+      for (final url in [
+        'https://dev.azure.com/org/proj/_git/dives',
+        'https://git-codecommit.us-east-1.amazonaws.com/v1/repos/dives',
+      ]) {
+        expect(_config(url).cloneUrl.toString(), url);
+        expect(_config('$url/').cloneUrl.toString(), url);
+      }
+    });
+
     test('GitLab subgroups keep every path segment', () {
       final c = _config('https://gitlab.com/group/sub/repo');
       expect(c.cloneUrl.toString(), 'https://gitlab.com/group/sub/repo.git');

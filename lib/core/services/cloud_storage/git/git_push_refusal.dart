@@ -12,11 +12,15 @@ import 'package:submersion/core/services/cloud_storage/git/git_errors.dart';
 GitException classifyPushRefusal(String reason, List<String> remoteLines) {
   final text = [reason, ...remoteLines].join('\n').toLowerCase();
   final GitErrorCode code;
+  // GitHub: "GH001: Large files detected"; GitLab: "files which exceed the
+  // 100MiB limit", "is larger than the allowed size", "has exceeded its size
+  // limit".
   if (text.contains('gh001') ||
       text.contains('large files detected') ||
       text.contains('too large') ||
-      text.contains('file size limit') ||
-      text.contains('exceeds')) {
+      text.contains('larger than') ||
+      text.contains('size limit') ||
+      text.contains('exceed')) {
     code = GitErrorCode.tooLarge;
   } else if (text.contains('protected branch') ||
       text.contains('protected ref') ||

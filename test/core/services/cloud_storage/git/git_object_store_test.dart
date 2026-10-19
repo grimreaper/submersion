@@ -40,20 +40,66 @@ void main() {
       expect(back?.type, GitObjectType.blob);
     });
 
-    test('evicts the least recently read object once over maxBytes', () async {
+    test('a put never evicts, so what was just fetched can be read', () async {
       final dir = tempDirForTest('git_store_');
       // Each object is about 1 KB on disk; the cap holds two of them.
+      final store = FileGitObjectStore(dir, maxBytes: 2100);
+      final objects = [for (final t in 'abc'.split('')) _blob(t, pad: 1000)];
+      for (final o in objects) {
+        await store.put(o);
+      }
+      for (final o in objects) {
+        expect(await store.has(o.id), isTrue);
+      }
+    });
+
+    test(
+      'trim evicts the least recently used objects above maxBytes',
+      () async {
+        final dir = tempDirForTest('git_store_');
+        final store = FileGitObjectStore(dir, maxBytes: 2100);
+        final a = _blob('a', pad: 1000);
+        final b = _blob('b', pad: 1000);
+        final c = _blob('c', pad: 1000);
+        await store.put(a);
+        await store.put(b);
+        await store.get(a.id); // a is now more recent than b
+        await store.put(c);
+        await store.trim();
+        expect(await store.has(a.id), isTrue);
+        expect(await store.has(b.id), isFalse);
+        expect(await store.has(c.id), isTrue);
+      },
+    );
+
+    test('trim keeps what it is told to keep, however old', () async {
+      final dir = tempDirForTest('git_store_');
       final store = FileGitObjectStore(dir, maxBytes: 2100);
       final a = _blob('a', pad: 1000);
       final b = _blob('b', pad: 1000);
       final c = _blob('c', pad: 1000);
-      await store.put(a);
-      await store.put(b);
-      await store.get(a.id); // a is now more recent than b
-      await store.put(c);
+      for (final o in [a, b, c]) {
+        await store.put(o);
+      }
+      await store.trim(keep: {a.id});
       expect(await store.has(a.id), isTrue);
       expect(await store.has(b.id), isFalse);
       expect(await store.has(c.id), isTrue);
+    });
+
+    test('concurrent first uses count the directory once', () async {
+      final dir = tempDirForTest('git_store_');
+      final a = _blob('a', pad: 1000);
+      final b = _blob('b', pad: 1000);
+      await FileGitObjectStore(dir).put(a);
+      await FileGitObjectStore(dir).put(b);
+      final store = FileGitObjectStore(dir, maxBytes: 2100);
+      // Both callers trigger the first scan; a double count would make trim
+      // think the store is over its bound and evict.
+      await Future.wait([store.has(a.id), store.has(b.id)]);
+      await store.trim();
+      expect(await store.has(a.id), isTrue);
+      expect(await store.has(b.id), isTrue);
     });
   });
 }

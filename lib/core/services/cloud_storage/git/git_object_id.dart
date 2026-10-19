@@ -84,7 +84,25 @@ final class GitObjectId {
 /// The id Git gives an object of [type] whose content is [body]: the SHA-1 of
 /// `'<type> <length>\0'` followed by the body.
 GitObjectId hashGitObject(GitObjectType type, List<int> body) {
-  final header = ascii.encode('${type.wireName} ${body.length}\u0000');
-  final digest = sha1.convert([...header, ...body]);
-  return GitObjectId(Uint8List.fromList(digest.bytes));
+  // Header and body go to the hash in turn: joining them in one list would
+  // copy the body, at about eight bytes per byte for a List<int>.
+  final digest = DigestCollector();
+  sha1.startChunkedConversion(digest)
+    ..add(ascii.encode('${type.wireName} ${body.length}'))
+    ..add(const [0])
+    ..add(body)
+    ..close();
+  return GitObjectId(Uint8List.fromList(digest.value!.bytes));
+}
+
+/// Collects the single digest a chunked hash conversion emits (the crypto
+/// package does not export a sink for it).
+final class DigestCollector implements Sink<Digest> {
+  Digest? value;
+
+  @override
+  void add(Digest data) => value = data;
+
+  @override
+  void close() {}
 }

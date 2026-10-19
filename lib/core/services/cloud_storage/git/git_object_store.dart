@@ -1,4 +1,5 @@
 import 'dart:io';
+import 'dart:math';
 import 'dart:typed_data';
 
 import 'package:path/path.dart' as p;
@@ -22,8 +23,15 @@ final class GitStoredObject {
 /// addressed by content, so a store never needs invalidating, only bounding.
 abstract interface class GitObjectStore {
   Future<GitStoredObject?> get(GitObjectId id);
+
+  /// Stores [object]. Never evicts anything, so a caller can read back what
+  /// it just fetched; [trim] does that.
   Future<void> put(GitStoredObject object);
   Future<bool> has(GitObjectId id);
+
+  /// Deletes the least recently used objects until the store is within its
+  /// bound, never one in [keep]. A no-op for an unbounded store.
+  Future<void> trim({Set<GitObjectId> keep = const {}});
 }
 
 /// An unbounded in-memory store, for tests and short-lived sessions.
@@ -39,21 +47,27 @@ final class MemoryGitObjectStore implements GitObjectStore {
 
   @override
   Future<bool> has(GitObjectId id) async => _objects.containsKey(id);
+
+  @override
+  Future<void> trim({Set<GitObjectId> keep = const {}}) async {}
 }
 
 /// A size-bounded on-disk store: one file per object at
 /// `<root>/<first two hex digits>/<other 38>`, holding a 1-byte pack type
-/// code followed by the body. Above [maxBytes] the least recently used
-/// objects are deleted. Recency lives in memory, seeded from file
+/// code followed by the body. [trim] deletes the least recently used
+/// objects above [maxBytes]. Recency lives in memory, seeded from file
 /// modification times the first time the store is used.
 final class FileGitObjectStore implements GitObjectStore {
   FileGitObjectStore(this.root, {this.maxBytes = 256 * 1024 * 1024});
+
+  static const String _tmpSuffix = '.tmp';
+  static final Random _random = Random();
 
   final Directory root;
   final int maxBytes;
 
   /// path -> (size, recency); larger recency is more recently used.
-  Map<String, ({int size, int recency})>? _index;
+  Future<Map<String, ({int size, int recency})>>? _index;
   int _clock = 0;
   int _total = 0;
 
@@ -62,13 +76,20 @@ final class FileGitObjectStore implements GitObjectStore {
     return File(p.join(root.path, hex.substring(0, 2), hex.substring(2)));
   }
 
-  Future<Map<String, ({int size, int recency})>> _ensureIndex() async {
-    final existing = _index;
-    if (existing != null) return existing;
+  /// Scans the directory once, however many callers arrive first.
+  Future<Map<String, ({int size, int recency})>> _ensureIndex() =>
+      _index ??= _scan();
+
+  Future<Map<String, ({int size, int recency})>> _scan() async {
     final found = <({String path, int size, DateTime modified})>[];
     if (await root.exists()) {
       await for (final entity in root.list(recursive: true)) {
         if (entity is! File) continue;
+        // A write cut short by a crash; the object is fetched again.
+        if (entity.path.endsWith(_tmpSuffix)) {
+          await entity.delete().catchError((_) => entity);
+          continue;
+        }
         final stat = await entity.stat();
         found.add((
           path: entity.path,
@@ -83,7 +104,7 @@ final class FileGitObjectStore implements GitObjectStore {
       index[f.path] = (size: f.size, recency: ++_clock);
       _total += f.size;
     }
-    return _index = index;
+    return index;
   }
 
   @override
@@ -113,9 +134,13 @@ final class FileGitObjectStore implements GitObjectStore {
   Future<void> put(GitStoredObject object) async {
     final index = await _ensureIndex();
     final file = _fileFor(object.id);
-    if (index.containsKey(file.path)) return;
+    // Another store on the same directory may have deleted it since.
+    if (index.containsKey(file.path) && await file.exists()) return;
     await file.parent.create(recursive: true);
-    final tmp = File('${file.path}.tmp');
+    // A name of its own: two puts of one object may run at once.
+    final tmp = File(
+      '${file.path}.${_random.nextInt(1 << 32).toRadixString(16)}$_tmpSuffix',
+    );
     // Header byte and body as one buffer: a List<int> spread would cost
     // about eight bytes per body byte.
     final bytes = Uint8List(object.body.length + 1)
@@ -123,16 +148,19 @@ final class FileGitObjectStore implements GitObjectStore {
       ..setRange(1, object.body.length + 1, object.body);
     await tmp.writeAsBytes(bytes, flush: true);
     await tmp.rename(file.path);
+    // A concurrent put of the same object has counted it already.
+    if (index.containsKey(file.path)) return;
     final size = object.body.length + 1;
     index[file.path] = (size: size, recency: ++_clock);
     _total += size;
-    await _evict(keep: file.path);
   }
 
-  Future<void> _evict({required String keep}) async {
-    final index = _index!;
+  @override
+  Future<void> trim({Set<GitObjectId> keep = const {}}) async {
+    final index = await _ensureIndex();
     if (_total <= maxBytes) return;
-    final byAge = index.entries.where((e) => e.key != keep).toList()
+    final kept = {for (final id in keep) _fileFor(id).path};
+    final byAge = index.entries.where((e) => !kept.contains(e.key)).toList()
       ..sort((a, b) => a.value.recency.compareTo(b.value.recency));
     for (final victim in byAge) {
       if (_total <= maxBytes) break;

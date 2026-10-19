@@ -74,13 +74,15 @@ void main() {
     expect(cloud.calls.where((c) => c == 'flush'), hasLength(1));
   });
 
-  test('cleaning up an old backend resets its history', () async {
-    await buildService().cleanupOldBackend(cloud);
-    expect(cloud.calls, contains('reset'));
-    expect(
-      cloud.calls.indexOf('flush'),
-      lessThan(cloud.calls.indexOf('reset')),
+  test('cleaning up an old backend pushes its deletes, then resets', () async {
+    final folder = await cloud.getOrCreateSyncFolder();
+    await cloud.uploadFile(
+      Uint8List.fromList([1]),
+      'ssv1.dev-1.cs.000000000001.json',
+      folderId: folder,
     );
+    await buildService().cleanupOldBackend(cloud);
+    expect(cloud.calls, ['flush', 'reset']);
   });
 
   test('a full sync wipe resets history', () async {

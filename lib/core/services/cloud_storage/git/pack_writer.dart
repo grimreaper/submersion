@@ -29,17 +29,6 @@ final class PackEntrySource {
   }
 }
 
-/// Collects the single digest a chunked hash conversion emits.
-final class _DigestSink implements Sink<Digest> {
-  Digest? value;
-
-  @override
-  void add(Digest data) => value = data;
-
-  @override
-  void close() {}
-}
-
 /// The type and size header of a pack entry: 3 type bits and a
 /// little-endian base-128 size, with 4 bits in the first byte.
 Uint8List _entryHeader(GitObjectType type, int size) {
@@ -64,7 +53,7 @@ Uint8List _u32(int value) =>
 /// in memory at once. The stream ends with the SHA-1 of everything before
 /// it, as Git requires.
 Stream<List<int>> writePack(List<PackEntrySource> entries) async* {
-  final digest = _DigestSink();
+  final digest = DigestCollector();
   final hasher = sha1.startChunkedConversion(digest);
 
   List<int> emit(List<int> chunk) {
@@ -99,7 +88,7 @@ Stream<List<int>> writePack(List<PackEntrySource> entries) async* {
 /// The blob id of [file]'s contents, read as a stream.
 Future<GitObjectId> hashFileBlob(File file) async {
   final length = await file.length();
-  final digest = _DigestSink();
+  final digest = DigestCollector();
   final hasher = sha1.startChunkedConversion(digest)
     ..add(ascii.encode('blob $length'))
     ..add(const [0]);

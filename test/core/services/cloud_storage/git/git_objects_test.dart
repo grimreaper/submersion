@@ -1,4 +1,7 @@
 import 'dart:convert';
+import 'dart:io';
+import 'dart:math';
+import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_object_id.dart';
@@ -19,11 +22,43 @@ void main() {
       );
     });
 
+    test('a multi-megabyte blob hashes like git hash-object', () async {
+      final dir = tempDirForTest('git_hash_');
+      final r = Random(5);
+      final body = Uint8List.fromList(
+        List.generate(3 * 1024 * 1024 + 7, (_) => r.nextInt(256)),
+      );
+      final file = File(joinPath(dir, 'big.bin'))..writeAsBytesSync(body);
+      expect(
+        hashGitObject(GitObjectType.blob, body).hex,
+        await runGit(dir, ['hash-object', file.path]),
+      );
+    }, skip: skipUnlessGit());
+
     test('blob "hello\\n" hashes like git hash-object', () {
       expect(
         hashGitObject(GitObjectType.blob, utf8.encode('hello\n')).hex,
         'ce013625030ba8dba906f756967f9e9ca394464a',
       );
+    });
+  });
+
+  group('GitCommit', () {
+    test('an author name cannot break the author line', () {
+      final commit = GitCommit(
+        tree: hashGitObject(GitObjectType.tree, encodeTree(const [])),
+        parents: const [],
+        authorName: ' Eric <work>\nphone ',
+        authorEmail: 'sync@submersion.invalid',
+        when: DateTime.utc(2026, 10, 18),
+        message: 'Sync',
+      );
+      final text = utf8.decode(commit.encode());
+      expect(
+        text,
+        contains('author Eric work phone <sync@submersion.invalid> '),
+      );
+      expect(GitCommit.decode(commit.encode()).authorName, 'Eric work phone');
     });
   });
 
