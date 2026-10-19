@@ -127,14 +127,14 @@ even before sync is set up there.
 > [!NOTE]
 > A device that has not been unlocked yet (one still waiting for the
 > passphrase) never uploads an unencrypted backup. It keeps its backups on the
-> device only, and **Backup now** says so, until you enter the passphrase
+> device only, and **Back up now** says so, until you enter the passphrase
 > there. To have a locked device upload backups anyway, turn on
 > **Encrypt backups** there, which encrypts them with its own password.
 
 Backups saved to a local folder or shared from the device are not covered by
 this passphrase. To protect those too, turn on **Encrypt backups** in
 **Backups**, which uses a password of its own; see
-[Backup encryption](backup-and-restore.md#backup-encryption).
+[Password protection](backup-and-restore.md#password-protection).
 
 ## Turning Off Encryption
 

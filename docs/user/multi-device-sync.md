@@ -154,7 +154,8 @@ clean up the old data once the switch is done.
   storage until you remove it.
 
 **Stop syncing on this device**, under **Advanced**, turns sync off here and
-keeps the account signed in. To forget an account's keys on this device, use
+keeps the account signed in. A backup copy that went to the same account as
+sync keeps going there. To forget an account's keys on this device, use
 **Sign out on this device** on the account in **Connected accounts**; **Remove
 from all devices** takes it off the account list everywhere. None of these
 touches the data already in your storage. Deleting the old account's data after
