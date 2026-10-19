@@ -127,6 +127,18 @@ class GitBranchSession {
     }
   }
 
+  /// Checks the branch without writing anything: whether it exists, whether
+  /// creating it would make it the repository's default (an empty
+  /// repository), and, when it exists, that it is Submersion's. Throws
+  /// [GitErrorCode.branchHasOtherContent] for any other branch.
+  Future<({bool exists, bool willBecomeDefault})> inspect() async {
+    final refs = await transport.lsRefs(branch);
+    final tip = refs.branchTip;
+    if (tip == null) return (exists: false, willBecomeDefault: refs.isEmpty);
+    await _load(tip, isDefault: refs.headSymref == 'refs/heads/$branch');
+    return (exists: true, willBecomeDefault: false);
+  }
+
   /// Re-reads the tip; fetches only when it moved.
   Future<GitBranchSnapshot> refresh() async {
     final known = _current;
