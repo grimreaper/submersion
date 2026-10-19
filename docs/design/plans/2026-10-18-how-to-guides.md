@@ -10,6 +10,8 @@
 
 **Spec:** `docs/design/specs/2026-10-18-how-to-guides-design.md`
 
+> **Paused (2026-10-18):** Tasks 1 and 2 are done. Tasks 3 onwards wait for the Settings > Data refactor (#3482) and the Git storage backend to merge; see the spec's "Paused until the app settles" section for what to re-check on resuming. Task 13 Step 2 is superseded by that section.
+
 ## Global Constraints
 
 - No em dashes, and no en dashes as prose punctuation, anywhere (guides, plan, commits, PR). Scan every file before committing with the **dash scan**: `perl -CSD -ne 'print "$ARGV:$.: $_" if /[\x{2013}\x{2014}]/; close ARGV if eof' <files>` (prints nothing when clean).

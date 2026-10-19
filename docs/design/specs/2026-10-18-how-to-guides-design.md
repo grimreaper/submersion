@@ -302,12 +302,27 @@ One PR, held open until the screenshots are in (maintainer's choice):
    marked shot, replace each marker with the image, re-check every label on
    screen, and mark the PR ready for review.
 
-Issue #3482 plans to redesign the Settings > Data screens the Database Sync,
-Media Sync and Shared Site Library guides walk (a "Set up this device" flow,
-connected accounts, new wording). Phase 1 writes against today's screens
-(maintainer's choice). At phase 2, any step whose screen #3482 has changed by
-then is rewritten to match before it is captured; if "Set up this device" has
-landed, it becomes the sync guides' lead path.
+## Paused until the app settles
+
+On 2026-10-18, after the index guard and the empty index page were committed,
+the maintainer paused all guide writing (all fourteen guides, not only the
+three that walk Settings > Data) until two pieces of work merge:
+
+- **The Settings > Data refactor, issue #3482:** a re-runnable "Set up this
+  device" flow, connected accounts as the one place to sign in, new workflows
+  for sync and backup, a new first run, and new wording across the section.
+- **Git as a storage backend:** a new provider for sync storage (no issue
+  number yet).
+
+On resuming, before writing anything:
+
+1. Re-read this spec against the merged app. If "Set up this device" exists, it
+   becomes the sync guides' lead path. Re-check the lead-path choices (Google
+   Drive for both sync guides, Cloudflare R2 for shared libraries) now that Git
+   is a provider, and bring any change to the maintainer before writing.
+2. Re-trace every guide's flow from the merged code; none of the earlier
+   tracing is reused.
+3. Then write phase 1 as planned. Phase 2 still waits for demo mode.
 
 ## Constraints
 
