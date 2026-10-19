@@ -6045,7 +6045,6 @@
   "settings_cloudSync_cleanup_delete": "Supprimer les anciennes données",
   "settings_cloudSync_cleanup_keep": "Conserver",
   "settings_cloudSync_header_advanced": "Avancé",
-  "settings_cloudSync_signOut_backupWarning": "La sauvegarde cloud sera désactivée et les sauvegardes seront enregistrées à l'emplacement par défaut.",
   "settings_cloudSync_header_conflicts": "Conflits ({count})",
   "settings_cloudSync_lastSynced": "Dernière synchronisation : {time}",
   "settings_cloudSync_pendingChanges": "{count, plural, =1{{count} modification en attente} other{{count} modifications en attente}}",
@@ -15851,5 +15850,6 @@
   "plannerCanvas_table_ppO2": "PO2",
   "settings_conflict_field_splitAtConfiguredRate": "Diviser à la vitesse configurée",
   "backup_restore_copyInOtherAccount": "La seule copie de cette sauvegarde se trouve dans un autre compte. Choisissez ce compte pour la copie des sauvegardes, puis réessayez.",
-  "settings_accounts_usage_backups": "Copies des sauvegardes"
+  "settings_accounts_usage_backups": "Copies des sauvegardes",
+  "settings_backups_copyStops": "Les sauvegardes ne feront plus de copie hors de cet appareil."
 }

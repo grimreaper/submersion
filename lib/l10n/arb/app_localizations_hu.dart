@@ -21875,10 +21875,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get settings_cloudSync_header_advanced => 'Haladó';
 
   @override
-  String get settings_cloudSync_signOut_backupWarning =>
-      'A felhőalapú biztonsági mentés kikapcsol, és a mentések az alapértelmezett helyre kerülnek.';
-
-  @override
   String settings_cloudSync_header_conflicts(Object count) {
     return 'Ütközések ($count)';
   }
@@ -53422,4 +53418,8 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get settings_accounts_usage_backups => 'Mentések másolatai';
+
+  @override
+  String get settings_backups_copyStops =>
+      'A mentésekről nem készül többé másolat ezen az eszközön kívül.';
 }

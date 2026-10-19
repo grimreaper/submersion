@@ -22234,10 +22234,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get settings_cloudSync_header_advanced => 'متقدم';
 
   @override
-  String get settings_cloudSync_signOut_backupWarning =>
-      'سيتم إيقاف النسخ الاحتياطي السحابي وسيتم حفظ النسخ الاحتياطية في الموقع الافتراضي.';
-
-  @override
   String settings_cloudSync_header_conflicts(Object count) {
     return 'التعارضات ($count)';
   }
@@ -54398,4 +54394,8 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get settings_accounts_usage_backups => 'نسخ النسخ الاحتياطي';
+
+  @override
+  String get settings_backups_copyStops =>
+      'ستتوقف النسخ الاحتياطية عن إنشاء نسخة خارج هذا الجهاز.';
 }

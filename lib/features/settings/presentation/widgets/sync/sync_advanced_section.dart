@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:submersion/features/backup/presentation/providers/backup_copy_rules.dart';
 import 'package:submersion/features/backup/presentation/providers/backup_providers.dart';
 import 'package:submersion/features/settings/presentation/pages/sync_devices_page.dart';
 import 'package:submersion/features/settings/presentation/pages/sync_encryption_page.dart';
@@ -122,10 +123,15 @@ class SyncAdvancedSection extends ConsumerWidget {
 
   Future<void> _confirmStop(BuildContext context, WidgetRef ref) async {
     final l10n = context.l10n;
-    // Cloud backup uploads ride on the sync provider; losing it changes where
-    // backups land, which the diver must hear before agreeing.
-    final backupWarning = ref.read(backupSettingsProvider).cloudBackupEnabled
-        ? '\n\n${l10n.settings_cloudSync_signOut_backupWarning}'
+    // A copy that follows sync stays with the account sync was using; only
+    // when that account cannot be read does the copy stop, and the diver
+    // hears so before agreeing.
+    final copy = await backupCopyOnSyncStop(
+      ProviderScope.containerOf(context, listen: false),
+    );
+    if (!context.mounted) return;
+    final backupWarning = copy.copyStops
+        ? '\n\n${l10n.settings_backups_copyStops}'
         : '';
     final confirmed = await showDialog<bool>(
       context: context,
@@ -145,8 +151,11 @@ class SyncAdvancedSection extends ConsumerWidget {
       ),
     );
     if (confirmed != true || !context.mounted) return;
+    final backup = ref.read(backupSettingsProvider.notifier);
+    // Pinned before sync is torn down, so the copy never follows nothing.
+    if (copy.pinTo case final row?) await backup.pinCopyTo(row);
     await stopSyncingOnThisDevice(ref);
-    await ref.read(backupSettingsProvider.notifier).disableCloudBackup();
+    if (copy.copyStops) await backup.setNoCopy();
     if (context.mounted) {
       ScaffoldMessenger.of(
         context,

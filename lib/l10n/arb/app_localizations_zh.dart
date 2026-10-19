@@ -20846,9 +20846,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings_cloudSync_header_advanced => '高级';
 
   @override
-  String get settings_cloudSync_signOut_backupWarning => '云备份将被关闭，备份将保存到默认位置。';
-
-  @override
   String settings_cloudSync_header_conflicts(Object count) {
     return '冲突 ($count)';
   }
@@ -50469,4 +50466,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settings_accounts_usage_backups => '备份副本';
+
+  @override
+  String get settings_backups_copyStops => '备份将不再在此设备之外保留副本。';
 }

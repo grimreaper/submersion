@@ -153,10 +153,6 @@ class BackupSettingsNotifier extends StateNotifier<BackupSettings> {
     state = _prefs.getSettings();
   }
 
-  /// Temporary forwarder for the sync sign-out hooks; removed when they
-  /// decide for themselves whether the copy goes with the account.
-  Future<void> disableCloudBackup() => setNoCopy();
-
   Future<void> setBackupLocation(String? path) async {
     await _prefs.setBackupLocation(path);
     state = _prefs.getSettings();

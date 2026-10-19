@@ -6145,7 +6145,6 @@
   "settings_cloudSync_cleanup_delete": "Oude gegevens verwijderen",
   "settings_cloudSync_cleanup_keep": "Behouden",
   "settings_cloudSync_header_advanced": "Geavanceerd",
-  "settings_cloudSync_signOut_backupWarning": "Cloudback-up wordt uitgeschakeld en back-ups worden op de standaardlocatie opgeslagen.",
   "settings_cloudSync_header_conflicts": "Conflicten ({count})",
   "settings_cloudSync_lastSynced": "Laatst gesynchroniseerd: {time}",
   "settings_cloudSync_pendingChanges": "{count, plural, =1{1 wachtende wijziging} other{{count} wachtende wijzigingen}}",
@@ -15851,5 +15850,6 @@
   "plannerCanvas_table_ppO2": "PO2",
   "settings_conflict_field_splitAtConfiguredRate": "Splitsen bij de geconfigureerde snelheid",
   "backup_restore_copyInOtherAccount": "De enige kopie van deze back-up staat in een ander account. Kies dat account voor de back-upkopie en probeer het opnieuw.",
-  "settings_accounts_usage_backups": "Back-upkopieën"
+  "settings_accounts_usage_backups": "Back-upkopieën",
+  "settings_backups_copyStops": "Back-ups maken dan geen kopie meer buiten dit apparaat."
 }

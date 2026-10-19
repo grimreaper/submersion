@@ -35075,12 +35075,6 @@ abstract class AppLocalizations {
   /// **'Advanced'**
   String get settings_cloudSync_header_advanced;
 
-  /// No description provided for @settings_cloudSync_signOut_backupWarning.
-  ///
-  /// In en, this message translates to:
-  /// **'Cloud backup will be turned off and backups will be saved to the default location.'**
-  String get settings_cloudSync_signOut_backupWarning;
-
   /// No description provided for @settings_cloudSync_header_conflicts.
   ///
   /// In en, this message translates to:
@@ -85173,6 +85167,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Backup copies'**
   String get settings_accounts_usage_backups;
+
+  /// Said in a confirmation when signing out, removing or stopping sync takes the backup copy's account away
+  ///
+  /// In en, this message translates to:
+  /// **'Backups will stop making a copy off this device.'**
+  String get settings_backups_copyStops;
 }
 
 class _AppLocalizationsDelegate

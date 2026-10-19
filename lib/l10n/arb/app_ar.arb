@@ -6145,7 +6145,6 @@
   "settings_cloudSync_cleanup_delete": "حذف البيانات القديمة",
   "settings_cloudSync_cleanup_keep": "الاحتفاظ",
   "settings_cloudSync_header_advanced": "متقدم",
-  "settings_cloudSync_signOut_backupWarning": "سيتم إيقاف النسخ الاحتياطي السحابي وسيتم حفظ النسخ الاحتياطية في الموقع الافتراضي.",
   "settings_cloudSync_header_conflicts": "التعارضات ({count})",
   "settings_cloudSync_lastSynced": "آخر مزامنة: {time}",
   "settings_cloudSync_pendingChanges": "{count, plural, =1{تغيير معلق واحد} two{تغييران معلقان} few{{count} تغييرات معلقة} many{{count} تغييرًا معلقًا} other{{count} تغيير معلق}}",
@@ -15851,5 +15850,6 @@
   "plannerCanvas_table_ppO2": "PO2",
   "settings_conflict_field_splitAtConfiguredRate": "التقسيم بالمعدل المُهيأ",
   "backup_restore_copyInOtherAccount": "النسخة الوحيدة من هذه النسخة الاحتياطية موجودة في حساب آخر. اختر ذلك الحساب لنسخة النسخ الاحتياطي، ثم حاول مرة أخرى.",
-  "settings_accounts_usage_backups": "نسخ النسخ الاحتياطي"
+  "settings_accounts_usage_backups": "نسخ النسخ الاحتياطي",
+  "settings_backups_copyStops": "ستتوقف النسخ الاحتياطية عن إنشاء نسخة خارج هذا الجهاز."
 }

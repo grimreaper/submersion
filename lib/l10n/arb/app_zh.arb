@@ -6297,7 +6297,6 @@
   "settings_cloudSync_cleanup_delete": "删除旧数据",
   "settings_cloudSync_cleanup_keep": "保留",
   "settings_cloudSync_header_advanced": "高级",
-  "settings_cloudSync_signOut_backupWarning": "云备份将被关闭，备份将保存到默认位置。",
   "settings_cloudSync_header_conflicts": "冲突 ({count})",
   "settings_cloudSync_lastSynced": "上次同步：{time}",
   "settings_cloudSync_pendingChanges": "{count, plural, =1{1 个待同步更改} other{{count} 个待同步更改}}",
@@ -15851,5 +15850,6 @@
   "plannerCanvas_table_ppO2": "PO2",
   "settings_conflict_field_splitAtConfiguredRate": "按设定速率拆分",
   "backup_restore_copyInOtherAccount": "此备份的唯一副本在另一个账户中。请将该账户设为备份副本的存放位置，然后重试。",
-  "settings_accounts_usage_backups": "备份副本"
+  "settings_accounts_usage_backups": "备份副本",
+  "settings_backups_copyStops": "备份将不再在此设备之外保留副本。"
 }

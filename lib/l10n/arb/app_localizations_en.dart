@@ -21622,10 +21622,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settings_cloudSync_header_advanced => 'Advanced';
 
   @override
-  String get settings_cloudSync_signOut_backupWarning =>
-      'Cloud backup will be turned off and backups will be saved to the default location.';
-
-  @override
   String settings_cloudSync_header_conflicts(Object count) {
     return 'Conflicts ($count)';
   }
@@ -52880,4 +52876,8 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settings_accounts_usage_backups => 'Backup copies';
+
+  @override
+  String get settings_backups_copyStops =>
+      'Backups will stop making a copy off this device.';
 }

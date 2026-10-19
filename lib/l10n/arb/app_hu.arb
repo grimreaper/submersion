@@ -6045,7 +6045,6 @@
   "settings_cloudSync_cleanup_delete": "Régi adatok törlése",
   "settings_cloudSync_cleanup_keep": "Megtartás",
   "settings_cloudSync_header_advanced": "Haladó",
-  "settings_cloudSync_signOut_backupWarning": "A felhőalapú biztonsági mentés kikapcsol, és a mentések az alapértelmezett helyre kerülnek.",
   "settings_cloudSync_header_conflicts": "Ütközések ({count})",
   "settings_cloudSync_lastSynced": "Utolsó szinkronizálás: {time}",
   "settings_cloudSync_pendingChanges": "{count, plural, =1{1 függő változtatás} other{{count} függő változtatás}}",
@@ -15851,5 +15850,6 @@
   "plannerCanvas_table_ppO2": "PO2",
   "settings_conflict_field_splitAtConfiguredRate": "Felosztás a beállított sebességgel",
   "backup_restore_copyInOtherAccount": "A biztonsági mentés egyetlen másolata egy másik fiókban van. Válassza azt a fiókot a mentés másolatához, majd próbálja újra.",
-  "settings_accounts_usage_backups": "Mentések másolatai"
+  "settings_accounts_usage_backups": "Mentések másolatai",
+  "settings_backups_copyStops": "A mentésekről nem készül többé másolat ezen az eszközön kívül."
 }

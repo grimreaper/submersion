@@ -6,6 +6,7 @@ import 'package:submersion/core/services/accounts/account_group.dart';
 import 'package:submersion/core/services/accounts/account_kind.dart';
 import 'package:submersion/core/services/accounts/account_provider_adapter.dart';
 import 'package:submersion/core/services/accounts/account_usage_service.dart';
+import 'package:submersion/features/backup/presentation/providers/backup_copy_rules.dart';
 import 'package:submersion/features/backup/presentation/providers/backup_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/account_group_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
@@ -205,7 +206,11 @@ class _Details extends ConsumerWidget {
     }
     if (!context.mounted) return;
     final container = ProviderScope.containerOf(context, listen: false);
+    final copyGoes = _copyGoes(ref);
     if (_runsSync) await leaveSyncForAccount(container);
+    if (copyGoes) {
+      await container.read(backupSettingsProvider.notifier).setNoCopy();
+    }
     await service.signOut(group);
     _refreshWith(container);
   }
@@ -233,18 +238,27 @@ class _Details extends ConsumerWidget {
     if (!confirmed || !context.mounted) return;
     final container = ProviderScope.containerOf(context, listen: false);
     final navigator = Navigator.of(context);
+    final copyGoes = _copyGoes(ref);
     if (_runsSync) await leaveSyncForAccount(container);
+    if (copyGoes) {
+      await container.read(backupSettingsProvider.notifier).setNoCopy();
+    }
     await service.remove(group);
     _refreshWith(container);
     navigator.maybePop();
   }
 
-  /// Cloud backups ride on sync, so losing the sync account stops them; the
-  /// diver hears that before agreeing, as Stop syncing says it.
+  /// The backup copy goes with the account it uses: the sync account for a
+  /// copy that follows sync, else the account it is pinned to. The diver
+  /// hears that before agreeing.
   String? _backupWarning(WidgetRef ref, AppLocalizations l10n) =>
-      _runsSync && ref.read(backupSettingsProvider).cloudBackupEnabled
-      ? l10n.settings_cloudSync_signOut_backupWarning
-      : null;
+      _copyGoes(ref) ? l10n.settings_backups_copyStops : null;
+
+  bool _copyGoes(WidgetRef ref) => backupCopyGoesWith(
+    ref.read(backupSettingsProvider),
+    group,
+    runsSync: _runsSync,
+  );
 
   /// Whether this device syncs through the account: its sync usage, never a
   /// row that only sits in the default sync folder.

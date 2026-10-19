@@ -6149,7 +6149,6 @@
   "settings_cloudSync_cleanup_delete": "מחק נתונים ישנים",
   "settings_cloudSync_cleanup_keep": "שמור",
   "settings_cloudSync_header_advanced": "מתקדם",
-  "settings_cloudSync_signOut_backupWarning": "גיבוי הענן יכובה והגיבויים יישמרו במיקום ברירת המחדל.",
   "settings_cloudSync_header_conflicts": "התנגשויות ({count})",
   "settings_cloudSync_lastSynced": "סנכרון אחרון: {time}",
   "settings_cloudSync_pendingChanges": "{count, plural, =1{שינוי ממתין אחד} other{{count} שינויים ממתינים}}",
@@ -15851,5 +15850,6 @@
   "plannerCanvas_table_ppO2": "PO2",
   "settings_conflict_field_splitAtConfiguredRate": "פיצול בקצב המוגדר",
   "backup_restore_copyInOtherAccount": "העותק היחיד של הגיבוי הזה נמצא בחשבון אחר. בחרו בחשבון הזה לעותק הגיבוי ונסו שוב.",
-  "settings_accounts_usage_backups": "עותקי גיבוי"
+  "settings_accounts_usage_backups": "עותקי גיבוי",
+  "settings_backups_copyStops": "הגיבויים יפסיקו ליצור עותק מחוץ למכשיר הזה."
 }

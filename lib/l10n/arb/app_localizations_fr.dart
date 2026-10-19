@@ -22015,10 +22015,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settings_cloudSync_header_advanced => 'Avancé';
 
   @override
-  String get settings_cloudSync_signOut_backupWarning =>
-      'La sauvegarde cloud sera désactivée et les sauvegardes seront enregistrées à l\'emplacement par défaut.';
-
-  @override
   String settings_cloudSync_header_conflicts(Object count) {
     return 'Conflits ($count)';
   }
@@ -53826,4 +53822,8 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settings_accounts_usage_backups => 'Copies des sauvegardes';
+
+  @override
+  String get settings_backups_copyStops =>
+      'Les sauvegardes ne feront plus de copie hors de cet appareil.';
 }

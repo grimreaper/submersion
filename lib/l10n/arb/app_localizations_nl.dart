@@ -21816,10 +21816,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get settings_cloudSync_header_advanced => 'Geavanceerd';
 
   @override
-  String get settings_cloudSync_signOut_backupWarning =>
-      'Cloudback-up wordt uitgeschakeld en back-ups worden op de standaardlocatie opgeslagen.';
-
-  @override
   String settings_cloudSync_header_conflicts(Object count) {
     return 'Conflicten ($count)';
   }
@@ -53377,4 +53373,8 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get settings_accounts_usage_backups => 'Back-upkopieën';
+
+  @override
+  String get settings_backups_copyStops =>
+      'Back-ups maken dan geen kopie meer buiten dit apparaat.';
 }

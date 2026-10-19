@@ -21950,10 +21950,6 @@ class AppLocalizationsPt extends AppLocalizations {
   String get settings_cloudSync_header_advanced => 'Avançado';
 
   @override
-  String get settings_cloudSync_signOut_backupWarning =>
-      'O backup na nuvem será desativado e os backups serão salvos no local padrão.';
-
-  @override
   String settings_cloudSync_header_conflicts(Object count) {
     return 'Conflitos ($count)';
   }
@@ -53708,4 +53704,8 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get settings_accounts_usage_backups => 'Cópias de backup';
+
+  @override
+  String get settings_backups_copyStops =>
+      'Os backups deixarão de fazer uma cópia fora deste dispositivo.';
 }

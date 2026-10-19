@@ -74,6 +74,12 @@ class _MemoryCredentialsStore implements S3CredentialsStore {
 class _FakeSyncRepository extends SyncRepository {
   int signOutCalls = 0;
 
+  /// The roster row sync uses, for the backup copy's pin on Stop syncing.
+  String? syncAccountId;
+
+  @override
+  Future<String?> getSyncAccountId() async => syncAccountId;
+
   @override
   Future<DateTime?> getLastSyncTime({String? forProvider}) async => null;
 
@@ -1589,7 +1595,65 @@ void main() {
       expect(find.text('Sync stopped on this device'), findsOneWidget);
     });
 
-    testWidgets('warns about cloud backup and disables it on confirm', (
+    Future<void> confirmStop(WidgetTester tester) async {
+      await tester.tap(
+        find.descendant(
+          of: find.byType(AlertDialog),
+          matching: find.text('Stop syncing on this device'),
+        ),
+      );
+      await tester.pumpAndSettle();
+    }
+
+    // Spec section 8.1: the copy keeps going to the account sync was using,
+    // instead of silently turning off.
+    testWidgets('a copy that follows sync is pinned to the sync account', (
+      tester,
+    ) async {
+      final handles = await pumpPage(
+        tester,
+        selectedProvider: CloudProviderType.googledrive,
+      );
+      handles.repo.syncAccountId = 'sync-row';
+      final prefs = await SharedPreferences.getInstance();
+      await prefs.setBool('backup_cloud_enabled', true);
+
+      await openStop(tester);
+      expect(find.textContaining('stop making a copy'), findsNothing);
+      await confirmStop(tester);
+
+      final settings = BackupPreferences(prefs).getSettings();
+      expect(settings.cloudBackupEnabled, isTrue);
+      expect(settings.copyAccountId, 'sync-row');
+      expect(settings.copyAccountKind, AccountKind.googledrive);
+    });
+
+    testWidgets('a copy pinned to another account is left alone', (
+      tester,
+    ) async {
+      final handles = await pumpPage(
+        tester,
+        selectedProvider: CloudProviderType.googledrive,
+      );
+      handles.repo.syncAccountId = 'sync-row';
+      final prefs = await SharedPreferences.getInstance();
+      final backup = BackupPreferences(prefs);
+      await backup.setCloudBackupEnabled(true);
+      await backup.setCopyDestination(
+        accountId: 'dropbox-row',
+        kind: AccountKind.dropbox,
+      );
+
+      await openStop(tester);
+      expect(find.textContaining('stop making a copy'), findsNothing);
+      await confirmStop(tester);
+
+      final settings = backup.getSettings();
+      expect(settings.cloudBackupEnabled, isTrue);
+      expect(settings.copyAccountId, 'dropbox-row');
+    });
+
+    testWidgets('with no sync account known it warns and turns the copy off', (
       tester,
     ) async {
       await pumpPage(tester, selectedProvider: CloudProviderType.googledrive);
@@ -1598,16 +1662,10 @@ void main() {
 
       await openStop(tester);
       expect(
-        find.textContaining('Cloud backup will be turned off'),
+        find.textContaining('Backups will stop making a copy'),
         findsOneWidget,
       );
-      await tester.tap(
-        find.descendant(
-          of: find.byType(AlertDialog),
-          matching: find.text('Stop syncing on this device'),
-        ),
-      );
-      await tester.pumpAndSettle();
+      await confirmStop(tester);
       expect(prefs.getBool('backup_cloud_enabled'), isFalse);
     });
   });

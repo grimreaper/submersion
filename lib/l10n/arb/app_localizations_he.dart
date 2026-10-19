@@ -21457,10 +21457,6 @@ class AppLocalizationsHe extends AppLocalizations {
   String get settings_cloudSync_header_advanced => 'מתקדם';
 
   @override
-  String get settings_cloudSync_signOut_backupWarning =>
-      'גיבוי הענן יכובה והגיבויים יישמרו במיקום ברירת המחדל.';
-
-  @override
   String settings_cloudSync_header_conflicts(Object count) {
     return 'התנגשויות ($count)';
   }
@@ -52597,4 +52593,8 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get settings_accounts_usage_backups => 'עותקי גיבוי';
+
+  @override
+  String get settings_backups_copyStops =>
+      'הגיבויים יפסיקו ליצור עותק מחוץ למכשיר הזה.';
 }

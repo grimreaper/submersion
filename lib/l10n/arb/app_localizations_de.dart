@@ -21927,10 +21927,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settings_cloudSync_header_advanced => 'Erweitert';
 
   @override
-  String get settings_cloudSync_signOut_backupWarning =>
-      'Cloud-Backup wird deaktiviert und Sicherungen werden am Standardspeicherort gespeichert.';
-
-  @override
   String settings_cloudSync_header_conflicts(Object count) {
     return 'Konflikte ($count)';
   }
@@ -53596,4 +53592,8 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settings_accounts_usage_backups => 'Sicherungskopien';
+
+  @override
+  String get settings_backups_copyStops =>
+      'Sicherungen erstellen dann keine Kopie mehr außerhalb dieses Geräts.';
 }
