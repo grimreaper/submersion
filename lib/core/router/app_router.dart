@@ -28,6 +28,7 @@ import 'package:submersion/features/setup_wizard/presentation/pages/setup_wizard
 import 'package:submersion/features/buddies/presentation/pages/buddy_detail_page.dart';
 import 'package:submersion/features/buddies/presentation/pages/buddy_edit_page.dart';
 import 'package:submersion/features/buddies/presentation/pages/buddy_merge_page.dart';
+import 'package:submersion/features/buddies/presentation/providers/buddy_providers.dart';
 import 'package:submersion/features/documents/domain/entities/document.dart';
 import 'package:submersion/features/documents/presentation/pages/document_detail_page.dart';
 import 'package:submersion/features/documents/presentation/pages/document_edit_page.dart';
@@ -153,6 +154,8 @@ import 'package:submersion/features/settings/presentation/pages/safety_review_se
 import 'package:submersion/features/settings/presentation/pages/language_settings_page.dart';
 import 'package:submersion/features/settings/presentation/pages/nav_customization_page.dart';
 import 'package:submersion/features/settings/presentation/pages/theme_gallery_page.dart';
+import 'package:submersion/features/settings/presentation/pages/data_tools_page.dart';
+import 'package:submersion/features/settings/presentation/pages/import_options_page.dart';
 import 'package:submersion/features/settings/presentation/pages/storage_settings_page.dart';
 import 'package:submersion/features/backup/presentation/pages/unrecognized_backups_page.dart';
 import 'package:submersion/features/settings/presentation/pages/storage_usage_page.dart';
@@ -218,6 +221,7 @@ import 'package:submersion/features/import_wizard/data/adapters/garmin_cloud_ada
 import 'package:submersion/features/import_wizard/data/adapters/suunto_cloud_adapter.dart';
 import 'package:submersion/features/import_wizard/data/adapters/suunto_file_adapter.dart';
 import 'package:submersion/core/services/suunto_cloud/suunto_json_file_reader.dart';
+import 'package:submersion/features/import_wizard/data/adapters/suunto_buddy_writer.dart';
 import 'package:submersion/features/import_wizard/data/adapters/suunto_route_writer.dart';
 import 'package:submersion/features/nav_track/presentation/providers/nav_track_providers.dart';
 import 'package:submersion/features/dashboard/presentation/pages/dashboard_page.dart';
@@ -1358,6 +1362,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 builder: (context, state) => const StorageSettingsPage(),
               ),
               GoRoute(
+                path: 'import-options',
+                name: 'importOptions',
+                builder: (context, state) => const ImportOptionsPage(),
+              ),
+              GoRoute(
+                path: 'data-tools',
+                name: 'dataTools',
+                builder: (context, state) => const DataToolsPage(),
+              ),
+              GoRoute(
                 path: 'storage-usage',
                 name: 'storageUsage',
                 builder: (context, state) => const StorageUsagePage(),
@@ -2267,6 +2281,9 @@ class _SuuntoCloudImportWizardRoute extends ConsumerWidget {
         diverId: diverId,
         routeWriter: SuuntoRouteWriter(
           repository: ref.watch(navTrackRepositoryProvider),
+        ),
+        buddyWriter: SuuntoBuddyWriter(
+          repository: ref.watch(buddyRepositoryProvider),
         ),
         ref: ref,
       ),

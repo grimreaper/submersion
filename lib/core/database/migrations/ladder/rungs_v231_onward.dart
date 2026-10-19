@@ -407,5 +407,19 @@ extension RungsFromV231 on AppDatabase {
       await _assertSharedLibrarySchema();
     }
     if (from < 291) await reportProgress();
+    // v292: shared_libraries.removals_json (issue #3481). Column only, filled
+    // from the library's removal records at the next sync; re-asserted in
+    // beforeOpen through _assertSharedLibrarySchema.
+    if (from < 292) {
+      await _assertSharedLibrarySchema();
+    }
+    if (from < 292) await reportProgress();
+    // v294: clears certifications.photo_front / photo_back wherever the
+    // v277 copy put the card in the documents store (issue #3502). Data
+    // step, rung only. 293 is claimed by the accounts work (#3482).
+    if (from < 294) {
+      await _clearCopiedCardPhotoColumns();
+    }
+    if (from < 294) await reportProgress();
   }
 }
