@@ -15850,5 +15850,6 @@
   "plannerCanvas_table_end": "END",
   "plannerCanvas_table_ppO2": "PO2",
   "settings_conflict_field_splitAtConfiguredRate": "Felosztás a beállított sebességgel",
-  "backup_restore_copyInOtherAccount": "A biztonsági mentés egyetlen másolata egy másik fiókban van. Válassza azt a fiókot a mentés másolatához, majd próbálja újra."
+  "backup_restore_copyInOtherAccount": "A biztonsági mentés egyetlen másolata egy másik fiókban van. Válassza azt a fiókot a mentés másolatához, majd próbálja újra.",
+  "settings_accounts_usage_backups": "Mentések másolatai"
 }

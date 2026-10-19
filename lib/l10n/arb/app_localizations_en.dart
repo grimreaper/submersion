@@ -52877,4 +52877,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get backup_restore_copyInOtherAccount =>
       'This backup\'s only copy is in another account. Choose that account for the backup copy, then try again.';
+
+  @override
+  String get settings_accounts_usage_backups => 'Backup copies';
 }

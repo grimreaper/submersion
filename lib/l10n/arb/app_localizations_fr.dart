@@ -53823,4 +53823,7 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get backup_restore_copyInOtherAccount =>
       'La seule copie de cette sauvegarde se trouve dans un autre compte. Choisissez ce compte pour la copie des sauvegardes, puis réessayez.';
+
+  @override
+  String get settings_accounts_usage_backups => 'Copies des sauvegardes';
 }

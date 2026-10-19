@@ -28,6 +28,7 @@ String accountUsageName(AppLocalizations l10n, AccountUsage usage) =>
         ),
       AccountUsageKind.lightroom =>
         l10n.settings_connectedAccounts_usage_lightroom,
+      AccountUsageKind.backupCopy => l10n.settings_accounts_usage_backups,
     };
 
 /// The sign-in state of an account on this device, as words.

@@ -53374,4 +53374,7 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get backup_restore_copyInOtherAccount =>
       'De enige kopie van deze back-up staat in een ander account. Kies dat account voor de back-upkopie en probeer het opnieuw.';
+
+  @override
+  String get settings_accounts_usage_backups => 'Back-upkopieën';
 }

@@ -16,6 +16,7 @@ import 'package:submersion/features/backup/data/services/backup_encryption_servi
 import 'package:submersion/features/backup/data/services/backup_service.dart';
 import 'package:submersion/features/backup/data/services/cloud_backup_history.dart';
 import 'package:submersion/features/backup/domain/entities/backup_record.dart';
+import 'package:submersion/features/backup/presentation/providers/backup_copy_providers.dart';
 import 'package:submersion/core/services/sync/crypto/sync_encryption_service.dart'
     show WrongPassphraseException;
 import 'package:submersion/features/backup/domain/exceptions/backup_encrypted_exception.dart';
@@ -47,10 +48,18 @@ final backupServiceProvider = Provider<BackupService>((ref) {
   // for minutes, and a rebuild of this provider meanwhile would leave the
   // hook holding an unmounted Ref that throws, failing the restore.
   final prefs = ref.watch(sharedPreferencesProvider);
+  final backupPreferences = ref.watch(backupPreferencesProvider);
+  final syncRepository = ref.watch(syncRepositoryProvider);
   return BackupService(
     dbAdapter: DefaultBackupDatabaseAdapter(DatabaseService.instance),
-    preferences: ref.watch(backupPreferencesProvider),
-    cloudProvider: ref.watch(cloudStorageProviderProvider),
+    preferences: backupPreferences,
+    cloudProvider: ref.watch(backupCopyProviderProvider),
+    syncRepository: syncRepository,
+    // Read when a copy is made, not now: the account the copy goes to is
+    // the one chosen, else sync's.
+    copyAccountId: () async =>
+        backupPreferences.getSettings().copyAccountId ??
+        await syncRepository.getSyncAccountId(),
     epochStore: LibraryEpochStore(ref.watch(sharedPreferencesProvider)),
     postRestoreSyncStore: PostRestoreSyncStore(
       ref.watch(sharedPreferencesProvider),

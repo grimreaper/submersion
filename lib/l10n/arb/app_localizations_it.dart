@@ -53710,4 +53710,7 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get backup_restore_copyInOtherAccount =>
       'L\'unica copia di questo backup si trova in un altro account. Scegli quell\'account per la copia dei backup, poi riprova.';
+
+  @override
+  String get settings_accounts_usage_backups => 'Copie dei backup';
 }

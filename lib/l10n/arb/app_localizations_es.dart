@@ -53756,4 +53756,7 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get backup_restore_copyInOtherAccount =>
       'La única copia de esta copia de seguridad está en otra cuenta. Elija esa cuenta para la copia de seguridad y vuelva a intentarlo.';
+
+  @override
+  String get settings_accounts_usage_backups => 'Copias de seguridad';
 }

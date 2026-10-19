@@ -53419,4 +53419,7 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get backup_restore_copyInOtherAccount =>
       'A biztonsági mentés egyetlen másolata egy másik fiókban van. Válassza azt a fiókot a mentés másolatához, majd próbálja újra.';
+
+  @override
+  String get settings_accounts_usage_backups => 'Mentések másolatai';
 }

@@ -582,18 +582,24 @@ final cloudStorageProviderProvider = Provider<CloudStorageProvider?>((ref) {
   } else {
     raw = cloudProviderInstanceFor(providerType);
   }
-  // End-to-end encryption: with an unlocked session, every byte through this
-  // provider is sealed/opened at the byte boundary (spec 4.1). No session
-  // (disabled, or enabled-but-locked) resolves to the raw provider; a locked
-  // library is detected downstream and halts with awaitingPassphrase.
-  final session = ref.watch(encryptionKeyNotifierProvider);
-  if (session == null) return raw;
-  return EncryptingCloudStorageProvider(
-    raw,
-    dataKey: session.dataKey,
-    libraryKeyId: session.key.libraryKeyId,
-  );
+  return wrapForLibrary(raw, ref.watch(encryptionKeyNotifierProvider));
 });
+
+/// End-to-end encryption: with an unlocked [session], every byte through
+/// [raw] is sealed/opened at the byte boundary (spec 4.1). No session
+/// (disabled, or enabled-but-locked) resolves to the raw provider; a locked
+/// library is detected downstream and halts with awaitingPassphrase. Shared
+/// by sync and the backup copy, so the two cannot seal differently.
+CloudStorageProvider wrapForLibrary(
+  CloudStorageProvider raw,
+  EncryptionSessionState? session,
+) => session == null
+    ? raw
+    : EncryptingCloudStorageProvider(
+        raw,
+        dataKey: session.dataKey,
+        libraryKeyId: session.key.libraryKeyId,
+      );
 
 /// Names peers published on their manifests, for labels that must not wait
 /// on a cloud listing.

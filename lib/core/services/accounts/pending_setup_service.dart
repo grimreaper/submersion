@@ -10,6 +10,7 @@ import 'package:submersion/core/services/accounts/account_provider_adapter.dart'
 import 'package:submersion/core/services/accounts/account_provider_registry.dart';
 import 'package:submersion/core/services/accounts/account_usage_service.dart';
 import 'package:submersion/core/services/media_store/media_store_attach_state.dart';
+import 'package:submersion/features/backup/data/repositories/backup_preferences.dart';
 import 'package:submersion/features/media_store/data/media_stores_repository.dart';
 
 /// What a device still needs to set up to match the library's synced
@@ -74,6 +75,7 @@ class PendingSetupService {
         AccountUsageService(
           attachState: _attachState,
           syncRepository: syncRepository,
+          backupPreferences: BackupPreferences(prefs),
         );
   }
 
@@ -187,6 +189,9 @@ class PendingSetupService {
     }
     if (kinds.contains(AccountUsageKind.mediaStorage)) {
       return '/settings/media-storage';
+    }
+    if (kinds.contains(AccountUsageKind.backupCopy)) {
+      return '/settings/backup';
     }
     return '/settings/connected-accounts/${account.id}';
   }

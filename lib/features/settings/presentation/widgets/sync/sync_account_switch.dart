@@ -10,7 +10,6 @@ import 'package:submersion/core/services/accounts/account_group.dart';
 import 'package:submersion/core/services/accounts/account_identity.dart';
 import 'package:submersion/core/services/accounts/account_kind.dart';
 import 'package:submersion/core/services/accounts/account_provider_adapter.dart';
-import 'package:submersion/core/services/accounts/account_usage_service.dart';
 import 'package:submersion/core/services/accounts/connected_account.dart';
 import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.dart';
 import 'package:submersion/core/services/cloud_storage/icloud_native_service.dart';
@@ -164,9 +163,7 @@ Future<void> selectProvider(
 }
 
 /// The account sync uses on this device, or null.
-AccountGroup? currentSyncGroup(List<AccountGroup> groups) => groups
-    .where((g) => g.usages.any((u) => u.kind == AccountUsageKind.databaseSync))
-    .firstOrNull;
+AccountGroup? currentSyncGroup(List<AccountGroup> groups) => groups.syncing;
 
 /// What choosing [choice] for sync will do, for the account sheet to show
 /// before it returns: today's "Switch sync backend?" text when this device

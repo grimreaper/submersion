@@ -85167,6 +85167,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This backup\'s only copy is in another account. Choose that account for the backup copy, then try again.'**
   String get backup_restore_copyInOtherAccount;
+
+  /// What an account is used for on this device: the backup copy goes to it
+  ///
+  /// In en, this message translates to:
+  /// **'Backup copies'**
+  String get settings_accounts_usage_backups;
 }
 
 class _AppLocalizationsDelegate

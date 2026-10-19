@@ -54395,4 +54395,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get backup_restore_copyInOtherAccount =>
       'النسخة الوحيدة من هذه النسخة الاحتياطية موجودة في حساب آخر. اختر ذلك الحساب لنسخة النسخ الاحتياطي، ثم حاول مرة أخرى.';
+
+  @override
+  String get settings_accounts_usage_backups => 'نسخ النسخ الاحتياطي';
 }

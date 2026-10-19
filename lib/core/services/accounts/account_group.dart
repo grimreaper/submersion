@@ -100,6 +100,11 @@ extension AccountGroupLookup on List<AccountGroup> {
   AccountGroup? holding(String? rowId) => rowId == null
       ? null
       : firstWhereOrNull((g) => g.rows.any((r) => r.id == rowId));
+
+  /// The account sync uses on this device, or null.
+  AccountGroup? get syncing => firstWhereOrNull(
+    (g) => g.usages.any((u) => u.kind == AccountUsageKind.databaseSync),
+  );
 }
 
 /// Groups roster rows into accounts (spec section 7.2).
@@ -223,7 +228,8 @@ AccountGroup _group(
 AccountRole? _usageRole(List<AccountUsage> usages) {
   for (final u in usages) {
     switch (u.kind) {
-      case AccountUsageKind.databaseSync:
+      // A backup copy goes through the account's sync-role row.
+      case AccountUsageKind.databaseSync || AccountUsageKind.backupCopy:
         return AccountRole.sync;
       case AccountUsageKind.mediaStorage:
         return AccountRole.media;

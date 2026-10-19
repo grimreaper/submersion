@@ -52594,4 +52594,7 @@ class AppLocalizationsHe extends AppLocalizations {
   @override
   String get backup_restore_copyInOtherAccount =>
       'העותק היחיד של הגיבוי הזה נמצא בחשבון אחר. בחרו בחשבון הזה לעותק הגיבוי ונסו שוב.';
+
+  @override
+  String get settings_accounts_usage_backups => 'עותקי גיבוי';
 }

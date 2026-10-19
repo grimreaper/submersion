@@ -14,6 +14,7 @@ import 'package:submersion/core/services/accounts/connected_account.dart'
 import 'package:submersion/core/services/cloud_storage/icloud_native_service.dart';
 import 'package:submersion/core/services/media_store/media_store_attach_state.dart';
 import 'package:submersion/core/services/sync/sync_event_bus.dart';
+import 'package:submersion/features/backup/presentation/providers/backup_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/pending_setup_card.dart';
@@ -84,6 +85,13 @@ final connectedAccountUsageProvider =
       // setCloudProvider notify the sync event bus) and the media store
       // attachment (every attach change fires markerMismatchChanges).
       final libraries = ref.watch(sharedLibraryStoreProvider);
+      // The backup copy's account is a device preference, read with the
+      // others; choosing or turning off the copy re-reads the usages.
+      ref.watch(
+        backupSettingsProvider.select(
+          (s) => (s.cloudBackupEnabled, s.copyAccountId),
+        ),
+      );
       ref
         ..invalidateSelfWhen(libraries.watchLibraries())
         ..invalidateSelfWhen(SyncEventBus.changes)
@@ -93,6 +101,7 @@ final connectedAccountUsageProvider =
           prefs: ref.watch(sharedPreferencesProvider),
         ),
         libraries: libraries,
+        backupPreferences: ref.watch(backupPreferencesProvider),
       ).load();
     }, retry: _noRetry);
 
