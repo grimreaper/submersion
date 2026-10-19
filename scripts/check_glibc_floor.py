@@ -38,8 +38,12 @@ import re
 import subprocess
 import sys
 
-# The glibc version docs/user/installation.md tells users they need.
+# The glibc version docs/user/installation.md tells users they need. The test
+# suite fails if the two disagree, so neither can move without the other.
 DEFAULT_MAX_GLIBC = "2.38"
+
+# A dotted numeric version, as --max accepts and GLIBC_ requirements carry.
+_VERSION_RE = re.compile(r"^\d+(?:\.\d+)+$")
 
 ELF_MAGIC = b"\x7fELF"
 
@@ -60,6 +64,15 @@ def parse_version(text):
     return tuple(int(part) for part in text.split("."))
 
 
+def glibc_version_arg(text):
+    """argparse type for --max: reject anything parse_version cannot read."""
+    if not _VERSION_RE.match(text):
+        raise argparse.ArgumentTypeError(
+            "expected a version such as 2.38, got %r" % text
+        )
+    return text
+
+
 def required_glibc_versions(readelf_output):
     """GLIBC versions named in the version needs section of `readelf -V`."""
     versions = set()
@@ -75,13 +88,18 @@ def required_glibc_versions(readelf_output):
 
 
 def read_version_info(path, readelf="readelf"):
-    """`readelf -V -W` output for one file."""
+    """`readelf -V -W` output for one file.
+
+    Run in the C locale: binutils translates its section headers, and the
+    parser above only understands the English ones.
+    """
     try:
         return subprocess.run(
             [readelf, "-V", "-W", path],
             check=True,
             capture_output=True,
             text=True,
+            env=dict(os.environ, LC_ALL="C"),
         ).stdout
     except FileNotFoundError:
         sys.exit(
@@ -120,15 +138,14 @@ def check_bundle(root, max_version, reader=read_version_info):
 
     ok = True
     lines = []
-    floor = None
+    highests = []
     for rel in files:
         versions = required_glibc_versions(reader(os.path.join(root, rel)))
         if not versions:
             lines.append("  ok    %s needs no GLIBC version" % rel)
             continue
         highest = max(versions, key=parse_version)
-        if floor is None or parse_version(highest) > parse_version(floor):
-            floor = highest
+        highests.append(highest)
         if parse_version(highest) > limit:
             ok = False
             lines.append(
@@ -137,12 +154,13 @@ def check_bundle(root, max_version, reader=read_version_info):
         else:
             lines.append("  ok    %s needs GLIBC_%s" % (rel, highest))
 
-    if floor is None:
+    if not highests:
         return False, lines + [
             "  FAIL  no GLIBC version requirement found in any ELF file; "
             "the readelf output was not understood"
         ]
 
+    floor = max(highests, key=parse_version)
     lines.append("  bundle needs glibc %s (limit %s)" % (floor, max_version))
     return ok, lines
 
@@ -155,6 +173,7 @@ def main(argv, reader=read_version_info):
     parser.add_argument(
         "--max",
         default=DEFAULT_MAX_GLIBC,
+        type=glibc_version_arg,
         help="highest GLIBC version the bundle may need (default %(default)s)",
     )
     parser.add_argument("bundles", nargs="+", metavar="bundle-root")

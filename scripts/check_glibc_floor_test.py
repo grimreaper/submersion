@@ -17,8 +17,11 @@ import contextlib
 import importlib.util
 import io
 import os
+import shutil
+import subprocess
 import tempfile
 import unittest
+from unittest import mock
 
 # Load the sibling script by path so the test runs from any working directory.
 _HERE = os.path.dirname(os.path.abspath(__file__))
@@ -27,6 +30,8 @@ _spec = importlib.util.spec_from_file_location(
 )
 guard = importlib.util.module_from_spec(_spec)
 _spec.loader.exec_module(guard)
+
+INSTALLATION_DOC = os.path.join(_HERE, os.pardir, "docs", "user", "installation.md")
 
 ELF_MAGIC = b"\x7fELF"
 
@@ -138,7 +143,7 @@ class BundleBuilder:
 
     def __init__(self, test, elf_files=None, other_files=()):
         self.root = tempfile.mkdtemp()
-        test.addCleanup(self._cleanup)
+        test.addCleanup(shutil.rmtree, self.root)
         self.outputs = {}
         for rel, output in (elf_files or {}).items():
             self._write(rel, ELF_MAGIC + b"\x02\x01\x01")
@@ -154,12 +159,6 @@ class BundleBuilder:
 
     def reader(self, path):
         return self.outputs[path]
-
-    def _cleanup(self):
-        for dirpath, _dirnames, filenames in os.walk(self.root, topdown=False):
-            for name in filenames:
-                os.unlink(os.path.join(dirpath, name))
-            os.rmdir(dirpath)
 
 
 class CheckBundleTests(unittest.TestCase):
@@ -242,7 +241,11 @@ class CheckBundleTests(unittest.TestCase):
                 "lib/libfoo.so.1": _readelf([("libc.so.6", ["GLIBC_2.17"])]),
             },
         )
-        os.symlink("libfoo.so.1", os.path.join(bundle.root, "lib", "libfoo.so"))
+        try:
+            os.symlink("libfoo.so.1", os.path.join(bundle.root, "lib", "libfoo.so"))
+        except OSError as error:
+            # Windows allows symlinks only with Developer Mode or admin rights.
+            self.skipTest("cannot create symlinks here: %s" % error)
         ok, lines = guard.check_bundle(bundle.root, "2.38", reader=bundle.reader)
         self.assertTrue(ok, lines)
         self.assertFalse(any("lib/libfoo.so " in line for line in lines), lines)
@@ -278,7 +281,24 @@ class MainTests(unittest.TestCase):
         self.assertEqual(raised.exception.code, 2)
 
     def test_default_limit_is_the_documented_floor(self):
-        self.assertEqual(guard.DEFAULT_MAX_GLIBC, "2.38")
+        # The guard and the installation docs make the same promise; raising
+        # one without the other ships a release the docs misdescribe.
+        with open(INSTALLATION_DOC, encoding="utf-8") as fh:
+            doc = fh.read()
+        self.assertIn(
+            "glibc %s or newer" % guard.DEFAULT_MAX_GLIBC,
+            doc,
+            "docs/user/installation.md and DEFAULT_MAX_GLIBC disagree",
+        )
+
+    def test_malformed_max_is_a_usage_error(self):
+        for bad in ("2.38a", "", "2", "latest"):
+            with self.subTest(max=bad):
+                with contextlib.redirect_stderr(io.StringIO()) as err:
+                    with self.assertRaises(SystemExit) as raised:
+                        self._run(["check_glibc_floor.py", "--max", bad, "bundle"])
+                self.assertEqual(raised.exception.code, 2)
+                self.assertIn("expected a version such as 2.38", err.getvalue())
 
     def test_passing_bundle_exits_zero(self):
         bundle = BundleBuilder(
@@ -314,11 +334,23 @@ class ReadelfTests(unittest.TestCase):
         self.assertIn("binutils", str(raised.exception.code))
 
     def test_failing_readelf_exits_naming_the_file(self):
-        # `false` stands in for readelf rejecting its input.
-        with self.assertRaises(SystemExit) as raised:
-            guard.read_version_info(__file__, readelf="false")
+        failure = subprocess.CalledProcessError(1, ["readelf", "-V", "-W", __file__])
+        with mock.patch.object(guard.subprocess, "run", side_effect=failure):
+            with self.assertRaises(SystemExit) as raised:
+                guard.read_version_info(__file__)
         self.assertIn("readelf failed on", str(raised.exception.code))
         self.assertIn(__file__, str(raised.exception.code))
+
+    def test_readelf_runs_in_the_c_locale(self):
+        # A translated binutils would print section headers the parser
+        # cannot read, and every bundle would fail as "not understood".
+        completed = subprocess.CompletedProcess([], 0, stdout="output")
+        with mock.patch.dict(os.environ, {"LC_ALL": "de_DE.UTF-8"}):
+            with mock.patch.object(
+                guard.subprocess, "run", return_value=completed
+            ) as run:
+                self.assertEqual(guard.read_version_info(__file__), "output")
+        self.assertEqual(run.call_args.kwargs["env"]["LC_ALL"], "C")
 
 
 if __name__ == "__main__":

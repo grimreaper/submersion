@@ -1407,7 +1407,8 @@ jobs:
       # compiles SQLCipher from source and links it against OpenSSL. The
       # hosted runner image happens to ship the headers today, so declaring
       # it keeps a future image change from silently breaking the build.
-      # binutils supplies readelf for the glibc floor check, on the same
+      # binutils supplies readelf for the glibc floor check and for
+      # scripts/linux_package_deps.py in the packaging step, on the same
       # reasoning.
       - name: Install Linux dependencies
         run: |
@@ -1462,7 +1463,7 @@ jobs:
       # call the same scripts, so they cannot drift.
       - name: Install packaging tools
         run: |
-          sudo apt-get install -y ruby ruby-dev build-essential rpm python3-pil binutils
+          sudo apt-get install -y ruby ruby-dev build-essential rpm python3-pil
           sudo gem install --no-document fpm
 
       - name: Build .deb and .rpm
