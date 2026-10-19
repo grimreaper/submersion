@@ -91,6 +91,37 @@ void main() {
     );
   });
 
+  group('with sync on Git', () {
+    // Git listing times are the writing device's own clock, so they cannot
+    // cap a peer whose clock runs fast: no early delete.
+    test('waits even once every peer published after the upload', () {
+      final policy = OrphanDeletePolicy(
+        now: now,
+        syncEnabled: true,
+        currentProviderId: 'git',
+        snapshot: snapshot(
+          providerId: 'git',
+          peerPublishedAfterUpload: const [Duration(days: 1)],
+        ),
+      );
+      expect(policy.deletesAllowed, isTrue);
+      expect(policy.verdictFor(upload), OrphanVerdict.wait);
+    });
+
+    test('still deletes once the grace window has passed', () {
+      final policy = OrphanDeletePolicy(
+        now: now,
+        syncEnabled: true,
+        currentProviderId: 'git',
+        snapshot: snapshot(providerId: 'git'),
+      );
+      expect(
+        policy.verdictFor(now.subtract(const Duration(days: 8))),
+        OrphanVerdict.delete,
+      );
+    });
+  });
+
   test('defers when sync is on and no snapshot exists', () {
     final policy = OrphanDeletePolicy(now: now, syncEnabled: true);
     expect(policy.deletesAllowed, isFalse);

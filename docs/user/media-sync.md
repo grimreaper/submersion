@@ -213,7 +213,9 @@ expects, and reports what it did:
 Submersion also runs this quietly in the background when no device has verified
 in the last 30 days and this device is on an unmetered connection. Recent files
 are given a grace period, so an upload still in progress is never mistaken for
-an orphan.
+an orphan. When database sync runs through a Git repository, every orphan waits
+the full seven days before it is removed: Git records each device's own clock,
+so Submersion cannot be sure when other devices last synced.
 
 **Export media report** writes a report of your media and its storage, useful
 for a bug report. The report lists file paths and device names; nothing is sent

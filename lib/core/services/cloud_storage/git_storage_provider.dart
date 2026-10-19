@@ -99,6 +99,10 @@ class GitStorageProvider
 
   static const String backupFolderName = 'Submersion Backups';
 
+  /// [providerId], for code that must treat Git differently: its listing
+  /// times are each writer's own clock, not the host's.
+  static const String id = 'git';
+
   /// The one file allowed into a public repository before encryption is on.
   static const String _keyslotPath =
       '${CloudStorageProviderMixin.syncFolderName}/${KeyslotFile.cloudFileName}';
@@ -170,7 +174,7 @@ class GitStorageProvider
   String get providerName => 'Git';
 
   @override
-  String get providerId => 'git';
+  String get providerId => id;
 
   @override
   Future<bool> isAvailable() async => true;

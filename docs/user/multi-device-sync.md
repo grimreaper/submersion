@@ -178,8 +178,9 @@ itself over HTTPS, so nothing else needs to be installed on your devices.
 **What to enter:**
 
 - **Repository address:** the HTTPS address you would clone from, for example
-  `https://github.com/you/dive-log.git`. The web address of the repository works
-  too.
+  `https://github.com/you/dive-log.git`. On GitHub, GitLab, Bitbucket, Gitea
+  and Forgejo the repository's web address works too; on any other host, paste
+  the clone address exactly as the host shows it.
 - **Username and access token:** create a token on the host that can push to
   this one repository. The setup screen shows which kind to create for the host
   in your address:
@@ -211,7 +212,8 @@ itself over HTTPS, so nothing else needs to be installed on your devices.
 [Encrypted Sync](encrypted-sync.md) turned on, so your dive data is never
 readable by others. If the repository is public, Submersion saves the settings
 but does not sync until you turn encryption on, and it will not let you turn
-encryption off while the repository stays public.
+encryption off while the repository stays public. Cloud backups to a public
+repository also need backup encryption: an unencrypted backup is refused.
 
 ## Troubleshooting
 
