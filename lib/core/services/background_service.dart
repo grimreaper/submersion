@@ -254,7 +254,7 @@ Future<BackupService> buildScheduledBackupService({
   return BackupService(
     dbAdapter: dbAdapter,
     preferences: BackupPreferences(prefs),
-    cloudProvider: await resolveHeadlessCloudProvider(
+    cloudProvider: await resolveHeadlessBackupCopyProvider(
       prefs: prefs,
       encryptionKeyStore: encryptionKeyStore,
       instanceFor: instanceFor,

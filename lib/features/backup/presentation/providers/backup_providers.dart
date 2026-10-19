@@ -48,18 +48,11 @@ final backupServiceProvider = Provider<BackupService>((ref) {
   // for minutes, and a rebuild of this provider meanwhile would leave the
   // hook holding an unmounted Ref that throws, failing the restore.
   final prefs = ref.watch(sharedPreferencesProvider);
-  final backupPreferences = ref.watch(backupPreferencesProvider);
-  final syncRepository = ref.watch(syncRepositoryProvider);
   return BackupService(
     dbAdapter: DefaultBackupDatabaseAdapter(DatabaseService.instance),
-    preferences: backupPreferences,
+    preferences: ref.watch(backupPreferencesProvider),
     cloudProvider: ref.watch(backupCopyProviderProvider),
-    syncRepository: syncRepository,
-    // Read when a copy is made, not now: the account the copy goes to is
-    // the one chosen, else sync's.
-    copyAccountId: () async =>
-        backupPreferences.getSettings().copyAccountId ??
-        await syncRepository.getSyncAccountId(),
+    syncRepository: ref.watch(syncRepositoryProvider),
     epochStore: LibraryEpochStore(ref.watch(sharedPreferencesProvider)),
     postRestoreSyncStore: PostRestoreSyncStore(
       ref.watch(sharedPreferencesProvider),

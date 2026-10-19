@@ -124,10 +124,6 @@ class BackupService {
   /// species catalog to the restored rows.
   final BuiltInSpeciesSeedVersionStore? _seedVersionStore;
 
-  /// The roster row of the account the cloud copy goes to; defaults to the
-  /// sync account, which is where the copy goes unless one is chosen.
-  final Future<String?> Function()? _copyAccountId;
-
   /// SAF write/read/delete seam for Android custom (`content://`) backup
   /// locations. Defaults to the real platform channel; injectable for tests.
   final BackupSafPort _safPort;
@@ -150,7 +146,6 @@ class BackupService {
     SyncPreferences? syncPreferences,
     BackupEncryptionKeyStore? backupEncryptionKeyStore,
     BuiltInSpeciesSeedVersionStore? seedVersionStore,
-    Future<String?> Function()? copyAccountId,
   }) : _dbAdapter = dbAdapter,
        _preferences = preferences,
        _cloudProvider = cloudProvider,
@@ -162,8 +157,7 @@ class BackupService {
        _encryptionKeyStore = encryptionKeyStore,
        _syncPreferences = syncPreferences,
        _backupEncryptionKeyStore = backupEncryptionKeyStore,
-       _seedVersionStore = seedVersionStore,
-       _copyAccountId = copyAccountId;
+       _seedVersionStore = seedVersionStore;
 
   // ===========================================================================
   // Backup
@@ -1588,11 +1582,13 @@ class BackupService {
     );
   }
 
-  /// The connected account the cloud copy goes to, or null when it cannot be
-  /// read: a missing name only makes Settings > Data say "the cloud".
+  /// The connected account the cloud copy goes to: the one chosen for it,
+  /// else sync's. Null when it cannot be read: a missing name only makes
+  /// Settings > Data say "the cloud".
   Future<String?> _copyAccountIdOrNull() async {
     try {
-      return await (_copyAccountId ?? _syncRepository.getSyncAccountId)();
+      return _preferences.getSettings().copyAccountId ??
+          await _syncRepository.getSyncAccountId();
     } catch (e, stack) {
       _log.warning(
         'Could not read the copy account for the backup record',

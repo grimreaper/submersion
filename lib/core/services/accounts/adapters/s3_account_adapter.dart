@@ -4,6 +4,7 @@ import 'package:submersion/core/services/accounts/account_credentials_store.dart
 import 'package:submersion/core/services/accounts/account_identity.dart';
 import 'package:submersion/core/services/accounts/account_kind.dart';
 import 'package:submersion/core/services/accounts/account_provider_adapter.dart';
+import 'package:submersion/core/services/accounts/account_sync_providers.dart';
 import 'package:submersion/core/services/accounts/connected_account.dart'
     as domain;
 import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.dart';
@@ -78,11 +79,7 @@ class S3AccountAdapter extends AccountProviderAdapter
 
   @override
   CloudStorageProvider syncProvider(domain.ConnectedAccount account) =>
-      S3StorageProvider(
-        store: S3CredentialsStore(
-          storageKey: AccountCredentialsStore.keyFor(account.id),
-        ),
-      );
+      s3SyncProviderFor(account.id);
 
   @override
   Future<MediaObjectStore?> mediaObjectStore(

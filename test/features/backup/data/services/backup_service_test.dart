@@ -9,6 +9,7 @@ import 'package:sqlite3/sqlite3.dart' as sqlite3;
 
 import 'package:submersion/core/data/repositories/sync_repository.dart';
 import 'package:submersion/core/database/database.dart';
+import 'package:submersion/core/services/accounts/account_kind.dart';
 import 'package:submersion/core/services/backup_bookmark_service.dart';
 import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.dart';
 import 'package:submersion/core/services/restore_source_missing_exception.dart';
@@ -837,12 +838,19 @@ void main() {
         cloudAccountId: account,
       );
 
-      BackupService service({String? copyAccount = 'acct-b'}) => BackupService(
+      // The copy is pinned to acct-b; sync uses acct-sync.
+      setUp(
+        () => preferences.setCopyDestination(
+          accountId: 'acct-b',
+          kind: AccountKind.s3,
+        ),
+      );
+
+      BackupService service() => BackupService(
         dbAdapter: fakeDb,
         preferences: preferences,
         cloudProvider: fakeCloud,
         syncRepository: _SyncAccountRepository('acct-sync'),
-        copyAccountId: () async => copyAccount,
       );
 
       test('a new cloud copy records the copy account, not sync', () async {
