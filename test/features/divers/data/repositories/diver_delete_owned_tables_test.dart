@@ -414,6 +414,17 @@ void main() {
             ),
           );
       await db
+          .into(db.checklistTemplateSections)
+          .insert(
+            ChecklistTemplateSectionsCompanion.insert(
+              id: 'cts-a',
+              templateId: 'ct-a',
+              title: 'Documents',
+              createdAt: stale,
+              updatedAt: stale,
+            ),
+          );
+      await db
           .into(db.checklistTemplateItems)
           .insert(
             ChecklistTemplateItemsCompanion.insert(
@@ -426,6 +437,7 @@ void main() {
           );
       return [
         ('checklist_templates', 'checklistTemplates', 'ct-a'),
+        ('checklist_template_sections', 'checklistTemplateSections', 'cts-a'),
         ('checklist_template_items', 'checklistTemplateItems', 'cti-a'),
       ];
     },
@@ -437,6 +449,17 @@ void main() {
               id: 'pdt-a',
               name: 'CCR build',
               diverId: const Value('diver-a'),
+              createdAt: stale,
+              updatedAt: stale,
+            ),
+          );
+      await db
+          .into(db.preDiveChecklistTemplateSections)
+          .insert(
+            PreDiveChecklistTemplateSectionsCompanion.insert(
+              id: 'pdts-a',
+              templateId: 'pdt-a',
+              title: 'Cells',
               createdAt: stale,
               updatedAt: stale,
             ),
@@ -454,6 +477,11 @@ void main() {
           );
       return [
         ('pre_dive_checklist_templates', 'preDiveChecklistTemplates', 'pdt-a'),
+        (
+          'pre_dive_checklist_template_sections',
+          'preDiveChecklistTemplateSections',
+          'pdts-a',
+        ),
         (
           'pre_dive_checklist_template_items',
           'preDiveChecklistTemplateItems',
@@ -475,6 +503,17 @@ void main() {
             ),
           );
       await db
+          .into(db.preDiveSessionSections)
+          .insert(
+            PreDiveSessionSectionsCompanion.insert(
+              id: 'pdss-a',
+              sessionId: 'pds-a',
+              title: 'Cells',
+              createdAt: stale,
+              updatedAt: stale,
+            ),
+          );
+      await db
           .into(db.preDiveSessionItems)
           .insert(
             PreDiveSessionItemsCompanion.insert(
@@ -487,6 +526,7 @@ void main() {
           );
       return [
         ('pre_dive_sessions', 'preDiveSessions', 'pds-a'),
+        ('pre_dive_session_sections', 'preDiveSessionSections', 'pdss-a'),
         ('pre_dive_session_items', 'preDiveSessionItems', 'pdsi-a'),
       ];
     },
@@ -503,6 +543,17 @@ void main() {
               startDate: stale,
               endDate: stale,
               diverId: const Value('diver-a'),
+              createdAt: stale,
+              updatedAt: stale,
+            ),
+          );
+      await db
+          .into(db.tripChecklistSections)
+          .insert(
+            TripChecklistSectionsCompanion.insert(
+              id: 'tcs-a',
+              tripId: 'trip-a',
+              title: 'Documents',
               createdAt: stale,
               updatedAt: stale,
             ),
@@ -533,6 +584,7 @@ void main() {
             ),
           );
       return [
+        ('trip_checklist_sections', 'tripChecklistSections', 'tcs-a'),
         ('trip_checklist_items', 'tripChecklistItems', 'tci-a'),
         ('trip_day_weather', 'tripDayWeather', 'tdw-a'),
       ];
@@ -855,6 +907,7 @@ void main() {
     // here.
     const clearedReferences = {
       'checklist_template_items.template_id',
+      'checklist_template_sections.template_id',
       'dive_plan_mission_legs.plan_id',
       'dive_plan_mission_members.plan_id',
       'dive_plan_missions.plan_id',
@@ -869,7 +922,9 @@ void main() {
       'dives.trip_id',
       'liveaboard_detail_records.trip_id',
       'pre_dive_checklist_template_items.template_id',
+      'pre_dive_checklist_template_sections.template_id',
       'trip_checklist_items.trip_id',
+      'trip_checklist_sections.trip_id',
       'trip_day_weather.trip_id',
       'trip_cylinders.trip_id',
       'trip_itinerary_days.trip_id',

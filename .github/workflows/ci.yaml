@@ -410,6 +410,12 @@ jobs:
       - name: Unpack generated code
         run: tar -xzf generated-code.tar.gz
 
+      - name: Check git for the Git backend interop tests
+        # The Git sync backend's tests run stock git (git http-backend and
+        # git index-pack) against the pure-Dart client. They skip without
+        # git locally but must never skip here; fail loudly instead.
+        run: git --version
+
       - name: Run tests
         # `flutter test` compiles and loads every test file as its own
         # entrypoint, and --coverage collects a hit map per entrypoint, so the

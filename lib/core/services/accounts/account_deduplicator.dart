@@ -7,6 +7,7 @@ import 'package:submersion/core/services/accounts/account_identity.dart';
 import 'package:submersion/core/services/accounts/account_kind.dart';
 import 'package:submersion/core/services/accounts/connected_account.dart'
     as domain;
+import 'package:submersion/core/services/cloud_storage/git/git_credentials_store.dart';
 import 'package:submersion/core/services/cloud_storage/s3/s3_credentials_store.dart';
 import 'package:submersion/core/services/cloud_storage/webdav/webdav_credentials_store.dart';
 import 'package:submersion/core/services/logger_service.dart';
@@ -179,6 +180,15 @@ class AccountDeduplicator {
       return accountIdFor(
         kind: AccountKind.webdav,
         naturalKey: webdavNaturalKey(config),
+      );
+    }
+    if (row.kind == AccountKind.git) {
+      // Like WebDAV: the per-account blob is the repository and branch.
+      final config = decodeGitConfig(await _credentials.read(row.id));
+      if (config == null) return null;
+      return accountIdFor(
+        kind: AccountKind.git,
+        naturalKey: gitNaturalKey(config),
       );
     }
     final key = naturalKeyForKind(row.kind);

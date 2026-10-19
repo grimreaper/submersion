@@ -4560,6 +4560,43 @@ class AppLocalizationsAr extends AppLocalizations {
   String get checklists_template_addItem => 'إضافة عنصر';
 
   @override
+  String get sectionEditor_addSection => 'إضافة قسم';
+
+  @override
+  String get sectionEditor_newSectionTitle => 'قسم جديد';
+
+  @override
+  String get sectionEditor_noSection => 'بلا قسم';
+
+  @override
+  String sectionEditor_delete_title(String title) {
+    return 'حذف \"$title\"؟';
+  }
+
+  @override
+  String sectionEditor_delete_content(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'ماذا يجب أن يحدث لعناصره البالغ عددها $count؟',
+      many: 'ماذا يجب أن يحدث لعناصره البالغ عددها $count؟',
+      few: 'ماذا يجب أن يحدث لعناصره البالغ عددها $count؟',
+      two: 'ماذا يجب أن يحدث لعنصريه؟',
+      one: 'ماذا يجب أن يحدث لعنصره الواحد؟',
+      zero: 'لا يحتوي هذا القسم على عناصر.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String sectionEditor_delete_moveTo(String title) {
+    return 'نقل العناصر إلى \"$title\"';
+  }
+
+  @override
+  String get sectionEditor_delete_deleteItems => 'حذف العناصر أيضًا';
+
+  @override
   String get preDive_templates_title => 'قوائم تحقق ما قبل الغوص';
 
   @override
@@ -22354,6 +22391,17 @@ class AppLocalizationsAr extends AppLocalizations {
   String get settings_cloudSync_provider_webdav_title => 'WebDAV';
 
   @override
+  String get settings_cloudSync_provider_git_title => 'Git';
+
+  @override
+  String get settings_cloudSync_provider_git_subtitle => 'أي خادم Git';
+
+  @override
+  String settings_cloudSync_provider_git_lastReset(String date) {
+    return 'آخر إعادة تعيين للسجل: $date';
+  }
+
+  @override
   String get settings_cloudSync_resolveConflicts => 'حل التعارضات';
 
   @override
@@ -25148,7 +25196,23 @@ class AppLocalizationsAr extends AppLocalizations {
       'قالب قائمة التحقق قبل الغوص';
 
   @override
+  String get settings_conflict_ref_preDiveChecklistTemplateSection =>
+      'قسم من قالب قائمة التحقق قبل الغوص';
+
+  @override
   String get settings_conflict_ref_preDiveSession => 'قائمة التحقق قبل الغوص';
+
+  @override
+  String get settings_conflict_ref_preDiveSessionSection =>
+      'قسم من قائمة التحقق قبل الغوص';
+
+  @override
+  String get settings_conflict_ref_checklistTemplateSection =>
+      'قسم من قالب قائمة التحقق';
+
+  @override
+  String get settings_conflict_ref_tripChecklistSection =>
+      'قسم من قائمة التحقق';
 
   @override
   String get settings_conflict_ref_regulator => 'المنظم';
@@ -26755,6 +26819,192 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get settings_s3Config_warning_http =>
       'تستخدم نقطة النهاية هذه HTTP غير مشفّر. ستنتقل بيانات الاعتماد وبيانات الغوص دون تشفير؛ استخدمه فقط على شبكة موثوقة.';
+
+  @override
+  String get settings_gitConfig_action_testConnection => 'اختبار الاتصال';
+
+  @override
+  String get settings_gitConfig_appBar_title => 'Git';
+
+  @override
+  String settings_gitConfig_error_branchHasOtherContent(String branch) {
+    return 'الفرع $branch يحتوي على محتوى آخر بالفعل. اختر اسم فرع جديدًا: يعيد Submersion تعيين سجل فرعه.';
+  }
+
+  @override
+  String get settings_gitConfig_error_forbidden =>
+      'لا يمكن لهذا الرمز الدفع إلى المستودع. امنحه صلاحية الكتابة على محتوى المستودع.';
+
+  @override
+  String settings_gitConfig_error_indexUnreadable(String branch) {
+    return 'فهرس الملفات في الفرع $branch مفقود أو تالف أو من إصدار أحدث من Submersion. توقفت المزامنة حتى لا تُفقد أي ملفات؛ حدّث Submersion أو اختر فرعًا جديدًا.';
+  }
+
+  @override
+  String get settings_gitConfig_error_invalidConfig =>
+      'تحقق من بيانات المستودع.';
+
+  @override
+  String get settings_gitConfig_error_notFound =>
+      'لا يوجد مستودع على هذا العنوان. تحقق من العنوان، ومن أن الرمز يستطيع رؤية المستودع.';
+
+  @override
+  String get settings_gitConfig_error_notGit => 'هذا العنوان ليس مستودع Git.';
+
+  @override
+  String settings_gitConfig_error_protectedBranch(String branch) {
+    return 'رفض الخادم إعادة تعيين سجل $branch. اسمح بـ force push على الفرع $branch في إعدادات حماية الفروع لدى الخادم.';
+  }
+
+  @override
+  String get settings_gitConfig_error_publicRepoUnencrypted =>
+      'المستودع عام. فعّل المزامنة المشفرة، أو اجعل المستودع خاصًا.';
+
+  @override
+  String get settings_gitConfig_error_rateLimited =>
+      'الخادم يحدّ من الطلبات. سيحاول Submersion مرة أخرى لاحقًا.';
+
+  @override
+  String get settings_gitConfig_error_secureStorage =>
+      'تعذر الوصول إلى التخزين الآمن';
+
+  @override
+  String get settings_gitConfig_error_server =>
+      'أبلغ الخادم عن خطأ. حاول مرة أخرى لاحقًا.';
+
+  @override
+  String get settings_gitConfig_error_staleTip =>
+      'غيّر جهاز آخر المستودع في اللحظة نفسها. حاول مرة أخرى.';
+
+  @override
+  String settings_gitConfig_error_tooLarge(String size) {
+    return 'رفض الخادم ملفًا حجمه $size ميغابايت لأنه كبير جدًا.';
+  }
+
+  @override
+  String get settings_gitConfig_error_tooLargeUnknown =>
+      'رفض الخادم ملفًا لأنه كبير جدًا.';
+
+  @override
+  String get settings_gitConfig_error_unauthorized =>
+      'رفض الخادم اسم المستخدم أو الرمز. إذا انتهت صلاحية الرمز، فأنشئ رمزًا جديدًا والصقه هنا.';
+
+  @override
+  String get settings_gitConfig_error_unexpected =>
+      'أعطى الخادم ردًا غير متوقع.';
+
+  @override
+  String settings_gitConfig_error_unreachable(String host) {
+    return 'تعذر الوصول إلى $host.';
+  }
+
+  @override
+  String get settings_gitConfig_error_untrusted => 'شهادة الخادم غير موثوقة.';
+
+  @override
+  String get settings_gitConfig_field_branch_helper =>
+      'يحتفظ Submersion بهذا الفرع لنفسه ويعيد تعيين سجله من حين لآخر، حتى يبقى المستودع صغيرًا. لا تُمس فروعك الأخرى أبدًا.';
+
+  @override
+  String get settings_gitConfig_field_branch_label => 'الفرع';
+
+  @override
+  String get settings_gitConfig_field_repoUrl_helper =>
+      'عنوان HTTPS الذي ستستنسخ منه';
+
+  @override
+  String get settings_gitConfig_field_repoUrl_hint =>
+      'https://github.com/you/dive-log.git';
+
+  @override
+  String get settings_gitConfig_field_repoUrl_label => 'عنوان المستودع';
+
+  @override
+  String get settings_gitConfig_field_token_label => 'رمز الوصول';
+
+  @override
+  String get settings_gitConfig_field_username_label => 'اسم المستخدم';
+
+  @override
+  String get settings_gitConfig_host_bitbucket =>
+      'Bitbucket: أنشئ رمز API بصلاحية القراءة والكتابة على المستودع. كلمات مرور التطبيقات لم تعد تعمل.';
+
+  @override
+  String get settings_gitConfig_host_gitea =>
+      'Gitea أو Forgejo: أنشئ رمز وصول بالنطاق write:repository.';
+
+  @override
+  String get settings_gitConfig_host_github =>
+      'GitHub: أنشئ رمزًا من نوع fine-grained لهذا المستودع وحده، مع Contents: read and write.';
+
+  @override
+  String get settings_gitConfig_host_gitlab =>
+      'GitLab: أنشئ رمز وصول شخصيًا أو خاصًا بالمشروع بالنطاق write_repository. تنتهي صلاحية رموز GitLab خلال عام.';
+
+  @override
+  String get settings_gitConfig_host_other =>
+      'استخدم رمز وصول أو كلمة مرور يمكنها الدفع إلى هذا المستودع.';
+
+  @override
+  String get settings_gitConfig_host_tokenHelp => 'كيفية إنشاء رمز';
+
+  @override
+  String get settings_gitConfig_keepEncryption_body =>
+      'تذهب المزامنة إلى مستودع Git عام. اجعل المستودع خاصًا لدى الخادم قبل إيقاف التشفير.';
+
+  @override
+  String get settings_gitConfig_keepEncryption_title =>
+      'يجب أن يبقى التشفير مفعّلًا';
+
+  @override
+  String get settings_gitConfig_public_body =>
+      'يمكن لأي شخص قراءة المستودع العام، لذلك لا يزامن Submersion معه إلا والتشفير مفعّل. فعّل المزامنة المشفرة بعد ذلك، أو اجعل المستودع خاصًا لدى الخادم.';
+
+  @override
+  String get settings_gitConfig_public_saved =>
+      'تم الحفظ. فعّل المزامنة المشفرة أدناه لبدء المزامنة.';
+
+  @override
+  String get settings_gitConfig_public_title => 'هذا المستودع عام';
+
+  @override
+  String get settings_gitConfig_saved => 'حُفظت إعدادات Git';
+
+  @override
+  String settings_gitConfig_test_becomesDefault(String branch) {
+    return 'هذا المستودع فارغ، لذلك سيصبح $branch الفرع الافتراضي له. الأفضل مستودع مخصص لـ Submersion وحده.';
+  }
+
+  @override
+  String settings_gitConfig_test_successExisting(String branch) {
+    return 'متصل بفرع Submersion $branch.';
+  }
+
+  @override
+  String settings_gitConfig_test_successNew(String branch) {
+    return 'متصل. سينشئ Submersion الفرع $branch.';
+  }
+
+  @override
+  String get settings_gitConfig_validation_branch => 'أدخل اسم فرع صالحًا';
+
+  @override
+  String get settings_gitConfig_validation_credentialsInUrl =>
+      'ضع اسم المستخدم والرمز في حقليهما، لا في العنوان';
+
+  @override
+  String get settings_gitConfig_validation_repoUrl =>
+      'أدخل عنوان المستودع، بدءًا بـ https://';
+
+  @override
+  String get settings_gitConfig_validation_token => 'أدخل رمز الوصول';
+
+  @override
+  String get settings_gitConfig_validation_tokenSpaces =>
+      'لا يمكن أن يحتوي رمز الوصول على مسافات';
+
+  @override
+  String get settings_gitConfig_validation_username => 'أدخل اسم المستخدم';
 
   @override
   String get settings_webdavConfig_action_forgetCertificate => 'نسيان';

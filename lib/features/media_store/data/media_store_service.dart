@@ -78,6 +78,10 @@ Future<MediaObjectStore?> buildMediaObjectStore(
       // resolves it with buildMediaObjectStoreForAccount; there is no
       // pre-account WebDAV attachment to rebuild here.
       return null;
+    case CloudProviderType.git:
+      // Never a media store: photos and videos in Git history would grow
+      // the repository without bound.
+      return null;
   }
 }
 

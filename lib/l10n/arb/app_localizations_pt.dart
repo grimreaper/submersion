@@ -4477,6 +4477,40 @@ class AppLocalizationsPt extends AppLocalizations {
   String get checklists_template_addItem => 'Adicionar item';
 
   @override
+  String get sectionEditor_addSection => 'Adicionar seção';
+
+  @override
+  String get sectionEditor_newSectionTitle => 'Nova seção';
+
+  @override
+  String get sectionEditor_noSection => 'Sem seção';
+
+  @override
+  String sectionEditor_delete_title(String title) {
+    return 'Excluir \"$title\"?';
+  }
+
+  @override
+  String sectionEditor_delete_content(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'O que deve acontecer com seus $count itens?',
+      one: 'O que deve acontecer com seu $count item?',
+      zero: 'Esta seção não tem itens.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String sectionEditor_delete_moveTo(String title) {
+    return 'Mover itens para \"$title\"';
+  }
+
+  @override
+  String get sectionEditor_delete_deleteItems => 'Excluir os itens também';
+
+  @override
   String get preDive_templates_title => 'Listas de Verificação Pré-Mergulho';
 
   @override
@@ -22068,6 +22102,18 @@ class AppLocalizationsPt extends AppLocalizations {
   String get settings_cloudSync_provider_webdav_title => 'WebDAV';
 
   @override
+  String get settings_cloudSync_provider_git_title => 'Git';
+
+  @override
+  String get settings_cloudSync_provider_git_subtitle =>
+      'Qualquer servidor Git';
+
+  @override
+  String settings_cloudSync_provider_git_lastReset(String date) {
+    return 'Histórico redefinido pela última vez: $date';
+  }
+
+  @override
   String get settings_cloudSync_resolveConflicts => 'Resolver Conflitos';
 
   @override
@@ -24939,7 +24985,23 @@ class AppLocalizationsPt extends AppLocalizations {
       'Modelo de lista pré-mergulho';
 
   @override
+  String get settings_conflict_ref_preDiveChecklistTemplateSection =>
+      'Seção do modelo de lista pré-mergulho';
+
+  @override
   String get settings_conflict_ref_preDiveSession => 'Lista pré-mergulho';
+
+  @override
+  String get settings_conflict_ref_preDiveSessionSection =>
+      'Seção da lista pré-mergulho';
+
+  @override
+  String get settings_conflict_ref_checklistTemplateSection =>
+      'Seção do modelo de lista de verificação';
+
+  @override
+  String get settings_conflict_ref_tripChecklistSection =>
+      'Seção da lista de verificação';
 
   @override
   String get settings_conflict_ref_regulator => 'Regulador';
@@ -26518,6 +26580,196 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get settings_s3Config_warning_http =>
       'Este endpoint usa HTTP sem criptografia. Credenciais e dados de mergulho trafegarão sem criptografia; use apenas em uma rede confiável.';
+
+  @override
+  String get settings_gitConfig_action_testConnection => 'Testar conexão';
+
+  @override
+  String get settings_gitConfig_appBar_title => 'Git';
+
+  @override
+  String settings_gitConfig_error_branchHasOtherContent(String branch) {
+    return 'O branch $branch já tem outro conteúdo. Escolha outro nome de branch: o Submersion redefine o histórico do branch dele.';
+  }
+
+  @override
+  String get settings_gitConfig_error_forbidden =>
+      'Este token não pode fazer push no repositório. Dê a ele acesso de escrita ao conteúdo do repositório.';
+
+  @override
+  String settings_gitConfig_error_indexUnreadable(String branch) {
+    return 'O índice de arquivos do branch $branch está ausente, danificado ou é de uma versão mais nova do Submersion. A sincronização parou para não perder arquivos; atualize o Submersion ou escolha um novo branch.';
+  }
+
+  @override
+  String get settings_gitConfig_error_invalidConfig =>
+      'Verifique os dados do repositório.';
+
+  @override
+  String get settings_gitConfig_error_notFound =>
+      'Não há repositório neste endereço. Verifique o endereço e se o token pode ver o repositório.';
+
+  @override
+  String get settings_gitConfig_error_notGit =>
+      'Este endereço não é um repositório Git.';
+
+  @override
+  String settings_gitConfig_error_protectedBranch(String branch) {
+    return 'O servidor não permitiu redefinir o histórico de $branch. Permita force push no branch $branch nas configurações de proteção de branches do servidor.';
+  }
+
+  @override
+  String get settings_gitConfig_error_publicRepoUnencrypted =>
+      'O repositório é público. Ative a sincronização criptografada ou torne o repositório privado.';
+
+  @override
+  String get settings_gitConfig_error_rateLimited =>
+      'O servidor está limitando as solicitações. O Submersion tentará de novo mais tarde.';
+
+  @override
+  String get settings_gitConfig_error_secureStorage =>
+      'Não foi possível acessar o armazenamento seguro';
+
+  @override
+  String get settings_gitConfig_error_server =>
+      'O servidor informou um erro. Tente de novo mais tarde.';
+
+  @override
+  String get settings_gitConfig_error_staleTip =>
+      'Outro dispositivo alterou o repositório no mesmo momento. Tente de novo.';
+
+  @override
+  String settings_gitConfig_error_tooLarge(String size) {
+    return 'O servidor recusou um arquivo de $size MB por ser grande demais.';
+  }
+
+  @override
+  String get settings_gitConfig_error_tooLargeUnknown =>
+      'O servidor recusou um arquivo por ser grande demais.';
+
+  @override
+  String get settings_gitConfig_error_unauthorized =>
+      'O servidor recusou o usuário ou o token. Se o token expirou, crie um novo e cole aqui.';
+
+  @override
+  String get settings_gitConfig_error_unexpected =>
+      'O servidor deu uma resposta inesperada.';
+
+  @override
+  String settings_gitConfig_error_unreachable(String host) {
+    return 'Não foi possível acessar $host.';
+  }
+
+  @override
+  String get settings_gitConfig_error_untrusted =>
+      'O certificado do servidor não é confiável.';
+
+  @override
+  String get settings_gitConfig_field_branch_helper =>
+      'O Submersion usa este branch só para ele e redefine o histórico de tempos em tempos, para o repositório continuar pequeno. Seus outros branches nunca são alterados.';
+
+  @override
+  String get settings_gitConfig_field_branch_label => 'Branch';
+
+  @override
+  String get settings_gitConfig_field_repoUrl_helper =>
+      'O endereço HTTPS de onde você clonaria';
+
+  @override
+  String get settings_gitConfig_field_repoUrl_hint =>
+      'https://github.com/you/dive-log.git';
+
+  @override
+  String get settings_gitConfig_field_repoUrl_label =>
+      'Endereço do repositório';
+
+  @override
+  String get settings_gitConfig_field_token_label => 'Token de acesso';
+
+  @override
+  String get settings_gitConfig_field_username_label => 'Usuário';
+
+  @override
+  String get settings_gitConfig_host_bitbucket =>
+      'Bitbucket: crie um token de API com acesso de leitura e escrita ao repositório. Senhas de app não funcionam mais.';
+
+  @override
+  String get settings_gitConfig_host_gitea =>
+      'Gitea ou Forgejo: crie um token de acesso com o escopo write:repository.';
+
+  @override
+  String get settings_gitConfig_host_github =>
+      'GitHub: crie um token fine-grained só para este repositório, com Contents: read and write.';
+
+  @override
+  String get settings_gitConfig_host_gitlab =>
+      'GitLab: crie um token de acesso pessoal ou de projeto com o escopo write_repository. Os tokens do GitLab expiram em até um ano.';
+
+  @override
+  String get settings_gitConfig_host_other =>
+      'Use um token de acesso ou uma senha que possa fazer push neste repositório.';
+
+  @override
+  String get settings_gitConfig_host_tokenHelp => 'Como criar um token';
+
+  @override
+  String get settings_gitConfig_keepEncryption_body =>
+      'A sincronização vai para um repositório Git público. Torne o repositório privado no servidor antes de desativar a criptografia.';
+
+  @override
+  String get settings_gitConfig_keepEncryption_title =>
+      'A criptografia precisa continuar ativada';
+
+  @override
+  String get settings_gitConfig_public_body =>
+      'Qualquer pessoa pode ler um repositório público, então o Submersion só sincroniza com ele com a criptografia ativada. Ative em seguida a sincronização criptografada ou torne o repositório privado no servidor.';
+
+  @override
+  String get settings_gitConfig_public_saved =>
+      'Salvo. Ative abaixo a sincronização criptografada para começar a sincronizar.';
+
+  @override
+  String get settings_gitConfig_public_title => 'Este repositório é público';
+
+  @override
+  String get settings_gitConfig_saved => 'Configuração do Git salva';
+
+  @override
+  String settings_gitConfig_test_becomesDefault(String branch) {
+    return 'Este repositório está vazio, então $branch vai virar o branch padrão dele. O ideal é um repositório usado só pelo Submersion.';
+  }
+
+  @override
+  String settings_gitConfig_test_successExisting(String branch) {
+    return 'Conectado ao branch do Submersion $branch.';
+  }
+
+  @override
+  String settings_gitConfig_test_successNew(String branch) {
+    return 'Conectado. O Submersion vai criar o branch $branch.';
+  }
+
+  @override
+  String get settings_gitConfig_validation_branch =>
+      'Digite um nome de branch válido';
+
+  @override
+  String get settings_gitConfig_validation_credentialsInUrl =>
+      'Coloque o usuário e o token nos campos próprios, não no endereço';
+
+  @override
+  String get settings_gitConfig_validation_repoUrl =>
+      'Digite o endereço do repositório, começando com https://';
+
+  @override
+  String get settings_gitConfig_validation_token => 'Digite o token de acesso';
+
+  @override
+  String get settings_gitConfig_validation_tokenSpaces =>
+      'O token de acesso não pode conter espaços';
+
+  @override
+  String get settings_gitConfig_validation_username => 'Digite o usuário';
 
   @override
   String get settings_webdavConfig_action_forgetCertificate => 'Esquecer';

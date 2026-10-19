@@ -6,6 +6,7 @@ import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/services/cloud_storage/icloud_native_service.dart';
 import 'package:submersion/features/backup/domain/entities/backup_settings.dart';
 import 'package:submersion/core/services/accounts/account_kind.dart';
+import 'package:submersion/features/settings/presentation/pages/git_config_page.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/cloud_provider_authenticate.dart';
 import 'package:submersion/features/settings/presentation/widgets/accounts/own_server_form.dart';
@@ -151,6 +152,23 @@ class _BackupSyncStepState extends ConsumerState<BackupSyncStep> {
     }
     final sel = ref.read(selectedCloudProviderTypeProvider);
     if (sel == kind.cloudProviderType) {
+      ref
+          .read(setupWizardProvider(widget.mode).notifier)
+          .setConnectedProvider(sel);
+    }
+  }
+
+  /// The Git account form, on the root navigator for the same reason as
+  /// [_openOwnServer]. Saving points sync at the repository.
+  Future<void> _openGitConfig() async {
+    final row = await showGitAccountPage(context, rootNavigator: true);
+    if (!mounted) return;
+    if (row != null) {
+      await switchSyncToRow(context, ref, row);
+      if (!mounted) return;
+    }
+    final sel = ref.read(selectedCloudProviderTypeProvider);
+    if (sel == CloudProviderType.git) {
       ref
           .read(setupWizardProvider(widget.mode).notifier)
           .setConnectedProvider(sel);
@@ -338,6 +356,12 @@ class _BackupSyncStepState extends ConsumerState<BackupSyncStep> {
               name: 'WebDAV',
               onTap: _connecting ? null : _openWebDavConfig,
             ),
+            _providerCard(
+              theme: theme,
+              icon: Icons.commit,
+              name: 'Git',
+              onTap: _connecting ? null : _openGitConfig,
+            ),
           ],
           if (connected != null)
             SwitchListTile(
@@ -383,6 +407,8 @@ class _BackupSyncStepState extends ConsumerState<BackupSyncStep> {
         return 'Google Drive';
       case CloudProviderType.webdav:
         return 'WebDAV';
+      case CloudProviderType.git:
+        return 'Git';
     }
   }
 }

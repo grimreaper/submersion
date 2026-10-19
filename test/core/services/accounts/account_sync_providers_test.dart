@@ -10,6 +10,7 @@ import 'package:submersion/core/services/accounts/account_credentials_store.dart
 import 'package:submersion/core/services/accounts/account_kind.dart';
 import 'package:submersion/core/services/accounts/account_sync_providers.dart';
 import 'package:submersion/core/services/cloud_storage/dropbox_storage_provider.dart';
+import 'package:submersion/core/services/cloud_storage/git_storage_provider.dart';
 import 'package:submersion/core/services/cloud_storage/s3/s3_config.dart';
 import 'package:submersion/core/services/cloud_storage/s3/s3_credentials_store.dart';
 import 'package:submersion/core/services/cloud_storage/s3_storage_provider.dart';
@@ -55,6 +56,17 @@ void main() {
         storage: InMemoryKeychain(),
       ),
       isA<DropboxStorageProvider>(),
+    );
+  });
+
+  test('a Git row gets a Git provider', () {
+    expect(
+      accountSyncProvider(
+        AccountKind.git,
+        'acct-r',
+        storage: InMemoryKeychain(),
+      ),
+      isA<GitStorageProvider>(),
     );
   });
 

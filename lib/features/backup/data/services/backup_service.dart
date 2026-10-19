@@ -13,6 +13,7 @@ import 'package:submersion/core/data/repositories/sync_repository.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/backup_bookmark_service.dart';
 import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.dart';
+import 'package:submersion/core/services/cloud_storage/deferred_write_provider.dart';
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/services/security/database_security_sidecar.dart'
     show isEncryptedDatabaseFile;
@@ -494,6 +495,10 @@ class BackupService {
     var reencrypted = 0;
     var skipped = 0;
     var failed = 0;
+    // Re-encrypted records whose plaintext cloud copy was replaced: that copy
+    // is gone only once a backend that defers deletes or keeps history (Git)
+    // has pushed the delete and reset its history.
+    var replacedInCloud = 0;
     for (final record in _preferences.getHistory()) {
       final localPath = record.localPath;
       if (localPath == null || isSafRef(localPath)) {
@@ -628,6 +633,7 @@ class BackupService {
           failed++;
         } else {
           reencrypted++;
+          if (record.cloudFileId != null) replacedInCloud++;
         }
       } catch (e, stack) {
         _log.error(
@@ -636,6 +642,24 @@ class BackupService {
           stackTrace: stack,
         );
         failed++;
+      }
+    }
+    // The replaced plaintext copies would stay readable in a Git backend's
+    // history, and its deletes above were only recorded. If either fails,
+    // those records are disclosed as failures, like any residual exposure.
+    final provider = _cloudProvider;
+    if (replacedInCloud > 0 && provider != null) {
+      try {
+        await flushDeferredWrites(provider);
+        await resetHistoryNowIfSupported(provider);
+      } catch (e, stack) {
+        _log.error(
+          'Re-encrypt: old plaintext copies stay in the cloud or its history',
+          error: e,
+          stackTrace: stack,
+        );
+        reencrypted -= replacedInCloud;
+        failed += replacedInCloud;
       }
     }
     _log.info(
@@ -1220,7 +1244,15 @@ class BackupService {
   }
 
   /// Delete a specific backup (local file + cloud file + metadata).
-  Future<void> deleteBackup(BackupRecord record) async {
+  Future<void> deleteBackup(BackupRecord record) =>
+      _deleteBackup(record, deleteCloud: true);
+
+  /// [deleteBackup]. Without [deleteCloud] the cloud copy is left to the
+  /// caller, which has already deleted it (pruning batches those deletes).
+  Future<void> _deleteBackup(
+    BackupRecord record, {
+    required bool deleteCloud,
+  }) async {
     _log.info('Deleting backup: ${record.filename}');
 
     // Delete local file (filesystem path or SAF document URI)
@@ -1239,9 +1271,11 @@ class BackupService {
     }
 
     // Delete cloud file; a copy in another account is left where it is.
-    if (await _cloudCopyHere(record)) {
+    if (deleteCloud && await _cloudCopyHere(record)) {
       try {
         await _cloudProvider!.deleteFile(record.cloudFileId!);
+        // A backend that batches deletes (Git) has only recorded it so far.
+        await flushDeferredWrites(_cloudProvider);
         _log.info('Deleted cloud file: ${record.cloudFileId}');
       } catch (e, stack) {
         _log.error('Failed to delete cloud file', error: e, stackTrace: stack);
@@ -1348,9 +1382,49 @@ class BackupService {
       'Pruning ${toDelete.length} old manual backups (keeping $keepCount)',
     );
 
+    // Cloud copies first, pushed in one batch on a backend that defers
+    // deletes (Git). A record goes only after that push: if it fails, the
+    // records whose cloud copy it covered stay, local copy and all, and the
+    // next prune deletes them again.
+    final provider = _cloudProvider;
+    var cloudPushed = true;
+    if (provider != null) {
+      var recorded = 0;
+      for (final record in toDelete) {
+        final id = record.cloudFileId;
+        // A copy in another account is left where it is.
+        if (id == null || !await _cloudCopyHere(record)) continue;
+        try {
+          await provider.deleteFile(id);
+          recorded++;
+        } catch (e, st) {
+          // As for a single delete: a cloud copy this backend refuses to
+          // delete does not keep its record in history.
+          _log.warning(
+            'Failed to delete pruned cloud backup ${record.filename}',
+            error: e,
+            stackTrace: st,
+          );
+        }
+      }
+      if (recorded > 0) {
+        try {
+          await flushDeferredWrites(provider);
+        } catch (e, st) {
+          cloudPushed = false;
+          _log.warning(
+            'Pruned backups not deleted from the cloud; retried next prune',
+            error: e,
+            stackTrace: st,
+          );
+        }
+      }
+    }
+
     for (final record in toDelete) {
+      if (!cloudPushed && record.cloudFileId != null) continue;
       try {
-        await deleteBackup(record);
+        await _deleteBackup(record, deleteCloud: false);
       } catch (e, st) {
         // Best-effort: pruning is a side effect of the operation that
         // triggered it (a fresh backup, or the safety snapshot restoreFromFile
@@ -1885,6 +1959,9 @@ class BackupService {
         deleted++;
       }
     }
+    // On a backend that keeps history (Git) the plaintext copies would
+    // otherwise stay readable in it.
+    if (deleted > 0) await resetHistoryNowIfSupported(provider);
     _log.info('Deleted $deleted unencrypted cloud backups');
     return deleted;
   }

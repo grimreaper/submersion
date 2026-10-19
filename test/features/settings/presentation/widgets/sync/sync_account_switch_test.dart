@@ -21,11 +21,15 @@ import 'package:submersion/core/services/accounts/account_provider_adapter.dart'
 import 'package:submersion/core/services/accounts/account_usage_service.dart';
 import 'package:submersion/core/services/accounts/connected_account.dart';
 import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.dart';
+import 'package:submersion/core/services/cloud_storage/git/git_config.dart';
+import 'package:submersion/core/services/cloud_storage/git/git_credentials_store.dart';
+import 'package:submersion/core/services/cloud_storage/git_storage_provider.dart';
 import 'package:submersion/core/services/cloud_storage/s3/s3_config.dart';
 import 'package:submersion/core/services/cloud_storage/s3/s3_credentials_store.dart';
 import 'package:submersion/core/services/cloud_storage/s3_storage_provider.dart';
 import 'package:submersion/core/services/sync/established_provider_store.dart';
 import 'package:submersion/core/services/sync/sync_initializer.dart';
+import 'package:submersion/features/settings/presentation/providers/git_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/sync/sync_account_switch.dart';
@@ -144,6 +148,12 @@ void main() {
           ),
           s3StorageProviderInstanceProvider.overrideWithValue(
             S3StorageProvider(store: S3CredentialsStore(storage: keys)),
+          ),
+          gitStorageProviderInstanceProvider.overrideWithValue(
+            GitStorageProvider(store: GitCredentialsStore(storage: keys)),
+          ),
+          gitCredentialsStoreProvider.overrideWithValue(
+            GitCredentialsStore(storage: keys),
           ),
           if (repository != null)
             syncRepositoryProvider.overrideWithValue(repository),
@@ -314,6 +324,70 @@ void main() {
 
     expect(log, ['s3row s3 null']);
     expect(ref.read(selectedCloudProviderTypeProvider), CloudProviderType.s3);
+  });
+
+  testWidgets('a Git account without keys here records no departure', (
+    tester,
+  ) async {
+    final (context, ref) = await pumpHost(tester, lastSync: _t);
+    final git = _group('gitrow', AccountKind.git, 'you/dive-log @ github.com');
+
+    await useAccountForSync(context, ref, git, current: dropbox);
+    await tester.pump();
+
+    expect(notifier.departures, 0);
+    expect(
+      ref.read(selectedCloudProviderTypeProvider),
+      isNot(CloudProviderType.git),
+    );
+  });
+
+  testWidgets('choosing a Git account points sync at it, with its keys', (
+    tester,
+  ) async {
+    final keychain = InMemoryKeychain();
+    final log = <String>[];
+    final repository = _RecordingRepository(
+      (id, type) => log.add('$id ${type.name}'),
+    );
+    final (context, ref) = await pumpHost(
+      tester,
+      keychain: keychain,
+      repository: repository,
+    );
+    final config = GitConfig(
+      repoUrl: 'https://github.com/you/dive-log',
+      username: 'you',
+      token: 'ghp_secret',
+    );
+    await AccountCredentialsStore(
+      storage: keychain,
+    ).write('gitrow', jsonEncode(config.toJson()));
+    final git = groupAccounts(
+      rows: [
+        ConnectedAccount(
+          id: 'gitrow',
+          kind: AccountKind.git,
+          label: config.displayLabel,
+          createdAt: _t,
+          updatedAt: _t,
+        ),
+      ],
+      statusById: {'gitrow': AccountStatus.signedIn},
+      localLocationById: const {},
+      usagesOf: (_) => const [],
+    ).single;
+
+    await useAccountForSync(context, ref, git);
+    await tester.pump();
+
+    expect(log, ['gitrow git']);
+    expect(ref.read(selectedCloudProviderTypeProvider), CloudProviderType.git);
+    // Sync reads the Git settings blob, now this account's.
+    final synced = await ref
+        .read(gitStorageProviderInstanceProvider)
+        .loadConfig();
+    expect(synced?.repoUrl, 'https://github.com/you/dive-log.git');
   });
 
   // Review of #3527: saving the sync account's server details (or moving

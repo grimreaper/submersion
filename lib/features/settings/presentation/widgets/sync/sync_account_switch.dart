@@ -12,9 +12,11 @@ import 'package:submersion/core/services/accounts/account_kind.dart';
 import 'package:submersion/core/services/accounts/account_provider_adapter.dart';
 import 'package:submersion/core/services/accounts/connected_account.dart';
 import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.dart';
+import 'package:submersion/core/services/cloud_storage/git/git_credentials_store.dart';
 import 'package:submersion/core/services/cloud_storage/icloud_native_service.dart';
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/features/settings/presentation/providers/account_group_providers.dart';
+import 'package:submersion/features/settings/presentation/providers/git_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/webdav_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/cloud_provider_authenticate.dart';
@@ -72,6 +74,7 @@ String providerDisplayName(BuildContext context, CloudProviderType type) {
     CloudProviderType.s3 => l10n.settings_cloudSync_provider_s3_title,
     CloudProviderType.dropbox => l10n.settings_cloudSync_provider_dropbox_title,
     CloudProviderType.webdav => l10n.settings_cloudSync_provider_webdav_title,
+    CloudProviderType.git => l10n.settings_cloudSync_provider_git_title,
   };
 }
 
@@ -207,7 +210,24 @@ Future<void> useAccountForSync(
   // its row has no usage left, and a custom folder ("dives/") has no
   // default name to be found by.
   ConnectedAccount? syncRow;
-  if (group.isOwnServer) {
+  if (group.kind == AccountKind.git) {
+    // A Git account is one repository and branch: one row, sync's own,
+    // which can take sync only with its keys here (checked, like an own
+    // server's, before anything is recorded).
+    final row = group.rows.first;
+    if (await container.read(accountCredentialsStoreProvider).read(row.id) ==
+        null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.l10n.settings_accounts_signInTo(group.label)),
+          ),
+        );
+      }
+      return;
+    }
+    syncRow = row;
+  } else if (group.isOwnServer) {
     try {
       syncRow =
           await _lastSyncedRowIn(container, group) ??
@@ -379,6 +399,18 @@ Future<void> switchSyncToRow(
           .read(webdavStorageProviderInstanceProvider)
           .saveConfig(config);
       container.invalidate(webdavConfigProvider);
+    case AccountKind.git:
+      final config = decodeGitConfig(
+        await container.read(accountCredentialsStoreProvider).read(row.id),
+      );
+      if (config == null) {
+        messenger?.showSnackBar(SnackBar(content: Text(noConfig)));
+        return;
+      }
+      await container
+          .read(gitStorageProviderInstanceProvider)
+          .saveConfig(config);
+      container.invalidate(gitConfigProvider);
     default:
       return;
   }

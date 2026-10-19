@@ -1,3 +1,4 @@
+import 'package:submersion/core/services/cloud_storage/git_storage_provider.dart';
 import 'package:submersion/core/services/sync/peer_sync_snapshot.dart';
 
 /// What the cleanup may do with one unreferenced media store object.
@@ -31,7 +32,9 @@ enum OrphanVerdict {
 ///   row that referenced it would have reached this device already.
 ///
 /// With sync off this device knows of no peers, so only the grace window
-/// applies.
+/// applies. With sync on Git it does too: a Git listing time is the writing
+/// device's own clock, so a peer whose clock runs fast could claim a publish
+/// after an upload it never saw.
 class OrphanDeletePolicy {
   const OrphanDeletePolicy({
     required this.now,
@@ -85,7 +88,10 @@ class OrphanDeletePolicy {
     // Early delete only when every device that can upload is known and its
     // publishes were applied here: not one whose first publish has no
     // manifest yet, nor a skipped stale-epoch peer.
-    if (syncEnabled && s != null && !s.hasUnappliedPeers) {
+    if (syncEnabled &&
+        s != null &&
+        !s.hasUnappliedPeers &&
+        currentProviderId != GitStorageProvider.id) {
       final covered = lastModified.add(skew);
       final everyoneSince =
           covered.isBefore(s.takenAt) &&

@@ -142,6 +142,35 @@ void main() {
     expect(find.text('Google Drive'), findsOneWidget);
   });
 
+  testWidgets('a Git repository can be added again, like an own server', (
+    tester,
+  ) async {
+    final git = _group('git', AccountKind.git, 'you/dive-log @ github.com');
+    await pumpSheet(
+      tester,
+      groups: [git],
+      offers: const [AccountKindOffer.ownServer, AccountKindOffer.git],
+    );
+    await open(tester);
+    expect(find.text('you/dive-log @ github.com'), findsOneWidget);
+    // Still offered: a second repository or branch is another account.
+    expect(find.text('Git'), findsOneWidget);
+    expect(find.text('Any Git host'), findsOneWidget);
+  });
+
+  testWidgets('a picker for own servers only does not offer Git', (
+    tester,
+  ) async {
+    await pumpSheet(
+      tester,
+      offers: const [AccountKindOffer.ownServer, AccountKindOffer.git],
+      allowedKinds: const {AccountKind.s3, AccountKind.webdav},
+    );
+    await open(tester);
+    expect(find.text('My own server'), findsOneWidget);
+    expect(find.text('Git'), findsNothing);
+  });
+
   testWidgets('restricted to S3 and WebDAV only own servers show', (
     tester,
   ) async {

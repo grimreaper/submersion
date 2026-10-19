@@ -224,6 +224,7 @@ const Map<String, String> keptEnglishValues = {
   'settings_units_temperature_celsius': _units,
   'settings_units_temperature_fahrenheit': _units,
   'settings_units_volume_liters@nl': _sameWord,
+  'settings_gitConfig_field_repoUrl_hint': _exampleAddress,
   'settings_webdavConfig_field_serverUrl_hintDav': _exampleAddress,
   'siteType_builtin_blue_hole@de': _loanword,
   'siteType_builtin_blue_hole@it': _loanword,

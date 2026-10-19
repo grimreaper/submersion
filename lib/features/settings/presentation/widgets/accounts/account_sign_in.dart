@@ -11,6 +11,7 @@ import 'package:submersion/core/services/cloud_storage/dropbox/dropbox_auth_stor
 import 'package:submersion/core/services/cloud_storage/icloud_native_service.dart';
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/features/settings/presentation/providers/account_group_providers.dart';
+import 'package:submersion/features/settings/presentation/pages/git_config_page.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/accounts/own_server_form.dart';
 import 'package:submersion/features/settings/presentation/widgets/cloud_provider_authenticate.dart';
@@ -52,6 +53,18 @@ Future<bool> signInToGroup(
       // Sync reads the legacy settings, which only the switch rewrites; only
       // for the row this device already syncs through, never a server that
       // merely has a default sync folder.
+      final syncRow = group.syncRowHere;
+      if (ok && syncRow != null && context.mounted) {
+        await switchSyncToRow(context, ref, syncRow);
+      }
+    case AccountKind.git:
+      final saved = await showGitAccountPage(context, existing: group);
+      // Another repository or branch is saved as another account: this one
+      // still has no keys here, so it is not signed in, and the new one is
+      // listed for the diver to pick.
+      ok = saved != null && saved.id == group.rows.first.id;
+      if (saved != null && !ok) _refresh(container);
+      // As for an own server, only when this device syncs through it.
       final syncRow = group.syncRowHere;
       if (ok && syncRow != null && context.mounted) {
         await switchSyncToRow(context, ref, syncRow);
@@ -136,6 +149,9 @@ Future<ConnectedAccount?> addAccountRow(
         kinds: kinds,
         webdavCheck: webdavCheck,
       );
+    case AccountKindOffer.git:
+      if (!context.mounted) return null;
+      row = await showGitAccountPage(context);
   }
   if (row != null) _refresh(container);
   return row;

@@ -268,5 +268,6 @@ int _kindOrder(AccountKind kind) => switch (kind) {
   AccountKind.googledrive => 1,
   AccountKind.dropbox => 2,
   AccountKind.s3 || AccountKind.webdav => 3,
-  AccountKind.adobeLightroom => 4,
+  AccountKind.git => 4,
+  AccountKind.adobeLightroom => 5,
 };

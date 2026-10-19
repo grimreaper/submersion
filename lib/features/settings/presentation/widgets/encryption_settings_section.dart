@@ -5,7 +5,10 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:package_info_plus/package_info_plus.dart';
 
+import 'package:submersion/core/data/repositories/sync_repository.dart'
+    show CloudProviderType;
 import 'package:submersion/features/backup/presentation/providers/backup_providers.dart';
+import 'package:submersion/features/settings/presentation/providers/git_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/enable_encryption_dialog.dart';
 import 'package:submersion/features/settings/presentation/widgets/encryption_passphrase_dialog.dart';
@@ -67,6 +70,10 @@ class EncryptionSettingsSection extends ConsumerStatefulWidget {
 
 class _EncryptionSettingsSectionState
     extends ConsumerState<EncryptionSettingsSection> {
+  /// How long turning encryption off waits for the Git host to say whether
+  /// the repository is public.
+  static const Duration _publicCheckWait = Duration(seconds: 5);
+
   @override
   void initState() {
     super.initState();
@@ -282,6 +289,34 @@ class _EncryptionSettingsSectionState
 
   Future<void> _disable(BuildContext context) async {
     final l10n = context.l10n;
+    // Over a public Git repository, turning encryption off would publish the
+    // library in plain text: refuse, and say how to make it private. A host
+    // that does not answer soon is unclear, like any other unclear answer:
+    // the Git provider still refuses plaintext uploads to a public one.
+    if (ref.read(selectedCloudProviderTypeProvider) == CloudProviderType.git &&
+        await ref
+                .read(gitStorageProviderInstanceProvider)
+                .isPubliclyReadable()
+                .timeout(_publicCheckWait, onTimeout: () => null) ==
+            true) {
+      if (!context.mounted) return;
+      await showDialog<void>(
+        context: context,
+        builder: (dialogContext) => AlertDialog(
+          icon: const Icon(Icons.lock_outline),
+          title: Text(l10n.settings_gitConfig_keepEncryption_title),
+          content: Text(l10n.settings_gitConfig_keepEncryption_body),
+          actions: [
+            TextButton(
+              onPressed: () => Navigator.of(dialogContext).pop(),
+              child: Text(l10n.common_action_ok),
+            ),
+          ],
+        ),
+      );
+      return;
+    }
+    if (!context.mounted) return;
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (dialogContext) => AlertDialog(

@@ -7,6 +7,7 @@ import 'package:submersion/features/settings/presentation/providers/account_grou
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/accounts/account_group_tile.dart';
 import 'package:submersion/features/settings/presentation/widgets/accounts/account_sheet.dart';
+import 'package:submersion/features/settings/presentation/widgets/git_sync_details.dart';
 import 'package:submersion/features/settings/presentation/widgets/settings_pane_navigator.dart';
 import 'package:submersion/features/settings/presentation/widgets/sync/sync_account_switch.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
@@ -19,6 +20,7 @@ const syncAccountKinds = {
   AccountKind.dropbox,
   AccountKind.s3,
   AccountKind.webdav,
+  AccountKind.git,
 };
 
 /// "Using: {account}" with Change, at the top of Sync between devices (spec
@@ -109,6 +111,9 @@ class SyncUsingRow extends ConsumerWidget {
                 current.statusOf(current.syncRowHere?.id) ?? current.status,
               ),
             ),
+          if ((current?.kind ?? AccountKind.fromCloudProviderType(selected!)) ==
+              AccountKind.git)
+            const GitSyncDetails(),
           TileSubtitleAction(
             actionKey: const Key('sync-using-change'),
             label: l10n.settings_sync_change,

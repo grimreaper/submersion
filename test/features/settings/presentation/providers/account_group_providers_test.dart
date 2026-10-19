@@ -57,6 +57,7 @@ void main() {
         AccountKindOffer.googleDrive,
         AccountKindOffer.dropbox,
         AccountKindOffer.ownServer,
+        AccountKindOffer.git,
       ]);
     });
 
@@ -78,7 +79,11 @@ void main() {
 
     test('Google Drive and Dropbox follow their build gates', () async {
       final offers = await _offers(_gates(drive: false, dropbox: false));
-      expect(offers, [AccountKindOffer.icloud, AccountKindOffer.ownServer]);
+      expect(offers, [
+        AccountKindOffer.icloud,
+        AccountKindOffer.ownServer,
+        AccountKindOffer.git,
+      ]);
     });
   });
 

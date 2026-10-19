@@ -8,6 +8,7 @@ import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.da
 import 'package:submersion/core/services/cloud_storage/icloud_native_service.dart';
 import 'package:submersion/core/services/sync/sync_initializer.dart';
 import 'package:submersion/features/backup/domain/entities/backup_settings.dart';
+import 'package:submersion/features/settings/presentation/pages/git_config_page.dart';
 import 'package:submersion/features/settings/presentation/widgets/accounts/own_server_form.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/cloud_provider_authenticate.dart';
@@ -251,12 +252,43 @@ void main() {
     expect(find.text('Connected to WebDAV'), findsOneWidget);
   });
 
+  testWidgets('tapping Git opens its account form via the root navigator', (
+    tester,
+  ) async {
+    final overrides = await getBaseOverrides();
+    await tester.pumpWidget(
+      _englishTestApp(
+        overrides: [
+          ...overrides,
+          isApplePlatformProvider.overrideWithValue(false),
+          dropboxConfiguredProvider.overrideWithValue(false),
+          googleDriveAvailableProvider.overrideWith((ref) async => false),
+          selectedCloudProviderTypeProvider.overrideWith(
+            (ref) => CloudProviderType.git,
+          ),
+        ],
+        child: const BackupSyncStep(mode: SetupWizardMode.firstRun),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Git'), findsOneWidget);
+    await tester.tap(find.text('Git'));
+    await tester.pumpAndSettle();
+    expect(find.byType(GitConfigPage), findsOneWidget);
+
+    await tester.pageBack();
+    await tester.pumpAndSettle();
+    expect(find.text('Connected to Git'), findsOneWidget);
+  });
+
   const connectedNames = {
     CloudProviderType.icloud: 'iCloud',
     CloudProviderType.dropbox: 'Dropbox',
     CloudProviderType.s3: 'S3',
     CloudProviderType.googledrive: 'Google Drive',
     CloudProviderType.webdav: 'WebDAV',
+    CloudProviderType.git: 'Git',
   };
   for (final entry in connectedNames.entries) {
     testWidgets('settings mode shows connected UI for ${entry.value}', (

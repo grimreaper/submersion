@@ -3,6 +3,8 @@ import 'package:submersion/core/data/repositories/connected_accounts_repository.
 import 'package:submersion/core/data/repositories/sync_repository.dart';
 import 'package:submersion/core/services/accounts/account_identity.dart';
 import 'package:submersion/core/services/accounts/account_kind.dart';
+import 'package:submersion/core/services/cloud_storage/git/git_config.dart';
+import 'package:submersion/core/services/cloud_storage/git/git_credentials_store.dart';
 import 'package:submersion/core/services/cloud_storage/s3/s3_config.dart';
 import 'package:submersion/core/services/cloud_storage/s3/s3_credentials_store.dart';
 import 'package:submersion/core/services/cloud_storage/webdav/webdav_config.dart';
@@ -134,6 +136,45 @@ void main() {
     expect(second.id, first.id);
     expect((await repo.getAll()).length, 1);
   });
+  test('Git resolves to one account per repository and branch', () async {
+    final legacy = GitCredentialsStore(storage: keychain);
+    final config = GitConfig(
+      repoUrl: 'https://github.com/you/dive-log',
+      username: 'you',
+      token: 'ghp_secret',
+    );
+    await legacy.save(config);
+    final first = await ensureAccountForProviderType(
+      CloudProviderType.git,
+      repo,
+      gitCredentials: legacy,
+    );
+    expect(first.kind, AccountKind.git);
+    expect(
+      first.id,
+      accountIdFor(kind: AccountKind.git, naturalKey: gitNaturalKey(config)),
+    );
+    expect(first.label, 'you/dive-log @ github.com');
+    await SyncRepository().setSyncAccount(
+      accountId: first.id,
+      providerType: CloudProviderType.git,
+    );
+    final again = await ensureAccountForProviderType(
+      CloudProviderType.git,
+      repo,
+      gitCredentials: legacy,
+    );
+    expect(again.id, first.id);
+
+    await legacy.save(config.copyWith(branch: 'elsewhere'));
+    final moved = await ensureAccountForProviderType(
+      CloudProviderType.git,
+      repo,
+      gitCredentials: legacy,
+    );
+    expect(moved.id, isNot(first.id));
+  });
+
   test(
     'WebDAV resolves to the deterministic account for its endpoint',
     () async {

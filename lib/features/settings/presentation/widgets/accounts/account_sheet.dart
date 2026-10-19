@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
 import 'package:submersion/core/services/accounts/account_group.dart';
+import 'package:submersion/core/services/accounts/account_identity.dart';
 import 'package:submersion/core/services/accounts/account_kind.dart';
 import 'package:submersion/core/services/accounts/account_provider_adapter.dart';
 import 'package:submersion/features/settings/presentation/providers/account_group_providers.dart';
@@ -266,11 +267,17 @@ class _AccountSheetState extends ConsumerState<_AccountSheet> {
         if (_allowed(g.kind)) g,
     ];
     final presentKinds = {for (final g in groups) g.kind};
+    // A kind with one account per library (Dropbox, Google) is offered
+    // only until it is added; a Git repository, like an own server, can be
+    // added again.
+    bool alreadyAdded(AccountKindOffer o) => switch (kindOfOffer(o)) {
+      final kind? =>
+        naturalKeyForKind(kind) != null && presentKinds.contains(kind),
+      null => false,
+    };
     final offers = [
       for (final o in ref.watch(offerableAccountKindsProvider))
-        if (_offerAllowed(o) &&
-            !(kindOfOffer(o) != null && presentKinds.contains(kindOfOffer(o))))
-          o,
+        if (_offerAllowed(o) && !alreadyAdded(o)) o,
     ];
     final noneLabel = widget.noneLabel;
     // Not closed while a sign-in or switch runs: what follows it needs this
@@ -325,6 +332,9 @@ class _AccountSheetState extends ConsumerState<_AccountSheet> {
                     null => accountKindIcon(AccountKind.s3),
                   }),
                   title: Text(_offerLabel(context, o)),
+                  subtitle: o == AccountKindOffer.git
+                      ? Text(l10n.settings_cloudSync_provider_git_subtitle)
+                      : null,
                   trailing: const Icon(Icons.add),
                   onTap: () => _add(o),
                 ),
@@ -344,5 +354,6 @@ String _offerLabel(BuildContext context, AccountKindOffer offer) {
       l10n.settings_cloudSync_provider_googleDrive,
     AccountKindOffer.dropbox => l10n.settings_cloudSync_provider_dropbox_title,
     AccountKindOffer.ownServer => l10n.settings_accounts_ownServer_title,
+    AccountKindOffer.git => l10n.settings_cloudSync_provider_git_title,
   };
 }

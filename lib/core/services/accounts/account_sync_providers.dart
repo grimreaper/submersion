@@ -9,6 +9,8 @@ import 'package:submersion/core/services/accounts/connected_account.dart';
 import 'package:submersion/core/services/cloud_storage/cloud_provider_instances.dart';
 import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.dart';
 import 'package:submersion/core/services/cloud_storage/dropbox/dropbox_auth_store.dart';
+import 'package:submersion/core/services/cloud_storage/git/git_credentials_store.dart';
+import 'package:submersion/core/services/cloud_storage/git_storage_provider.dart';
 import 'package:submersion/core/services/cloud_storage/s3/s3_credentials_store.dart';
 import 'package:submersion/core/services/cloud_storage/s3_storage_provider.dart';
 import 'package:submersion/core/services/cloud_storage/webdav/webdav_credentials_store.dart';
@@ -40,6 +42,18 @@ WebDavStorageProvider webdavSyncProviderFor(
   ),
 );
 
+/// The Git provider for the roster row [accountId]; see
+/// [s3SyncProviderFor].
+GitStorageProvider gitSyncProviderFor(
+  String accountId, {
+  FlutterSecureStorage? storage,
+}) => GitStorageProvider(
+  store: GitCredentialsStore(
+    storage: storage,
+    storageKey: AccountCredentialsStore.keyFor(accountId),
+  ),
+);
+
 /// A roster row named by id and kind only. Every `SyncCapable.syncProvider`
 /// reads nothing else from the row: credentials live in the keychain under
 /// the id.
@@ -55,7 +69,7 @@ ConnectedAccount accountRowReference(String id, AccountKind kind) =>
 /// A sync-capable provider for the roster row [accountId] of [kind], built
 /// with no database or Riverpod container (the scheduled backup's isolate).
 ///
-/// S3, WebDAV and Dropbox build exactly as their adapters do (Dropbox
+/// S3, WebDAV, Git and Dropbox build exactly as their adapters do (Dropbox
 /// through its adapter); session-managed kinds (Google Drive, iCloud) are
 /// the per-type instances, as everywhere else. Lightroom cannot hold files
 /// and yields null.
@@ -67,6 +81,7 @@ CloudStorageProvider? accountSyncProvider(
 }) => switch (kind) {
   AccountKind.s3 => s3SyncProviderFor(accountId, storage: storage),
   AccountKind.webdav => webdavSyncProviderFor(accountId, storage: storage),
+  AccountKind.git => gitSyncProviderFor(accountId, storage: storage),
   AccountKind.dropbox => DropboxAccountAdapter(
     authStoreFactory: storage == null
         ? null

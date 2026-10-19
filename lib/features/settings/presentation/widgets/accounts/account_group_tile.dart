@@ -10,6 +10,7 @@ import 'package:submersion/l10n/l10n_extension.dart';
 IconData accountKindIcon(AccountKind kind) => switch (kind) {
   AccountKind.s3 => Icons.dns_outlined,
   AccountKind.webdav => Icons.folder_shared_outlined,
+  AccountKind.git => Icons.commit,
   AccountKind.dropbox => Icons.cloud_outlined,
   AccountKind.googledrive => Icons.add_to_drive_outlined,
   AccountKind.icloud => Icons.cloud_circle_outlined,
