@@ -1866,9 +1866,21 @@ class _DiveListContentState extends ConsumerState<DiveListContent> {
   ) {
     final dives = paginatedState.dives;
 
-    // Calculate value range for card coloring based on active attribute
-    final settings = ref.read(settingsProvider);
-    final colorAttribute = settings.cardColorAttribute;
+    // Calculate value range for card coloring based on active attribute.
+    // Watched rather than read: the list no longer rebuilds while a page
+    // loads (#3506), so a changed setting would otherwise wait for the next
+    // change to the dives themselves.
+    final (colorAttribute, gradientPreset, gradientStart, gradientEnd) = ref
+        .watch(
+          settingsProvider.select(
+            (s) => (
+              s.cardColorAttribute,
+              s.cardColorGradientPreset,
+              s.cardColorGradientStart,
+              s.cardColorGradientEnd,
+            ),
+          ),
+        );
     final colorValues = dives
         .map((d) => getCardColorValue(d, colorAttribute))
         .whereType<double>();
@@ -1879,9 +1891,9 @@ class _DiveListContentState extends ConsumerState<DiveListContent> {
         ? colorValues.reduce((a, b) => a > b ? a : b)
         : null;
     final gradientColors = resolveGradientColors(
-      presetName: settings.cardColorGradientPreset,
-      customStart: settings.cardColorGradientStart,
-      customEnd: settings.cardColorGradientEnd,
+      presetName: gradientPreset,
+      customStart: gradientStart,
+      customEnd: gradientEnd,
     );
 
     // Built once for the whole list, not per row: the lookup map is shared by
