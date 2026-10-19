@@ -142,6 +142,8 @@ void main() {
     Map<String, Object> initialPrefs = const {},
     BackupCopyTarget? target,
     List<BackupRecord> history = const [],
+    Object? historyError,
+    Object? targetError,
   }) async {
     tester.view.physicalSize = const Size(1200, 3000);
     tester.view.devicePixelRatio = 1.0;
@@ -163,13 +165,17 @@ void main() {
           cloudStorageProviderProvider.overrideWithValue(
             FakeCloudStorageProvider(),
           ),
-          backupHistoryProvider.overrideWith((ref) async => history),
+          backupHistoryProvider.overrideWith(
+            (ref) async => historyError == null ? history : throw historyError,
+          ),
           quarantinedDatabasesProvider.overrideWith((ref) async => const []),
           accountGroupsProvider.overrideWith((ref) async => _groups),
           offerableAccountKindsProvider.overrideWithValue(const []),
           accountGroupServiceProvider.overrideWithValue(groupService),
-          if (target != null)
-            backupCopyTargetProvider.overrideWith((ref) async => target),
+          if (target != null || targetError != null)
+            backupCopyTargetProvider.overrideWith(
+              (ref) async => targetError == null ? target! : throw targetError,
+            ),
         ],
         child: const MaterialApp(
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -206,6 +212,61 @@ void main() {
     }
     final ys = [for (final f in order) y(tester, f)];
     expect(ys, [...ys]..sort());
+  });
+
+  group('the status line and History', () {
+    testWidgets('a failed automatic backup reads as failed', (tester) async {
+      await pumpPage(
+        tester,
+        initialPrefs: {
+          'backup_enabled': true,
+          'backup_last_time': DateTime(2026, 10, 1).millisecondsSinceEpoch,
+          'backup_last_scheduled_failure_at': DateTime(
+            2026,
+            10,
+            2,
+          ).millisecondsSinceEpoch,
+          'backup_last_scheduled_failure_message': 'disk full',
+        },
+      );
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('backup-status-line')),
+          matching: find.byIcon(Icons.error_outline),
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('a backup with a cloud copy names where it went', (
+      tester,
+    ) async {
+      await pumpPage(
+        tester,
+        initialPrefs: {
+          'backup_last_time': DateTime.now().millisecondsSinceEpoch,
+          'backup_last_destination': 'cloud',
+        },
+      );
+      expect(find.textContaining('copy in the cloud'), findsOneWidget);
+    });
+
+    testWidgets('no backups yet says so under History', (tester) async {
+      await pumpPage(tester);
+      expect(find.text('No backups yet'), findsOneWidget);
+    });
+
+    testWidgets('a history that cannot be read says why', (tester) async {
+      await pumpPage(tester, historyError: StateError('prefs gone'));
+      expect(find.textContaining('prefs gone'), findsOneWidget);
+    });
+
+    testWidgets('accounts that cannot be read say so on Copy to', (
+      tester,
+    ) async {
+      await pumpPage(tester, targetError: StateError('keychain'));
+      expect(find.text('Could not load accounts'), findsOneWidget);
+    });
   });
 
   group('the Copy to row', () {
