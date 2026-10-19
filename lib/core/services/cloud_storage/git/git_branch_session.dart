@@ -56,12 +56,13 @@ final class GitPut {
 
 /// One commit's worth of change. [deletes] maps each path to the blob id the
 /// device saw when it decided to delete it; a delete whose path now holds a
-/// different blob (a peer rewrote it) is dropped.
+/// different blob (a peer rewrote it) is dropped. A null id deletes whatever
+/// the path holds, for a caller that never listed it (backup pruning).
 final class GitChange {
   GitChange({this.puts = const {}, this.deletes = const {}});
 
   final Map<String, GitPut> puts;
-  final Map<String, GitObjectId> deletes;
+  final Map<String, GitObjectId?> deletes;
 }
 
 typedef _PreparedPut = ({GitObjectId id, int size, PackEntrySource source});
@@ -394,7 +395,8 @@ class GitBranchSession {
       final deletes = <String>{
         for (final MapEntry(:key, :value) in change.deletes.entries)
           if (!prepared.containsKey(key) &&
-              snap.index.entries[key]?.blobId == value)
+              snap.index.entries.containsKey(key) &&
+              (value == null || snap.index.entries[key]!.blobId == value))
             key,
       };
       final changedPuts = {

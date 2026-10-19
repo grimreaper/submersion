@@ -117,8 +117,9 @@ class GitStorageProvider
   Timer? _deleteTimer;
   Future<void> _lock = Future.value();
 
-  /// path -> blob id seen when the delete was asked for.
-  final Map<String, GitObjectId> _pendingDeletes = {};
+  /// path -> blob id seen when the delete was asked for, or null when this
+  /// instance had not seen the path (deleted whatever it holds).
+  final Map<String, GitObjectId?> _pendingDeletes = {};
 
   static Future<GitObjectStore> _defaultStore(GitConfig config) async {
     final support = await getApplicationSupportDirectory();
@@ -374,7 +375,7 @@ class GitStorageProvider
       }
       // Uploading a path replaces it: an older delete of it is void.
       _pendingDeletes.remove(path);
-      final deletes = Map<String, GitObjectId>.of(_pendingDeletes);
+      final deletes = Map<String, GitObjectId?>.of(_pendingDeletes);
       await _pace();
       await session.commit(
         GitChange(puts: {path: put}, deletes: deletes),
@@ -435,9 +436,9 @@ class GitStorageProvider
   /// once and from the branch on the next commit or [flush].
   @override
   Future<void> deleteFile(String fileId) async {
-    final blob = _session?.current?.index.entries[fileId]?.blobId;
-    if (blob == null) return;
-    _pendingDeletes[fileId] = blob;
+    // A caller may delete by id without listing first (backup pruning on a
+    // provider built for this account): record it unconditionally then.
+    _pendingDeletes[fileId] = _session?.current?.index.entries[fileId]?.blobId;
     _deleteTimer?.cancel();
     _deleteTimer = Timer(deleteQuietPeriod, () {
       unawaited(
@@ -454,10 +455,11 @@ class GitStorageProvider
   @override
   Future<void> flush() => _serial(() async {
     _deleteTimer?.cancel();
-    final session = _session;
+    // Deletes recorded without a loaded branch still have to reach it.
+    final session = _pendingDeletes.isNotEmpty ? await _opened() : _session;
     if (session == null) return;
     if (_pendingDeletes.isNotEmpty) {
-      final deletes = Map<String, GitObjectId>.of(_pendingDeletes);
+      final deletes = Map<String, GitObjectId?>.of(_pendingDeletes);
       await _pace();
       await session.commit(GitChange(deletes: deletes), messagePrefix: 'Sync');
       for (final MapEntry(:key, :value) in deletes.entries) {
@@ -573,6 +575,9 @@ class GitStorageProvider
       (await getFileInfo(fileId)) != null;
 
   Future<GitBranchSession> _sessionHolding(String fileId) async {
+    if (_pendingDeletes.containsKey(fileId)) {
+      throw GitException('$fileId was deleted.', code: GitErrorCode.notFound);
+    }
     final session = await _opened();
     if (session.current?.index.entries.containsKey(fileId) != true) {
       await session.refresh();

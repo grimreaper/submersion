@@ -576,4 +576,58 @@ void main() {
       expect(up.fileId, 'Submersion Backups/submersion_backup_1.db');
     }, skip: skip);
   });
+
+  group('review round 1', () {
+    test('a fresh provider deletes a file it has never listed', () async {
+      final server = await startGitTestServer(
+        requireUser: 'diver',
+        requirePassword: 'tok',
+      );
+      final repo = await server.createBareRepo('sync');
+      final writer = await _provider(server.repoUrl('sync'));
+      final up = await writer.uploadFile(
+        _bytes('old backup'),
+        'submersion_backup_1.db',
+        folderId: 'Submersion Backups',
+      );
+      // Backup pruning deletes by id without listing, on whichever provider
+      // instance the account resolves to.
+      final fresh = await _provider(server.repoUrl('sync'));
+      await fresh.deleteFile(up.fileId);
+      await fresh.flush();
+      final files = await runGit(repo, [
+        'ls-tree',
+        '-r',
+        '--name-only',
+        'refs/heads/$kDefaultGitBranch',
+      ]);
+      expect(files, isNot(contains('submersion_backup_1.db')));
+    }, skip: skip);
+
+    test('a file with a pending delete is not downloadable', () async {
+      final server = await startGitTestServer(
+        requireUser: 'diver',
+        requirePassword: 'tok',
+      );
+      await server.createBareRepo('sync');
+      final p = await _provider(server.repoUrl('sync'));
+      final up = await p.uploadFile(
+        _bytes('x'),
+        'x.json',
+        folderId: 'Submersion Sync',
+      );
+      await p.listFiles(folderId: 'Submersion Sync');
+      await p.deleteFile(up.fileId);
+      await expectLater(
+        p.downloadFile(up.fileId),
+        throwsA(
+          isA<GitException>().having(
+            (e) => e.code,
+            'code',
+            GitErrorCode.notFound,
+          ),
+        ),
+      );
+    }, skip: skip);
+  });
 }
