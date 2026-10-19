@@ -6,6 +6,7 @@ import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:http/http.dart' as http;
+import 'package:http/testing.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_errors.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_http_transport.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_object_id.dart';
@@ -361,6 +362,37 @@ void main() {
       expect(e.serverReason, contains('unexpected error'));
     }, skip: skip);
   });
+  test(
+    'a malformed Git reply to an anonymous request is not read as private',
+    () async {
+      // The host served the advertisement without credentials; that its
+      // framing is off says nothing about who may read it.
+      final client = MockClient(
+        (request) async => http.Response(
+          '001e# service=git-upload-pack\n0009xyz\n',
+          200,
+          headers: {
+            'content-type': 'application/x-git-upload-pack-advertisement',
+          },
+        ),
+      );
+      final t = GitHttpTransport(
+        GitRemote(
+          cloneUrl: Uri.parse('https://git.example.net/you/r.git'),
+          username: 'u',
+          token: 't',
+        ),
+        client: client,
+      );
+      addTearDown(t.close);
+      await expectLater(
+        t.checkPubliclyReadable(),
+        _gitError(GitErrorCode.unexpected),
+      );
+      expect(await t.isPubliclyReadable(), isNull);
+    },
+  );
+
   group('push deadlines', () {
     test('grow with the pack past the upload deadline', () {
       expect(

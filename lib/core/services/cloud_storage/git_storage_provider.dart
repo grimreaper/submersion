@@ -117,7 +117,7 @@ class GitStorageProvider
   final Duration minPushSpacing;
 
   /// How long a sync upload may take once its push starts, stretched for a
-  /// large payload by [uploadBudgetFor].
+  /// large payload (see [GitHttpTransport.deadlineAtLeast]).
   final Duration uploadBudget;
 
   /// Deleted bytes after which the branch history is reset.
@@ -462,15 +462,6 @@ class GitStorageProvider
     return _withinBudget(run, pushing.future);
   }
 
-  /// [base], or longer for a payload too large to push within it at
-  /// [GitHttpTransport.minPushBytesPerSecond].
-  static Duration uploadBudgetFor(Duration base, int bytes) {
-    final scaled = Duration(
-      seconds: bytes ~/ GitHttpTransport.minPushBytesPerSecond,
-    );
-    return scaled > base ? scaled : base;
-  }
-
   /// [run], or a [TimeoutException] once its push has run longer than its
   /// budget. Time spent behind earlier writes and waiting for pacing does
   /// not count, as [pushing] completes, with the payload size, only when
@@ -482,7 +473,7 @@ class GitStorageProvider
     unawaited(
       pushing.then((bytes) {
         if (result.isCompleted) return;
-        final budget = uploadBudgetFor(uploadBudget, bytes);
+        final budget = GitHttpTransport.deadlineAtLeast(uploadBudget, bytes);
         timer = Timer(budget, () {
           if (result.isCompleted) return;
           result.completeError(

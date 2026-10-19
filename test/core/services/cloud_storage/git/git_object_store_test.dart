@@ -81,7 +81,7 @@ void main() {
       for (final o in [a, b, c]) {
         await store.put(o);
       }
-      await store.trim(keep: {a.id});
+      await store.trim(keep: () async => {a.id});
       expect(await store.has(a.id), isTrue);
       expect(await store.has(b.id), isFalse);
       expect(await store.has(c.id), isTrue);

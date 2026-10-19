@@ -30,8 +30,9 @@ abstract interface class GitObjectStore {
   Future<bool> has(GitObjectId id);
 
   /// Deletes the least recently used objects until the store is within its
-  /// bound, never one in [keep]. A no-op for an unbounded store.
-  Future<void> trim({Set<GitObjectId> keep = const {}});
+  /// bound, never one [keep] returns; [keep] is asked only when something
+  /// must go. A no-op for an unbounded store.
+  Future<void> trim({Future<Set<GitObjectId>> Function()? keep});
 }
 
 /// An unbounded in-memory store, for tests and short-lived sessions.
@@ -49,7 +50,7 @@ final class MemoryGitObjectStore implements GitObjectStore {
   Future<bool> has(GitObjectId id) async => _objects.containsKey(id);
 
   @override
-  Future<void> trim({Set<GitObjectId> keep = const {}}) async {}
+  Future<void> trim({Future<Set<GitObjectId>> Function()? keep}) async {}
 }
 
 /// A size-bounded on-disk store: one file per object at
@@ -156,10 +157,13 @@ final class FileGitObjectStore implements GitObjectStore {
   }
 
   @override
-  Future<void> trim({Set<GitObjectId> keep = const {}}) async {
+  Future<void> trim({Future<Set<GitObjectId>> Function()? keep}) async {
     final index = await _ensureIndex();
     if (_total <= maxBytes) return;
-    final kept = {for (final id in keep) _fileFor(id).path};
+    final kept = {
+      for (final id in await keep?.call() ?? const <GitObjectId>{})
+        _fileFor(id).path,
+    };
     final byAge = index.entries.where((e) => !kept.contains(e.key)).toList()
       ..sort((a, b) => a.value.recency.compareTo(b.value.recency));
     for (final victim in byAge) {

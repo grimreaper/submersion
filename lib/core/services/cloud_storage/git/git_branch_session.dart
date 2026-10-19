@@ -134,7 +134,11 @@ class GitBranchSession {
     if (current != null && look < _appliedLook) return current;
     _appliedLook = look;
     _current = snap;
-    await store.trim(keep: await _keepFor(snap));
+    try {
+      await store.trim(keep: () => _keepFor(snap));
+    } on FileSystemException {
+      // Only the cache is affected; what was read or pushed stands.
+    }
     return snap;
   }
 

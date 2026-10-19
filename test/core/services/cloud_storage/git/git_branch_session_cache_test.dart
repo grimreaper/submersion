@@ -4,6 +4,7 @@ import 'dart:math';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_branch_session.dart';
+import 'package:submersion/core/services/cloud_storage/git/git_object_id.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_object_store.dart';
 
 import '../../../../helpers/git_cli.dart';
@@ -142,4 +143,47 @@ void main() {
         .fold<int>(0, (sum, f) => sum + f.lengthSync());
     expect(onDisk, lessThanOrEqualTo(64 * 1024));
   }, skip: skip);
+
+  test(
+    'a cache that fails to trim does not fail a commit that landed',
+    () async {
+      final server = await startGitTestServer();
+      final repo = await server.createBareRepo('sync');
+      final s = gitTestSession(server.repoUrl('sync'), store: _TrimFails());
+      await s.open();
+      await s.commit(
+        GitChange(puts: {'Submersion Sync/x.json': gitText('x')}),
+        messagePrefix: 'Sync',
+      );
+      expect(
+        await runGit(repo, [
+          'ls-tree',
+          '-r',
+          '--name-only',
+          'refs/heads/$gitTestBranch',
+        ]),
+        contains('Submersion Sync/x.json'),
+      );
+    },
+    skip: skip,
+  );
+}
+
+/// A store whose disk cannot be scanned when it is trimmed.
+final class _TrimFails implements GitObjectStore {
+  final _inner = MemoryGitObjectStore();
+
+  @override
+  Future<GitStoredObject?> get(GitObjectId id) => _inner.get(id);
+
+  @override
+  Future<void> put(GitStoredObject object) => _inner.put(object);
+
+  @override
+  Future<bool> has(GitObjectId id) => _inner.has(id);
+
+  @override
+  Future<void> trim({Future<Set<GitObjectId>> Function()? keep}) async {
+    throw const FileSystemException('cannot list the cache');
+  }
 }

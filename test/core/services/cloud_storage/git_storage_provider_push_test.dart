@@ -2,7 +2,7 @@ import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
-import 'package:submersion/core/services/cloud_storage/git_storage_provider.dart';
+import 'package:submersion/core/services/cloud_storage/git/git_http_transport.dart';
 
 import '../../../helpers/git_cli.dart';
 import '../../../helpers/git_http_backend_server.dart';
@@ -16,9 +16,9 @@ void main() {
   group('the sync upload budget', () {
     test('grows with the payload', () {
       const base = Duration(seconds: 45);
-      expect(GitStorageProvider.uploadBudgetFor(base, 1024), base);
+      expect(GitHttpTransport.deadlineAtLeast(base, 1024), base);
       expect(
-        GitStorageProvider.uploadBudgetFor(base, 8 * 1024 * 1024),
+        GitHttpTransport.deadlineAtLeast(base, 8 * 1024 * 1024),
         const Duration(seconds: 64),
       );
     });

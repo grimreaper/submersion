@@ -93,11 +93,14 @@ class GitHttpTransport {
 
   /// The upload deadline, or longer for a pack too large to send within it
   /// at 1 Mbit/s.
-  static Duration pushDeadlineFor(int packBytes) {
-    final scaled = Duration(seconds: packBytes ~/ minPushBytesPerSecond);
-    return scaled > TimeoutHttpClient.defaultUploadTimeout
-        ? scaled
-        : TimeoutHttpClient.defaultUploadTimeout;
+  static Duration pushDeadlineFor(int packBytes) =>
+      deadlineAtLeast(TimeoutHttpClient.defaultUploadTimeout, packBytes);
+
+  /// [floor], or the time [bytes] take at [minPushBytesPerSecond] when that
+  /// is longer.
+  static Duration deadlineAtLeast(Duration floor, int bytes) {
+    final scaled = Duration(seconds: bytes ~/ minPushBytesPerSecond);
+    return scaled > floor ? scaled : floor;
   }
 
   void close() => _client.close();
@@ -738,7 +741,8 @@ class GitHttpTransport {
   /// True when anyone can read the repository without signing in; false when
   /// an anonymous request is refused or answered with something that is not
   /// Git. Rethrows the [GitException] of an answer that says neither (rate
-  /// limit, server error, unreachable host).
+  /// limit, server error, unreachable host, or a Git reply too malformed to
+  /// read, which was still served without credentials).
   Future<bool> checkPubliclyReadable() async {
     try {
       await _uploadPackDiscovery(auth: false);
@@ -749,6 +753,8 @@ class GitHttpTransport {
         GitErrorCode.server ||
         GitErrorCode.unreachable ||
         GitErrorCode.untrustedCertificate => throw e,
+        // A protocol error carries no status: the reply was a 2xx from Git.
+        GitErrorCode.unexpected when e.statusCode == null => throw e,
         _ => false,
       };
     }
