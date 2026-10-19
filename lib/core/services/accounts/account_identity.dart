@@ -36,15 +36,19 @@ String gitNaturalKey(GitConfig config) => '${config.repoUrl}|${config.branch}';
 
 /// Natural key for a kind that can only have one instance per library.
 ///
-/// Null for [AccountKind.s3] and [AccountKind.webdav] (instance kinds: use
-/// [s3NaturalKey] and [webdavNaturalKey]) and for
+/// Null for [AccountKind.s3], [AccountKind.webdav] and [AccountKind.git]
+/// (instance kinds: use [s3NaturalKey], [webdavNaturalKey] and
+/// [gitNaturalKey]) and for
 /// [AccountKind.adobeLightroom], whose ids are preserved from the v107
 /// migration because Lightroom scan state and suggestion rows key on them.
 String? naturalKeyForKind(AccountKind kind) => switch (kind) {
   AccountKind.icloud ||
   AccountKind.dropbox ||
   AccountKind.googledrive => kind.name,
-  AccountKind.s3 || AccountKind.webdav || AccountKind.adobeLightroom => null,
+  AccountKind.s3 ||
+  AccountKind.webdav ||
+  AccountKind.git ||
+  AccountKind.adobeLightroom => null,
 };
 
 /// The deterministic id for an endpoint.

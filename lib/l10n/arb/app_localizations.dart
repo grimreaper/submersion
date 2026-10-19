@@ -35174,6 +35174,12 @@ abstract class AppLocalizations {
   /// **'WebDAV'**
   String get settings_cloudSync_provider_webdav_title;
 
+  /// No description provided for @settings_cloudSync_provider_git_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Git'**
+  String get settings_cloudSync_provider_git_title;
+
   /// No description provided for @settings_cloudSync_resolveConflicts.
   ///
   /// In en, this message translates to:

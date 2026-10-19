@@ -6156,6 +6156,7 @@
   "settings_cloudSync_provider_webdav_edit": "עריכת תצורת WebDAV",
   "settings_cloudSync_provider_webdav_subtitle": "כל שרת WebDAV",
   "settings_cloudSync_provider_webdav_title": "WebDAV",
+  "settings_cloudSync_provider_git_title": "Git",
   "settings_cloudSync_resolveConflicts": "פתור התנגשויות",
   "settings_cloudSync_selectProviderHint": "בחר ספק ענן כדי לאפשר סנכרון",
   "settings_cloudSync_signOut": "התנתק",

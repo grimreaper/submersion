@@ -6052,6 +6052,7 @@
   "settings_cloudSync_provider_webdav_edit": "Modifica la configurazione WebDAV",
   "settings_cloudSync_provider_webdav_subtitle": "Qualsiasi server WebDAV",
   "settings_cloudSync_provider_webdav_title": "WebDAV",
+  "settings_cloudSync_provider_git_title": "Git",
   "settings_cloudSync_resolveConflicts": "Risolvi conflitti",
   "settings_cloudSync_selectProviderHint": "Seleziona un provider cloud per abilitare la sincronizzazione",
   "settings_cloudSync_signOut": "Disconnetti",

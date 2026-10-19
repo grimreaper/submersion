@@ -17,7 +17,7 @@ import 'package:submersion/core/services/sync/sync_clock.dart';
 enum SyncStatus { synced, pending, conflict }
 
 /// Cloud provider types
-enum CloudProviderType { icloud, googledrive, s3, dropbox, webdav }
+enum CloudProviderType { icloud, googledrive, s3, dropbox, webdav, git }
 
 /// Repository for managing sync metadata and tracking
 class SyncRepository {
@@ -522,10 +522,11 @@ class SyncRepository {
     final metadata = await getOrCreateMetadata();
     if (metadata.syncProvider == null) return null;
 
-    return CloudProviderType.values.firstWhere(
-      (e) => e.name == metadata.syncProvider,
-      orElse: () => CloudProviderType.googledrive,
-    );
+    // A name this build does not know (a newer build's backend) reads as no
+    // provider, never as a different one.
+    return CloudProviderType.values
+        .where((e) => e.name == metadata.syncProvider)
+        .firstOrNull;
   }
 
   /// Set the remote file ID for the sync file

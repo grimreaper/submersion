@@ -385,6 +385,8 @@ class _BackupSyncStepState extends ConsumerState<BackupSyncStep> {
         return 'Google Drive';
       case CloudProviderType.webdav:
         return 'WebDAV';
+      case CloudProviderType.git:
+        return 'Git';
     }
   }
 }

@@ -4,11 +4,13 @@ import 'package:submersion/core/data/repositories/connected_accounts_repository.
 import 'package:submersion/core/services/accounts/account_credentials_store.dart';
 import 'package:submersion/core/services/accounts/account_provider_registry.dart';
 import 'package:submersion/core/services/accounts/adapters/dropbox_account_adapter.dart';
+import 'package:submersion/core/services/accounts/adapters/git_account_adapter.dart';
 import 'package:submersion/core/services/accounts/adapters/google_drive_account_adapter.dart';
 import 'package:submersion/core/services/accounts/adapters/icloud_account_adapter.dart';
 import 'package:submersion/core/services/accounts/adapters/lightroom_account_adapter.dart';
 import 'package:submersion/core/services/accounts/adapters/s3_account_adapter.dart';
 import 'package:submersion/core/services/accounts/adapters/webdav_account_adapter.dart';
+import 'package:submersion/core/services/cloud_storage/git/git_credentials_store.dart';
 import 'package:submersion/core/services/cloud_storage/s3/s3_credentials_store.dart';
 import 'package:submersion/core/services/cloud_storage/webdav/webdav_credentials_store.dart';
 
@@ -38,6 +40,12 @@ final webdavCredentialsStoreProvider = Provider<WebDavCredentialsStore>(
   (ref) => WebDavCredentialsStore(),
 );
 
+/// The legacy Git sync blob (`sync_git_config`) the Git settings page
+/// writes; overridable for tests like [s3CredentialsStoreProvider].
+final gitCredentialsStoreProvider = Provider<GitCredentialsStore>(
+  (ref) => GitCredentialsStore(),
+);
+
 /// One adapter instance per kind for the process lifetime (token caches and
 /// single-flight refresh live inside adapters).
 ///
@@ -52,6 +60,10 @@ final accountProviderRegistryProvider = Provider<AccountProviderRegistry>(
     WebDavAccountAdapter(
       credentials: ref.watch(accountCredentialsStoreProvider),
       legacySync: ref.watch(webdavCredentialsStoreProvider),
+    ),
+    GitAccountAdapter(
+      credentials: ref.watch(accountCredentialsStoreProvider),
+      legacySync: ref.watch(gitCredentialsStoreProvider),
     ),
     DropboxAccountAdapter(),
     GoogleDriveAccountAdapter(),

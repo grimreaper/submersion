@@ -6152,6 +6152,7 @@
   "settings_cloudSync_provider_webdav_edit": "تعديل إعدادات WebDAV",
   "settings_cloudSync_provider_webdav_subtitle": "أي خادم WebDAV",
   "settings_cloudSync_provider_webdav_title": "WebDAV",
+  "settings_cloudSync_provider_git_title": "Git",
   "settings_cloudSync_resolveConflicts": "حل التعارضات",
   "settings_cloudSync_selectProviderHint": "اختر مزود سحابة لتمكين المزامنة",
   "settings_cloudSync_signOut": "تسجيل الخروج",

@@ -6304,6 +6304,7 @@
   "settings_cloudSync_provider_webdav_edit": "编辑 WebDAV 配置",
   "settings_cloudSync_provider_webdav_subtitle": "任意 WebDAV 服务器",
   "settings_cloudSync_provider_webdav_title": "WebDAV",
+  "settings_cloudSync_provider_git_title": "Git",
   "settings_cloudSync_resolveConflicts": "解决冲突",
   "settings_cloudSync_selectProviderHint": "选择一个云服务提供商以启用同步",
   "settings_cloudSync_signOut": "退出登录",

@@ -22033,6 +22033,9 @@ class AppLocalizationsIt extends AppLocalizations {
   String get settings_cloudSync_provider_webdav_title => 'WebDAV';
 
   @override
+  String get settings_cloudSync_provider_git_title => 'Git';
+
+  @override
   String get settings_cloudSync_resolveConflicts => 'Risolvi conflitti';
 
   @override

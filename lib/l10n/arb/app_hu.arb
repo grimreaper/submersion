@@ -6052,6 +6052,7 @@
   "settings_cloudSync_provider_webdav_edit": "WebDAV-konfiguráció szerkesztése",
   "settings_cloudSync_provider_webdav_subtitle": "Bármely WebDAV-kiszolgáló",
   "settings_cloudSync_provider_webdav_title": "WebDAV",
+  "settings_cloudSync_provider_git_title": "Git",
   "settings_cloudSync_resolveConflicts": "Ütközések feloldása",
   "settings_cloudSync_selectProviderHint": "Válasszon felhő szolgáltatót a szinkronizálás engedélyezéséhez",
   "settings_cloudSync_signOut": "Kijelentkezés",
