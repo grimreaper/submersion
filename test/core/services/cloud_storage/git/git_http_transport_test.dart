@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:convert';
 import 'dart:io';
 import 'dart:math';
@@ -383,7 +384,7 @@ void main() {
             username: 'diver',
             token: 'secret',
           ),
-          pushDeadline: (_) => const Duration(milliseconds: 1),
+          pushDeadline: (_) => const Duration(milliseconds: 500),
         );
         addTearDown(t.close);
         final r = Random(4);
@@ -393,16 +394,30 @@ void main() {
             (_) => r.nextInt(16).toRadixString(16),
           ).join(),
         );
+        // The body stalls after its first chunk, as on a slow link, so the
+        // deadline passes while it is still being sent; it resumes only
+        // after the push has given up.
+        final resume = Completer<void>();
+        Stream<List<int>> stalled(Stream<List<int>> pack) async* {
+          var first = true;
+          await for (final chunk in pack) {
+            if (!first) await resume.future;
+            first = false;
+            yield chunk;
+          }
+        }
+
         await expectLater(
           t.push(
             branch: 'submersion-sync',
             oldTip: null,
             newTip: big.commit,
-            pack: writePack(big.pack),
+            pack: stalled(writePack(big.pack)),
           ),
           _gitError(GitErrorCode.unreachable),
         );
-        // Give a push that kept streaming every chance to land.
+        resume.complete();
+        // A push that kept streaming would now finish and land.
         for (
           var i = 0;
           i < 40 &&
@@ -413,6 +428,7 @@ void main() {
         ) {
           await Future<void>.delayed(const Duration(milliseconds: 50));
         }
+        await Future<void>.delayed(const Duration(milliseconds: 500));
         await server.idle();
         expect(await runGit(repo, ['for-each-ref', 'refs/heads/']), isEmpty);
       },
