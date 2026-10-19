@@ -114,18 +114,24 @@ echo "$OUT" | grep -q "::error::Notarization failed after 3 attempts" \
   || fail "persistent submit failure has no error annotation: $OUT"
 
 # --- Usage errors ------------------------------------------------------------
-STATUS=0
-OUT=$("$NOTARIZE" 2>&1) || STATUS=$?
+# Each is rejected before xcrun runs. A non-zero exit alone would not show
+# that: a failing stub submit also exits non-zero.
+usage_run() {
+  : > "$STUBDIR/calls"
+  STATUS=0
+  OUT=$(XCRUN="$STUBDIR/xcrun" NOTARIZE_SLEEP="$STUBDIR/sleep" "$@" 2>&1) \
+    || STATUS=$?
+  [ ! -s "$STUBDIR/calls" ] || fail "xcrun ran despite a usage error: $OUT"
+}
+
+usage_run env APPLE_ID=a APPLE_APP_PASSWORD=b APPLE_TEAM_ID=c "$NOTARIZE"
 [ "$STATUS" -eq 2 ] || fail "no DMG argument exited $STATUS"
 
-STATUS=0
-OUT=$(XCRUN="$STUBDIR/xcrun" APPLE_ID='' APPLE_APP_PASSWORD=x APPLE_TEAM_ID=y \
-  "$NOTARIZE" "$DMG" 2>&1) || STATUS=$?
+usage_run env APPLE_ID='' APPLE_APP_PASSWORD=b APPLE_TEAM_ID=c "$NOTARIZE" "$DMG"
 [ "$STATUS" -ne 0 ] || fail "an empty APPLE_ID was accepted"
 
-STATUS=0
-OUT=$(XCRUN="$STUBDIR/xcrun" APPLE_ID=a APPLE_APP_PASSWORD=b APPLE_TEAM_ID=c \
-  "$NOTARIZE" "$STUBDIR/missing.dmg" 2>&1) || STATUS=$?
+usage_run env APPLE_ID=a APPLE_APP_PASSWORD=b APPLE_TEAM_ID=c \
+  "$NOTARIZE" "$STUBDIR/missing.dmg"
 [ "$STATUS" -ne 0 ] || fail "a missing DMG was accepted"
 
 echo "notarize_dmg_test: all passed"
