@@ -62,6 +62,7 @@ final class FileGitObjectStore implements GitObjectStore {
   FileGitObjectStore(this.root, {this.maxBytes = 256 * 1024 * 1024});
 
   static const String _tmpSuffix = '.tmp';
+  static const Duration _staleTmpAge = Duration(hours: 1);
   static final Random _random = Random();
 
   final Directory root;
@@ -86,12 +87,17 @@ final class FileGitObjectStore implements GitObjectStore {
     if (await root.exists()) {
       await for (final entity in root.list(recursive: true)) {
         if (entity is! File) continue;
-        // A write cut short by a crash; the object is fetched again.
+        final stat = await entity.stat();
         if (entity.path.endsWith(_tmpSuffix)) {
-          await entity.delete().catchError((_) => entity);
+          // An old one is a write cut short by a crash (the object is
+          // fetched again); a recent one may be another store's on this
+          // directory, still being written.
+          final age = DateTime.now().difference(stat.modified);
+          if (age > _staleTmpAge) {
+            await entity.delete().catchError((_) => entity);
+          }
           continue;
         }
-        final stat = await entity.stat();
         found.add((
           path: entity.path,
           size: stat.size,

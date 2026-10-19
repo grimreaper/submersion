@@ -1,4 +1,5 @@
 import 'dart:convert';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -85,6 +86,20 @@ void main() {
       expect(await store.has(a.id), isTrue);
       expect(await store.has(b.id), isFalse);
       expect(await store.has(c.id), isTrue);
+    });
+
+    test('the first scan clears only temp files left long ago', () async {
+      final dir = tempDirForTest('git_store_');
+      Directory(joinPath(dir, 'ab')).createSync();
+      // One being written by another store right now, one from a crash.
+      final writing = File(joinPath(dir, 'ab/cdef.1a2b.tmp'))
+        ..writeAsStringSync('partial');
+      final stale = File(joinPath(dir, 'ab/cdef.3c4d.tmp'))
+        ..writeAsStringSync('partial')
+        ..setLastModifiedSync(DateTime.now().subtract(const Duration(days: 1)));
+      await FileGitObjectStore(dir).has(_blob('x').id);
+      expect(writing.existsSync(), isTrue);
+      expect(stale.existsSync(), isFalse);
     });
 
     test('concurrent first uses count the directory once', () async {
