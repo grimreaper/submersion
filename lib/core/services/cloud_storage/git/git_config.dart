@@ -44,6 +44,18 @@ bool isValidGitBranchName(String name) {
   return true;
 }
 
+/// What is wrong with a [GitConfig], one value per kind of mistake.
+enum GitConfigProblem {
+  repoUrl,
+  credentialsInUrl,
+  repoQuery,
+  repoPath,
+  username,
+  token,
+  tokenSpaces,
+  branch,
+}
+
 /// Connection settings for a Git repository.
 ///
 /// Immutable. The factory normalizes its inputs so the same repository typed
@@ -131,10 +143,10 @@ class GitConfig {
     pinnedCertSha256: pinnedCertSha256,
   );
 
-  /// English description of the first problem, or null when valid. The
-  /// settings form validates field by field with localized text; this is
-  /// the service-layer backstop.
-  String? validate() {
+  /// Every problem with this config, in field order: address, username,
+  /// token, branch. The settings form shows each under its own field.
+  List<GitConfigProblem> problems() {
+    final out = <GitConfigProblem>[];
     final uri = Uri.tryParse(repoUrl);
     final loopbackHttp =
         uri != null &&
@@ -143,25 +155,44 @@ class GitConfig {
     if (uri == null ||
         uri.host.isEmpty ||
         (uri.scheme != 'https' && !loopbackHttp)) {
-      return 'Enter the repository address, starting with https://';
+      out.add(GitConfigProblem.repoUrl);
+    } else if (uri.userInfo.isNotEmpty) {
+      out.add(GitConfigProblem.credentialsInUrl);
+    } else if (uri.hasQuery || uri.hasFragment) {
+      out.add(GitConfigProblem.repoQuery);
+    } else if (repoPath.isEmpty) {
+      out.add(GitConfigProblem.repoPath);
     }
-    if (uri.userInfo.isNotEmpty) {
-      return 'Put the username and token in their own fields, '
-          'not in the address';
+    if (username.isEmpty) out.add(GitConfigProblem.username);
+    if (token.isEmpty) {
+      out.add(GitConfigProblem.token);
+    } else if (token.contains(RegExp(r'\s'))) {
+      out.add(GitConfigProblem.tokenSpaces);
     }
-    if (uri.hasQuery || uri.hasFragment) {
-      return 'The repository address cannot contain ? or #';
-    }
-    if (repoPath.isEmpty) {
-      return 'Enter the full repository address, including its path';
-    }
-    if (username.isEmpty) return 'Enter the username';
-    if (token.isEmpty) return 'Enter the access token';
-    if (token.contains(RegExp(r'\s'))) {
-      return 'The access token cannot contain spaces';
-    }
-    if (!isValidGitBranchName(branch)) return 'Enter a valid branch name';
-    return null;
+    if (!isValidGitBranchName(branch)) out.add(GitConfigProblem.branch);
+    return out;
+  }
+
+  /// English description of the first problem, or null when valid. The
+  /// settings form validates field by field with localized text; this is
+  /// the service-layer backstop.
+  String? validate() {
+    final first = problems().firstOrNull;
+    return switch (first) {
+      null => null,
+      GitConfigProblem.repoUrl =>
+        'Enter the repository address, starting with https://',
+      GitConfigProblem.credentialsInUrl =>
+        'Put the username and token in their own fields, not in the address',
+      GitConfigProblem.repoQuery =>
+        'The repository address cannot contain ? or #',
+      GitConfigProblem.repoPath =>
+        'Enter the full repository address, including its path',
+      GitConfigProblem.username => 'Enter the username',
+      GitConfigProblem.token => 'Enter the access token',
+      GitConfigProblem.tokenSpaces => 'The access token cannot contain spaces',
+      GitConfigProblem.branch => 'Enter a valid branch name',
+    };
   }
 
   GitConfig copyWith({

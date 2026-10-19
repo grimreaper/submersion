@@ -31,6 +31,7 @@ import 'package:submersion/features/settings/presentation/widgets/cloud_provider
 import 'package:submersion/features/settings/presentation/widgets/conflict_resolution_dialog.dart';
 import 'package:submersion/features/settings/presentation/widgets/dropbox_connect_dialog.dart';
 import 'package:submersion/features/settings/presentation/widgets/encryption_settings_section.dart';
+import 'package:submersion/features/settings/presentation/widgets/git_provider_tile.dart';
 import 'package:submersion/features/settings/presentation/widgets/webdav_provider_tile.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
@@ -554,6 +555,11 @@ class _CloudSyncPageState extends ConsumerState<CloudSyncPage> {
           onSelect: () =>
               _selectProvider(context, ref, CloudProviderType.webdav),
           onEdit: () => context.push('/settings/cloud-sync/webdav-config'),
+        ),
+        GitProviderTile(
+          isSelected: selectedProvider == CloudProviderType.git,
+          onSelect: () => _selectProvider(context, ref, CloudProviderType.git),
+          onEdit: () => context.push('/settings/cloud-sync/git-config'),
         ),
         // The tile disappears in builds without a Dropbox app key
         // (dropboxAppKey empty) so users never see a connect dialog that

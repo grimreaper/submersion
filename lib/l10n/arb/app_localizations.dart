@@ -35180,6 +35180,24 @@ abstract class AppLocalizations {
   /// **'Git'**
   String get settings_cloudSync_provider_git_title;
 
+  /// No description provided for @settings_cloudSync_provider_git_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Any Git host'**
+  String get settings_cloudSync_provider_git_subtitle;
+
+  /// No description provided for @settings_cloudSync_provider_git_edit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit Git configuration'**
+  String get settings_cloudSync_provider_git_edit;
+
+  /// No description provided for @settings_cloudSync_provider_git_lastReset.
+  ///
+  /// In en, this message translates to:
+  /// **'History last reset {date}'**
+  String settings_cloudSync_provider_git_lastReset(String date);
+
   /// No description provided for @settings_cloudSync_resolveConflicts.
   ///
   /// In en, this message translates to:
@@ -42467,6 +42485,324 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This endpoint uses plain HTTP. Credentials and dive data will travel unencrypted; use only on a trusted network.'**
   String get settings_s3Config_warning_http;
+
+  /// No description provided for @settings_gitConfig_action_remove.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove configuration'**
+  String get settings_gitConfig_action_remove;
+
+  /// No description provided for @settings_gitConfig_action_testConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Test connection'**
+  String get settings_gitConfig_action_testConnection;
+
+  /// No description provided for @settings_gitConfig_appBar_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Git'**
+  String get settings_gitConfig_appBar_title;
+
+  /// No description provided for @settings_gitConfig_error_branchHasOtherContent.
+  ///
+  /// In en, this message translates to:
+  /// **'The branch {branch} already holds other content. Choose a new branch name: Submersion resets the history of its branch.'**
+  String settings_gitConfig_error_branchHasOtherContent(String branch);
+
+  /// No description provided for @settings_gitConfig_error_forbidden.
+  ///
+  /// In en, this message translates to:
+  /// **'This token cannot push to the repository. Give it write access to the repository\'s contents.'**
+  String get settings_gitConfig_error_forbidden;
+
+  /// No description provided for @settings_gitConfig_error_invalidConfig.
+  ///
+  /// In en, this message translates to:
+  /// **'Check the repository details.'**
+  String get settings_gitConfig_error_invalidConfig;
+
+  /// No description provided for @settings_gitConfig_error_notFound.
+  ///
+  /// In en, this message translates to:
+  /// **'No repository at this address. Check the address, and that the token can see the repository.'**
+  String get settings_gitConfig_error_notFound;
+
+  /// No description provided for @settings_gitConfig_error_notGit.
+  ///
+  /// In en, this message translates to:
+  /// **'This address is not a Git repository.'**
+  String get settings_gitConfig_error_notGit;
+
+  /// No description provided for @settings_gitConfig_error_protectedBranch.
+  ///
+  /// In en, this message translates to:
+  /// **'The host would not reset the history of {branch}. Allow force push on the {branch} branch in the host\'s branch protection settings.'**
+  String settings_gitConfig_error_protectedBranch(String branch);
+
+  /// No description provided for @settings_gitConfig_error_publicRepoUnencrypted.
+  ///
+  /// In en, this message translates to:
+  /// **'The repository is public. Turn on encrypted sync, or make the repository private.'**
+  String get settings_gitConfig_error_publicRepoUnencrypted;
+
+  /// No description provided for @settings_gitConfig_error_rateLimited.
+  ///
+  /// In en, this message translates to:
+  /// **'The host is limiting requests. Submersion will try again later.'**
+  String get settings_gitConfig_error_rateLimited;
+
+  /// No description provided for @settings_gitConfig_error_secureStorage.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not access secure storage'**
+  String get settings_gitConfig_error_secureStorage;
+
+  /// No description provided for @settings_gitConfig_error_server.
+  ///
+  /// In en, this message translates to:
+  /// **'The host reported an error. Try again later.'**
+  String get settings_gitConfig_error_server;
+
+  /// No description provided for @settings_gitConfig_error_staleTip.
+  ///
+  /// In en, this message translates to:
+  /// **'Another device changed the repository at the same moment. Try again.'**
+  String get settings_gitConfig_error_staleTip;
+
+  /// No description provided for @settings_gitConfig_error_tooLarge.
+  ///
+  /// In en, this message translates to:
+  /// **'The host refused a {size} MB file as too large.'**
+  String settings_gitConfig_error_tooLarge(String size);
+
+  /// No description provided for @settings_gitConfig_error_tooLargeUnknown.
+  ///
+  /// In en, this message translates to:
+  /// **'The host refused a file as too large.'**
+  String get settings_gitConfig_error_tooLargeUnknown;
+
+  /// No description provided for @settings_gitConfig_error_unauthorized.
+  ///
+  /// In en, this message translates to:
+  /// **'The host rejected the username or token. If the token expired, create a new one and paste it here.'**
+  String get settings_gitConfig_error_unauthorized;
+
+  /// No description provided for @settings_gitConfig_error_unexpected.
+  ///
+  /// In en, this message translates to:
+  /// **'The host gave an unexpected reply.'**
+  String get settings_gitConfig_error_unexpected;
+
+  /// No description provided for @settings_gitConfig_error_unreachable.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not reach {host}.'**
+  String settings_gitConfig_error_unreachable(String host);
+
+  /// No description provided for @settings_gitConfig_error_untrusted.
+  ///
+  /// In en, this message translates to:
+  /// **'The server certificate is not trusted.'**
+  String get settings_gitConfig_error_untrusted;
+
+  /// No description provided for @settings_gitConfig_field_branch_helper.
+  ///
+  /// In en, this message translates to:
+  /// **'Submersion keeps this branch to itself and resets its history now and then, so the repository stays small. Your other branches are never touched.'**
+  String get settings_gitConfig_field_branch_helper;
+
+  /// No description provided for @settings_gitConfig_field_branch_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Branch'**
+  String get settings_gitConfig_field_branch_label;
+
+  /// No description provided for @settings_gitConfig_field_repoUrl_helper.
+  ///
+  /// In en, this message translates to:
+  /// **'The HTTPS address you would clone from'**
+  String get settings_gitConfig_field_repoUrl_helper;
+
+  /// No description provided for @settings_gitConfig_field_repoUrl_hint.
+  ///
+  /// In en, this message translates to:
+  /// **'https://github.com/you/dive-log.git'**
+  String get settings_gitConfig_field_repoUrl_hint;
+
+  /// No description provided for @settings_gitConfig_field_repoUrl_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Repository address'**
+  String get settings_gitConfig_field_repoUrl_label;
+
+  /// No description provided for @settings_gitConfig_field_token_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Access token'**
+  String get settings_gitConfig_field_token_label;
+
+  /// No description provided for @settings_gitConfig_field_username_label.
+  ///
+  /// In en, this message translates to:
+  /// **'Username'**
+  String get settings_gitConfig_field_username_label;
+
+  /// No description provided for @settings_gitConfig_host_bitbucket.
+  ///
+  /// In en, this message translates to:
+  /// **'Bitbucket: create an API token with repository read and write access. App passwords no longer work.'**
+  String get settings_gitConfig_host_bitbucket;
+
+  /// No description provided for @settings_gitConfig_host_gitea.
+  ///
+  /// In en, this message translates to:
+  /// **'Gitea or Forgejo: create an access token with the write:repository scope.'**
+  String get settings_gitConfig_host_gitea;
+
+  /// No description provided for @settings_gitConfig_host_github.
+  ///
+  /// In en, this message translates to:
+  /// **'GitHub: create a fine-grained token for this one repository, with Contents: read and write.'**
+  String get settings_gitConfig_host_github;
+
+  /// No description provided for @settings_gitConfig_host_gitlab.
+  ///
+  /// In en, this message translates to:
+  /// **'GitLab: create a personal or project access token with the write_repository scope. GitLab tokens expire within a year.'**
+  String get settings_gitConfig_host_gitlab;
+
+  /// No description provided for @settings_gitConfig_host_other.
+  ///
+  /// In en, this message translates to:
+  /// **'Use an access token or password that can push to this repository.'**
+  String get settings_gitConfig_host_other;
+
+  /// No description provided for @settings_gitConfig_host_tokenHelp.
+  ///
+  /// In en, this message translates to:
+  /// **'How to create a token'**
+  String get settings_gitConfig_host_tokenHelp;
+
+  /// No description provided for @settings_gitConfig_keepEncryption_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync goes to a public Git repository. Make the repository private on the host before turning encryption off.'**
+  String get settings_gitConfig_keepEncryption_body;
+
+  /// No description provided for @settings_gitConfig_keepEncryption_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Encryption must stay on'**
+  String get settings_gitConfig_keepEncryption_title;
+
+  /// No description provided for @settings_gitConfig_public_body.
+  ///
+  /// In en, this message translates to:
+  /// **'Anyone can read a public repository, so Submersion syncs to it only with encryption on. Turn on encrypted sync next, or make the repository private on the host.'**
+  String get settings_gitConfig_public_body;
+
+  /// No description provided for @settings_gitConfig_public_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Saved. Turn on encrypted sync below to start syncing.'**
+  String get settings_gitConfig_public_saved;
+
+  /// No description provided for @settings_gitConfig_public_title.
+  ///
+  /// In en, this message translates to:
+  /// **'This repository is public'**
+  String get settings_gitConfig_public_title;
+
+  /// No description provided for @settings_gitConfig_public_turnOnEncryption.
+  ///
+  /// In en, this message translates to:
+  /// **'Save and turn on encryption'**
+  String get settings_gitConfig_public_turnOnEncryption;
+
+  /// No description provided for @settings_gitConfig_remove_confirm_action.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove'**
+  String get settings_gitConfig_remove_confirm_action;
+
+  /// No description provided for @settings_gitConfig_remove_confirm_body.
+  ///
+  /// In en, this message translates to:
+  /// **'The repository address and token are removed from this device. The repository is kept.'**
+  String get settings_gitConfig_remove_confirm_body;
+
+  /// No description provided for @settings_gitConfig_remove_confirm_title.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove Git configuration?'**
+  String get settings_gitConfig_remove_confirm_title;
+
+  /// No description provided for @settings_gitConfig_removed.
+  ///
+  /// In en, this message translates to:
+  /// **'Git configuration removed'**
+  String get settings_gitConfig_removed;
+
+  /// No description provided for @settings_gitConfig_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Git configuration saved'**
+  String get settings_gitConfig_saved;
+
+  /// No description provided for @settings_gitConfig_test_becomesDefault.
+  ///
+  /// In en, this message translates to:
+  /// **'This repository is empty, so {branch} will become its default branch. A repository used only for Submersion works best.'**
+  String settings_gitConfig_test_becomesDefault(String branch);
+
+  /// No description provided for @settings_gitConfig_test_successExisting.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected to the Submersion branch {branch}.'**
+  String settings_gitConfig_test_successExisting(String branch);
+
+  /// No description provided for @settings_gitConfig_test_successNew.
+  ///
+  /// In en, this message translates to:
+  /// **'Connected. Submersion will create the branch {branch}.'**
+  String settings_gitConfig_test_successNew(String branch);
+
+  /// No description provided for @settings_gitConfig_validation_branch.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter a valid branch name'**
+  String get settings_gitConfig_validation_branch;
+
+  /// No description provided for @settings_gitConfig_validation_credentialsInUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Put the username and token in their own fields, not in the address'**
+  String get settings_gitConfig_validation_credentialsInUrl;
+
+  /// No description provided for @settings_gitConfig_validation_repoUrl.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the repository address, starting with https://'**
+  String get settings_gitConfig_validation_repoUrl;
+
+  /// No description provided for @settings_gitConfig_validation_token.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the access token'**
+  String get settings_gitConfig_validation_token;
+
+  /// No description provided for @settings_gitConfig_validation_tokenSpaces.
+  ///
+  /// In en, this message translates to:
+  /// **'The access token cannot contain spaces'**
+  String get settings_gitConfig_validation_tokenSpaces;
+
+  /// No description provided for @settings_gitConfig_validation_username.
+  ///
+  /// In en, this message translates to:
+  /// **'Enter the username'**
+  String get settings_gitConfig_validation_username;
 
   /// No description provided for @settings_webdavConfig_action_forgetCertificate.
   ///

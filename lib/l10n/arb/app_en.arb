@@ -13469,6 +13469,16 @@
   "settings_cloudSync_provider_webdav_subtitle": "Any WebDAV server",
   "settings_cloudSync_provider_webdav_title": "WebDAV",
   "settings_cloudSync_provider_git_title": "Git",
+  "settings_cloudSync_provider_git_subtitle": "Any Git host",
+  "settings_cloudSync_provider_git_edit": "Edit Git configuration",
+  "settings_cloudSync_provider_git_lastReset": "History last reset {date}",
+  "@settings_cloudSync_provider_git_lastReset": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      }
+    }
+  },
   "settings_cloudSync_resolveConflicts": "Resolve Conflicts",
   "settings_cloudSync_selectProviderHint": "Select a cloud provider to enable sync",
   "settings_cloudSync_signOut": "Sign Out",
@@ -15059,6 +15069,108 @@
   "settings_s3Config_validation_endpointPath": "Endpoint URL must not include a path",
   "settings_s3Config_validation_required": "Required",
   "settings_s3Config_warning_http": "This endpoint uses plain HTTP. Credentials and dive data will travel unencrypted; use only on a trusted network.",
+  "settings_gitConfig_action_remove": "Remove configuration",
+  "settings_gitConfig_action_testConnection": "Test connection",
+  "settings_gitConfig_appBar_title": "Git",
+  "settings_gitConfig_error_branchHasOtherContent": "The branch {branch} already holds other content. Choose a new branch name: Submersion resets the history of its branch.",
+  "@settings_gitConfig_error_branchHasOtherContent": {
+    "placeholders": {
+      "branch": {
+        "type": "String"
+      }
+    }
+  },
+  "settings_gitConfig_error_forbidden": "This token cannot push to the repository. Give it write access to the repository's contents.",
+  "settings_gitConfig_error_invalidConfig": "Check the repository details.",
+  "settings_gitConfig_error_notFound": "No repository at this address. Check the address, and that the token can see the repository.",
+  "settings_gitConfig_error_notGit": "This address is not a Git repository.",
+  "settings_gitConfig_error_protectedBranch": "The host would not reset the history of {branch}. Allow force push on the {branch} branch in the host's branch protection settings.",
+  "@settings_gitConfig_error_protectedBranch": {
+    "placeholders": {
+      "branch": {
+        "type": "String"
+      }
+    }
+  },
+  "settings_gitConfig_error_publicRepoUnencrypted": "The repository is public. Turn on encrypted sync, or make the repository private.",
+  "settings_gitConfig_error_rateLimited": "The host is limiting requests. Submersion will try again later.",
+  "settings_gitConfig_error_secureStorage": "Could not access secure storage",
+  "settings_gitConfig_error_server": "The host reported an error. Try again later.",
+  "settings_gitConfig_error_staleTip": "Another device changed the repository at the same moment. Try again.",
+  "settings_gitConfig_error_tooLarge": "The host refused a {size} MB file as too large.",
+  "@settings_gitConfig_error_tooLarge": {
+    "placeholders": {
+      "size": {
+        "type": "String"
+      }
+    }
+  },
+  "settings_gitConfig_error_tooLargeUnknown": "The host refused a file as too large.",
+  "settings_gitConfig_error_unauthorized": "The host rejected the username or token. If the token expired, create a new one and paste it here.",
+  "settings_gitConfig_error_unexpected": "The host gave an unexpected reply.",
+  "settings_gitConfig_error_unreachable": "Could not reach {host}.",
+  "@settings_gitConfig_error_unreachable": {
+    "placeholders": {
+      "host": {
+        "type": "String"
+      }
+    }
+  },
+  "settings_gitConfig_error_untrusted": "The server certificate is not trusted.",
+  "settings_gitConfig_field_branch_helper": "Submersion keeps this branch to itself and resets its history now and then, so the repository stays small. Your other branches are never touched.",
+  "settings_gitConfig_field_branch_label": "Branch",
+  "settings_gitConfig_field_repoUrl_helper": "The HTTPS address you would clone from",
+  "settings_gitConfig_field_repoUrl_hint": "https://github.com/you/dive-log.git",
+  "settings_gitConfig_field_repoUrl_label": "Repository address",
+  "settings_gitConfig_field_token_label": "Access token",
+  "settings_gitConfig_field_username_label": "Username",
+  "settings_gitConfig_host_bitbucket": "Bitbucket: create an API token with repository read and write access. App passwords no longer work.",
+  "settings_gitConfig_host_gitea": "Gitea or Forgejo: create an access token with the write:repository scope.",
+  "settings_gitConfig_host_github": "GitHub: create a fine-grained token for this one repository, with Contents: read and write.",
+  "settings_gitConfig_host_gitlab": "GitLab: create a personal or project access token with the write_repository scope. GitLab tokens expire within a year.",
+  "settings_gitConfig_host_other": "Use an access token or password that can push to this repository.",
+  "settings_gitConfig_host_tokenHelp": "How to create a token",
+  "settings_gitConfig_keepEncryption_body": "Sync goes to a public Git repository. Make the repository private on the host before turning encryption off.",
+  "settings_gitConfig_keepEncryption_title": "Encryption must stay on",
+  "settings_gitConfig_public_body": "Anyone can read a public repository, so Submersion syncs to it only with encryption on. Turn on encrypted sync next, or make the repository private on the host.",
+  "settings_gitConfig_public_saved": "Saved. Turn on encrypted sync below to start syncing.",
+  "settings_gitConfig_public_title": "This repository is public",
+  "settings_gitConfig_public_turnOnEncryption": "Save and turn on encryption",
+  "settings_gitConfig_remove_confirm_action": "Remove",
+  "settings_gitConfig_remove_confirm_body": "The repository address and token are removed from this device. The repository is kept.",
+  "settings_gitConfig_remove_confirm_title": "Remove Git configuration?",
+  "settings_gitConfig_removed": "Git configuration removed",
+  "settings_gitConfig_saved": "Git configuration saved",
+  "settings_gitConfig_test_becomesDefault": "This repository is empty, so {branch} will become its default branch. A repository used only for Submersion works best.",
+  "@settings_gitConfig_test_becomesDefault": {
+    "placeholders": {
+      "branch": {
+        "type": "String"
+      }
+    }
+  },
+  "settings_gitConfig_test_successExisting": "Connected to the Submersion branch {branch}.",
+  "@settings_gitConfig_test_successExisting": {
+    "placeholders": {
+      "branch": {
+        "type": "String"
+      }
+    }
+  },
+  "settings_gitConfig_test_successNew": "Connected. Submersion will create the branch {branch}.",
+  "@settings_gitConfig_test_successNew": {
+    "placeholders": {
+      "branch": {
+        "type": "String"
+      }
+    }
+  },
+  "settings_gitConfig_validation_branch": "Enter a valid branch name",
+  "settings_gitConfig_validation_credentialsInUrl": "Put the username and token in their own fields, not in the address",
+  "settings_gitConfig_validation_repoUrl": "Enter the repository address, starting with https://",
+  "settings_gitConfig_validation_token": "Enter the access token",
+  "settings_gitConfig_validation_tokenSpaces": "The access token cannot contain spaces",
+  "settings_gitConfig_validation_username": "Enter the username",
   "settings_webdavConfig_action_forgetCertificate": "Forget",
   "settings_webdavConfig_action_remove": "Remove configuration",
   "settings_webdavConfig_action_testConnection": "Test connection",

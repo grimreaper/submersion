@@ -40,6 +40,7 @@ import 'package:submersion/features/settings/presentation/providers/settings_pro
 import 'package:submersion/features/settings/presentation/providers/storage_providers.dart'
     show StoragePlatformCapabilities, storagePlatformCapabilitiesProvider;
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
+import 'package:submersion/features/settings/presentation/providers/git_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/webdav_providers.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
 import 'package:submersion/l10n/arb/app_localizations_en.dart';
@@ -477,6 +478,7 @@ void main() {
           // FlutterSecureStorage; individual tests can supply a config.
           s3ConfigProvider.overrideWith((ref) async => s3Config),
           webdavConfigProvider.overrideWith((ref) async => null),
+          gitConfigProvider.overrideWith((ref) async => null),
           // Same for the Dropbox connection: null means not connected.
           dropboxAuthDataProvider.overrideWith((ref) async => dropboxAuth),
           dropboxConfiguredProvider.overrideWith((ref) => dropboxConfigured),
@@ -505,6 +507,17 @@ void main() {
     }
     return (sync: fakeSync, merge: fakeMerge, backup: fakeBackup);
   }
+
+  testWidgets('lists Git as a backend for any Git host', (tester) async {
+    await pumpPage(tester);
+    final tile = find.byKey(const Key('git-provider-tile'));
+    expect(tile, findsOneWidget);
+    expect(
+      find.descendant(of: tile, matching: find.text('Any Git host')),
+      findsOneWidget,
+    );
+    expect(find.byTooltip('Edit Git configuration'), findsOneWidget);
+  });
 
   group('CloudSyncPage - iCloud availability', () {
     ListTile iCloudTile(WidgetTester tester) => tester.widget<ListTile>(

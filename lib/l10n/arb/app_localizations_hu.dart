@@ -21962,6 +21962,19 @@ class AppLocalizationsHu extends AppLocalizations {
   String get settings_cloudSync_provider_git_title => 'Git';
 
   @override
+  String get settings_cloudSync_provider_git_subtitle =>
+      'Bármely Git-kiszolgáló';
+
+  @override
+  String get settings_cloudSync_provider_git_edit =>
+      'Git-beállítások szerkesztése';
+
+  @override
+  String settings_cloudSync_provider_git_lastReset(String date) {
+    return 'Előzmények utolsó visszaállítása: $date';
+  }
+
+  @override
   String get settings_cloudSync_resolveConflicts => 'Ütközések feloldása';
 
   @override
@@ -26260,6 +26273,212 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get settings_s3Config_warning_http =>
       'Ez a végpont titkosítatlan HTTP-t használ. A hitelesítő adatok és a merülési adatok titkosítatlanul utaznak; csak megbízható hálózaton használja.';
+
+  @override
+  String get settings_gitConfig_action_remove => 'Beállítások eltávolítása';
+
+  @override
+  String get settings_gitConfig_action_testConnection => 'Kapcsolat tesztelése';
+
+  @override
+  String get settings_gitConfig_appBar_title => 'Git';
+
+  @override
+  String settings_gitConfig_error_branchHasOtherContent(String branch) {
+    return 'A(z) $branch ág már más tartalmat tárol. Válasszon új ágnevet: a Submersion visszaállítja a saját ága előzményeit.';
+  }
+
+  @override
+  String get settings_gitConfig_error_forbidden =>
+      'Ez a token nem küldhet változásokat a tárolóba. Adjon neki írási hozzáférést a tároló tartalmához.';
+
+  @override
+  String get settings_gitConfig_error_invalidConfig =>
+      'Ellenőrizze a tároló adatait.';
+
+  @override
+  String get settings_gitConfig_error_notFound =>
+      'Ezen a címen nincs tároló. Ellenőrizze a címet, és hogy a token látja-e a tárolót.';
+
+  @override
+  String get settings_gitConfig_error_notGit => 'Ez a cím nem Git-tároló.';
+
+  @override
+  String settings_gitConfig_error_protectedBranch(String branch) {
+    return 'A kiszolgáló nem engedte visszaállítani a(z) $branch ág előzményeit. Engedélyezze a force push műveletet a(z) $branch ágon a kiszolgáló ágvédelmi beállításaiban.';
+  }
+
+  @override
+  String get settings_gitConfig_error_publicRepoUnencrypted =>
+      'A tároló nyilvános. Kapcsolja be a titkosított szinkronizálást, vagy tegye priváttá a tárolót.';
+
+  @override
+  String get settings_gitConfig_error_rateLimited =>
+      'A kiszolgáló korlátozza a kéréseket. A Submersion később újra próbálkozik.';
+
+  @override
+  String get settings_gitConfig_error_secureStorage =>
+      'Nem sikerült hozzáférni a biztonságos tárhelyhez';
+
+  @override
+  String get settings_gitConfig_error_server =>
+      'A kiszolgáló hibát jelzett. Próbálja újra később.';
+
+  @override
+  String get settings_gitConfig_error_staleTip =>
+      'Egy másik eszköz ugyanabban a pillanatban módosította a tárolót. Próbálja újra.';
+
+  @override
+  String settings_gitConfig_error_tooLarge(String size) {
+    return 'A kiszolgáló túl nagynak ítélt és elutasított egy $size MB-os fájlt.';
+  }
+
+  @override
+  String get settings_gitConfig_error_tooLargeUnknown =>
+      'A kiszolgáló túl nagynak ítélt és elutasított egy fájlt.';
+
+  @override
+  String get settings_gitConfig_error_unauthorized =>
+      'A kiszolgáló elutasította a felhasználónevet vagy a tokent. Ha a token lejárt, hozzon létre újat, és illessze be ide.';
+
+  @override
+  String get settings_gitConfig_error_unexpected =>
+      'A kiszolgáló váratlan választ adott.';
+
+  @override
+  String settings_gitConfig_error_unreachable(String host) {
+    return 'A(z) $host nem érhető el.';
+  }
+
+  @override
+  String get settings_gitConfig_error_untrusted =>
+      'A kiszolgáló tanúsítványa nem megbízható.';
+
+  @override
+  String get settings_gitConfig_field_branch_helper =>
+      'A Submersion ezt az ágat csak magának tartja, és időnként visszaállítja az előzményeit, hogy a tároló kicsi maradjon. A többi ágához soha nem nyúl.';
+
+  @override
+  String get settings_gitConfig_field_branch_label => 'Ág';
+
+  @override
+  String get settings_gitConfig_field_repoUrl_helper =>
+      'Az a HTTPS-cím, amelyről klónozna';
+
+  @override
+  String get settings_gitConfig_field_repoUrl_hint =>
+      'https://github.com/you/dive-log.git';
+
+  @override
+  String get settings_gitConfig_field_repoUrl_label => 'Tároló címe';
+
+  @override
+  String get settings_gitConfig_field_token_label => 'Hozzáférési token';
+
+  @override
+  String get settings_gitConfig_field_username_label => 'Felhasználónév';
+
+  @override
+  String get settings_gitConfig_host_bitbucket =>
+      'Bitbucket: hozzon létre API-tokent olvasási és írási hozzáféréssel a tárolóhoz. Az alkalmazásjelszavak már nem működnek.';
+
+  @override
+  String get settings_gitConfig_host_gitea =>
+      'Gitea vagy Forgejo: hozzon létre hozzáférési tokent write:repository hatókörrel.';
+
+  @override
+  String get settings_gitConfig_host_github =>
+      'GitHub: hozzon létre fine-grained tokent csak ehhez a tárolóhoz, Contents: read and write jogosultsággal.';
+
+  @override
+  String get settings_gitConfig_host_gitlab =>
+      'GitLab: hozzon létre személyes vagy projekt hozzáférési tokent write_repository hatókörrel. A GitLab-tokenek egy éven belül lejárnak.';
+
+  @override
+  String get settings_gitConfig_host_other =>
+      'Használjon olyan hozzáférési tokent vagy jelszót, amely küldhet változásokat ebbe a tárolóba.';
+
+  @override
+  String get settings_gitConfig_host_tokenHelp => 'Token létrehozása';
+
+  @override
+  String get settings_gitConfig_keepEncryption_body =>
+      'A szinkronizálás nyilvános Git-tárolóba megy. Tegye priváttá a tárolót a kiszolgálón, mielőtt kikapcsolja a titkosítást.';
+
+  @override
+  String get settings_gitConfig_keepEncryption_title =>
+      'A titkosításnak bekapcsolva kell maradnia';
+
+  @override
+  String get settings_gitConfig_public_body =>
+      'Egy nyilvános tárolót bárki elolvashat, ezért a Submersion csak bekapcsolt titkosítással szinkronizál bele. Ezután kapcsolja be a titkosított szinkronizálást, vagy tegye priváttá a tárolót a kiszolgálón.';
+
+  @override
+  String get settings_gitConfig_public_saved =>
+      'Mentve. A szinkronizálás indításához kapcsolja be lent a titkosított szinkronizálást.';
+
+  @override
+  String get settings_gitConfig_public_title => 'Ez a tároló nyilvános';
+
+  @override
+  String get settings_gitConfig_public_turnOnEncryption =>
+      'Mentés és titkosítás bekapcsolása';
+
+  @override
+  String get settings_gitConfig_remove_confirm_action => 'Eltávolítás';
+
+  @override
+  String get settings_gitConfig_remove_confirm_body =>
+      'A tároló címe és a token törlődik erről az eszközről. A tároló megmarad.';
+
+  @override
+  String get settings_gitConfig_remove_confirm_title =>
+      'Eltávolítja a Git-beállításokat?';
+
+  @override
+  String get settings_gitConfig_removed => 'Git-beállítások eltávolítva';
+
+  @override
+  String get settings_gitConfig_saved => 'Git-beállítások mentve';
+
+  @override
+  String settings_gitConfig_test_becomesDefault(String branch) {
+    return 'Ez a tároló üres, így a(z) $branch lesz az alapértelmezett ága. A legjobb egy csak a Submersionnek szánt tároló.';
+  }
+
+  @override
+  String settings_gitConfig_test_successExisting(String branch) {
+    return 'Kapcsolódva a Submersion $branch ágához.';
+  }
+
+  @override
+  String settings_gitConfig_test_successNew(String branch) {
+    return 'Kapcsolódva. A Submersion létrehozza a(z) $branch ágat.';
+  }
+
+  @override
+  String get settings_gitConfig_validation_branch =>
+      'Adjon meg érvényes ágnevet';
+
+  @override
+  String get settings_gitConfig_validation_credentialsInUrl =>
+      'A felhasználónevet és a tokent a saját mezőjükbe írja, ne a címbe';
+
+  @override
+  String get settings_gitConfig_validation_repoUrl =>
+      'Adja meg a tároló címét https:// kezdettel';
+
+  @override
+  String get settings_gitConfig_validation_token =>
+      'Adja meg a hozzáférési tokent';
+
+  @override
+  String get settings_gitConfig_validation_tokenSpaces =>
+      'A hozzáférési token nem tartalmazhat szóközt';
+
+  @override
+  String get settings_gitConfig_validation_username =>
+      'Adja meg a felhasználónevet';
 
   @override
   String get settings_webdavConfig_action_forgetCertificate => 'Elfelejtés';

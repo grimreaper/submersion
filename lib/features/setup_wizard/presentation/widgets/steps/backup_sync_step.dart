@@ -6,6 +6,7 @@ import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/services/cloud_storage/icloud_native_service.dart';
 import 'package:submersion/features/backup/domain/entities/backup_settings.dart';
 import 'package:submersion/features/settings/presentation/pages/s3_config_page.dart';
+import 'package:submersion/features/settings/presentation/pages/git_config_page.dart';
 import 'package:submersion/features/settings/presentation/pages/webdav_config_page.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/cloud_provider_authenticate.dart';
@@ -137,6 +138,22 @@ class _BackupSyncStepState extends ConsumerState<BackupSyncStep> {
     // S3ConfigPage activates S3 itself on save; reflect it in the draft.
     final sel = ref.read(selectedCloudProviderTypeProvider);
     if (sel == CloudProviderType.s3) {
+      ref
+          .read(setupWizardProvider(widget.mode).notifier)
+          .setConnectedProvider(sel);
+    }
+  }
+
+  Future<void> _openGitConfig() async {
+    // Root navigator for the same reason as _openS3Config: the onboarding
+    // redirect would bounce a go_router push back to /welcome.
+    await Navigator.of(
+      context,
+      rootNavigator: true,
+    ).push(MaterialPageRoute<void>(builder: (_) => const GitConfigPage()));
+    if (!mounted) return;
+    final sel = ref.read(selectedCloudProviderTypeProvider);
+    if (sel == CloudProviderType.git) {
       ref
           .read(setupWizardProvider(widget.mode).notifier)
           .setConnectedProvider(sel);
@@ -339,6 +356,12 @@ class _BackupSyncStepState extends ConsumerState<BackupSyncStep> {
               icon: Icons.folder_shared,
               name: 'WebDAV',
               onTap: _connecting ? null : _openWebDavConfig,
+            ),
+            _providerCard(
+              theme: theme,
+              icon: Icons.commit,
+              name: 'Git',
+              onTap: _connecting ? null : _openGitConfig,
             ),
           ],
           if (connected != null)

@@ -21701,6 +21701,17 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settings_cloudSync_provider_git_title => 'Git';
 
   @override
+  String get settings_cloudSync_provider_git_subtitle => 'Any Git host';
+
+  @override
+  String get settings_cloudSync_provider_git_edit => 'Edit Git configuration';
+
+  @override
+  String settings_cloudSync_provider_git_lastReset(String date) {
+    return 'History last reset $date';
+  }
+
+  @override
   String get settings_cloudSync_resolveConflicts => 'Resolve Conflicts';
 
   @override
@@ -25932,6 +25943,211 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settings_s3Config_warning_http =>
       'This endpoint uses plain HTTP. Credentials and dive data will travel unencrypted; use only on a trusted network.';
+
+  @override
+  String get settings_gitConfig_action_remove => 'Remove configuration';
+
+  @override
+  String get settings_gitConfig_action_testConnection => 'Test connection';
+
+  @override
+  String get settings_gitConfig_appBar_title => 'Git';
+
+  @override
+  String settings_gitConfig_error_branchHasOtherContent(String branch) {
+    return 'The branch $branch already holds other content. Choose a new branch name: Submersion resets the history of its branch.';
+  }
+
+  @override
+  String get settings_gitConfig_error_forbidden =>
+      'This token cannot push to the repository. Give it write access to the repository\'s contents.';
+
+  @override
+  String get settings_gitConfig_error_invalidConfig =>
+      'Check the repository details.';
+
+  @override
+  String get settings_gitConfig_error_notFound =>
+      'No repository at this address. Check the address, and that the token can see the repository.';
+
+  @override
+  String get settings_gitConfig_error_notGit =>
+      'This address is not a Git repository.';
+
+  @override
+  String settings_gitConfig_error_protectedBranch(String branch) {
+    return 'The host would not reset the history of $branch. Allow force push on the $branch branch in the host\'s branch protection settings.';
+  }
+
+  @override
+  String get settings_gitConfig_error_publicRepoUnencrypted =>
+      'The repository is public. Turn on encrypted sync, or make the repository private.';
+
+  @override
+  String get settings_gitConfig_error_rateLimited =>
+      'The host is limiting requests. Submersion will try again later.';
+
+  @override
+  String get settings_gitConfig_error_secureStorage =>
+      'Could not access secure storage';
+
+  @override
+  String get settings_gitConfig_error_server =>
+      'The host reported an error. Try again later.';
+
+  @override
+  String get settings_gitConfig_error_staleTip =>
+      'Another device changed the repository at the same moment. Try again.';
+
+  @override
+  String settings_gitConfig_error_tooLarge(String size) {
+    return 'The host refused a $size MB file as too large.';
+  }
+
+  @override
+  String get settings_gitConfig_error_tooLargeUnknown =>
+      'The host refused a file as too large.';
+
+  @override
+  String get settings_gitConfig_error_unauthorized =>
+      'The host rejected the username or token. If the token expired, create a new one and paste it here.';
+
+  @override
+  String get settings_gitConfig_error_unexpected =>
+      'The host gave an unexpected reply.';
+
+  @override
+  String settings_gitConfig_error_unreachable(String host) {
+    return 'Could not reach $host.';
+  }
+
+  @override
+  String get settings_gitConfig_error_untrusted =>
+      'The server certificate is not trusted.';
+
+  @override
+  String get settings_gitConfig_field_branch_helper =>
+      'Submersion keeps this branch to itself and resets its history now and then, so the repository stays small. Your other branches are never touched.';
+
+  @override
+  String get settings_gitConfig_field_branch_label => 'Branch';
+
+  @override
+  String get settings_gitConfig_field_repoUrl_helper =>
+      'The HTTPS address you would clone from';
+
+  @override
+  String get settings_gitConfig_field_repoUrl_hint =>
+      'https://github.com/you/dive-log.git';
+
+  @override
+  String get settings_gitConfig_field_repoUrl_label => 'Repository address';
+
+  @override
+  String get settings_gitConfig_field_token_label => 'Access token';
+
+  @override
+  String get settings_gitConfig_field_username_label => 'Username';
+
+  @override
+  String get settings_gitConfig_host_bitbucket =>
+      'Bitbucket: create an API token with repository read and write access. App passwords no longer work.';
+
+  @override
+  String get settings_gitConfig_host_gitea =>
+      'Gitea or Forgejo: create an access token with the write:repository scope.';
+
+  @override
+  String get settings_gitConfig_host_github =>
+      'GitHub: create a fine-grained token for this one repository, with Contents: read and write.';
+
+  @override
+  String get settings_gitConfig_host_gitlab =>
+      'GitLab: create a personal or project access token with the write_repository scope. GitLab tokens expire within a year.';
+
+  @override
+  String get settings_gitConfig_host_other =>
+      'Use an access token or password that can push to this repository.';
+
+  @override
+  String get settings_gitConfig_host_tokenHelp => 'How to create a token';
+
+  @override
+  String get settings_gitConfig_keepEncryption_body =>
+      'Sync goes to a public Git repository. Make the repository private on the host before turning encryption off.';
+
+  @override
+  String get settings_gitConfig_keepEncryption_title =>
+      'Encryption must stay on';
+
+  @override
+  String get settings_gitConfig_public_body =>
+      'Anyone can read a public repository, so Submersion syncs to it only with encryption on. Turn on encrypted sync next, or make the repository private on the host.';
+
+  @override
+  String get settings_gitConfig_public_saved =>
+      'Saved. Turn on encrypted sync below to start syncing.';
+
+  @override
+  String get settings_gitConfig_public_title => 'This repository is public';
+
+  @override
+  String get settings_gitConfig_public_turnOnEncryption =>
+      'Save and turn on encryption';
+
+  @override
+  String get settings_gitConfig_remove_confirm_action => 'Remove';
+
+  @override
+  String get settings_gitConfig_remove_confirm_body =>
+      'The repository address and token are removed from this device. The repository is kept.';
+
+  @override
+  String get settings_gitConfig_remove_confirm_title =>
+      'Remove Git configuration?';
+
+  @override
+  String get settings_gitConfig_removed => 'Git configuration removed';
+
+  @override
+  String get settings_gitConfig_saved => 'Git configuration saved';
+
+  @override
+  String settings_gitConfig_test_becomesDefault(String branch) {
+    return 'This repository is empty, so $branch will become its default branch. A repository used only for Submersion works best.';
+  }
+
+  @override
+  String settings_gitConfig_test_successExisting(String branch) {
+    return 'Connected to the Submersion branch $branch.';
+  }
+
+  @override
+  String settings_gitConfig_test_successNew(String branch) {
+    return 'Connected. Submersion will create the branch $branch.';
+  }
+
+  @override
+  String get settings_gitConfig_validation_branch =>
+      'Enter a valid branch name';
+
+  @override
+  String get settings_gitConfig_validation_credentialsInUrl =>
+      'Put the username and token in their own fields, not in the address';
+
+  @override
+  String get settings_gitConfig_validation_repoUrl =>
+      'Enter the repository address, starting with https://';
+
+  @override
+  String get settings_gitConfig_validation_token => 'Enter the access token';
+
+  @override
+  String get settings_gitConfig_validation_tokenSpaces =>
+      'The access token cannot contain spaces';
+
+  @override
+  String get settings_gitConfig_validation_username => 'Enter the username';
 
   @override
   String get settings_webdavConfig_action_forgetCertificate => 'Forget';

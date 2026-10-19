@@ -21533,6 +21533,17 @@ class AppLocalizationsHe extends AppLocalizations {
   String get settings_cloudSync_provider_git_title => 'Git';
 
   @override
+  String get settings_cloudSync_provider_git_subtitle => 'כל שרת Git';
+
+  @override
+  String get settings_cloudSync_provider_git_edit => 'עריכת הגדרות Git';
+
+  @override
+  String settings_cloudSync_provider_git_lastReset(String date) {
+    return 'ההיסטוריה אופסה לאחרונה: $date';
+  }
+
+  @override
   String get settings_cloudSync_resolveConflicts => 'פתור התנגשויות';
 
   @override
@@ -25715,6 +25726,206 @@ class AppLocalizationsHe extends AppLocalizations {
   @override
   String get settings_s3Config_warning_http =>
       'נקודת קצה זו משתמשת ב-HTTP לא מוצפן. פרטי הגישה ונתוני הצלילה יועברו ללא הצפנה; השתמשו רק ברשת מהימנה.';
+
+  @override
+  String get settings_gitConfig_action_remove => 'הסרת ההגדרות';
+
+  @override
+  String get settings_gitConfig_action_testConnection => 'בדיקת חיבור';
+
+  @override
+  String get settings_gitConfig_appBar_title => 'Git';
+
+  @override
+  String settings_gitConfig_error_branchHasOtherContent(String branch) {
+    return 'הענף $branch כבר מכיל תוכן אחר. בחרו שם ענף חדש: Submersion מאפס את ההיסטוריה של הענף שלו.';
+  }
+
+  @override
+  String get settings_gitConfig_error_forbidden =>
+      'האסימון הזה לא יכול לבצע push למאגר. תנו לו הרשאת כתיבה לתוכן המאגר.';
+
+  @override
+  String get settings_gitConfig_error_invalidConfig => 'בדקו את פרטי המאגר.';
+
+  @override
+  String get settings_gitConfig_error_notFound =>
+      'אין מאגר בכתובת הזו. בדקו את הכתובת, ושהאסימון יכול לראות את המאגר.';
+
+  @override
+  String get settings_gitConfig_error_notGit => 'הכתובת הזו אינה מאגר Git.';
+
+  @override
+  String settings_gitConfig_error_protectedBranch(String branch) {
+    return 'השרת סירב לאפס את ההיסטוריה של $branch. אפשרו force push לענף $branch בהגדרות הגנת הענפים של השרת.';
+  }
+
+  @override
+  String get settings_gitConfig_error_publicRepoUnencrypted =>
+      'המאגר ציבורי. הפעילו סנכרון מוצפן, או הפכו את המאגר לפרטי.';
+
+  @override
+  String get settings_gitConfig_error_rateLimited =>
+      'השרת מגביל את הבקשות. Submersion ינסה שוב מאוחר יותר.';
+
+  @override
+  String get settings_gitConfig_error_secureStorage =>
+      'לא ניתן לגשת לאחסון המאובטח';
+
+  @override
+  String get settings_gitConfig_error_server =>
+      'השרת דיווח על שגיאה. נסו שוב מאוחר יותר.';
+
+  @override
+  String get settings_gitConfig_error_staleTip =>
+      'מכשיר אחר שינה את המאגר באותו רגע. נסו שוב.';
+
+  @override
+  String settings_gitConfig_error_tooLarge(String size) {
+    return 'השרת דחה קובץ בגודל $size MB כי הוא גדול מדי.';
+  }
+
+  @override
+  String get settings_gitConfig_error_tooLargeUnknown =>
+      'השרת דחה קובץ כי הוא גדול מדי.';
+
+  @override
+  String get settings_gitConfig_error_unauthorized =>
+      'השרת דחה את שם המשתמש או את האסימון. אם תוקף האסימון פג, צרו אסימון חדש והדביקו אותו כאן.';
+
+  @override
+  String get settings_gitConfig_error_unexpected =>
+      'השרת החזיר תשובה לא צפויה.';
+
+  @override
+  String settings_gitConfig_error_unreachable(String host) {
+    return 'לא ניתן להגיע אל $host.';
+  }
+
+  @override
+  String get settings_gitConfig_error_untrusted => 'אישור השרת אינו מהימן.';
+
+  @override
+  String get settings_gitConfig_field_branch_helper =>
+      'Submersion שומר את הענף הזה לעצמו ומאפס את ההיסטוריה שלו מדי פעם, כדי שהמאגר יישאר קטן. בענפים האחרים שלכם הוא לא נוגע לעולם.';
+
+  @override
+  String get settings_gitConfig_field_branch_label => 'ענף';
+
+  @override
+  String get settings_gitConfig_field_repoUrl_helper =>
+      'כתובת ה-HTTPS שממנה הייתם משכפלים';
+
+  @override
+  String get settings_gitConfig_field_repoUrl_hint =>
+      'https://github.com/you/dive-log.git';
+
+  @override
+  String get settings_gitConfig_field_repoUrl_label => 'כתובת המאגר';
+
+  @override
+  String get settings_gitConfig_field_token_label => 'אסימון גישה';
+
+  @override
+  String get settings_gitConfig_field_username_label => 'שם משתמש';
+
+  @override
+  String get settings_gitConfig_host_bitbucket =>
+      'Bitbucket: צרו אסימון API עם הרשאות קריאה וכתיבה למאגר. סיסמאות אפליקציה כבר לא עובדות.';
+
+  @override
+  String get settings_gitConfig_host_gitea =>
+      'Gitea או Forgejo: צרו אסימון גישה עם ההרשאה write:repository.';
+
+  @override
+  String get settings_gitConfig_host_github =>
+      'GitHub: צרו אסימון fine-grained למאגר הזה בלבד, עם Contents: read and write.';
+
+  @override
+  String get settings_gitConfig_host_gitlab =>
+      'GitLab: צרו אסימון גישה אישי או של פרויקט עם ההרשאה write_repository. תוקפם של אסימוני GitLab פג תוך שנה.';
+
+  @override
+  String get settings_gitConfig_host_other =>
+      'השתמשו באסימון גישה או בסיסמה שיכולים לבצע push למאגר הזה.';
+
+  @override
+  String get settings_gitConfig_host_tokenHelp => 'איך יוצרים אסימון';
+
+  @override
+  String get settings_gitConfig_keepEncryption_body =>
+      'הסנכרון נשלח למאגר Git ציבורי. הפכו את המאגר לפרטי בשרת לפני כיבוי ההצפנה.';
+
+  @override
+  String get settings_gitConfig_keepEncryption_title =>
+      'ההצפנה חייבת להישאר מופעלת';
+
+  @override
+  String get settings_gitConfig_public_body =>
+      'כל אחד יכול לקרוא מאגר ציבורי, ולכן Submersion מסנכרן אליו רק כשההצפנה מופעלת. הפעילו מיד אחר כך סנכרון מוצפן, או הפכו את המאגר לפרטי בשרת.';
+
+  @override
+  String get settings_gitConfig_public_saved =>
+      'נשמר. הפעילו למטה סנכרון מוצפן כדי להתחיל לסנכרן.';
+
+  @override
+  String get settings_gitConfig_public_title => 'המאגר הזה ציבורי';
+
+  @override
+  String get settings_gitConfig_public_turnOnEncryption =>
+      'שמירה והפעלת ההצפנה';
+
+  @override
+  String get settings_gitConfig_remove_confirm_action => 'הסרה';
+
+  @override
+  String get settings_gitConfig_remove_confirm_body =>
+      'כתובת המאגר והאסימון יוסרו ממכשיר זה. המאגר יישמר.';
+
+  @override
+  String get settings_gitConfig_remove_confirm_title => 'להסיר את הגדרות Git?';
+
+  @override
+  String get settings_gitConfig_removed => 'הגדרות Git הוסרו';
+
+  @override
+  String get settings_gitConfig_saved => 'הגדרות Git נשמרו';
+
+  @override
+  String settings_gitConfig_test_becomesDefault(String branch) {
+    return 'המאגר הזה ריק, ולכן $branch יהפוך לענף ברירת המחדל שלו. הכי טוב מאגר שמשמש רק את Submersion.';
+  }
+
+  @override
+  String settings_gitConfig_test_successExisting(String branch) {
+    return 'מחובר לענף Submersion $branch.';
+  }
+
+  @override
+  String settings_gitConfig_test_successNew(String branch) {
+    return 'מחובר. Submersion ייצור את הענף $branch.';
+  }
+
+  @override
+  String get settings_gitConfig_validation_branch => 'הזינו שם ענף תקין';
+
+  @override
+  String get settings_gitConfig_validation_credentialsInUrl =>
+      'הזינו את שם המשתמש ואת האסימון בשדות שלהם, לא בכתובת';
+
+  @override
+  String get settings_gitConfig_validation_repoUrl =>
+      'הזינו את כתובת המאגר, שמתחילה ב-https://';
+
+  @override
+  String get settings_gitConfig_validation_token => 'הזינו את אסימון הגישה';
+
+  @override
+  String get settings_gitConfig_validation_tokenSpaces =>
+      'אסימון הגישה לא יכול להכיל רווחים';
+
+  @override
+  String get settings_gitConfig_validation_username => 'הזינו את שם המשתמש';
 
   @override
   String get settings_webdavConfig_action_forgetCertificate => 'שכחה';

@@ -123,6 +123,7 @@ import 'package:submersion/features/settings/presentation/pages/lightroom_settin
 import 'package:submersion/features/settings/presentation/pages/photos_media_hub_page.dart';
 import 'package:submersion/features/settings/presentation/pages/photos_media_setup_page.dart';
 import 'package:submersion/features/settings/presentation/pages/s3_config_page.dart';
+import 'package:submersion/features/settings/presentation/pages/git_config_page.dart';
 import 'package:submersion/features/settings/presentation/pages/webdav_config_page.dart';
 import 'package:submersion/features/settings/presentation/pages/fix_dive_times_page.dart';
 import 'package:submersion/features/settings/presentation/pages/link_buddy_names_page.dart';
@@ -1549,6 +1550,11 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                     path: 'webdav-config',
                     name: 'webdavConfig',
                     builder: (context, state) => const WebDavConfigPage(),
+                  ),
+                  GoRoute(
+                    path: 'git-config',
+                    name: 'gitConfig',
+                    builder: (context, state) => const GitConfigPage(),
                   ),
                 ],
               ),

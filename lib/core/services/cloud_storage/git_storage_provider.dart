@@ -168,12 +168,29 @@ class GitStorageProvider
   @override
   Future<String?> getUserEmail() async => (await _loadConfig())?.displayLabel;
 
-  /// When history was last reset, from the latest snapshot; no network.
+  /// When each repository and branch last had its history reset, as seen
+  /// by any provider in this process. Process-wide because the active sync
+  /// provider is built per account, apart from the settings singleton that
+  /// the Cloud sync page reads.
+  static final Map<String, DateTime> _lastResetByEndpoint = {};
+
+  /// When [config]'s branch was last reset, as far as this process has
+  /// seen; no network.
+  static DateTime? lastKnownResetFor(GitConfig config) =>
+      _lastResetByEndpoint[gitNaturalKey(config)];
+
+  /// When this provider's branch was last reset; no network.
   DateTime? get lastKnownResetAt {
-    final ms = _session?.current?.meta.lastResetAtMs;
-    return ms == null
-        ? null
-        : DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true);
+    final config = _cachedConfig;
+    return config == null ? null : lastKnownResetFor(config);
+  }
+
+  void _noteSnapshot(GitBranchSession session) {
+    final ms = session.current?.meta.lastResetAtMs;
+    final config = _cachedConfig;
+    if (ms == null || config == null) return;
+    _lastResetByEndpoint[gitNaturalKey(config)] =
+        DateTime.fromMillisecondsSinceEpoch(ms, isUtc: true);
   }
 
   void dispose() {
@@ -347,6 +364,7 @@ class GitStorageProvider
         GitChange(puts: {path: put}, deletes: deletes),
         messagePrefix: messagePrefix,
       );
+      _noteSnapshot(session);
       for (final MapEntry(:key, :value) in deletes.entries) {
         if (_pendingDeletes[key] == value) _pendingDeletes.remove(key);
       }
@@ -427,6 +445,7 @@ class GitStorageProvider
     if (session.current != null) {
       try {
         await session.resetHistoryIfDue();
+        _noteSnapshot(session);
       } on GitException catch (e) {
         if (e.code != GitErrorCode.protectedBranch) rethrow;
         _log.warning(
@@ -443,6 +462,7 @@ class GitStorageProvider
     await _serial(() async {
       final session = await _opened();
       await session.resetHistoryIfDue(force: true);
+      _noteSnapshot(session);
     });
   }
 
@@ -469,6 +489,7 @@ class GitStorageProvider
   }) async {
     final session = await _opened();
     final snap = await session.refresh();
+    _noteSnapshot(session);
     final prefix = '${folderId ?? CloudStorageProviderMixin.syncFolderName}/';
     final out = <CloudFileInfo>[];
     for (final MapEntry(:key, :value) in snap.index.entries.entries) {

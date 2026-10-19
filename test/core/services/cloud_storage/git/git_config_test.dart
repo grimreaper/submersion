@@ -127,6 +127,25 @@ void main() {
     });
   });
 
+  test('problems() names every field that is wrong, in field order', () {
+    final c = _config(
+      'http://github.com/you/r',
+      username: '',
+      token: 'a b',
+      branch: 'x..y',
+    );
+    expect(c.problems(), [
+      GitConfigProblem.repoUrl,
+      GitConfigProblem.username,
+      GitConfigProblem.tokenSpaces,
+      GitConfigProblem.branch,
+    ]);
+    expect(_config('https://github.com/you/r').problems(), isEmpty);
+    expect(_config('https://u:p@github.com/you/r').problems(), [
+      GitConfigProblem.credentialsInUrl,
+    ]);
+  });
+
   group('serialization', () {
     test('JSON round-trips and toString never shows the token', () {
       final c = GitConfig(

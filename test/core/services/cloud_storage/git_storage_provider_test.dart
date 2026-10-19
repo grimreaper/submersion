@@ -284,6 +284,30 @@ void main() {
       expect(await sealed.isPubliclyReadable(), isTrue);
     }, skip: skip);
 
+    test(
+      'a history reset is known to every provider for that repository',
+      () async {
+        final server = await startGitTestServer(
+          requireUser: 'diver',
+          requirePassword: 'tok',
+        );
+        await server.createBareRepo('reset');
+        final p = await _provider(server.repoUrl('reset'));
+        await p.uploadFile(_bytes('x'), 'x.json', folderId: 'Submersion Sync');
+        final config = (await p.loadConfig())!;
+        expect(GitStorageProvider.lastKnownResetFor(config), isNull);
+        await p.resetHistoryNow();
+        // The tile reads this, and the active sync provider is a different
+        // instance (one per account) from the settings singleton.
+        expect(GitStorageProvider.lastKnownResetFor(config), isNotNull);
+        expect(
+          p.lastKnownResetAt,
+          GitStorageProvider.lastKnownResetFor(config),
+        );
+      },
+      skip: skip,
+    );
+
     test('commits under encryption carry no device name', () async {
       final server = await startGitTestServer(
         requireUser: 'diver',
