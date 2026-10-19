@@ -74,7 +74,9 @@ final class GitIndex {
     );
   }
 
-  /// Throws [FormatException] on a malformed index.
+  /// Throws [FormatException] on a malformed index, including one malformed
+  /// entry: dropping it would hide the file, and the next commit would write
+  /// the index back without it.
   static GitIndex decode(Uint8List bytes) {
     final Object? json;
     try {
@@ -95,11 +97,14 @@ final class GitIndex {
     }
     final entries = <String, GitIndexEntry>{};
     for (final MapEntry(:key, :value) in files.entries) {
-      if (value is! Map<String, Object?>) continue;
+      final malformed = FormatException(
+        'Git index entry for $key is malformed',
+      );
+      if (value is! Map<String, Object?>) throw malformed;
       final blob = value['blob'];
       final size = value['size'];
       final mtime = value['mtime'];
-      if (blob is! String || size is! int || mtime is! int) continue;
+      if (blob is! String || size is! int || mtime is! int) throw malformed;
       entries[key] = GitIndexEntry(
         blobId: GitObjectId.fromHex(blob),
         size: size,

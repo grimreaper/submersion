@@ -52,6 +52,38 @@ void main() {
     skip: skip,
   );
 
+  test('an upload that fails leaves an earlier delete pending', () async {
+    final server = await startGitTestServer(
+      requireUser: 'diver',
+      requirePassword: 'tok',
+    );
+    final repo = await server.createBareRepo('sync');
+    final p = await gitTestProvider(server.repoUrl('sync'));
+    final up = await p.uploadFile(
+      _bytes('one'),
+      'x.json',
+      folderId: 'Submersion Sync',
+    );
+    await p.listFiles(folderId: 'Submersion Sync');
+    await p.deleteFile(up.fileId);
+    var pushesFail = true;
+    server.beforeServe = (request) =>
+        !pushesFail ||
+        request.method != 'POST' ||
+        !request.uri.path.endsWith('/git-receive-pack');
+    await expectLater(
+      p.uploadFile(_bytes('two'), 'x.json', folderId: 'Submersion Sync'),
+      throwsA(isA<GitException>()),
+    );
+
+    pushesFail = false;
+    await p.flush();
+    expect(
+      await syncBranchFiles(repo),
+      isNot(contains('Submersion Sync/x.json')),
+    );
+  }, skip: skip);
+
   test('concurrent first calls share one session', () async {
     final server = await startGitTestServer(
       requireUser: 'diver',

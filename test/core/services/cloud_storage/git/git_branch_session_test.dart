@@ -554,6 +554,13 @@ void main() {
     for (final (name, content) in [
       ('corrupt', '{not json'),
       ('from a newer version', '{"version":2,"files":{}}'),
+      // Dropping the entry would orphan its file: the next commit writes
+      // the index back without it.
+      (
+        'with a malformed entry',
+        '{"version":1,"files":{"Submersion Sync/keep.json":'
+            '{"blob":"${'0' * 40}","size":"4","mtime":1}}}',
+      ),
     ]) {
       test('a $name index is refused, not read as empty', () async {
         final server = await startGitTestServer();
@@ -578,4 +585,34 @@ void main() {
       }, skip: skip);
     }
   });
+
+  test('a commit Submersion cannot parse is a Git error', () async {
+    final server = await startGitTestServer();
+    final repo = await server.createBareRepo('sync');
+    await gitTestSession(server.repoUrl('sync')).open();
+    final tree = await runGit(repo, [
+      'rev-parse',
+      'refs/heads/$gitTestBranch^{tree}',
+    ]);
+    // No author line: written by another tool, or damaged.
+    final commit = await runGit(repo, [
+      'hash-object',
+      '-t',
+      'commit',
+      '-w',
+      '--literally',
+      '--stdin',
+    ], stdin: 'tree $tree\n\nno author\n');
+    await runGit(repo, ['update-ref', 'refs/heads/$gitTestBranch', commit]);
+    await expectLater(
+      gitTestSession(server.repoUrl('sync')).open(),
+      throwsA(
+        isA<GitException>().having(
+          (e) => e.code,
+          'code',
+          GitErrorCode.unexpected,
+        ),
+      ),
+    );
+  }, skip: skip);
 }

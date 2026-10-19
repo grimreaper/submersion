@@ -247,19 +247,24 @@ class GitHttpTransport {
 
   // ---- Discovery ------------------------------------------------------------
 
-  /// GET info/refs for upload-pack. Returns the reader positioned after the
-  /// `# service=` preamble, with the first packet of the advertisement
-  /// itself. A v0 reply carries the preamble; a v2 reply starts directly at
-  /// `version 2`.
+  /// Upload-pack discovery, asking for protocol v2.
   Future<({PktLineReader reader, Pkt? first})> _uploadPackDiscovery({
     required bool auth,
+  }) => _discovery('git-upload-pack', auth: auth, v2: true);
+
+  /// GET info/refs for [service]. Returns the reader positioned after the
+  /// `# service=` preamble, with the first packet of the advertisement
+  /// itself. A v0 reply carries the preamble; a v2 reply (asked for with
+  /// [v2]) starts directly at `version 2`.
+  Future<({PktLineReader reader, Pkt? first})> _discovery(
+    String service, {
+    required bool auth,
+    bool v2 = false,
   }) async {
-    final request = http.Request(
-      'GET',
-      _endpoint('info/refs', 'git-upload-pack'),
-    )..headers.addAll(_headers(auth: auth, v2: true));
+    final request = http.Request('GET', _endpoint('info/refs', service))
+      ..headers.addAll(_headers(auth: auth, v2: v2));
     final response = await _send(request);
-    await _check(response, 'application/x-git-upload-pack-advertisement');
+    await _check(response, 'application/x-$service-advertisement');
     final reader = PktLineReader(Stream.value(await _readBody(response)));
     var first = await reader.next();
     if (first is PktData && first.text.startsWith('# service=')) {
@@ -427,6 +432,9 @@ class GitHttpTransport {
     final caps = await _capabilities();
     final deepen = depth > 0 && caps.shallow ? depth : null;
     final filter = blobless && caps.filter;
+    // Haves go with shallow lines (see [_fetch]), which only a host that
+    // supports shallow fetches accepts.
+    final shallowHaves = caps.shallow ? haves : const <GitObjectId>{};
     try {
       await _fetch(
         caps,
@@ -434,12 +442,12 @@ class GitHttpTransport {
         into,
         deepen: deepen,
         filter: filter,
-        haves: haves,
+        haves: shallowHaves,
       );
     } on GitDeltaBaseMissingException {
       // The thin pack deltas against an object behind a have that this
       // device does not hold; without haves the host sends whole objects.
-      if (haves.isEmpty) rethrow;
+      if (shallowHaves.isEmpty) rethrow;
       await _fetch(caps, wants, into, deepen: deepen, filter: filter);
     }
   }
@@ -684,21 +692,8 @@ class GitHttpTransport {
     }
   }
 
-  Future<Set<String>> _receivePackCaps() async {
-    final request = http.Request(
-      'GET',
-      _endpoint('info/refs', 'git-receive-pack'),
-    )..headers.addAll(_headers());
-    final response = await _send(request);
-    await _check(response, 'application/x-git-receive-pack-advertisement');
-    final reader = PktLineReader(Stream.value(await _readBody(response)));
-    final first = await reader.next();
-    if (first is! PktData || !first.text.startsWith('# service=')) {
-      throw _protocol('no receive-pack service line');
-    }
-    await reader.next(); // flush
-    return _v0Caps(await reader.next());
-  }
+  Future<Set<String>> _receivePackCaps() async =>
+      _v0Caps((await _discovery('git-receive-pack', auth: true)).first);
 
   Future<void> _readReportStatus(
     PktLineReader reader,

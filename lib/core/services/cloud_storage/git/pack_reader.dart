@@ -124,21 +124,8 @@ Future<List<GitObjectId>> readPack(Uint8List pack, GitObjectStore store) async {
         if (baseEntry == null) throw _corrupt('delta base not in pack');
         base = await resolve(baseEntry, depth + 1);
       } else {
-        base = resolvedById[e.baseId!];
-        if (base == null) {
-          for (final candidate in entries) {
-            if (candidate.typeCode == _ofsDelta ||
-                candidate.typeCode == _refDelta) {
-              continue;
-            }
-            final r = await resolve(candidate, depth + 1);
-            if (r.id == e.baseId) {
-              base = r;
-              break;
-            }
-          }
-        }
-        base ??= await store.get(e.baseId!);
+        // Every whole object in the pack is already resolved (see below).
+        base = resolvedById[e.baseId!] ?? await store.get(e.baseId!);
         if (base == null) throw GitDeltaBaseMissingException(e.baseId!);
       }
       final result = applyGitDelta(base.body, e.data);

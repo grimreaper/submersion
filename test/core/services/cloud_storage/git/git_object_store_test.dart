@@ -3,6 +3,7 @@ import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:submersion/core/services/cloud_storage/git/git_object_id.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_object_store.dart';
 
@@ -92,9 +93,9 @@ void main() {
       final dir = tempDirForTest('git_store_');
       Directory(joinPath(dir, 'ab')).createSync();
       // One being written by another store right now, one from a crash.
-      final writing = File(joinPath(dir, 'ab/cdef.1a2b.tmp'))
+      final writing = File(p.join(dir.path, 'ab', 'cdef.1a2b.tmp'))
         ..writeAsStringSync('partial');
-      final stale = File(joinPath(dir, 'ab/cdef.3c4d.tmp'))
+      final stale = File(p.join(dir.path, 'ab', 'cdef.3c4d.tmp'))
         ..writeAsStringSync('partial')
         ..setLastModifiedSync(DateTime.now().subtract(const Duration(days: 1)));
       await FileGitObjectStore(dir).has(_blob('x').id);

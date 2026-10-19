@@ -393,6 +393,64 @@ void main() {
     },
   );
 
+  GitHttpTransport mockTransport(MockClientHandler handler) {
+    final t = GitHttpTransport(
+      GitRemote(
+        cloneUrl: Uri.parse('https://git.example.net/you/r.git'),
+        username: 'u',
+        token: 't',
+      ),
+      client: MockClient(handler),
+    );
+    addTearDown(t.close);
+    return t;
+  }
+
+  test('a host without shallow support is not sent shallow lines', () async {
+    String? fetchBody;
+    final t = mockTransport((request) async {
+      if (request.method == 'GET') {
+        return http.Response(
+          '000eversion 2\n0011fetch=filter\n000cls-refs\n0000',
+          200,
+          headers: {
+            'content-type': 'application/x-git-upload-pack-advertisement',
+          },
+        );
+      }
+      fetchBody = request.body;
+      return http.Response('', 500);
+    });
+    final have = GitObjectId.fromHex('1' * 40);
+    await expectLater(
+      t.fetch(
+        [GitObjectId.fromHex('2' * 40)],
+        MemoryGitObjectStore(),
+        haves: {have},
+      ),
+      _gitError(GitErrorCode.server),
+    );
+    expect(fetchBody, isNot(contains('shallow ')));
+  });
+
+  test('a receive-pack advertisement missing its flush is refused', () async {
+    String pkt(String line) =>
+        '${(line.length + 4).toRadixString(16).padLeft(4, '0')}$line';
+    final nul = String.fromCharCode(0);
+    final service = pkt('# service=git-receive-pack\n');
+    final ref = pkt('${'1' * 40} refs/heads/main${nul}report-status\n');
+    final t = mockTransport(
+      (request) async => http.Response(
+        '$service${ref}0000',
+        200,
+        headers: {
+          'content-type': 'application/x-git-receive-pack-advertisement',
+        },
+      ),
+    );
+    await expectLater(t.checkPushAccess(), _gitError(GitErrorCode.unexpected));
+  });
+
   group('push deadlines', () {
     test('grow with the pack past the upload deadline', () {
       expect(

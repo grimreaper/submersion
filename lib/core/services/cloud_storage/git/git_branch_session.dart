@@ -166,21 +166,30 @@ class GitBranchSession {
   }
 
   /// Runs [read], and once more after fetching [tip]'s commit and trees
-  /// again when the store lost an object [read] needed.
+  /// again when the store lost an object [read] needed. A commit or tree
+  /// that cannot be parsed (another tool's, or damaged) is a [GitException].
   Future<T> _refetchingOnce<T>(
     GitObjectId tip,
     Future<T> Function() read,
   ) async {
     try {
-      return await read();
-    } on GitObjectMissing {
-      await transport.fetch([tip], store, blobless: true);
-    }
-    try {
-      return await read();
-    } on GitObjectMissing catch (e) {
+      try {
+        return await read();
+      } on GitObjectMissing {
+        await transport.fetch([tip], store, blobless: true);
+      }
+      try {
+        return await read();
+      } on GitObjectMissing catch (e) {
+        throw GitException(
+          'Object ${e.id} is missing after a fetch.',
+          code: GitErrorCode.unexpected,
+          cause: e,
+        );
+      }
+    } on FormatException catch (e) {
       throw GitException(
-        'Object ${e.id} is missing after a fetch.',
+        'The branch $branch holds a commit or folder Submersion cannot read.',
         code: GitErrorCode.unexpected,
         cause: e,
       );

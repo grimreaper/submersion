@@ -442,9 +442,9 @@ class GitStorageProvider
     final run = _serial(() async {
       final session = await _opened();
       await _ensurePublicSafe(session, path, put);
-      // Uploading a path replaces it: an older delete of it is void.
-      _pendingDeletes.remove(path);
-      _unpushedDeletes.remove(path);
+      // An older delete of this path rides along: the commit replaces the
+      // file rather than deleting it, and the delete is cleared only once
+      // that lands. If the upload fails, the delete still happens.
       await _pace();
       pushing.complete(await put.length());
       await _commitWithDeletes(
