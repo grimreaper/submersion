@@ -91,6 +91,7 @@ void main() {
   Future<ProviderContainer> container(
     Map<String, Object> prefs, {
     bool unlocked = false,
+    bool onRoster = true,
   }) async {
     SharedPreferences.setMockInitialValues(prefs);
     final shared = await SharedPreferences.getInstance();
@@ -103,6 +104,7 @@ void main() {
           AccountProviderRegistry([adapter]),
         ),
         cloudStorageProviderProvider.overrideWithValue(syncProvider),
+        copyRowOnRosterProvider.overrideWith((ref, id) async => onRoster),
         if (unlocked)
           encryptionKeyNotifierProvider.overrideWith(
             (ref) => _SeededKeyNotifier(
@@ -161,6 +163,21 @@ void main() {
     });
   });
 
+  group('pinnedCopyAccountIdProvider', () {
+    test('names the pinned row while the copy is on', () async {
+      final c = await container(pinned);
+      expect(c.read(pinnedCopyAccountIdProvider), 'acct-b');
+    });
+
+    test('ignores a pin left behind with the copy off', () async {
+      final c = await container({
+        'backup_copy_account_id': 'acct-b',
+        'backup_copy_account_kind': 's3',
+      });
+      expect(c.read(pinnedCopyAccountIdProvider), isNull);
+    });
+  });
+
   group('backupCopyProviderProvider', () {
     test('following sync uses the sync provider', () async {
       final c = await container({'backup_cloud_enabled': true});
@@ -185,6 +202,16 @@ void main() {
         );
       },
     );
+
+    // Removed on another device: its keys may still be here, but nothing
+    // is copied to an account the diver removed.
+    test('a chosen account gone from the roster copies nowhere', () async {
+      final c = await container(pinned, onRoster: false);
+      // The provider rebuilds once the roster lookup lands.
+      c.listen(backupCopyProviderProvider, (_, _) {});
+      await c.read(copyRowOnRosterProvider('acct-b').future);
+      expect(c.read(backupCopyProviderProvider), isNull);
+    });
 
     test('the copy off still lists the sync folder, as before', () async {
       final c = await container({

@@ -1,9 +1,9 @@
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/services/accounts/account_group.dart';
 import 'package:submersion/core/services/accounts/account_kind.dart';
+import 'package:submersion/core/services/accounts/account_sync_providers.dart';
 import 'package:submersion/core/services/accounts/connected_account.dart';
 import 'package:submersion/features/backup/domain/entities/backup_settings.dart';
-import 'package:submersion/features/backup/presentation/providers/backup_copy_providers.dart';
 import 'package:submersion/features/backup/presentation/providers/backup_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 
@@ -30,7 +30,7 @@ Future<({ConnectedAccount? pinTo, bool copyStops})> backupCopyOnSyncStop(
   }
   if (type == null || id == null) return (pinTo: null, copyStops: true);
   return (
-    pinTo: copyRowReference(id, AccountKind.fromCloudProviderType(type)),
+    pinTo: accountRowReference(id, AccountKind.fromCloudProviderType(type)),
     copyStops: false,
   );
 }

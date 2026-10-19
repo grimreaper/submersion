@@ -164,4 +164,15 @@ void main() {
       expect(merged.map((r) => r.id), ['cloud:new', 'mid', 'cloud:old']);
     });
   });
+
+  test('rows from a listing note the account they were listed from', () {
+    final merged = mergeCloudBackups(const [], [
+      CloudFileInfo(
+        id: 'f1',
+        name: 'submersion_backup_2026-10-19_101500.db',
+        modifiedTime: DateTime(2026, 10, 19),
+      ),
+    ], accountId: 'acct-b');
+    expect(merged.single.cloudAccountId, 'acct-b');
+  });
 }

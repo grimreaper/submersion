@@ -1,5 +1,6 @@
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:submersion/core/data/repositories/connected_accounts_repository.dart';
 import 'package:submersion/core/data/repositories/sync_repository.dart';
 import 'package:submersion/core/services/accounts/account_kind.dart';
 import 'package:submersion/core/services/accounts/account_sync_providers.dart';
@@ -66,18 +67,22 @@ Future<CloudStorageProvider?> resolveHeadlessCloudProvider({
 }
 
 /// The provider the scheduled backup copies through: the account chosen for
-/// the copy, built from its stored id and kind (the isolate has no roster),
-/// else exactly what [resolveHeadlessCloudProvider] resolves for sync.
+/// the copy, built from its stored id and kind (the isolate has no account
+/// registry), else exactly what [resolveHeadlessCloudProvider] resolves for
+/// sync.
 ///
-/// [forAccount] is a test seam over [accountSyncProvider]. Custom-folder
-/// storage mode resolves to null whatever is chosen, as the foreground's
-/// sync provider does there.
+/// As in the foreground, a chosen account copies whatever the database
+/// storage mode (it has nothing to do with where the database lives), and
+/// one no longer on the roster gets no copy, even while its keys are still
+/// in this device's keychain. [forAccount] and [accountOnRoster] are test
+/// seams.
 Future<CloudStorageProvider?> resolveHeadlessBackupCopyProvider({
   required SharedPreferences prefs,
   EncryptionKeyStore? encryptionKeyStore,
   CloudStorageProvider Function(CloudProviderType type)? instanceFor,
   CloudStorageProvider? Function(AccountKind kind, String accountId)?
   forAccount,
+  Future<bool> Function(String accountId)? accountOnRoster,
 }) async {
   final settings = BackupPreferences(prefs).getSettings();
   final id = settings.copyAccountId;
@@ -90,8 +95,7 @@ Future<CloudStorageProvider?> resolveHeadlessBackupCopyProvider({
     );
   }
   try {
-    final storage = await DatabaseLocationService(prefs).getStorageConfig();
-    if (storage.isCustomLocation) return null;
+    if (!await (accountOnRoster ?? _onRoster)(id)) return null;
     final raw = forAccount != null
         ? forAccount(kind, id)
         : accountSyncProvider(kind, id, instanceFor: instanceFor);
@@ -104,6 +108,16 @@ Future<CloudStorageProvider?> resolveHeadlessBackupCopyProvider({
       stackTrace: stack,
     );
     return null;
+  }
+}
+
+/// Whether the roster still has [accountId]; an unreadable roster counts as
+/// yes, so a database hiccup costs a copy nothing.
+Future<bool> _onRoster(String accountId) async {
+  try {
+    return await ConnectedAccountsRepository().getById(accountId) != null;
+  } on Object {
+    return true;
   }
 }
 

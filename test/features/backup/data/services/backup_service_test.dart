@@ -838,20 +838,67 @@ void main() {
         cloudAccountId: account,
       );
 
-      // The copy is pinned to acct-b; sync uses acct-sync.
-      setUp(
-        () => preferences.setCopyDestination(
-          accountId: 'acct-b',
-          kind: AccountKind.s3,
-        ),
-      );
-
-      BackupService service() => BackupService(
+      // The copy is pinned to acct-b (unless [pinned] says otherwise); sync
+      // uses acct-sync.
+      BackupService service({String? pinned = 'acct-b'}) => BackupService(
         dbAdapter: fakeDb,
         preferences: preferences,
         cloudProvider: fakeCloud,
         syncRepository: _SyncAccountRepository('acct-sync'),
+        copyAccountId: pinned,
       );
+
+      test('a destination change during the upload is not recorded', () async {
+        await preferences.setCloudBackupEnabled(true);
+        fakeCloud.duringUpload = () => preferences.setCopyDestination(
+          accountId: 'acct-c',
+          kind: AccountKind.s3,
+        );
+
+        final record = await service().performBackup();
+
+        expect(record.cloudAccountId, 'acct-b');
+      });
+
+      test('an adopted legacy row notes the sync account it is in', () async {
+        final record = cloudOnly('r1');
+        fakeCloud.storedFiles['cloud-r1'] = Uint8List.fromList([1]);
+
+        await service(pinned: null).pinRecord(record);
+
+        expect(preferences.getHistory().single.cloudAccountId, 'acct-sync');
+      });
+
+      test('the copy account is the pinned one, else sync', () async {
+        expect(await service().cloudCopyAccountId(), 'acct-b');
+        expect(await service(pinned: null).cloudCopyAccountId(), 'acct-sync');
+      });
+
+      test(
+        'a record from before accounts were noted belongs to sync',
+        () async {
+          final legacy = cloudOnly('r1');
+          await preferences.addRecord(legacy);
+
+          // Pinned elsewhere: the legacy copy is in sync's account, not acct-b.
+          await service().deleteBackup(legacy);
+          expect(fakeCloud.deletedFiles, isEmpty);
+
+          // Pinned to the sync account itself: it is reachable.
+          await preferences.addRecord(legacy);
+          await service(pinned: 'acct-sync').deleteBackup(legacy);
+          expect(fakeCloud.deletedFiles, ['cloud-r1']);
+        },
+      );
+
+      test('following sync, a legacy record is reachable as before', () async {
+        final legacy = cloudOnly('r1');
+        await preferences.addRecord(legacy);
+
+        await service(pinned: null).deleteBackup(legacy);
+
+        expect(fakeCloud.deletedFiles, ['cloud-r1']);
+      });
 
       test('a new cloud copy records the copy account, not sync', () async {
         await preferences.setCloudBackupEnabled(true);

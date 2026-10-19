@@ -98,8 +98,14 @@ class SetupApplyService {
       await backup.setFrequency(draft.backupFrequency);
     }
     // Apply the cloud-copy choice in both directions so re-entry can turn it
-    // off. The flag is inert without a configured provider, so writing it is
-    // safe even when none is connected.
-    await backup.setCloudBackupEnabled(draft.cloudBackupEnabled);
+    // off. Off forgets any account chosen for the copy; on keeps a copy that
+    // is already on where it goes, and otherwise follows sync. Inert without
+    // a configured provider, so writing it is safe even when none is
+    // connected.
+    if (!draft.cloudBackupEnabled) {
+      await backup.setNoCopy();
+    } else if (!_ref.read(backupSettingsProvider).cloudBackupEnabled) {
+      await backup.setCopyFollowsSync();
+    }
   }
 }

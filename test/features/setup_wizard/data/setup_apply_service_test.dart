@@ -3,6 +3,8 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:submersion/core/constants/units.dart';
 import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/core/services/accounts/account_kind.dart';
+import 'package:submersion/features/backup/data/repositories/backup_preferences.dart';
 import 'package:submersion/features/backup/domain/entities/backup_settings.dart';
 import 'package:submersion/features/backup/presentation/providers/backup_providers.dart';
 import 'package:submersion/features/divers/data/repositories/diver_repository.dart';
@@ -78,6 +80,63 @@ void main() {
       expect(backup.frequency, BackupFrequency.daily);
     },
   );
+
+  // Issue #3482 phase 3: the wizard's cloud-copy switch never leaves a pin
+  // behind when it turns the copy off, and never moves a pinned copy.
+  group('the cloud copy choice', () {
+    const base = SetupWizardDraft(
+      mode: SetupWizardMode.firstRun,
+      path: SetupPath.fresh,
+      name: 'Eric',
+    );
+
+    Future<void> pinTo(String id) async {
+      final backup = BackupPreferences(prefs);
+      await backup.setCloudBackupEnabled(true);
+      await backup.setCopyDestination(accountId: id, kind: AccountKind.dropbox);
+    }
+
+    test('off turns the copy off and forgets its account', () async {
+      await pinTo('acct-b');
+      final container = makeContainer();
+
+      await container
+          .read(setupApplyServiceProvider)
+          .applyFirstRun(base.copyWith(cloudBackupEnabled: false));
+
+      final s = BackupPreferences(prefs).getSettings();
+      expect(s.cloudBackupEnabled, isFalse);
+      expect(s.copyAccountId, isNull);
+    });
+
+    test('on keeps a copy already pinned to an account', () async {
+      await pinTo('acct-b');
+      final container = makeContainer();
+
+      await container
+          .read(setupApplyServiceProvider)
+          .applyFirstRun(base.copyWith(cloudBackupEnabled: true));
+
+      final s = BackupPreferences(prefs).getSettings();
+      expect(s.cloudBackupEnabled, isTrue);
+      expect(s.copyAccountId, 'acct-b');
+    });
+
+    test('on from off follows sync', () async {
+      await BackupPreferences(
+        prefs,
+      ).setCopyDestination(accountId: 'stale', kind: AccountKind.dropbox);
+      final container = makeContainer();
+
+      await container
+          .read(setupApplyServiceProvider)
+          .applyFirstRun(base.copyWith(cloudBackupEnabled: true));
+
+      final s = BackupPreferences(prefs).getSettings();
+      expect(s.cloudBackupEnabled, isTrue);
+      expect(s.copyAccountId, isNull);
+    });
+  });
 
   // Issue #3111. The app language defaults to the device's, but place names
   // defaulted to English, so a German install stored "Germany" and "Spain".

@@ -124,6 +124,11 @@ class BackupService {
   /// species catalog to the restored rows.
   final BuiltInSpeciesSeedVersionStore? _seedVersionStore;
 
+  /// The account the copy is pinned to, fixed with [_cloudProvider] when
+  /// this service is built so the two cannot disagree mid-backup; null
+  /// while the copy follows sync (or is off).
+  final String? _pinnedCopyAccountId;
+
   /// SAF write/read/delete seam for Android custom (`content://`) backup
   /// locations. Defaults to the real platform channel; injectable for tests.
   final BackupSafPort _safPort;
@@ -146,6 +151,7 @@ class BackupService {
     SyncPreferences? syncPreferences,
     BackupEncryptionKeyStore? backupEncryptionKeyStore,
     BuiltInSpeciesSeedVersionStore? seedVersionStore,
+    String? copyAccountId,
   }) : _dbAdapter = dbAdapter,
        _preferences = preferences,
        _cloudProvider = cloudProvider,
@@ -157,7 +163,8 @@ class BackupService {
        _encryptionKeyStore = encryptionKeyStore,
        _syncPreferences = syncPreferences,
        _backupEncryptionKeyStore = backupEncryptionKeyStore,
-       _seedVersionStore = seedVersionStore;
+       _seedVersionStore = seedVersionStore,
+       _pinnedCopyAccountId = copyAccountId;
 
   // ===========================================================================
   // Backup
@@ -1274,7 +1281,13 @@ class BackupService {
     if (cloudFileId == null || provider == null) return;
     if (!await _cloudCopyHere(record)) return;
     if (!await provider.fileExists(cloudFileId)) return;
-    await _preferences.addRecord(record.copyWith(pinned: true));
+    // Listed through this provider, so it is in the copy's account now.
+    await _preferences.addRecord(
+      record.copyWith(
+        pinned: true,
+        cloudAccountId: record.cloudAccountId ?? await _copyAccountIdOrNull(),
+      ),
+    );
   }
 
   /// Whether deleting [record] may destroy another device's only copy.
@@ -1595,23 +1608,31 @@ class BackupService {
   /// only for a record that noted one.
   Future<bool> _cloudCopyHere(BackupRecord record) async {
     if (record.cloudFileId == null || _cloudProvider == null) return false;
-    if (record.cloudAccountId == null) return true;
+    final pinned = _pinnedCopyAccountId;
+    if (record.cloudAccountId == null && pinned == null) return true;
     return cloudCopyReachable(
       record,
       copyAccountId: await _copyAccountIdOrNull(),
+      legacyAccountId: pinned == null ? null : await _syncAccountIdOrNull(),
     );
   }
 
-  /// The connected account the cloud copy goes to: the one chosen for it,
-  /// else sync's. Null when it cannot be read: a missing name only makes
-  /// Settings > Data say "the cloud".
-  Future<String?> _copyAccountIdOrNull() async {
+  /// The connected account the cloud copy goes to, and so the account the
+  /// cloud folder this service lists is in: the one it is pinned to, else
+  /// sync's.
+  Future<String?> cloudCopyAccountId() => _copyAccountIdOrNull();
+
+  Future<String?> _copyAccountIdOrNull() async =>
+      _pinnedCopyAccountId ?? await _syncAccountIdOrNull();
+
+  /// The sync account, or null when it cannot be read: a missing name only
+  /// makes Settings > Data say "the cloud".
+  Future<String?> _syncAccountIdOrNull() async {
     try {
-      return _preferences.getSettings().copyAccountId ??
-          await _syncRepository.getSyncAccountId();
+      return await _syncRepository.getSyncAccountId();
     } catch (e, stack) {
       _log.warning(
-        'Could not read the copy account for the backup record',
+        'Could not read the sync account for the backup record',
         error: e,
         stackTrace: stack,
       );

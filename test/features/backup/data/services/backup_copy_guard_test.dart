@@ -53,6 +53,26 @@ void main() {
       );
     });
 
+    test('a legacy record belongs to the account noted for legacy copies', () {
+      final legacy = _record(cloudFileId: 'f');
+      expect(
+        cloudCopyReachable(
+          legacy,
+          copyAccountId: 'acct-b',
+          legacyAccountId: 'acct-sync',
+        ),
+        isFalse,
+      );
+      expect(
+        cloudCopyReachable(
+          legacy,
+          copyAccountId: 'acct-sync',
+          legacyAccountId: 'acct-sync',
+        ),
+        isTrue,
+      );
+    });
+
     test('a record with no cloud file is not', () {
       expect(cloudCopyReachable(_record(), copyAccountId: 'acct-b'), isFalse);
     });

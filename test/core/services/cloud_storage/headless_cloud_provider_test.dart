@@ -141,13 +141,16 @@ void main() {
 
     setUp(pinned.clear);
 
-    Future<CloudStorageProvider?> resolveCopy(SharedPreferences prefs) =>
-        resolveHeadlessBackupCopyProvider(
-          prefs: prefs,
-          encryptionKeyStore: keyStore,
-          instanceFor: instanceFor,
-          forAccount: forAccount,
-        );
+    Future<CloudStorageProvider?> resolveCopy(
+      SharedPreferences prefs, {
+      bool onRoster = true,
+    }) => resolveHeadlessBackupCopyProvider(
+      prefs: prefs,
+      encryptionKeyStore: keyStore,
+      instanceFor: instanceFor,
+      forAccount: forAccount,
+      accountOnRoster: (_) async => onRoster,
+    );
 
     test(
       'a chosen account resolves to it, not to the sync selection',
@@ -187,7 +190,9 @@ void main() {
       expect((await resolveCopy(prefs))!.providerId, 'copy:acct-d');
     });
 
-    test('custom-folder storage mode still resolves to nothing', () async {
+    // As in the foreground: the copy's account has nothing to do with
+    // where the database lives.
+    test('a chosen account copies in custom-folder storage mode too', () async {
       final prefs = await prefsWith({
         'db_storage_mode': 'customFolder',
         'backup_cloud_enabled': true,
@@ -195,8 +200,20 @@ void main() {
         'backup_copy_account_kind': 's3',
       });
 
-      expect(await resolveCopy(prefs), isNull);
+      expect((await resolveCopy(prefs))!.providerId, 'copy:acct-b');
+    });
+
+    test('a chosen account removed from the roster copies nowhere', () async {
+      final prefs = await prefsWith({
+        'sync_last_provider': 's3',
+        'backup_cloud_enabled': true,
+        'backup_copy_account_id': 'acct-b',
+        'backup_copy_account_kind': 's3',
+      });
+
+      expect(await resolveCopy(prefs, onRoster: false), isNull);
       expect(pinned, isEmpty);
+      expect(built, isEmpty);
     });
   });
 }

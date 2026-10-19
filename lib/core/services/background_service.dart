@@ -251,7 +251,10 @@ Future<BackupService> buildScheduledBackupService({
   // One store for both the provider wrap and the upload's framing, mirroring
   // the foreground's single encryptionKeyStoreProvider.
   final encryptionKeyStore = EncryptionKeyStore();
+  final settings = BackupPreferences(prefs).getSettings();
   return BackupService(
+    // Read with the provider below, so the two cannot disagree mid-backup.
+    copyAccountId: settings.cloudBackupEnabled ? settings.copyAccountId : null,
     dbAdapter: dbAdapter,
     preferences: BackupPreferences(prefs),
     cloudProvider: await resolveHeadlessBackupCopyProvider(

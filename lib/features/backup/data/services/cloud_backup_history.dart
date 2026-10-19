@@ -29,11 +29,15 @@ final RegExp _nameTimestamp = RegExp(
   r'^submersion_backup_(\d{4})-(\d{2})-(\d{2})_(\d{2})(\d{2})(\d{2})',
 );
 
-/// A history row for [file], or null when it is not a backup.
+/// A history row for [file], or null when it is not a backup. [accountId]
+/// is the account the listing came from.
 ///
 /// Dive and site counts are left null: they lived only in the lost record,
 /// and the file would have to be downloaded to recount them.
-BackupRecord? backupRecordFromCloudFile(CloudFileInfo file) {
+BackupRecord? backupRecordFromCloudFile(
+  CloudFileInfo file, {
+  String? accountId,
+}) {
   final name = file.name;
   if (!name.startsWith(_backupPrefix)) return null;
   if (!backupFileExtensions.contains(p.extension(name))) return null;
@@ -46,6 +50,7 @@ BackupRecord? backupRecordFromCloudFile(CloudFileInfo file) {
     sizeBytes: file.sizeBytes ?? 0,
     location: BackupLocation.cloud,
     cloudFileId: file.id,
+    cloudAccountId: accountId,
   );
 }
 
@@ -54,11 +59,13 @@ BackupRecord? backupRecordFromCloudFile(CloudFileInfo file) {
 ///
 /// A cloud file is accounted for when a record names its id, or when a record
 /// has the same name apart from the extension: with sync encryption on, a
-/// local `X.db` is uploaded as `X.sbe`.
+/// local `X.db` is uploaded as `X.sbe`. Discovered rows note [accountId],
+/// the account the listing came from.
 List<BackupRecord> mergeCloudBackups(
   List<BackupRecord> history,
-  Iterable<CloudFileInfo> cloudFiles,
-) {
+  Iterable<CloudFileInfo> cloudFiles, {
+  String? accountId,
+}) {
   final knownIds = {for (final r in history) ?r.cloudFileId};
   final knownStems = {
     for (final r in history) p.basenameWithoutExtension(r.filename),
@@ -72,7 +79,7 @@ List<BackupRecord> mergeCloudBackups(
       if (!knownIds.contains(file.id) &&
           !knownStems.contains(p.basenameWithoutExtension(file.name)) &&
           seenIds.add(file.id))
-        ?backupRecordFromCloudFile(file),
+        ?backupRecordFromCloudFile(file, accountId: accountId),
   ];
   if (discovered.isEmpty) return history;
 
