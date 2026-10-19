@@ -87,9 +87,20 @@ class _GitConfigPageState extends ConsumerState<GitConfigPage> {
             .read(accountCredentialsStoreProvider)
             .read(group.rows.first.id),
       );
-      if (!mounted || existing == null) return;
+      if (!mounted) return;
       // A slow keychain read must not overwrite anything the user changed.
       if (_userEdited) return;
+      if (existing == null) {
+        // Not signed in here: start from the address the account's name
+        // gives, with the secrets left to type.
+        final address = GitConfig.addressFromLabel(group.rows.first.label);
+        if (address != null) {
+          _repoUrl.text = address.repoUrl;
+          _branch.text = address.branch;
+          _userEdited = false;
+        }
+        return;
+      }
       _repoUrl.text = existing.repoUrl;
       _username.text = existing.username;
       _token.text = existing.token;

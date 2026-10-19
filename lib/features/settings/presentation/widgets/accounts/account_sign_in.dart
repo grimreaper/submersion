@@ -59,12 +59,15 @@ Future<bool> signInToGroup(
       }
     case AccountKind.git:
       final saved = await showGitAccountPage(context, existing: group);
-      ok = saved != null;
-      // As for an own server, only when this device syncs through the
-      // account; to the row saved, which is a new one when the repository
-      // or branch changed.
-      if (saved != null && group.syncRowHere != null && context.mounted) {
-        await switchSyncToRow(context, ref, saved);
+      // Another repository or branch is saved as another account: this one
+      // still has no keys here, so it is not signed in, and the new one is
+      // listed for the diver to pick.
+      ok = saved != null && saved.id == group.rows.first.id;
+      if (saved != null && !ok) _refresh(container);
+      // As for an own server, only when this device syncs through it.
+      final syncRow = group.syncRowHere;
+      if (ok && syncRow != null && context.mounted) {
+        await switchSyncToRow(context, ref, syncRow);
       }
     case AccountKind.icloud || AccountKind.adobeLightroom:
       ok = false;

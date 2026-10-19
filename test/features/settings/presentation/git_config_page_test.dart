@@ -25,6 +25,7 @@ import 'package:submersion/core/services/sync/sync_service.dart'
     show ConflictResolution;
 import 'package:submersion/features/settings/presentation/pages/git_config_page.dart';
 import 'package:submersion/features/settings/presentation/providers/git_providers.dart';
+import 'package:submersion/features/settings/presentation/widgets/accounts/account_sign_in.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/git_error_text.dart';
@@ -187,12 +188,44 @@ void main() {
   /// What the page popped with, once it has.
   ConnectedAccount? popped;
 
+  /// What signInToGroup returned, when the page was opened through it.
+  bool? signedIn;
+
   setUp(() {
     git = _FakeGit();
     accounts = _FakeAccounts();
     credentials = AccountCredentialsStore(storage: InMemoryKeychain());
     popped = null;
+    signedIn = null;
   });
+
+  /// A Git account of [config] as the roster lists it, not signed in here.
+  AccountGroup groupOf(GitConfig config) {
+    final row = ConnectedAccount(
+      id: accountIdFor(
+        kind: AccountKind.git,
+        naturalKey: gitNaturalKey(config),
+      ),
+      kind: AccountKind.git,
+      label: config.displayLabel,
+      createdAt: DateTime.utc(2026),
+      updatedAt: DateTime.utc(2026),
+    );
+    return AccountGroup(
+      key: 'git|${row.id}',
+      kind: AccountKind.git,
+      label: row.label,
+      rows: [row],
+      status: AccountStatus.needsSignIn,
+      usages: const [],
+      locations: const {},
+      roles: const {},
+      usagesKnown: true,
+      address: row.label,
+      usageRoles: const {},
+      rowStatuses: {row.id: AccountStatus.needsSignIn},
+    );
+  }
 
   /// The saved config of [row], from its own credential key.
   Future<GitConfig?> savedFor(ConnectedAccount row) async =>
@@ -202,6 +235,7 @@ void main() {
     WidgetTester tester, {
     bool encrypted = false,
     AccountGroup? existing,
+    bool viaSignIn = false,
   }) async {
     tester.view.physicalSize = const Size(1200, 2400);
     tester.view.devicePixelRatio = 1.0;
@@ -230,12 +264,18 @@ void main() {
           locale: const Locale('en'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: Builder(
-            builder: (context) => TextButton(
-              onPressed: () async => popped = await showGitAccountPage(
-                context,
-                existing: existing,
-              ),
+          home: Consumer(
+            builder: (context, ref, _) => TextButton(
+              onPressed: () async {
+                if (viaSignIn) {
+                  signedIn = await signInToGroup(context, ref, existing!);
+                } else {
+                  popped = await showGitAccountPage(
+                    context,
+                    existing: existing,
+                  );
+                }
+              },
               child: const Text('open'),
             ),
           ),
@@ -481,6 +521,49 @@ void main() {
     expect(find.text('dive-sync'), findsOneWidget);
     expect(find.textContaining('write_repository'), findsOneWidget);
     expect(find.byKey(const Key('git-remove')), findsNothing);
+  });
+
+  testWidgets('signing in on a new device starts from the account address', (
+    tester,
+  ) async {
+    await pumpPage(
+      tester,
+      existing: groupOf(
+        GitConfig(
+          repoUrl: 'https://gitlab.com/group/r',
+          username: 'you',
+          token: 'kept on another device',
+          branch: 'dive-sync',
+        ),
+      ),
+    );
+    expect(find.text('https://gitlab.com/group/r'), findsOneWidget);
+    expect(find.text('dive-sync'), findsOneWidget);
+    expect(find.text('kept on another device'), findsNothing);
+  });
+
+  testWidgets('a sign-in saved under another branch is a new account', (
+    tester,
+  ) async {
+    final config = GitConfig(
+      repoUrl: 'https://github.com/you/dive-log',
+      username: 'you',
+      token: 'ghp_secret',
+    );
+    await pumpPage(tester, existing: groupOf(config), viaSignIn: true);
+    await tester.enterText(
+      find.byKey(const Key('git-repo-url')),
+      'https://github.com/you/dive-log',
+    );
+    await tester.enterText(find.byKey(const Key('git-username')), 'you');
+    await tester.enterText(find.byKey(const Key('git-token')), 'ghp_secret');
+    await tester.enterText(find.byKey(const Key('git-branch')), 'club');
+    await tester.tap(find.byKey(const Key('git-save')));
+    await tester.pumpAndSettle();
+    // Saved, but not as the account being signed in: that one still has no
+    // keys here, so the caller must not use it.
+    expect(accounts.ensured.single.id, isNot(groupOf(config).rows.single.id));
+    expect(signedIn, isFalse);
   });
 
   testWidgets('an existing Submersion branch is reported as found', (

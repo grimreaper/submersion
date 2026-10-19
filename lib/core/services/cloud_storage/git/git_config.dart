@@ -152,6 +152,19 @@ class GitConfig {
       ? '$repoPath @ $host'
       : '$repoPath @ $host ($branch)';
 
+  /// The clone address and branch a [displayLabel] names, for a sign-in on
+  /// a device that holds no config for the account yet; null for a label
+  /// that is not one. The address is a suggestion (a host that needed the
+  /// `.git` suffix typed loses it), and the diver can correct it.
+  static ({String repoUrl, String branch})? addressFromLabel(String label) {
+    final m = RegExp(r'^(\S+) @ (\S+?)(?: \((.+)\))?$').firstMatch(label);
+    if (m == null) return null;
+    return (
+      repoUrl: 'https://${m.group(2)}/${m.group(1)}',
+      branch: m.group(3) ?? kDefaultGitBranch,
+    );
+  }
+
   GitRemote toRemote() => GitRemote(
     cloneUrl: cloneUrl,
     username: username,
