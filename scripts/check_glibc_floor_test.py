@@ -124,6 +124,15 @@ class RequiredVersionsTests(unittest.TestCase):
         self.assertEqual(guard.required_glibc_versions(""), set())
 
 
+class IsElfTests(unittest.TestCase):
+    def test_unreadable_path_is_not_elf(self):
+        # A file that vanishes between the directory walk and the read, or
+        # a directory, cannot be opened; it is skipped rather than crashing.
+        missing = os.path.join(tempfile.gettempdir(), "glibc-floor-no-such-file")
+        self.assertFalse(guard.is_elf(missing))
+        self.assertFalse(guard.is_elf(tempfile.gettempdir()))
+
+
 class BundleBuilder:
     """Builds a throwaway Linux bundle whose files a fake readelf describes."""
 
