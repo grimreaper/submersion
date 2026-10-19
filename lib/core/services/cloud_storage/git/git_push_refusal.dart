@@ -8,9 +8,15 @@ import 'package:submersion/core/services/cloud_storage/git/git_errors.dart';
 /// that is where GitHub, GitLab and Gitea explain a size limit or a
 /// protected branch, so both are read. Size and protection are checked
 /// before staleness, because a policy message can also mention a ref
-/// update.
+/// update. Warnings are left out: GitHub warns about any file over 50 MB on
+/// every push, so one says nothing about why this push was refused.
 GitException classifyPushRefusal(String reason, List<String> remoteLines) {
-  final text = [reason, ...remoteLines].join('\n').toLowerCase();
+  final text = [
+    reason,
+    ...remoteLines.where(
+      (l) => !l.trimLeft().toLowerCase().startsWith('warning:'),
+    ),
+  ].join('\n').toLowerCase();
   final GitErrorCode code;
   // GitHub: "GH001: Large files detected"; GitLab: "files which exceed the
   // 100MiB limit", "is larger than the allowed size", "has exceeded its size

@@ -325,6 +325,19 @@ void main() {
     expect(keeping.calls, contains('reset'));
   });
 
+  test('pruning pushes its cloud deletes in one batch', () async {
+    final keeping = _HistoryKeepingCloud();
+    cloud = keeping;
+    await preferences.setCloudBackupEnabled(true);
+    for (var i = 0; i < 3; i++) {
+      await buildService().performBackup();
+    }
+    keeping.calls.clear();
+    await buildService().pruneOldBackups(1);
+    expect(preferences.getHistory(), hasLength(1));
+    expect(keeping.calls, ['flush']);
+  });
+
   test(
     'reencrypt: a history reset that fails discloses the replaced copies',
     () async {

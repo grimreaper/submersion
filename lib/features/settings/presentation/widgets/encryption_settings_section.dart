@@ -70,6 +70,10 @@ class EncryptionSettingsSection extends ConsumerStatefulWidget {
 
 class _EncryptionSettingsSectionState
     extends ConsumerState<EncryptionSettingsSection> {
+  /// How long turning encryption off waits for the Git host to say whether
+  /// the repository is public.
+  static const Duration _publicCheckWait = Duration(seconds: 5);
+
   @override
   void initState() {
     super.initState();
@@ -286,11 +290,14 @@ class _EncryptionSettingsSectionState
   Future<void> _disable(BuildContext context) async {
     final l10n = context.l10n;
     // Over a public Git repository, turning encryption off would publish the
-    // library in plain text: refuse, and say how to make it private.
+    // library in plain text: refuse, and say how to make it private. A host
+    // that does not answer soon is unclear, like any other unclear answer:
+    // the Git provider still refuses plaintext uploads to a public one.
     if (ref.read(selectedCloudProviderTypeProvider) == CloudProviderType.git &&
         await ref
                 .read(gitStorageProviderInstanceProvider)
-                .isPubliclyReadable() ==
+                .isPubliclyReadable()
+                .timeout(_publicCheckWait, onTimeout: () => null) ==
             true) {
       if (!context.mounted) return;
       await showDialog<void>(

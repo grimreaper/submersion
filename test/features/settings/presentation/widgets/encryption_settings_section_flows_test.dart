@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -178,6 +179,14 @@ class _PublicGit extends GitStorageProvider {
 
   @override
   Future<bool?> isPubliclyReadable() async => true;
+}
+
+/// A Git provider whose host never answers the public-repository check.
+class _SilentGit extends GitStorageProvider {
+  _SilentGit() : super(store: GitCredentialsStore(storage: InMemoryKeychain()));
+
+  @override
+  Future<bool?> isPubliclyReadable() => Completer<bool?>().future;
 }
 
 void main() {
@@ -399,6 +408,34 @@ void main() {
         findsNothing,
       );
       expect(service.disableCalls, 0);
+    },
+  );
+
+  testWidgets(
+    'a Git host that does not answer delays turning encryption off only '
+    'briefly',
+    (tester) async {
+      await setUpProviders(encryptionEnabled: true, withStoredKey: true);
+      await tester.pumpWidget(
+        wrap(
+          extra: [
+            selectedCloudProviderTypeProvider.overrideWith(
+              (ref) => CloudProviderType.git,
+            ),
+            gitStorageProviderInstanceProvider.overrideWithValue(_SilentGit()),
+          ],
+        ),
+      );
+      await tester.pumpAndSettle();
+
+      await tester.tap(find.text('Turn off encryption'));
+      await tester.pump(const Duration(seconds: 6));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.widgetWithText(FilledButton, 'Turn off encryption'),
+        findsOneWidget,
+      );
     },
   );
 

@@ -1213,7 +1213,16 @@ class BackupService {
   }
 
   /// Delete a specific backup (local file + cloud file + metadata).
-  Future<void> deleteBackup(BackupRecord record) async {
+  Future<void> deleteBackup(BackupRecord record) =>
+      _deleteBackup(record, flushCloud: true);
+
+  /// [deleteBackup]. Without [flushCloud], a backend that batches deletes
+  /// (Git) has only recorded the cloud delete; the caller flushes once for
+  /// a whole batch.
+  Future<void> _deleteBackup(
+    BackupRecord record, {
+    required bool flushCloud,
+  }) async {
     _log.info('Deleting backup: ${record.filename}');
 
     // Delete local file (filesystem path or SAF document URI)
@@ -1236,7 +1245,7 @@ class BackupService {
       try {
         await _cloudProvider.deleteFile(record.cloudFileId!);
         // A backend that batches deletes (Git) has only recorded it so far.
-        await flushDeferredWrites(_cloudProvider);
+        if (flushCloud) await flushDeferredWrites(_cloudProvider);
         _log.info('Deleted cloud file: ${record.cloudFileId}');
       } catch (e, stack) {
         _log.error('Failed to delete cloud file', error: e, stackTrace: stack);
@@ -1338,7 +1347,7 @@ class BackupService {
 
     for (final record in toDelete) {
       try {
-        await deleteBackup(record);
+        await _deleteBackup(record, flushCloud: false);
       } catch (e, st) {
         // Best-effort: pruning is a side effect of the operation that
         // triggered it (a fresh backup, or the safety snapshot restoreFromFile
@@ -1354,6 +1363,18 @@ class BackupService {
           stackTrace: st,
         );
       }
+    }
+    // One commit for the whole batch on a backend that defers deletes.
+    final provider = _cloudProvider;
+    if (provider == null) return;
+    try {
+      await flushDeferredWrites(provider);
+    } catch (e, st) {
+      _log.warning(
+        'Pruned backups not yet deleted from the cloud; retried later',
+        error: e,
+        stackTrace: st,
+      );
     }
   }
 
