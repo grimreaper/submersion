@@ -54391,4 +54391,8 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get settings_conflict_field_hiddenBuiltInIds =>
       'العناصر المضمنة المخفية';
+
+  @override
+  String get backup_restore_copyInOtherAccount =>
+      'النسخة الوحيدة من هذه النسخة الاحتياطية موجودة في حساب آخر. اختر ذلك الحساب لنسخة النسخ الاحتياطي، ثم حاول مرة أخرى.';
 }

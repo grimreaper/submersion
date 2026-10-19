@@ -53415,4 +53415,8 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get settings_conflict_field_hiddenBuiltInIds =>
       'Elrejtett beépített elemek';
+
+  @override
+  String get backup_restore_copyInOtherAccount =>
+      'A biztonsági mentés egyetlen másolata egy másik fiókban van. Válassza azt a fiókot a mentés másolatához, majd próbálja újra.';
 }

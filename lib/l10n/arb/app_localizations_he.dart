@@ -52590,4 +52590,8 @@ class AppLocalizationsHe extends AppLocalizations {
   @override
   String get settings_conflict_field_hiddenBuiltInIds =>
       'פריטים מובנים מוסתרים';
+
+  @override
+  String get backup_restore_copyInOtherAccount =>
+      'העותק היחיד של הגיבוי הזה נמצא בחשבון אחר. בחרו בחשבון הזה לעותק הגיבוי ונסו שוב.';
 }

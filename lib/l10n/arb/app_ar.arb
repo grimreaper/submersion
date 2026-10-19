@@ -15849,5 +15849,6 @@
   "plannerCanvas_scrub_tts": "TTS {minutes}′",
   "plannerCanvas_table_end": "END",
   "plannerCanvas_table_ppO2": "PO2",
-  "settings_conflict_field_splitAtConfiguredRate": "التقسيم بالمعدل المُهيأ"
+  "settings_conflict_field_splitAtConfiguredRate": "التقسيم بالمعدل المُهيأ",
+  "backup_restore_copyInOtherAccount": "النسخة الوحيدة من هذه النسخة الاحتياطية موجودة في حساب آخر. اختر ذلك الحساب لنسخة النسخ الاحتياطي، ثم حاول مرة أخرى."
 }

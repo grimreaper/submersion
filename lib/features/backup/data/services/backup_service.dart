@@ -23,6 +23,7 @@ import 'package:submersion/core/services/sync/library_replace_intent.dart';
 import 'package:submersion/core/services/sync/post_restore_sync_store.dart';
 import 'package:submersion/core/services/sync/sync_device_metadata.dart';
 import 'package:submersion/core/services/sync/sync_preferences.dart';
+import 'package:submersion/features/backup/data/services/backup_copy_guard.dart';
 import 'package:submersion/features/backup/data/services/backup_crypto.dart';
 import 'package:submersion/features/backup/data/services/backup_note_stamp.dart';
 import 'package:submersion/features/backup/data/services/backup_encryption_key_store.dart';
@@ -123,6 +124,10 @@ class BackupService {
   /// species catalog to the restored rows.
   final BuiltInSpeciesSeedVersionStore? _seedVersionStore;
 
+  /// The roster row of the account the cloud copy goes to; defaults to the
+  /// sync account, which is where the copy goes unless one is chosen.
+  final Future<String?> Function()? _copyAccountId;
+
   /// SAF write/read/delete seam for Android custom (`content://`) backup
   /// locations. Defaults to the real platform channel; injectable for tests.
   final BackupSafPort _safPort;
@@ -145,6 +150,7 @@ class BackupService {
     SyncPreferences? syncPreferences,
     BackupEncryptionKeyStore? backupEncryptionKeyStore,
     BuiltInSpeciesSeedVersionStore? seedVersionStore,
+    Future<String?> Function()? copyAccountId,
   }) : _dbAdapter = dbAdapter,
        _preferences = preferences,
        _cloudProvider = cloudProvider,
@@ -156,7 +162,8 @@ class BackupService {
        _encryptionKeyStore = encryptionKeyStore,
        _syncPreferences = syncPreferences,
        _backupEncryptionKeyStore = backupEncryptionKeyStore,
-       _seedVersionStore = seedVersionStore;
+       _seedVersionStore = seedVersionStore,
+       _copyAccountId = copyAccountId;
 
   // ===========================================================================
   // Backup
@@ -270,7 +277,7 @@ class BackupService {
     // switch while it runs must not be recorded as this copy's account.
     String? uploadAccountId;
     if (settings.cloudBackupEnabled && _cloudProvider != null) {
-      uploadAccountId = await _syncAccountIdOrNull();
+      uploadAccountId = await _copyAccountIdOrNull();
       try {
         cloudFileId = await _uploadToCloud(ref, storedName);
         // Only a real file id means a cloud copy exists: the upload also
@@ -303,6 +310,7 @@ class BackupService {
       diveCount: counts.diveCount,
       siteCount: counts.siteCount,
       cloudFileId: cloudFileId,
+      cloudAccountId: cloudFileId == null ? null : uploadAccountId,
       localPath: ref,
       isAutomatic: isAutomatic,
       note: note,
@@ -527,9 +535,9 @@ class BackupService {
           // it null), fail THIS record rather than commit a local .sbe while the
           // cloud copy stays plaintext -- otherwise the success tally would
           // falsely imply that copy is protected.
-          if (_cloudProvider == null) {
+          if (!await _cloudCopyHere(record)) {
             throw const BackupException(
-              'Cloud copy cannot be re-encrypted: no cloud provider available',
+              'Cloud copy cannot be re-encrypted: its account is not reachable',
             );
           }
           newCloudFileId = await _uploadToCloud(newPath, newName);
@@ -803,7 +811,7 @@ class BackupService {
       }
     } else if (localRef != null && await File(localRef).exists()) {
       sourcePath = localRef;
-    } else if (record.cloudFileId != null && _cloudProvider != null) {
+    } else if (await _cloudCopyHere(record)) {
       // Download from cloud to a temp location
       _log.info('Downloading backup from cloud');
       madeCopy = true;
@@ -811,6 +819,8 @@ class BackupService {
         record.cloudFileId!,
         _restoreCopyName(record.filename),
       );
+    } else if (record.cloudFileId != null && record.cloudAccountId != null) {
+      throw BackupCopyInOtherAccountException(record.cloudAccountId!);
     } else {
       throw const BackupException('Backup file not found locally or in cloud');
     }
@@ -1207,10 +1217,10 @@ class BackupService {
       }
     }
 
-    // Delete cloud file
-    if (record.cloudFileId != null && _cloudProvider != null) {
+    // Delete cloud file; a copy in another account is left where it is.
+    if (await _cloudCopyHere(record)) {
       try {
-        await _cloudProvider.deleteFile(record.cloudFileId!);
+        await _cloudProvider!.deleteFile(record.cloudFileId!);
         _log.info('Deleted cloud file: ${record.cloudFileId}');
       } catch (e, stack) {
         _log.error('Failed to delete cloud file', error: e, stackTrace: stack);
@@ -1248,6 +1258,7 @@ class BackupService {
     final cloudFileId = record.cloudFileId;
     final provider = _cloudProvider;
     if (cloudFileId == null || provider == null) return;
+    if (!await _cloudCopyHere(record)) return;
     if (!await provider.fileExists(cloudFileId)) return;
     await _preferences.addRecord(record.copyWith(pinned: true));
   }
@@ -1565,14 +1576,26 @@ class BackupService {
   // Private Helpers
   // ===========================================================================
 
-  /// The connected account driving sync, or null when it cannot be read: a
-  /// missing name only makes Settings > Data say "the cloud".
-  Future<String?> _syncAccountIdOrNull() async {
+  /// Whether [record]'s cloud copy is in the account the copy goes to now,
+  /// so this provider may delete, download or adopt it. Reads the account
+  /// only for a record that noted one.
+  Future<bool> _cloudCopyHere(BackupRecord record) async {
+    if (record.cloudFileId == null || _cloudProvider == null) return false;
+    if (record.cloudAccountId == null) return true;
+    return cloudCopyReachable(
+      record,
+      copyAccountId: await _copyAccountIdOrNull(),
+    );
+  }
+
+  /// The connected account the cloud copy goes to, or null when it cannot be
+  /// read: a missing name only makes Settings > Data say "the cloud".
+  Future<String?> _copyAccountIdOrNull() async {
     try {
-      return await _syncRepository.getSyncAccountId();
+      return await (_copyAccountId ?? _syncRepository.getSyncAccountId)();
     } catch (e, stack) {
       _log.warning(
-        'Could not read the sync account for the backup record',
+        'Could not read the copy account for the backup record',
         error: e,
         stackTrace: stack,
       );

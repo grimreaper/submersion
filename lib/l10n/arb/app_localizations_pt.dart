@@ -53701,4 +53701,8 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get settings_conflict_field_hiddenBuiltInIds =>
       'Entradas integradas ocultas';
+
+  @override
+  String get backup_restore_copyInOtherAccount =>
+      'A única cópia deste backup está em outra conta. Escolha essa conta para a cópia do backup e tente novamente.';
 }

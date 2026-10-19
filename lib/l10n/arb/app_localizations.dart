@@ -85161,6 +85161,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Hidden built-in entries'**
   String get settings_conflict_field_hiddenBuiltInIds;
+
+  /// Restore failed because the backup's only copy is in a cloud account the backup copy no longer goes to
+  ///
+  /// In en, this message translates to:
+  /// **'This backup\'s only copy is in another account. Choose that account for the backup copy, then try again.'**
+  String get backup_restore_copyInOtherAccount;
 }
 
 class _AppLocalizationsDelegate

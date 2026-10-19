@@ -50462,4 +50462,8 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settings_conflict_field_hiddenBuiltInIds => '已隐藏的内置项目';
+
+  @override
+  String get backup_restore_copyInOtherAccount =>
+      '此备份的唯一副本在另一个账户中。请将该账户设为备份副本的存放位置，然后重试。';
 }

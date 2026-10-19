@@ -15849,5 +15849,6 @@
   "plannerCanvas_scrub_tts": "TTS {minutes}′",
   "plannerCanvas_table_end": "END",
   "plannerCanvas_table_ppO2": "PO2",
-  "settings_conflict_field_splitAtConfiguredRate": "Dividir na taxa configurada"
+  "settings_conflict_field_splitAtConfiguredRate": "Dividir na taxa configurada",
+  "backup_restore_copyInOtherAccount": "A única cópia deste backup está em outra conta. Escolha essa conta para a cópia do backup e tente novamente."
 }

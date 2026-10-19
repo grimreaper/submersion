@@ -28,6 +28,10 @@ class BackupRecord extends Equatable {
   /// this record.
   final String? note;
 
+  /// The roster row of the account the cloud copy went to; null for a record
+  /// made before accounts were noted, or with no cloud copy.
+  final String? cloudAccountId;
+
   const BackupRecord({
     required this.id,
     required this.filename,
@@ -45,6 +49,7 @@ class BackupRecord extends Equatable {
     this.toSchemaVersion,
     this.pinned = false,
     this.note,
+    this.cloudAccountId,
   });
 
   BackupRecord copyWith({
@@ -64,6 +69,7 @@ class BackupRecord extends Equatable {
     int? toSchemaVersion,
     bool? pinned,
     String? note,
+    String? cloudAccountId,
   }) {
     return BackupRecord(
       id: id ?? this.id,
@@ -82,6 +88,7 @@ class BackupRecord extends Equatable {
       toSchemaVersion: toSchemaVersion ?? this.toSchemaVersion,
       pinned: pinned ?? this.pinned,
       note: note ?? this.note,
+      cloudAccountId: cloudAccountId ?? this.cloudAccountId,
     );
   }
 
@@ -112,6 +119,7 @@ class BackupRecord extends Equatable {
       'toSchemaVersion': toSchemaVersion,
       'pinned': pinned,
       'note': note,
+      'cloudAccountId': cloudAccountId,
     };
   }
 
@@ -133,6 +141,7 @@ class BackupRecord extends Equatable {
       toSchemaVersion: json['toSchemaVersion'] as int?,
       pinned: json['pinned'] as bool? ?? false,
       note: json['note'] as String?,
+      cloudAccountId: json['cloudAccountId'] as String?,
     );
   }
 
@@ -159,5 +168,6 @@ class BackupRecord extends Equatable {
     toSchemaVersion,
     pinned,
     note,
+    cloudAccountId,
   ];
 }

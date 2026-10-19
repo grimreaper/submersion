@@ -53589,4 +53589,8 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get settings_conflict_field_hiddenBuiltInIds =>
       'Ausgeblendete integrierte Einträge';
+
+  @override
+  String get backup_restore_copyInOtherAccount =>
+      'Die einzige Kopie dieser Sicherung liegt in einem anderen Konto. Wählen Sie dieses Konto für die Sicherungskopie und versuchen Sie es erneut.';
 }

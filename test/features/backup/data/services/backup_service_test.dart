@@ -17,6 +17,7 @@ import 'package:submersion/core/services/sync/library_epoch_store.dart';
 import 'package:submersion/core/services/sync/post_restore_sync_store.dart';
 import 'package:submersion/features/backup/data/repositories/backup_preferences.dart';
 import 'package:submersion/features/backup/data/services/backup_attribution.dart';
+import 'package:submersion/features/backup/data/services/backup_copy_guard.dart';
 import 'package:submersion/features/backup/data/services/backup_crypto.dart';
 import 'package:submersion/features/backup/data/services/backup_service.dart';
 import 'package:submersion/features/backup/domain/entities/backup_record.dart';
@@ -823,6 +824,85 @@ void main() {
             ? 'chmod-based permission denial is not portable to Windows'
             : null,
       );
+    });
+
+    group('a cloud copy in another account', () {
+      BackupRecord cloudOnly(String id, {String? account}) => BackupRecord(
+        id: id,
+        filename: 'submersion_backup_$id.db',
+        timestamp: DateTime(2026, 1, 1),
+        sizeBytes: 10,
+        location: BackupLocation.cloud,
+        cloudFileId: 'cloud-$id',
+        cloudAccountId: account,
+      );
+
+      BackupService service({String? copyAccount = 'acct-b'}) => BackupService(
+        dbAdapter: fakeDb,
+        preferences: preferences,
+        cloudProvider: fakeCloud,
+        syncRepository: _SyncAccountRepository('acct-sync'),
+        copyAccountId: () async => copyAccount,
+      );
+
+      test('a new cloud copy records the copy account, not sync', () async {
+        await preferences.setCloudBackupEnabled(true);
+
+        final record = await service().performBackup();
+
+        expect(record.location, BackupLocation.both);
+        expect(record.cloudAccountId, 'acct-b');
+        expect(preferences.getSettings().lastBackupCloudAccountId, 'acct-b');
+      });
+
+      test('delete never deletes a cloud file in another account', () async {
+        final record = cloudOnly('r1', account: 'acct-a');
+        await preferences.addRecord(record);
+
+        await service().deleteBackup(record);
+
+        expect(fakeCloud.deletedFiles, isEmpty);
+        expect(preferences.getHistory(), isEmpty);
+      });
+
+      test('delete still deletes a copy in the current account', () async {
+        final record = cloudOnly('r1', account: 'acct-b');
+        await preferences.addRecord(record);
+
+        await service().deleteBackup(record);
+
+        expect(fakeCloud.deletedFiles, ['cloud-r1']);
+      });
+
+      test('pruning skips a cloud copy in another account', () async {
+        for (final id in ['r1', 'r2', 'r3']) {
+          await preferences.addRecord(cloudOnly(id, account: 'acct-a'));
+        }
+
+        await service().pruneOldBackups(1);
+
+        expect(fakeCloud.deletedFiles, isEmpty);
+        expect(preferences.getHistory(), hasLength(1));
+      });
+
+      test('restoring a cloud-only copy in another account says so', () async {
+        final record = cloudOnly('r1', account: 'acct-a');
+        fakeCloud.storedFiles['cloud-r1'] = Uint8List.fromList([1]);
+
+        await expectLater(
+          service().restoreFromBackup(record),
+          throwsA(isA<BackupCopyInOtherAccountException>()),
+        );
+      });
+
+      test('an untracked copy in another account is never adopted', () async {
+        final record = cloudOnly('r1', account: 'acct-a');
+        fakeCloud.storedFiles['cloud-r1'] = Uint8List.fromList([1]);
+
+        await service().pinRecord(record);
+
+        expect(preferences.getHistory(), isEmpty);
+      });
     });
 
     group('deleteBackup', () {

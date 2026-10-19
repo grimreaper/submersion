@@ -15849,5 +15849,6 @@
   "plannerCanvas_scrub_tts": "TTS {minutes}′",
   "plannerCanvas_table_end": "END",
   "plannerCanvas_table_ppO2": "PO2",
-  "settings_conflict_field_splitAtConfiguredRate": "Diviser à la vitesse configurée"
+  "settings_conflict_field_splitAtConfiguredRate": "Diviser à la vitesse configurée",
+  "backup_restore_copyInOtherAccount": "La seule copie de cette sauvegarde se trouve dans un autre compte. Choisissez ce compte pour la copie des sauvegardes, puis réessayez."
 }

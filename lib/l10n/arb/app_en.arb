@@ -31852,5 +31852,7 @@
   "preDive_start_allTemplatesHidden": "Every checklist is hidden. Show one again in {path}.",
   "@preDive_start_allTemplatesHidden": {"description": "Helper under the start sheet's checklist field when the diver hid every checklist template; path is the localized Settings > Manage > Pre-Dive Checklists trail", "placeholders": {"path": {"type": "String"}}},
   "settings_conflict_field_hiddenBuiltInIds": "Hidden built-in entries",
-  "@settings_conflict_field_hiddenBuiltInIds": {"description": "Sync conflict dialog label for the built-in dive types, roles, site types, service types and checklists a diver hid from the pickers"}
+  "@settings_conflict_field_hiddenBuiltInIds": {"description": "Sync conflict dialog label for the built-in dive types, roles, site types, service types and checklists a diver hid from the pickers"},
+  "backup_restore_copyInOtherAccount": "This backup's only copy is in another account. Choose that account for the backup copy, then try again.",
+  "@backup_restore_copyInOtherAccount": {"description": "Restore failed because the backup's only copy is in a cloud account the backup copy no longer goes to"}
 }

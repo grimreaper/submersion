@@ -15849,5 +15849,6 @@
   "plannerCanvas_scrub_tts": "TTS {minutes}′",
   "plannerCanvas_table_end": "END",
   "plannerCanvas_table_ppO2": "PO2",
-  "settings_conflict_field_splitAtConfiguredRate": "Splitsen bij de geconfigureerde snelheid"
+  "settings_conflict_field_splitAtConfiguredRate": "Splitsen bij de geconfigureerde snelheid",
+  "backup_restore_copyInOtherAccount": "De enige kopie van deze back-up staat in een ander account. Kies dat account voor de back-upkopie en probeer het opnieuw."
 }

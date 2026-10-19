@@ -11,6 +11,7 @@ import 'package:submersion/core/services/sync/library_epoch_store.dart';
 import 'package:submersion/core/services/sync/post_restore_sync_store.dart';
 import 'package:submersion/features/backup/data/repositories/backup_preferences.dart';
 import 'package:submersion/features/backup/data/services/backup_encryption_key_store.dart';
+import 'package:submersion/features/backup/data/services/backup_copy_guard.dart';
 import 'package:submersion/features/backup/data/services/backup_encryption_service.dart';
 import 'package:submersion/features/backup/data/services/backup_service.dart';
 import 'package:submersion/features/backup/data/services/cloud_backup_history.dart';
@@ -454,6 +455,11 @@ class BackupOperationNotifier extends StateNotifier<BackupOperationState> {
       state = BackupOperationState(
         status: BackupOperationStatus.error,
         message: _l10n.backup_operation_restoreSourceMissing,
+      );
+    } on BackupCopyInOtherAccountException {
+      state = BackupOperationState(
+        status: BackupOperationStatus.error,
+        message: _l10n.backup_restore_copyInOtherAccount,
       );
     } catch (e) {
       state = BackupOperationState(

@@ -52873,4 +52873,8 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settings_conflict_field_hiddenBuiltInIds =>
       'Hidden built-in entries';
+
+  @override
+  String get backup_restore_copyInOtherAccount =>
+      'This backup\'s only copy is in another account. Choose that account for the backup copy, then try again.';
 }

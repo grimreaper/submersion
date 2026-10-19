@@ -15970,5 +15970,6 @@
   "builtIns_showColumnLabel": "Anzeigen",
   "builtIns_showInPickers": "In der Auswahl anzeigen",
   "preDive_start_allTemplatesHidden": "Alle Checklisten sind ausgeblendet. Unter {path} wieder einblenden.",
-  "settings_conflict_field_hiddenBuiltInIds": "Ausgeblendete integrierte Einträge"
+  "settings_conflict_field_hiddenBuiltInIds": "Ausgeblendete integrierte Einträge",
+  "backup_restore_copyInOtherAccount": "Die einzige Kopie dieser Sicherung liegt in einem anderen Konto. Wählen Sie dieses Konto für die Sicherungskopie und versuchen Sie es erneut."
 }

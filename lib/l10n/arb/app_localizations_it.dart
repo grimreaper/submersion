@@ -53706,4 +53706,8 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get settings_conflict_field_hiddenBuiltInIds =>
       'Voci integrate nascoste';
+
+  @override
+  String get backup_restore_copyInOtherAccount =>
+      'L\'unica copia di questo backup si trova in un altro account. Scegli quell\'account per la copia dei backup, poi riprova.';
 }

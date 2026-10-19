@@ -53819,4 +53819,8 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get settings_conflict_field_hiddenBuiltInIds =>
       'Entrées intégrées masquées';
+
+  @override
+  String get backup_restore_copyInOtherAccount =>
+      'La seule copie de cette sauvegarde se trouve dans un autre compte. Choisissez ce compte pour la copie des sauvegardes, puis réessayez.';
 }
