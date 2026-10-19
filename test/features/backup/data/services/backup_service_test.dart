@@ -145,9 +145,13 @@ class _CaptureFailSyncRepository extends SyncRepository {
 class _SyncAccountRepository extends Fake implements SyncRepository {
   _SyncAccountRepository(this.accountId);
   String? accountId;
+  int reads = 0;
 
   @override
-  Future<String?> getSyncAccountId() async => accountId;
+  Future<String?> getSyncAccountId() async {
+    reads++;
+    return accountId;
+  }
 }
 
 class FakeCloudStorageProvider implements CloudStorageProvider {
@@ -890,6 +894,41 @@ void main() {
           expect(fakeCloud.deletedFiles, ['cloud-r1']);
         },
       );
+
+      test(
+        'pinned with no sync account, a legacy copy is left alone',
+        () async {
+          final legacy = cloudOnly('r1');
+          await preferences.addRecord(legacy);
+
+          await BackupService(
+            dbAdapter: fakeDb,
+            preferences: preferences,
+            cloudProvider: fakeCloud,
+            syncRepository: _SyncAccountRepository(null),
+            copyAccountId: 'acct-b',
+          ).deleteBackup(legacy);
+
+          expect(fakeCloud.deletedFiles, isEmpty);
+        },
+      );
+
+      test('pruning reads the sync account once, not per record', () async {
+        for (final id in ['r1', 'r2', 'r3', 'r4']) {
+          await preferences.addRecord(cloudOnly(id));
+        }
+        final sync = _SyncAccountRepository('acct-sync');
+
+        await BackupService(
+          dbAdapter: fakeDb,
+          preferences: preferences,
+          cloudProvider: fakeCloud,
+          syncRepository: sync,
+          copyAccountId: 'acct-b',
+        ).pruneOldBackups(1);
+
+        expect(sync.reads, 1);
+      });
 
       test('following sync, a legacy record is reachable as before', () async {
         final legacy = cloudOnly('r1');

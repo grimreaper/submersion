@@ -16,65 +16,48 @@ BackupRecord _record({String? cloudFileId, String? cloudAccountId}) =>
 
 void main() {
   group('cloudCopyReachable', () {
-    test('a record from before accounts were noted is reachable', () {
-      expect(
-        cloudCopyReachable(_record(cloudFileId: 'f'), copyAccountId: 'acct-b'),
-        isTrue,
-      );
-    });
+    bool reach(
+      BackupRecord r, {
+      String? copy = 'acct-b',
+      bool followsSync = false,
+      String? sync = 'acct-sync',
+    }) => cloudCopyReachable(
+      r,
+      copyAccountId: copy,
+      followsSync: followsSync,
+      syncAccountId: sync,
+    );
 
     test('a copy in the account the copy goes to now is reachable', () {
       expect(
-        cloudCopyReachable(
-          _record(cloudFileId: 'f', cloudAccountId: 'acct-b'),
-          copyAccountId: 'acct-b',
-        ),
+        reach(_record(cloudFileId: 'f', cloudAccountId: 'acct-b')),
         isTrue,
       );
     });
 
     test('a copy in another account is not', () {
       expect(
-        cloudCopyReachable(
-          _record(cloudFileId: 'f', cloudAccountId: 'acct-a'),
-          copyAccountId: 'acct-b',
-        ),
+        reach(_record(cloudFileId: 'f', cloudAccountId: 'acct-a')),
         isFalse,
       );
     });
 
-    test('a copy in an account, with no account known now, is not', () {
+    test('a legacy copy is reachable while the copy follows sync', () {
       expect(
-        cloudCopyReachable(
-          _record(cloudFileId: 'f', cloudAccountId: 'acct-a'),
-          copyAccountId: null,
-        ),
-        isFalse,
-      );
-    });
-
-    test('a legacy record belongs to the account noted for legacy copies', () {
-      final legacy = _record(cloudFileId: 'f');
-      expect(
-        cloudCopyReachable(
-          legacy,
-          copyAccountId: 'acct-b',
-          legacyAccountId: 'acct-sync',
-        ),
-        isFalse,
-      );
-      expect(
-        cloudCopyReachable(
-          legacy,
-          copyAccountId: 'acct-sync',
-          legacyAccountId: 'acct-sync',
-        ),
+        reach(_record(cloudFileId: 'f'), followsSync: true, sync: null),
         isTrue,
       );
     });
 
+    test('pinned, a legacy copy is reachable only in the sync account', () {
+      final legacy = _record(cloudFileId: 'f');
+      expect(reach(legacy), isFalse);
+      expect(reach(legacy, copy: 'acct-sync'), isTrue);
+      expect(reach(legacy, sync: null), isFalse);
+    });
+
     test('a record with no cloud file is not', () {
-      expect(cloudCopyReachable(_record(), copyAccountId: 'acct-b'), isFalse);
+      expect(reach(_record(), followsSync: true), isFalse);
     });
   });
 

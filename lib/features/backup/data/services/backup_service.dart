@@ -1390,10 +1390,11 @@ class BackupService {
     var cloudPushed = true;
     if (provider != null) {
       var recorded = 0;
+      final here = await _cloudCopyCheck();
       for (final record in toDelete) {
         final id = record.cloudFileId;
         // A copy in another account is left where it is.
-        if (id == null || !await _cloudCopyHere(record)) continue;
+        if (id == null || !here(record)) continue;
         try {
           await provider.deleteFile(id);
           recorded++;
@@ -1680,14 +1681,19 @@ class BackupService {
   /// Whether [record]'s cloud copy is in the account the copy goes to now,
   /// so this provider may delete, download or adopt it. Reads the account
   /// only for a record that noted one.
-  Future<bool> _cloudCopyHere(BackupRecord record) async {
-    if (record.cloudFileId == null || _cloudProvider == null) return false;
+  Future<bool> _cloudCopyHere(BackupRecord record) async =>
+      (await _cloudCopyCheck())(record);
+
+  /// [_cloudCopyHere] for many records, reading the accounts once.
+  Future<bool Function(BackupRecord)> _cloudCopyCheck() async {
+    if (_cloudProvider == null) return (_) => false;
     final pinned = _pinnedCopyAccountId;
-    if (record.cloudAccountId == null && pinned == null) return true;
-    return cloudCopyReachable(
+    final sync = await _syncAccountIdOrNull();
+    return (record) => cloudCopyReachable(
       record,
-      copyAccountId: await _copyAccountIdOrNull(),
-      legacyAccountId: pinned == null ? null : await _syncAccountIdOrNull(),
+      copyAccountId: pinned ?? sync,
+      followsSync: pinned == null,
+      syncAccountId: sync,
     );
   }
 

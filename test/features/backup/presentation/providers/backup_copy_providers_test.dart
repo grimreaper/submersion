@@ -92,6 +92,7 @@ void main() {
     Map<String, Object> prefs, {
     bool unlocked = false,
     bool onRoster = true,
+    bool customFolder = false,
   }) async {
     SharedPreferences.setMockInitialValues(prefs);
     final shared = await SharedPreferences.getInstance();
@@ -105,6 +106,9 @@ void main() {
         ),
         cloudStorageProviderProvider.overrideWithValue(syncProvider),
         copyRowOnRosterProvider.overrideWith((ref, id) async => onRoster),
+        isCloudSyncDisabledByCustomFolderProvider.overrideWithValue(
+          customFolder,
+        ),
         if (unlocked)
           encryptionKeyNotifierProvider.overrideWith(
             (ref) => _SeededKeyNotifier(
@@ -142,6 +146,15 @@ void main() {
       final target = await c.read(backupCopyTargetProvider.future);
       expect(target, isA<CopyFollowsSync>());
       expect((target as CopyFollowsSync).group?.rows.single.id, 'acct-sync');
+    });
+
+    // Sync has no provider while the database is in a custom folder.
+    test('following sync in custom-folder mode reads as no account', () async {
+      final c = await container({
+        'backup_cloud_enabled': true,
+      }, customFolder: true);
+      final target = await c.read(backupCopyTargetProvider.future);
+      expect((target as CopyFollowsSync).group, isNull);
     });
 
     test('a chosen account names its group and row', () async {

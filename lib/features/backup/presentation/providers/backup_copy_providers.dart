@@ -64,8 +64,13 @@ final backupCopyTargetProvider = FutureProvider.autoDispose<BackupCopyTarget>((
     ),
   );
   if (!enabled) return const NoCopy();
+  // With the database in a custom folder, sync has no provider here, so a
+  // copy that follows it goes nowhere.
+  final syncOff = ref.watch(isCloudSyncDisabledByCustomFolderProvider);
   final groups = await ref.watch(accountGroupsProvider.future);
-  if (accountId == null) return CopyFollowsSync(groups.syncing);
+  if (accountId == null) {
+    return CopyFollowsSync(syncOff ? null : groups.syncing);
+  }
   final group = groups.holding(accountId);
   final row = group?.rows.where((r) => r.id == accountId).firstOrNull;
   if (group == null || row == null) return CopyAccountGone(accountId);
@@ -94,12 +99,11 @@ final copyRowOnRosterProvider = FutureProvider.family<bool, String>((
 /// copied there and the backup reports its copy missing; it never falls
 /// back to the sync account.
 final backupCopyProviderProvider = Provider<CloudStorageProvider?>((ref) {
-  final (enabled, accountId, kind) = ref.watch(
-    backupSettingsProvider.select(
-      (s) => (s.cloudBackupEnabled, s.copyAccountId, s.copyAccountKind),
-    ),
+  final accountId = ref.watch(pinnedCopyAccountIdProvider);
+  final kind = ref.watch(
+    backupSettingsProvider.select((s) => s.copyAccountKind),
   );
-  if (!enabled || accountId == null || kind == null) {
+  if (accountId == null || kind == null) {
     return ref.watch(cloudStorageProviderProvider);
   }
   if (ref.watch(copyRowOnRosterProvider(accountId)).value == false) {
