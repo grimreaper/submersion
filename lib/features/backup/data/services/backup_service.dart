@@ -13,6 +13,7 @@ import 'package:submersion/core/data/repositories/sync_repository.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/backup_bookmark_service.dart';
 import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.dart';
+import 'package:submersion/core/services/cloud_storage/deferred_write_provider.dart';
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/services/security/database_security_sidecar.dart'
     show isEncryptedDatabaseFile;
@@ -585,6 +586,20 @@ class BackupService {
     _log.info(
       'Re-encrypt done: $reencrypted rewritten, $skipped skipped, $failed failed',
     );
+    // The replaced plaintext copies would stay readable in a Git backend's
+    // history. Best-effort, like the rest of this pass.
+    final provider = _cloudProvider;
+    if (reencrypted > 0 && provider != null) {
+      try {
+        await resetHistoryNowIfSupported(provider);
+      } catch (e, stack) {
+        _log.error(
+          'Re-encrypt: history not reset; old copies stay in it',
+          error: e,
+          stackTrace: stack,
+        );
+      }
+    }
     return (reencrypted: reencrypted, skipped: skipped, failed: failed);
   }
 
@@ -1139,6 +1154,8 @@ class BackupService {
     if (record.cloudFileId != null && _cloudProvider != null) {
       try {
         await _cloudProvider.deleteFile(record.cloudFileId!);
+        // A backend that batches deletes (Git) has only recorded it so far.
+        await flushDeferredWrites(_cloudProvider);
         _log.info('Deleted cloud file: ${record.cloudFileId}');
       } catch (e, stack) {
         _log.error('Failed to delete cloud file', error: e, stackTrace: stack);
@@ -1738,6 +1755,9 @@ class BackupService {
         deleted++;
       }
     }
+    // On a backend that keeps history (Git) the plaintext copies would
+    // otherwise stay readable in it.
+    if (deleted > 0) await resetHistoryNowIfSupported(provider);
     _log.info('Deleted $deleted unencrypted cloud backups');
     return deleted;
   }

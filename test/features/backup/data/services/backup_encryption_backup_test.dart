@@ -7,6 +7,7 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.dart';
+import 'package:submersion/core/services/cloud_storage/deferred_write_provider.dart';
 import 'package:submersion/core/services/sync/crypto/encryption_key_store.dart';
 import 'package:submersion/core/services/sync/crypto/keyslots.dart';
 import 'package:submersion/core/services/sync/crypto/sync_envelope.dart';
@@ -25,6 +26,18 @@ import '../../../../support/fake_keychain_storage.dart';
 /// Tests the issue #580 backup-encryption write/restore paths on BackupService.
 /// Uses the fast KDF so enable/change never runs 64 MiB Argon2id.
 const _fastKdf = KdfParams(m: 1024, t: 3, p: 1);
+
+/// Records history resets, as a Git backend would receive them.
+class _HistoryKeepingCloud extends FakeCloudStorageProvider
+    implements DeferredWriteProvider, HistoryResettable {
+  final calls = <String>[];
+
+  @override
+  Future<void> flush() async => calls.add('flush');
+
+  @override
+  Future<void> resetHistoryNow() async => calls.add('reset');
+}
 
 class _FakeBackupDatabaseAdapter implements BackupDatabaseAdapter {
   @override
@@ -296,6 +309,17 @@ void main() {
       );
     },
   );
+
+  test('reencrypt resets the history of a backend that keeps it', () async {
+    final keeping = _HistoryKeepingCloud();
+    cloud = keeping;
+    await preferences.setCloudBackupEnabled(true);
+    await buildService().performBackup();
+    await enableBackupEncryption();
+    final result = await buildService().reencryptExistingBackups();
+    expect(result.reencrypted, 1);
+    expect(keeping.calls, contains('reset'));
+  });
 
   test(
     'reencrypt: plaintext local history entries become .sbe, .sbe skipped',

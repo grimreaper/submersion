@@ -12,6 +12,7 @@ import 'package:submersion/core/data/repositories/sync_repository.dart';
 import 'package:submersion/core/database/database.dart'
     show AppDatabase, SyncRecord, DeletionLogData;
 import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.dart';
+import 'package:submersion/core/services/cloud_storage/deferred_write_provider.dart';
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/services/sync/child_column_clears.dart';
@@ -554,7 +555,17 @@ class SyncService {
     return resultMessages;
   }
 
+  /// One sync run. Whatever happens inside, deferred writes are pushed
+  /// before it returns (see [_flushAfterRun]).
   Future<SyncResult> performSync() async {
+    try {
+      return await _performSyncRun();
+    } finally {
+      await _flushAfterRun('sync');
+    }
+  }
+
+  Future<SyncResult> _performSyncRun() async {
     final provider = _cloudProvider;
     if (provider == null) {
       return SyncResult(
@@ -1109,6 +1120,16 @@ class SyncService {
   /// base, and the caller's follow-up sync publishes it. Peers then adopt from
   /// us instead of the offline device.
   Future<SyncResult> rebuildBackendFromThisDevice({
+    SyncCleanupProgress? onProgress,
+  }) async {
+    try {
+      return await _rebuildBackendFromThisDeviceRun(onProgress: onProgress);
+    } finally {
+      await _flushAfterRun('backend rebuild');
+    }
+  }
+
+  Future<SyncResult> _rebuildBackendFromThisDeviceRun({
     SyncCleanupProgress? onProgress,
   }) async {
     final provider = _cloudProvider;
@@ -4283,11 +4304,51 @@ class SyncService {
       }
       onProgress?.call(deleted + failed, targets.length);
     }
+    // A provider that batches deletes (Git) has only recorded them so far.
+    // Push them now, before anyone is told they are gone; if that fails,
+    // none of them happened.
+    if (deleted > 0) {
+      try {
+        await flushDeferredWrites(provider).timeout(_flushTimeout);
+      } catch (e) {
+        _log.warning('Could not push $deleted deletes for $reason: $e');
+        failed += deleted;
+        deleted = 0;
+      }
+    }
     return SyncCleanupOutcome(
       deleted: deleted,
       failed: failed,
       listIncomplete: listIncomplete,
     );
+  }
+
+  static const Duration _flushTimeout = Duration(seconds: 20);
+
+  /// Pushes deferred writes at the end of a run. Best-effort: a failure is
+  /// logged, and a later sweep redoes the deletes it covered.
+  Future<void> _flushAfterRun(String run) async {
+    final provider = _cloudProvider;
+    if (provider == null) return;
+    try {
+      await flushDeferredWrites(provider).timeout(_flushTimeout);
+    } catch (e) {
+      _log.warning('Deferred writes not pushed after $run: $e');
+    }
+  }
+
+  /// On a backend that keeps deleted data in its history (Git), drops it
+  /// now: called after deletes made for privacy (an old backend, a full
+  /// wipe, a library replace). Best-effort, never throws.
+  Future<void> _resetHistoryQuietly(
+    CloudStorageProvider provider,
+    String reason,
+  ) async {
+    try {
+      await resetHistoryNowIfSupported(provider).timeout(_flushTimeout);
+    } catch (e) {
+      _log.warning('History not reset after $reason: $e');
+    }
   }
 
   /// Best-effort deletion of EVERY sync file in the cloud folder: all peers'
@@ -4297,16 +4358,18 @@ class SyncService {
   Future<SyncCleanupOutcome> deleteAllSyncFiles(
     CloudStorageProvider provider, {
     SyncCleanupProgress? onProgress,
-  }) {
+  }) async {
     // Wipe both the changeset logs (ssv1.*) and any legacy full-file uploads.
     // The epoch/moved markers (submersion_library_*) match neither pattern, so
     // they survive -- a peer mid-replace still learns the new epoch.
-    return _deleteListedFiles(
+    final outcome = await _deleteListedFiles(
       provider,
       const [ChangesetLogLayout.prefix, CloudStorageProviderMixin.syncFileStem],
       reason: 'library replace',
       onProgress: onProgress,
     );
+    await _resetHistoryQuietly(provider, 'library replace');
+    return outcome;
   }
 
   /// Delete EVERY sync artifact on [provider], INCLUDING the library epoch and
@@ -4316,12 +4379,12 @@ class SyncService {
   Future<SyncCleanupOutcome> wipeAllSyncData(
     CloudStorageProvider provider, {
     SyncCleanupProgress? onProgress,
-  }) {
+  }) async {
     // One pass over all four patterns rather than logs-then-markers, so the
     // user sees a single bar with a single honest total (issue #1032). Pattern
     // order still puts the logs first: a peer listing mid-wipe must never find
     // orphaned logs whose epoch marker is already gone.
-    return _deleteListedFiles(
+    final outcome = await _deleteListedFiles(
       provider,
       const [
         ChangesetLogLayout.prefix,
@@ -4332,6 +4395,8 @@ class SyncService {
       reason: 'full sync wipe',
       onProgress: onProgress,
     );
+    await _resetHistoryQuietly(provider, 'full sync wipe');
+    return outcome;
   }
 
   /// Wipe all sync data on the active provider (issue #509, cloud clear 3b).
@@ -4351,6 +4416,16 @@ class SyncService {
   /// pending intent. On any failure the intent is kept so the next sync
   /// retries instead of merging.
   Future<SyncResult> executeLibraryReplace(LibraryEpochMarker marker) async {
+    try {
+      return await _executeLibraryReplaceRun(marker);
+    } finally {
+      await _flushAfterRun('library replace');
+    }
+  }
+
+  Future<SyncResult> _executeLibraryReplaceRun(
+    LibraryEpochMarker marker,
+  ) async {
     final provider = _cloudProvider;
     final store = _epochStore;
     if (provider == null || store == null) {
@@ -4778,6 +4853,14 @@ class SyncService {
   }
 
   Future<SyncResult> adoptReplacedLibrary() async {
+    try {
+      return await _adoptReplacedLibraryRun();
+    } finally {
+      await _flushAfterRun('library adopt');
+    }
+  }
+
+  Future<SyncResult> _adoptReplacedLibraryRun() async {
     final provider = _cloudProvider;
     final store = _epochStore;
     if (provider == null || store == null) {
