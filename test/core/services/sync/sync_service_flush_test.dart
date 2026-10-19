@@ -16,12 +16,14 @@ import '../../../helpers/test_database.dart';
 class _HistoryKeepingCloud extends FakeCloudStorageProvider
     implements DeferredWriteProvider, HistoryResettable {
   final calls = <String>[];
+  final flushTimeouts = <Duration?>[];
   bool failFlush = false;
   bool failSyncFolder = false;
 
   @override
-  Future<void> flush() async {
+  Future<void> flush({Duration? timeout}) async {
     calls.add('flush');
+    flushTimeouts.add(timeout);
     if (failFlush) throw StateError('flush failed');
   }
 
@@ -104,5 +106,17 @@ void main() {
     expect(outcome.isComplete, isFalse);
     expect(outcome.failed, 2);
     expect(outcome.deleted, 0);
+  });
+
+  test('a delete sweep times only its own push, not the wait for it', () async {
+    final folder = await cloud.getOrCreateSyncFolder();
+    await cloud.uploadFile(
+      Uint8List.fromList([1]),
+      'ssv1.dev-1.cs.000000000001.json',
+      folderId: folder,
+    );
+    await buildService().deleteDeviceSyncFile('dev-1');
+    // Handed to the provider, which starts the clock once its push starts.
+    expect(cloud.flushTimeouts, [const Duration(seconds: 20)]);
   });
 }

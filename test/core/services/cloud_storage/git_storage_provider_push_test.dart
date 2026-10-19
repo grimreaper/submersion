@@ -1,14 +1,43 @@
 import 'dart:async';
+import 'dart:io';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_http_transport.dart';
+import 'package:submersion/core/services/cloud_storage/git/git_object_id.dart';
+import 'package:submersion/core/services/cloud_storage/git_storage_provider.dart';
 
 import '../../../helpers/git_cli.dart';
 import '../../../helpers/git_http_backend_server.dart';
 import '../../../helpers/git_test_provider.dart';
 
 Uint8List _bytes(String s) => Uint8List.fromList(s.codeUnits);
+
+/// Holds every push until [hold] completes, while one is set.
+class _HeldPushes extends GitHttpTransport {
+  _HeldPushes(super.remote);
+
+  Completer<void>? hold;
+
+  @override
+  Future<void> push({
+    required String branch,
+    required GitObjectId? oldTip,
+    required GitObjectId newTip,
+    required Stream<List<int>> pack,
+    int packBytes = 0,
+  }) async {
+    final held = hold;
+    if (held != null) await held.future;
+    return super.push(
+      branch: branch,
+      oldTip: oldTip,
+      newTip: newTip,
+      pack: pack,
+      packBytes: packBytes,
+    );
+  }
+}
 
 void main() {
   final skip = skipUnlessGit();
@@ -56,6 +85,62 @@ void main() {
       );
       await expectLater(
         p.uploadFile(_bytes('x'), 'x.json', folderId: 'Submersion Sync'),
+        throwsA(isA<TimeoutException>()),
+      );
+    }, skip: skip);
+  });
+
+  group('a flush timeout', () {
+    Future<(Directory, _HeldPushes, GitStorageProvider)> setUpHeld() async {
+      final server = await startGitTestServer(
+        requireUser: 'diver',
+        requirePassword: 'tok',
+      );
+      final repo = await server.createBareRepo('sync');
+      final writer = await gitTestProvider(server.repoUrl('sync'));
+      await writer.uploadFile(
+        _bytes('x'),
+        'x.json',
+        folderId: 'Submersion Sync',
+      );
+      late _HeldPushes transport;
+      final p = await gitTestProvider(
+        server.repoUrl('sync'),
+        transportFactory: (config) =>
+            transport = _HeldPushes(config.toRemote()),
+      );
+      await p.listFiles(folderId: 'Submersion Sync');
+      return (repo, transport, p);
+    }
+
+    test('does not count the wait behind a slow upload', () async {
+      final (repo, transport, p) = await setUpHeld();
+      final release = transport.hold = Completer<void>();
+      final upload = p.uploadFile(
+        _bytes('y'),
+        'y.json',
+        folderId: 'Submersion Sync',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await p.deleteFile('Submersion Sync/x.json');
+      final flushing = p.flush(timeout: const Duration(milliseconds: 300));
+      // Queued behind the held upload for longer than its timeout.
+      await Future<void>.delayed(const Duration(milliseconds: 600));
+      transport.hold = null;
+      release.complete();
+      await upload;
+      await flushing;
+      final files = await syncBranchFiles(repo);
+      expect(files, contains('Submersion Sync/y.json'));
+      expect(files, isNot(contains('Submersion Sync/x.json')));
+    }, skip: skip);
+
+    test('runs out once its own push takes too long', () async {
+      final (_, transport, p) = await setUpHeld();
+      await p.deleteFile('Submersion Sync/x.json');
+      transport.hold = Completer<void>();
+      await expectLater(
+        p.flush(timeout: const Duration(milliseconds: 200)),
         throwsA(isA<TimeoutException>()),
       );
     }, skip: skip);

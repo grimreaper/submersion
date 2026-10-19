@@ -229,7 +229,7 @@ class SyncDeviceFootprints {
     // push them before telling anyone they are gone.
     if (deleted > 0) {
       try {
-        await flushDeferredWrites(provider).timeout(cloudCallTimeout * 3);
+        await flushDeferredWrites(provider, timeout: cloudCallTimeout * 3);
       } catch (e) {
         _log.warning('Could not push the deletes retiring $deviceId: $e');
         failed += deleted;

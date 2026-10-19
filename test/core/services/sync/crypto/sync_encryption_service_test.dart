@@ -20,7 +20,7 @@ class _DeferringCloud extends FakeCloudStorageProvider
   int flushes = 0;
 
   @override
-  Future<void> flush() async => flushes++;
+  Future<void> flush({Duration? timeout}) async => flushes++;
 }
 
 void main() {

@@ -205,7 +205,8 @@ class EncryptingCloudStorageProvider
   /// Forwarded, so deferred deletes and history resets reach a Git backend
   /// through the encryption seam. A no-op over any other provider.
   @override
-  Future<void> flush() => flushDeferredWrites(inner);
+  Future<void> flush({Duration? timeout}) =>
+      flushDeferredWrites(inner, timeout: timeout);
 
   @override
   Future<void> resetHistoryNow() => resetHistoryNowIfSupported(inner);

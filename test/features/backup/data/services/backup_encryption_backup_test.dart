@@ -34,7 +34,7 @@ class _HistoryKeepingCloud extends FakeCloudStorageProvider
   bool failReset = false;
 
   @override
-  Future<void> flush() async => calls.add('flush');
+  Future<void> flush({Duration? timeout}) async => calls.add('flush');
 
   @override
   Future<void> resetHistoryNow() async {

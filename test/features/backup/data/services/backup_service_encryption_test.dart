@@ -30,7 +30,7 @@ class _HistoryKeepingCloud extends FakeCloudStorageProvider
   final calls = <String>[];
 
   @override
-  Future<void> flush() async => calls.add('flush');
+  Future<void> flush({Duration? timeout}) async => calls.add('flush');
 
   @override
   Future<void> resetHistoryNow() async => calls.add('reset');

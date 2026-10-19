@@ -4352,7 +4352,7 @@ class SyncService {
     // none of them happened.
     if (deleted > 0) {
       try {
-        await flushDeferredWrites(provider).timeout(_flushTimeout);
+        await flushDeferredWrites(provider, timeout: _flushTimeout);
       } catch (e) {
         _log.warning('Could not push $deleted deletes for $reason: $e');
         failed += deleted;
@@ -4366,6 +4366,9 @@ class SyncService {
     );
   }
 
+  /// How long a flush's own push may run. Its wait behind earlier writes
+  /// (a backup upload, say) does not count, so deletes that will land are
+  /// not reported as failed for waiting their turn.
   static const Duration _flushTimeout = Duration(seconds: 20);
 
   /// Pushes deferred writes at the end of a run. Best-effort: a failure is
@@ -4374,7 +4377,7 @@ class SyncService {
     final provider = _cloudProvider;
     if (provider == null) return;
     try {
-      await flushDeferredWrites(provider).timeout(_flushTimeout);
+      await flushDeferredWrites(provider, timeout: _flushTimeout);
     } catch (e) {
       _log.warning('Deferred writes not pushed after $run: $e');
     }

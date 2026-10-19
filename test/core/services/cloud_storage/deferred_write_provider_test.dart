@@ -8,9 +8,13 @@ import 'package:submersion/core/services/cloud_storage/encrypting_cloud_storage_
 class _Deferring extends Fake
     implements CloudStorageProvider, DeferredWriteProvider, HistoryResettable {
   final calls = <String>[];
+  final timeouts = <Duration?>[];
 
   @override
-  Future<void> flush() async => calls.add('flush');
+  Future<void> flush({Duration? timeout}) async {
+    calls.add('flush');
+    timeouts.add(timeout);
+  }
 
   @override
   Future<void> resetHistoryNow() async => calls.add('reset');
@@ -53,4 +57,15 @@ void main() {
       expect(inner.calls, ['flush', 'reset']);
     },
   );
+
+  test('a flush timeout reaches the provider through the wrapper', () async {
+    final inner = _Deferring();
+    final wrapped = EncryptingCloudStorageProvider(
+      inner,
+      dataKey: SecretKey(List.filled(32, 7)),
+      libraryKeyId: 'lib',
+    );
+    await flushDeferredWrites(wrapped, timeout: const Duration(seconds: 20));
+    expect(inner.timeouts, [const Duration(seconds: 20)]);
+  });
 }

@@ -22,7 +22,7 @@ class _DeferringCloud extends FakeCloudStorageProvider
   bool failFlush = false;
 
   @override
-  Future<void> flush() async {
+  Future<void> flush({Duration? timeout}) async {
     flushes++;
     if (failFlush) throw StateError('push failed');
   }

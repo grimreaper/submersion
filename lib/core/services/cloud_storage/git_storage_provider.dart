@@ -453,7 +453,7 @@ class GitStorageProvider
     GitPut put, {
     required String messagePrefix,
   }) {
-    final pushing = Completer<int>();
+    final pushing = Completer<Duration>();
     final run = _serial(() async {
       final session = await _opened();
       await _ensurePublicSafe(session, path, put);
@@ -461,7 +461,9 @@ class GitStorageProvider
       // file rather than deleting it, and the delete is cleared only once
       // that lands. If the upload fails, the delete still happens.
       await _pace();
-      pushing.complete(await put.length());
+      pushing.complete(
+        GitHttpTransport.deadlineAtLeast(uploadBudget, await put.length()),
+      );
       await _commitWithDeletes(
         session,
         puts: {path: put},
@@ -474,29 +476,32 @@ class GitStorageProvider
     // would give up on a slow link while the push still lands, leaving a
     // copy the backup history never tracks.
     if (path.startsWith('$backupFolderName/')) return run;
-    return _withinBudget(run, pushing.future);
+    return _withinBudget(
+      run,
+      pushing.future,
+      'The upload to the Git host took too long.',
+    );
   }
 
-  /// [run], or a [TimeoutException] once its push has run longer than its
-  /// budget. Time spent behind earlier writes and waiting for pacing does
-  /// not count, as [pushing] completes, with the payload size, only when
-  /// the push starts. A timeout rather than a failure: the push may still
-  /// land, and the sync engine keeps its upload nonce for that case.
-  Future<T> _withinBudget<T>(Future<T> run, Future<int> pushing) {
+  /// [run], or a [TimeoutException] with [message] once its push has run
+  /// longer than its budget. Time spent behind earlier writes and waiting
+  /// for pacing does not count, as [pushing] completes, with the budget,
+  /// only when the push starts. A timeout rather than a failure: the push
+  /// may still land, and the sync engine keeps its upload nonce for that
+  /// case.
+  Future<T> _withinBudget<T>(
+    Future<T> run,
+    Future<Duration> pushing,
+    String message,
+  ) {
     final result = Completer<T>();
     Timer? timer;
     unawaited(
-      pushing.then((bytes) {
+      pushing.then((budget) {
         if (result.isCompleted) return;
-        final budget = GitHttpTransport.deadlineAtLeast(uploadBudget, bytes);
         timer = Timer(budget, () {
           if (result.isCompleted) return;
-          result.completeError(
-            TimeoutException(
-              'The upload to the Git host took too long.',
-              budget,
-            ),
-          );
+          result.completeError(TimeoutException(message, budget));
         });
       }),
     );
@@ -593,26 +598,41 @@ class GitStorageProvider
   }
 
   @override
-  Future<void> flush() => _serial(() async {
-    _deleteTimer?.cancel();
-    // Deletes recorded without a loaded branch still have to reach it.
-    final session = _pendingDeletes.isNotEmpty ? await _opened() : _session;
-    if (session == null) return;
-    if (_pendingDeletes.isNotEmpty) {
-      await _pace();
-      await _commitWithDeletes(session, messagePrefix: 'Sync');
+  Future<void> flush({Duration? timeout}) {
+    final pushing = Completer<Duration>();
+    void startClock() {
+      if (timeout != null && !pushing.isCompleted) pushing.complete(timeout);
     }
-    if (session.current != null) {
-      // Best effort: the deletes above already landed, so a reset that
-      // fails must not make the caller report them as failed. A due reset
-      // is tried again on the next flush.
-      try {
-        await _resetIfDue(session, force: false);
-      } on GitException catch (e) {
-        _log.warning('History reset not done; retried later', error: e);
+
+    final run = _serial(() async {
+      _deleteTimer?.cancel();
+      // Deletes recorded without a loaded branch still have to reach it.
+      final session = _pendingDeletes.isNotEmpty ? await _opened() : _session;
+      if (session == null) return;
+      if (_pendingDeletes.isNotEmpty) {
+        await _pace();
+        startClock();
+        await _commitWithDeletes(session, messagePrefix: 'Sync');
       }
-    }
-  });
+      startClock();
+      if (session.current != null) {
+        // Best effort: the deletes above already landed, so a reset that
+        // fails must not make the caller report them as failed. A due reset
+        // is tried again on the next flush.
+        try {
+          await _resetIfDue(session, force: false);
+        } on GitException catch (e) {
+          _log.warning('History reset not done; retried later', error: e);
+        }
+      }
+    });
+    if (timeout == null) return run;
+    return _withinBudget(
+      run,
+      pushing.future,
+      'Pushing deletes to the Git host took too long.',
+    );
+  }
 
   /// Resets [session]'s history when due (or always, with [force]) and
   /// records the outcome for the Cloud sync page: a reset the host refuses

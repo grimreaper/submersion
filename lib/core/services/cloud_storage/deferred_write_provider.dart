@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.dart';
 
 /// A provider that may report a write done before it reaches the backend.
@@ -8,7 +10,11 @@ import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.da
 /// does not implement this.
 abstract interface class DeferredWriteProvider {
   /// Pushes every deferred write now.
-  Future<void> flush();
+  ///
+  /// With [timeout], throws a [TimeoutException] once the flush's own push
+  /// has run that long. Waiting behind earlier writes, and for the spacing
+  /// between pushes, does not count; a push that runs out may still land.
+  Future<void> flush({Duration? timeout});
 }
 
 /// A provider whose backend keeps deleted data in history until told to drop
@@ -19,10 +25,14 @@ abstract interface class HistoryResettable {
   Future<void> resetHistoryNow();
 }
 
-/// Flushes [provider]'s deferred writes, if it defers any.
-Future<void> flushDeferredWrites(CloudStorageProvider provider) async {
+/// Flushes [provider]'s deferred writes, if it defers any; [timeout] as in
+/// [DeferredWriteProvider.flush].
+Future<void> flushDeferredWrites(
+  CloudStorageProvider provider, {
+  Duration? timeout,
+}) async {
   if (provider is DeferredWriteProvider) {
-    await (provider as DeferredWriteProvider).flush();
+    await (provider as DeferredWriteProvider).flush(timeout: timeout);
   }
 }
 
