@@ -16,9 +16,12 @@ if [ "$#" -ne 1 ]; then
 fi
 DMG=$1
 [ -f "$DMG" ] || { echo "::error::DMG not found: $DMG" >&2; exit 1; }
-: "${APPLE_ID:?APPLE_ID is not set}"
-: "${APPLE_APP_PASSWORD:?APPLE_APP_PASSWORD is not set}"
-: "${APPLE_TEAM_ID:?APPLE_TEAM_ID is not set}"
+for var in APPLE_ID APPLE_APP_PASSWORD APPLE_TEAM_ID; do
+  if [ -z "${!var:-}" ]; then
+    echo "::error::$var is not set" >&2
+    exit 1
+  fi
+done
 
 for attempt in 1 2 3; do
   if "$XCRUN" notarytool submit "$DMG" \
@@ -48,7 +51,8 @@ for ((attempt = 1; attempt <= STAPLE_ATTEMPTS; attempt++)); do
   fi
   if [ "$attempt" -eq "$STAPLE_ATTEMPTS" ]; then
     echo "::error::Stapling failed after $STAPLE_ATTEMPTS attempts." \
-      "Apple accepted the DMG; fetching its ticket from CloudKit kept failing."
+      "Check the notarytool status above: if it is Accepted, fetching the" \
+      "ticket from CloudKit kept failing; otherwise there is no ticket."
     exit 1
   fi
   delay=$((attempt * 15))
