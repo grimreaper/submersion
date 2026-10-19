@@ -9,6 +9,7 @@ import 'package:submersion/core/providers/account_providers.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/services/accounts/account_identity.dart';
 import 'package:submersion/core/services/accounts/account_kind.dart';
+import 'package:submersion/core/services/accounts/account_location.dart';
 import 'package:submersion/core/services/accounts/account_provider_adapter.dart';
 import 'package:submersion/core/services/accounts/connected_account.dart'
     as domain;
@@ -25,7 +26,6 @@ import 'package:submersion/core/services/cloud_storage/dropbox/dropbox_auth_stor
 import 'package:submersion/core/services/cloud_storage/dropbox_storage_provider.dart';
 import 'package:submersion/core/services/cloud_storage/encrypting_cloud_storage_provider.dart';
 import 'package:submersion/core/services/cloud_storage/icloud_native_service.dart';
-import 'package:submersion/core/services/cloud_storage/s3/s3_config.dart';
 import 'package:submersion/core/services/cloud_storage/s3/s3_credentials_store.dart';
 import 'package:submersion/core/services/cloud_storage/s3_storage_provider.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_credentials_store.dart';
@@ -382,6 +382,30 @@ Future<domain.ConnectedAccount> ensureAccountForProviderType(
         endpointKey == null ||
         persisted?.id == accountIdFor(kind: kind, naturalKey: endpointKey);
     if (persisted != null && persisted.kind == kind && sameEndpoint) {
+      // A row persisted before locations (v293) gets one from the settings
+      // this device holds, once, so other devices can place it and sign in
+      // with only the secret.
+      if (persisted.location == null) {
+        final AccountLocation? location = switch (kind) {
+          AccountKind.s3 =>
+            switch (await (s3Credentials ?? S3CredentialsStore()).load()) {
+              final c?
+                  when accountIdFor(
+                        kind: AccountKind.s3,
+                        naturalKey: s3NaturalKey(c),
+                      ) ==
+                      persisted.id =>
+                S3AccountLocation.fromConfig(c),
+              _ => null,
+            },
+          AccountKind.webdav => switch (webdavConfig) {
+            final c? => WebDavAccountLocation.fromConfig(c),
+            null => null,
+          },
+          _ => null,
+        };
+        if (location != null) await repo.setLocation(persisted.id, location);
+      }
       return persisted;
     }
   }
@@ -403,6 +427,7 @@ Future<domain.ConnectedAccount> ensureAccountForProviderType(
       kind: kind,
       naturalKey: s3NaturalKey(config),
       label: '${config.bucket} @ ${config.displayHost}',
+      location: S3AccountLocation.fromConfig(config),
     );
   }
   if (kind == AccountKind.webdav) {
@@ -419,6 +444,7 @@ Future<domain.ConnectedAccount> ensureAccountForProviderType(
       kind: kind,
       naturalKey: webdavNaturalKey(config),
       label: config.displayLabel,
+      location: WebDavAccountLocation.fromConfig(config),
     );
   }
   if (kind == AccountKind.git) {
@@ -1821,9 +1847,7 @@ class SyncNotifier extends StateNotifier<SyncState> {
     _ref.read(selectedCloudProviderTypeProvider.notifier).state = null;
     // Clear the saved provider from SharedPreferences
     await _ref.read(syncInitializerProvider).saveProvider(null);
-    // The S3 tile watches this; a sign-out (or future config change) must
-    // not leave it showing stale state.
-    _ref.invalidate(s3ConfigProvider);
+    // The WebDAV media form reads this; a sign-out must not leave it stale.
     _ref.invalidate(webdavConfigProvider);
     _ref.invalidate(gitConfigProvider);
     state = const SyncState();
@@ -2109,12 +2133,6 @@ final restoreLastProviderProvider = FutureProvider<void>((ref) async {
 final s3StorageProviderInstanceProvider = Provider<S3StorageProvider>(
   (ref) => s3ProviderInstance,
 );
-
-/// The stored S3 configuration, or null when S3 has not been set up.
-/// Invalidate after saving or removing the configuration.
-final s3ConfigProvider = FutureProvider<S3Config?>((ref) async {
-  return ref.watch(s3StorageProviderInstanceProvider).loadConfig();
-});
 
 /// Direct access to the Dropbox provider singleton for the connect UI
 /// (begin/complete authorization, account info).

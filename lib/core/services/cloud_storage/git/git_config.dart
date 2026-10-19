@@ -145,7 +145,12 @@ class GitConfig {
 
   GitHostKind get hostKind => detectGitHost(cloneUrl);
 
-  String get displayLabel => '$repoPath @ $host';
+  /// How the account is shown: the repository and host, plus the branch
+  /// when it is not the default, so two branches of one repository can be
+  /// told apart.
+  String get displayLabel => branch == kDefaultGitBranch
+      ? '$repoPath @ $host'
+      : '$repoPath @ $host ($branch)';
 
   GitRemote toRemote() => GitRemote(
     cloneUrl: cloneUrl,

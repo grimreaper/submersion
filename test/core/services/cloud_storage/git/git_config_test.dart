@@ -52,6 +52,19 @@ void main() {
         'you/dive-log @ github.com',
       );
     });
+
+    test('a branch other than the default is named in the label', () {
+      // Two branches of one repository are two accounts.
+      expect(
+        GitConfig(
+          repoUrl: 'https://github.com/you/dive-log',
+          username: 'u',
+          token: 't',
+          branch: 'club',
+        ).displayLabel,
+        'you/dive-log @ github.com (club)',
+      );
+    });
   });
 
   group('detectGitHost', () {

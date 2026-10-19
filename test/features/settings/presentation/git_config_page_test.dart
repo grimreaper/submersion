@@ -1,9 +1,18 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:submersion/core/providers/account_providers.dart';
 import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/core/data/repositories/connected_accounts_repository.dart';
 import 'package:submersion/core/services/accounts/account_credentials_store.dart';
+import 'package:submersion/core/services/accounts/account_group.dart';
+import 'package:submersion/core/services/accounts/account_identity.dart';
+import 'package:submersion/core/services/accounts/account_kind.dart';
+import 'package:submersion/core/services/accounts/account_location.dart';
+import 'package:submersion/core/services/accounts/account_provider_adapter.dart';
+import 'package:submersion/core/services/accounts/connected_account.dart';
 import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_config.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_credentials_store.dart';
@@ -38,9 +47,6 @@ class _FakeGit extends GitStorageProvider {
   /// Thrown by the next testConnection only.
   Object? failOnce;
   int tests = 0;
-  int saves = 0;
-  int signOuts = 0;
-  GitConfig? saved;
   final tested = <GitConfig>[];
 
   @override
@@ -56,26 +62,35 @@ class _FakeGit extends GitStorageProvider {
     if (error != null) throw error;
     return report;
   }
+}
+
+/// Records the Git accounts the page saves, without a database.
+class _FakeAccounts extends ConnectedAccountsRepository {
+  final ensured = <ConnectedAccount>[];
+
+  /// Thrown by the next save, as a keychain or database failure would be.
+  Object? failWith;
 
   @override
-  Future<void> signOut() async {
-    signOuts++;
-    saved = null;
-  }
-
-  /// Thrown by saveConfig, as a keychain failure would be.
-  Object? saveFails;
-
-  @override
-  Future<void> saveConfig(GitConfig config) async {
-    final fail = saveFails;
+  Future<ConnectedAccount> ensure({
+    required AccountKind kind,
+    required String naturalKey,
+    required String label,
+    AccountLocation? location,
+  }) async {
+    final fail = failWith;
     if (fail != null) throw fail;
-    saves++;
-    saved = config;
+    final now = DateTime.utc(2026, 10, 19);
+    final row = ConnectedAccount(
+      id: accountIdFor(kind: kind, naturalKey: naturalKey),
+      kind: kind,
+      label: label,
+      createdAt: now,
+      updatedAt: now,
+    );
+    ensured.add(row);
+    return row;
   }
-
-  @override
-  Future<GitConfig?> loadConfig() async => saved;
 }
 
 /// Minimal [SyncNotifier] that never touches the database.
@@ -166,10 +181,28 @@ class _FakeSyncNotifier extends StateNotifier<SyncState>
 
 void main() {
   late _FakeGit git;
+  late _FakeAccounts accounts;
+  late AccountCredentialsStore credentials;
 
-  setUp(() => git = _FakeGit());
+  /// What the page popped with, once it has.
+  ConnectedAccount? popped;
 
-  Future<void> pumpPage(WidgetTester tester, {bool encrypted = false}) async {
+  setUp(() {
+    git = _FakeGit();
+    accounts = _FakeAccounts();
+    credentials = AccountCredentialsStore(storage: InMemoryKeychain());
+    popped = null;
+  });
+
+  /// The saved config of [row], from its own credential key.
+  Future<GitConfig?> savedFor(ConnectedAccount row) async =>
+      decodeGitConfig(await credentials.read(row.id));
+
+  Future<void> pumpPage(
+    WidgetTester tester, {
+    bool encrypted = false,
+    AccountGroup? existing,
+  }) async {
     tester.view.physicalSize = const Size(1200, 2400);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(() {
@@ -184,9 +217,8 @@ void main() {
       ProviderScope(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(prefs),
-          accountCredentialsStoreProvider.overrideWithValue(
-            AccountCredentialsStore(storage: InMemoryKeychain()),
-          ),
+          accountCredentialsStoreProvider.overrideWithValue(credentials),
+          connectedAccountsRepositoryProvider.overrideWithValue(accounts),
           gitCredentialsStoreProvider.overrideWithValue(
             GitCredentialsStore(storage: InMemoryKeychain()),
           ),
@@ -194,14 +226,23 @@ void main() {
           syncStateProvider.overrideWith((ref) => _FakeSyncNotifier(ref)),
           selectedCloudProviderTypeProvider.overrideWith((ref) => null),
         ],
-        child: const MaterialApp(
-          locale: Locale('en'),
+        child: MaterialApp(
+          locale: const Locale('en'),
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
-          home: GitConfigPage(),
+          home: Builder(
+            builder: (context) => TextButton(
+              onPressed: () async => popped = await showGitAccountPage(
+                context,
+                existing: existing,
+              ),
+              child: const Text('open'),
+            ),
+          ),
         ),
       ),
     );
+    await tester.tap(find.text('open'));
     await tester.pumpAndSettle();
   }
 
@@ -254,7 +295,7 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Enter the access token'), findsOneWidget);
     expect(git.tests, 0);
-    expect(git.saves, 0);
+    expect(accounts.ensured, isEmpty);
   });
 
   testWidgets('an invalid branch name is refused before any request', (
@@ -283,7 +324,7 @@ void main() {
   testWidgets('a keychain failure on save says so', (tester) async {
     await pumpPage(tester);
     await fillValidForm(tester);
-    git.saveFails = StateError('keychain locked');
+    accounts.failWith = StateError('keychain locked');
     await tester.tap(find.byKey(const Key('git-save')));
     await tester.pumpAndSettle();
     expect(
@@ -351,7 +392,7 @@ void main() {
       expect(find.text('This repository is public'), findsOneWidget);
       await tester.tap(find.text('Cancel'));
       await tester.pumpAndSettle();
-      expect(git.saves, 0);
+      expect(accounts.ensured, isEmpty);
     },
   );
 
@@ -370,9 +411,11 @@ void main() {
     // The dialog only saves; encryption is turned on from Cloud sync.
     await tester.tap(find.byKey(const Key('git-public-save')));
     await tester.pumpAndSettle();
-    expect(git.saves, 1);
+    // Recorded as an account, with its own keys, and handed back.
+    expect(accounts.ensured, hasLength(1));
+    expect(popped?.id, accounts.ensured.single.id);
     expect(
-      git.saved!.cloneUrl.toString(),
+      (await savedFor(popped!))!.cloneUrl.toString(),
       'https://github.com/you/dive-log.git',
     );
   });
@@ -390,42 +433,54 @@ void main() {
     await tester.tap(find.byKey(const Key('git-save')));
     await tester.pumpAndSettle();
     expect(find.text('This repository is public'), findsNothing);
-    expect(git.saves, 1);
+    expect(accounts.ensured, hasLength(1));
   });
 
-  testWidgets('a saved config fills the form and can be removed', (
+  testWidgets('signing an account in again fills the form from its keys', (
     tester,
   ) async {
-    git.saved = GitConfig(
+    final config = GitConfig(
       repoUrl: 'https://gitlab.com/group/r',
       username: 'you',
       token: 'glpat_x',
       branch: 'dive-sync',
     );
-    await pumpPage(tester);
+    final row = ConnectedAccount(
+      id: accountIdFor(
+        kind: AccountKind.git,
+        naturalKey: gitNaturalKey(config),
+      ),
+      kind: AccountKind.git,
+      label: config.displayLabel,
+      createdAt: DateTime.utc(2026),
+      updatedAt: DateTime.utc(2026),
+    );
+    await credentials.write(row.id, jsonEncode(config.toJson()));
+    await pumpPage(
+      tester,
+      existing: AccountGroup(
+        key: 'git|${row.id}',
+        kind: AccountKind.git,
+        label: row.label,
+        rows: [row],
+        status: AccountStatus.signedIn,
+        usages: const [],
+        locations: const {},
+        roles: const {},
+        usagesKnown: true,
+        address: row.label,
+        usageRoles: const {},
+        rowStatuses: {row.id: AccountStatus.signedIn},
+      ),
+    );
+    expect(
+      find.text('Sign in to group/r @ gitlab.com (dive-sync)'),
+      findsOneWidget,
+    );
     expect(find.text('https://gitlab.com/group/r.git'), findsOneWidget);
     expect(find.text('dive-sync'), findsOneWidget);
     expect(find.textContaining('write_repository'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('git-remove')));
-    await tester.pumpAndSettle();
-    expect(find.text('Remove Git configuration?'), findsOneWidget);
-    await tester.tap(find.byKey(const Key('git-remove-confirm')));
-    await tester.pumpAndSettle();
-    expect(git.signOuts, 1);
-  });
-
-  testWidgets('removal can be cancelled', (tester) async {
-    git.saved = GitConfig(
-      repoUrl: 'https://github.com/you/r',
-      username: 'you',
-      token: 't',
-    );
-    await pumpPage(tester);
-    await tester.tap(find.byKey(const Key('git-remove')));
-    await tester.pumpAndSettle();
-    await tester.tap(find.text('Cancel'));
-    await tester.pumpAndSettle();
-    expect(git.signOuts, 0);
+    expect(find.byKey(const Key('git-remove')), findsNothing);
   });
 
   testWidgets('an existing Submersion branch is reported as found', (

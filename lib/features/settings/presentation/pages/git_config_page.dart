@@ -1,16 +1,18 @@
+import 'dart:convert';
+
 import 'package:flutter/material.dart';
 
-import 'package:submersion/core/data/repositories/sync_repository.dart'
-    show CloudProviderType;
 import 'package:submersion/core/providers/account_providers.dart';
 import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/core/services/accounts/account_group.dart';
 import 'package:submersion/core/services/accounts/account_identity.dart';
 import 'package:submersion/core/services/accounts/account_kind.dart';
+import 'package:submersion/core/services/accounts/connected_account.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_config.dart';
+import 'package:submersion/core/services/cloud_storage/git/git_credentials_store.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_errors.dart';
 import 'package:submersion/core/services/cloud_storage/git_storage_provider.dart';
 import 'package:submersion/core/services/cloud_storage/webdav/webdav_errors.dart';
-import 'package:submersion/features/backup/presentation/providers/backup_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/git_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/git_error_text.dart';
@@ -18,11 +20,18 @@ import 'package:submersion/features/settings/presentation/widgets/git_host_note.
 import 'package:submersion/features/settings/presentation/widgets/webdav_trust_certificate_dialog.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 
-/// Configuration for the Git sync backend: repository address, username,
-/// access token and branch. Test connection and Save both check the
-/// repository; Save also refuses to sync a public repository unencrypted.
+/// A Git repository as an account (the account sheet's "Git" entry):
+/// repository address, username, access token and branch. Test connection
+/// and Save both check the repository, and Save warns before keeping a
+/// public one, which syncs only encrypted. Save records the account and
+/// pops with its roster row; pointing sync at it is the caller's step.
+///
+/// With [existing], the form signs that account in again, filled from what
+/// this device holds for it.
 class GitConfigPage extends ConsumerStatefulWidget {
-  const GitConfigPage({super.key});
+  const GitConfigPage({super.key, this.existing});
+
+  final AccountGroup? existing;
 
   @override
   ConsumerState<GitConfigPage> createState() => _GitConfigPageState();
@@ -36,7 +45,6 @@ class _GitConfigPageState extends ConsumerState<GitConfigPage> {
   final _branch = TextEditingController(text: kDefaultGitBranch);
   String? _pinnedCertSha256;
   bool _busy = false;
-  bool _hasExistingConfig = false;
   bool _userEdited = false;
 
   @override
@@ -71,12 +79,15 @@ class _GitConfigPageState extends ConsumerState<GitConfigPage> {
   );
 
   Future<void> _loadExisting() async {
+    final group = widget.existing;
+    if (group == null) return;
     try {
-      final existing = await ref
-          .read(gitStorageProviderInstanceProvider)
-          .loadConfig();
+      final existing = decodeGitConfig(
+        await ref
+            .read(accountCredentialsStoreProvider)
+            .read(group.rows.first.id),
+      );
       if (!mounted || existing == null) return;
-      setState(() => _hasExistingConfig = true);
       // A slow keychain read must not overwrite anything the user changed.
       if (_userEdited) return;
       _repoUrl.text = existing.repoUrl;
@@ -213,7 +224,7 @@ class _GitConfigPageState extends ConsumerState<GitConfigPage> {
     if (!_formKey.currentState!.validate()) return;
     final l10n = context.l10n;
     // The app-level container outlives this page, so the writes below finish
-    // even if the page is popped mid-save (the WebDAV page does the same).
+    // even if the page is popped mid-save.
     final container = ProviderScope.containerOf(context, listen: false);
     setState(() => _busy = true);
     var savingToKeychain = false;
@@ -235,24 +246,15 @@ class _GitConfigPageState extends ConsumerState<GitConfigPage> {
         setState(() => _busy = true);
       }
       savingToKeychain = true;
-      await provider.saveConfig(config);
+      final row = await saveGitAccount(container, config);
       savingToKeychain = false;
-      container.read(selectedCloudProviderTypeProvider.notifier).state =
-          CloudProviderType.git;
-      await container
-          .read(syncInitializerProvider)
-          .saveProvider(CloudProviderType.git);
-      container.read(syncStateProvider.notifier).refreshState();
-      container.invalidate(gitConfigProvider);
-      container.invalidate(selectedSyncAccountProvider);
-      await container.read(selectedSyncAccountProvider.future);
       if (!mounted) return;
       _showSnack(
         mustEncrypt
             ? l10n.settings_gitConfig_public_saved
             : l10n.settings_gitConfig_saved,
       );
-      await Navigator.maybePop(context);
+      Navigator.of(context).pop(row);
     } on GitException catch (e) {
       _showSnack(gitErrorText(l10n, e, branch: _build().branch), isError: true);
     } catch (e) {
@@ -267,83 +269,18 @@ class _GitConfigPageState extends ConsumerState<GitConfigPage> {
     }
   }
 
-  Future<void> _remove() async {
-    final l10n = context.l10n;
-    final warnBackup =
-        ref.read(selectedCloudProviderTypeProvider) == CloudProviderType.git &&
-        ref.read(backupSettingsProvider).cloudBackupEnabled;
-    final body = warnBackup
-        ? '${l10n.settings_gitConfig_remove_confirm_body}\n\n${l10n.settings_cloudSync_signOut_backupWarning}'
-        : l10n.settings_gitConfig_remove_confirm_body;
-    final confirmed = await showDialog<bool>(
-      context: context,
-      builder: (dialogContext) => AlertDialog(
-        title: Text(l10n.settings_gitConfig_remove_confirm_title),
-        content: Text(body),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.pop(dialogContext, false),
-            child: Text(l10n.common_action_cancel),
-          ),
-          TextButton(
-            key: const Key('git-remove-confirm'),
-            onPressed: () => Navigator.pop(dialogContext, true),
-            child: Text(l10n.settings_gitConfig_remove_confirm_action),
-          ),
-        ],
-      ),
-    );
-    if (confirmed != true || !mounted) return;
-    final container = ProviderScope.containerOf(context, listen: false);
-    setState(() => _busy = true);
-    try {
-      final provider = container.read(gitStorageProviderInstanceProvider);
-      final existing = await provider.loadConfig();
-      final selectedAccount = container.read(selectedSyncAccountProvider).value;
-      await provider.signOut();
-      // Saving also copied the config, token included, under the sync
-      // account's own key; the confirmation promises it leaves this device.
-      final accountCredentials = container.read(
-        accountCredentialsStoreProvider,
-      );
-      if (existing != null) {
-        await accountCredentials.delete(
-          accountIdFor(
-            kind: AccountKind.git,
-            naturalKey: gitNaturalKey(existing),
-          ),
-        );
-      }
-      if (selectedAccount != null && selectedAccount.kind == AccountKind.git) {
-        await accountCredentials.delete(selectedAccount.id);
-      }
-      if (container.read(selectedCloudProviderTypeProvider) ==
-          CloudProviderType.git) {
-        await container.read(syncStateProvider.notifier).signOut();
-        await container
-            .read(backupSettingsProvider.notifier)
-            .disableCloudBackup();
-      }
-      container.invalidate(gitConfigProvider);
-      if (!mounted) return;
-      _showSnack(context.l10n.settings_gitConfig_removed);
-      await Navigator.maybePop(context);
-    } catch (e) {
-      _showSnack(
-        '${l10n.settings_gitConfig_error_secureStorage}: $e',
-        isError: true,
-      );
-    } finally {
-      if (mounted) setState(() => _busy = false);
-    }
-  }
-
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
     final address = _repoUrl.text.trim();
     return Scaffold(
-      appBar: AppBar(title: Text(l10n.settings_gitConfig_appBar_title)),
+      appBar: AppBar(
+        title: Text(
+          widget.existing == null
+              ? l10n.settings_gitConfig_appBar_title
+              : l10n.settings_accounts_signInTo(widget.existing!.label),
+        ),
+      ),
       body: Form(
         key: _formKey,
         child: ListView(
@@ -425,18 +362,42 @@ class _GitConfigPageState extends ConsumerState<GitConfigPage> {
                 ),
               ],
             ),
-            if (_hasExistingConfig) ...[
-              const SizedBox(height: 8),
-              TextButton(
-                key: const Key('git-remove'),
-                onPressed: _busy ? null : _remove,
-                style: TextButton.styleFrom(foregroundColor: Colors.red),
-                child: Text(l10n.settings_gitConfig_action_remove),
-              ),
-            ],
           ],
         ),
       ),
     );
   }
 }
+
+/// Records [config] as a Git account: its roster row (one per repository
+/// and branch) and the config, token included, under that row's own key.
+/// Returns the row.
+Future<ConnectedAccount> saveGitAccount(
+  ProviderContainer container,
+  GitConfig config,
+) async {
+  final row = await container
+      .read(connectedAccountsRepositoryProvider)
+      .ensure(
+        kind: AccountKind.git,
+        naturalKey: gitNaturalKey(config),
+        label: config.displayLabel,
+      );
+  await container
+      .read(accountCredentialsStoreProvider)
+      .write(row.id, jsonEncode(config.toJson()));
+  return row;
+}
+
+/// Pushes the Git account form on its own page and returns the row it
+/// saved, or null when the diver backs out. [rootNavigator] as for
+/// showOwnServerPage: the first-run wizard has no diver for a go_router
+/// push to land on.
+Future<ConnectedAccount?> showGitAccountPage(
+  BuildContext context, {
+  AccountGroup? existing,
+  bool rootNavigator = false,
+}) =>
+    Navigator.of(context, rootNavigator: rootNavigator).push<ConnectedAccount>(
+      MaterialPageRoute(builder: (_) => GitConfigPage(existing: existing)),
+    );

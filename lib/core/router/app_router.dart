@@ -29,6 +29,8 @@ import 'package:submersion/features/buddies/presentation/pages/buddy_detail_page
 import 'package:submersion/features/buddies/presentation/pages/buddy_edit_page.dart';
 import 'package:submersion/features/buddies/presentation/pages/buddy_merge_page.dart';
 import 'package:submersion/features/buddies/presentation/providers/buddy_providers.dart';
+import 'package:submersion/features/dive_centers/presentation/providers/dive_center_providers.dart';
+import 'package:submersion/features/marine_life/presentation/providers/species_providers.dart';
 import 'package:submersion/features/documents/domain/entities/document.dart';
 import 'package:submersion/features/documents/presentation/pages/document_detail_page.dart';
 import 'package:submersion/features/documents/presentation/pages/document_edit_page.dart';
@@ -120,12 +122,10 @@ import 'package:submersion/features/shared_library/presentation/pages/suggestion
 import 'package:submersion/features/media_store/presentation/pages/media_storage_page.dart';
 import 'package:submersion/features/media_store/presentation/pages/transfers_page.dart';
 import 'package:submersion/features/settings/presentation/pages/connected_accounts_page.dart';
+import 'package:submersion/features/settings/presentation/pages/account_detail_page.dart';
 import 'package:submersion/features/settings/presentation/pages/lightroom_settings_page.dart';
 import 'package:submersion/features/settings/presentation/pages/photos_media_hub_page.dart';
 import 'package:submersion/features/settings/presentation/pages/photos_media_setup_page.dart';
-import 'package:submersion/features/settings/presentation/pages/s3_config_page.dart';
-import 'package:submersion/features/settings/presentation/pages/git_config_page.dart';
-import 'package:submersion/features/settings/presentation/pages/webdav_config_page.dart';
 import 'package:submersion/features/settings/presentation/pages/fix_dive_times_page.dart';
 import 'package:submersion/features/settings/presentation/pages/link_buddy_names_page.dart';
 import 'package:submersion/features/settings/presentation/pages/retype_other_gear_page.dart';
@@ -222,6 +222,7 @@ import 'package:submersion/features/import_wizard/data/adapters/suunto_cloud_ada
 import 'package:submersion/features/import_wizard/data/adapters/suunto_file_adapter.dart';
 import 'package:submersion/core/services/suunto_cloud/suunto_json_file_reader.dart';
 import 'package:submersion/features/import_wizard/data/adapters/suunto_buddy_writer.dart';
+import 'package:submersion/features/import_wizard/data/adapters/suunto_journal_writer.dart';
 import 'package:submersion/features/import_wizard/data/adapters/suunto_route_writer.dart';
 import 'package:submersion/features/nav_track/presentation/providers/nav_track_providers.dart';
 import 'package:submersion/features/dashboard/presentation/pages/dashboard_page.dart';
@@ -1555,20 +1556,16 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 name: 'cloudSync',
                 builder: (context, state) => const CloudSyncPage(),
                 routes: [
+                  // The S3 and WebDAV settings pages became the account
+                  // detail view (#3482); an old link or a restored window
+                  // lands on Connected accounts instead of an error.
                   GoRoute(
                     path: 's3-config',
-                    name: 's3Config',
-                    builder: (context, state) => const S3ConfigPage(),
+                    redirect: (_, _) => '/settings/connected-accounts',
                   ),
                   GoRoute(
                     path: 'webdav-config',
-                    name: 'webdavConfig',
-                    builder: (context, state) => const WebDavConfigPage(),
-                  ),
-                  GoRoute(
-                    path: 'git-config',
-                    name: 'gitConfig',
-                    builder: (context, state) => const GitConfigPage(),
+                    redirect: (_, _) => '/settings/connected-accounts',
                   ),
                 ],
               ),
@@ -1666,6 +1663,15 @@ final appRouterProvider = Provider<GoRouter>((ref) {
                 path: 'connected-accounts',
                 name: 'connectedAccounts',
                 builder: (context, state) => const ConnectedAccountsPage(),
+                routes: [
+                  GoRoute(
+                    path: ':accountId',
+                    name: 'connectedAccount',
+                    builder: (context, state) => AccountDetailPage(
+                      accountId: state.pathParameters['accountId']!,
+                    ),
+                  ),
+                ],
               ),
               GoRoute(
                 path: 'fix-dive-times',
@@ -2284,6 +2290,11 @@ class _SuuntoCloudImportWizardRoute extends ConsumerWidget {
         ),
         buddyWriter: SuuntoBuddyWriter(
           repository: ref.watch(buddyRepositoryProvider),
+        ),
+        journalWriter: SuuntoJournalWriter(
+          centers: ref.watch(diveCenterRepositoryProvider),
+          dives: diveRepo,
+          species: ref.watch(speciesRepositoryProvider),
         ),
         ref: ref,
       ),

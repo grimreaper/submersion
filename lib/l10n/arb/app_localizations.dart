@@ -26917,8 +26917,20 @@ abstract class AppLocalizations {
   /// No description provided for @gasCalculators_mod_rowDensity.
   ///
   /// In en, this message translates to:
-  /// **'Gas density at 0 °C'**
-  String get gasCalculators_mod_rowDensity;
+  /// **'Gas density at {temp}'**
+  String gasCalculators_mod_rowDensity(String temp);
+
+  /// No description provided for @gasCalculators_mod_checkTemperature.
+  ///
+  /// In en, this message translates to:
+  /// **'Check gas density at a different temperature'**
+  String get gasCalculators_mod_checkTemperature;
+
+  /// No description provided for @gasCalculators_mod_temperatureHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Colder gas is denser. The density check assumes the temperature chosen here, not the actual gas temperature at depth.'**
+  String get gasCalculators_mod_temperatureHint;
 
   /// No description provided for @gasCalculators_mod_openDensity.
   ///
@@ -26975,20 +26987,22 @@ abstract class AppLocalizations {
   /// No description provided for @gasCalculators_mod_densityWarn.
   ///
   /// In en, this message translates to:
-  /// **'{where}: gas density {density} g/L is above the recommended {limit} g/L.'**
+  /// **'{where}: gas density {density} g/L at {temp} is above the recommended {limit} g/L.'**
   String gasCalculators_mod_densityWarn(
     String where,
     String density,
+    String temp,
     String limit,
   );
 
   /// No description provided for @gasCalculators_mod_densityCritical.
   ///
   /// In en, this message translates to:
-  /// **'{where}: gas density {density} g/L is above the hard limit of {limit} g/L.'**
+  /// **'{where}: gas density {density} g/L at {temp} is above the hard limit of {limit} g/L.'**
   String gasCalculators_mod_densityCritical(
     String where,
     String density,
+    String temp,
     String limit,
   );
 
@@ -29922,6 +29936,138 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Close photo viewer'**
   String get media_photoViewer_closeTooltip;
+
+  /// No description provided for @media_color_adjustAction.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjust color'**
+  String get media_color_adjustAction;
+
+  /// No description provided for @media_color_auto.
+  ///
+  /// In en, this message translates to:
+  /// **'Auto'**
+  String get media_color_auto;
+
+  /// No description provided for @media_color_pickWhite.
+  ///
+  /// In en, this message translates to:
+  /// **'Pick white'**
+  String get media_color_pickWhite;
+
+  /// No description provided for @media_color_pickWhiteHint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tap something that should be white or gray'**
+  String get media_color_pickWhiteHint;
+
+  /// No description provided for @media_color_pickWhiteFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t read a color there. Try a brighter spot.'**
+  String get media_color_pickWhiteFailed;
+
+  /// No description provided for @media_color_original.
+  ///
+  /// In en, this message translates to:
+  /// **'Original'**
+  String get media_color_original;
+
+  /// No description provided for @media_color_strength.
+  ///
+  /// In en, this message translates to:
+  /// **'Strength'**
+  String get media_color_strength;
+
+  /// No description provided for @media_color_warmth.
+  ///
+  /// In en, this message translates to:
+  /// **'Warmth'**
+  String get media_color_warmth;
+
+  /// No description provided for @media_color_tint.
+  ///
+  /// In en, this message translates to:
+  /// **'Tint'**
+  String get media_color_tint;
+
+  /// No description provided for @media_color_brightness.
+  ///
+  /// In en, this message translates to:
+  /// **'Brightness'**
+  String get media_color_brightness;
+
+  /// No description provided for @media_color_contrast.
+  ///
+  /// In en, this message translates to:
+  /// **'Contrast'**
+  String get media_color_contrast;
+
+  /// No description provided for @media_color_saturation.
+  ///
+  /// In en, this message translates to:
+  /// **'Saturation'**
+  String get media_color_saturation;
+
+  /// No description provided for @media_color_reset.
+  ///
+  /// In en, this message translates to:
+  /// **'Reset'**
+  String get media_color_reset;
+
+  /// No description provided for @media_color_applyToDive.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply to this dive'**
+  String get media_color_applyToDive;
+
+  /// No description provided for @media_color_applyToDiveTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply to this dive?'**
+  String get media_color_applyToDiveTitle;
+
+  /// No description provided for @media_color_applyToDiveBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{{count} other photo or video will use these adjustments.} other{{count} other photos and videos will use these adjustments.}} Their own white points are kept.'**
+  String media_color_applyToDiveBody(int count);
+
+  /// No description provided for @media_color_appliedToDive.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Updated {count} photo or video} other{Updated {count} photos and videos}}'**
+  String media_color_appliedToDive(int count);
+
+  /// No description provided for @media_color_undo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get media_color_undo;
+
+  /// No description provided for @media_color_undoFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t undo the change'**
+  String get media_color_undoFailed;
+
+  /// No description provided for @media_color_saveFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t save the color adjustment'**
+  String get media_color_saveFailed;
+
+  /// No description provided for @media_color_labelAutoDepth.
+  ///
+  /// In en, this message translates to:
+  /// **'{depth} · auto'**
+  String media_color_labelAutoDepth(String depth);
+
+  /// No description provided for @media_color_labelAdjusted.
+  ///
+  /// In en, this message translates to:
+  /// **'Adjusted'**
+  String get media_color_labelAdjusted;
 
   /// No description provided for @media_photoViewer_diveDataWrittenToPhoto.
   ///
@@ -33587,12 +33733,6 @@ abstract class AppLocalizations {
   /// **'Back to settings'**
   String get settings_backToSettings_tooltip;
 
-  /// No description provided for @settings_cloudSync_autoSync.
-  ///
-  /// In en, this message translates to:
-  /// **'Auto Sync'**
-  String get settings_cloudSync_autoSync;
-
   /// No description provided for @settings_cloudSync_autoSync_subtitle.
   ///
   /// In en, this message translates to:
@@ -33634,24 +33774,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Connect a library'**
   String get sharedLibrary_connect_action;
-
-  /// No description provided for @sharedLibrary_connect_addAccount.
-  ///
-  /// In en, this message translates to:
-  /// **'Add storage account'**
-  String get sharedLibrary_connect_addAccount;
-
-  /// No description provided for @sharedLibrary_connect_saveAccount.
-  ///
-  /// In en, this message translates to:
-  /// **'Save account'**
-  String get sharedLibrary_connect_saveAccount;
-
-  /// No description provided for @sharedLibrary_connect_account_label.
-  ///
-  /// In en, this message translates to:
-  /// **'Storage account'**
-  String get sharedLibrary_connect_account_label;
 
   /// No description provided for @sharedLibrary_connect_prefix_label.
   ///
@@ -34233,12 +34355,6 @@ abstract class AppLocalizations {
   /// **'Passphrase again'**
   String get sharedLibrary_encryption_confirm;
 
-  /// No description provided for @sharedLibrary_connect_probe_action.
-  ///
-  /// In en, this message translates to:
-  /// **'Check'**
-  String get sharedLibrary_connect_probe_action;
-
   /// No description provided for @sharedLibrary_connect_join_action.
   ///
   /// In en, this message translates to:
@@ -34815,18 +34931,6 @@ abstract class AppLocalizations {
   /// **'Not Now'**
   String get settings_cloudSync_adopt_notNow;
 
-  /// No description provided for @settings_cloudSync_dangerZone.
-  ///
-  /// In en, this message translates to:
-  /// **'Danger Zone'**
-  String get settings_cloudSync_dangerZone;
-
-  /// No description provided for @settings_cloudSync_replaceLibrary_tile.
-  ///
-  /// In en, this message translates to:
-  /// **'Replace cloud library'**
-  String get settings_cloudSync_replaceLibrary_tile;
-
   /// No description provided for @settings_cloudSync_replaceLibrary_tileSubtitle.
   ///
   /// In en, this message translates to:
@@ -34926,12 +35030,6 @@ abstract class AppLocalizations {
   /// **'Sync is paused: the library was replaced from a backup on \"{deviceName}\". Tap Sync Now to review.'**
   String settings_cloudSync_replace_banner(String deviceName);
 
-  /// No description provided for @settings_cloudSync_switch_dialogTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Switch sync backend?'**
-  String get settings_cloudSync_switch_dialogTitle;
-
   /// No description provided for @settings_cloudSync_switch_dialogContent.
   ///
   /// In en, this message translates to:
@@ -34941,16 +35039,10 @@ abstract class AppLocalizations {
     String toName,
   );
 
-  /// No description provided for @settings_cloudSync_switch_confirm.
-  ///
-  /// In en, this message translates to:
-  /// **'Switch'**
-  String get settings_cloudSync_switch_confirm;
-
   /// No description provided for @settings_cloudSync_moved_banner.
   ///
   /// In en, this message translates to:
-  /// **'{deviceName} moved this library to {destination}. This backend is no longer being updated by it. Select {destination} below to follow the move.'**
+  /// **'{deviceName} moved this library to {destination}. This backend is no longer being updated by it. Choose Change, then {destination}, to follow the move.'**
   String settings_cloudSync_moved_banner(String deviceName, String destination);
 
   /// No description provided for @settings_cloudSync_moved_dismiss.
@@ -34989,23 +35081,11 @@ abstract class AppLocalizations {
   /// **'Cloud backup will be turned off and backups will be saved to the default location.'**
   String get settings_cloudSync_signOut_backupWarning;
 
-  /// No description provided for @settings_cloudSync_header_cloudProvider.
-  ///
-  /// In en, this message translates to:
-  /// **'Cloud Provider'**
-  String get settings_cloudSync_header_cloudProvider;
-
   /// No description provided for @settings_cloudSync_header_conflicts.
   ///
   /// In en, this message translates to:
   /// **'Conflicts ({count})'**
   String settings_cloudSync_header_conflicts(Object count);
-
-  /// No description provided for @settings_cloudSync_header_syncBehavior.
-  ///
-  /// In en, this message translates to:
-  /// **'Sync Behavior'**
-  String get settings_cloudSync_header_syncBehavior;
 
   /// No description provided for @settings_cloudSync_lastSynced.
   ///
@@ -35111,12 +35191,6 @@ abstract class AppLocalizations {
   /// **'They apply automatically once this device\'s app store update reaches that version. It may still be in review, or, if that device runs a beta (TestFlight or Google Play testing), not be released yet: join the same beta on this device, or wait for the next release.'**
   String get settings_cloudSync_peerRequiresUpdate_storeAction;
 
-  /// No description provided for @settings_cloudSync_provider_connected.
-  ///
-  /// In en, this message translates to:
-  /// **'Connected'**
-  String get settings_cloudSync_provider_connected;
-
   /// No description provided for @settings_cloudSync_provider_connectedTo.
   ///
   /// In en, this message translates to:
@@ -35131,12 +35205,6 @@ abstract class AppLocalizations {
     Object providerName,
     Object error,
   );
-
-  /// No description provided for @settings_cloudSync_dropbox_account_title.
-  ///
-  /// In en, this message translates to:
-  /// **'Dropbox account'**
-  String get settings_cloudSync_dropbox_account_title;
 
   /// No description provided for @settings_cloudSync_dropbox_connect_codeLabel.
   ///
@@ -35180,30 +35248,6 @@ abstract class AppLocalizations {
   /// **'Connect Dropbox'**
   String get settings_cloudSync_dropbox_connect_title;
 
-  /// No description provided for @settings_cloudSync_dropbox_connected.
-  ///
-  /// In en, this message translates to:
-  /// **'Connected to Dropbox'**
-  String get settings_cloudSync_dropbox_connected;
-
-  /// No description provided for @settings_cloudSync_dropbox_connectedAs.
-  ///
-  /// In en, this message translates to:
-  /// **'Connected as {account}'**
-  String settings_cloudSync_dropbox_connectedAs(Object account);
-
-  /// No description provided for @settings_cloudSync_dropbox_disconnect.
-  ///
-  /// In en, this message translates to:
-  /// **'Disconnect'**
-  String get settings_cloudSync_dropbox_disconnect;
-
-  /// No description provided for @settings_cloudSync_provider_dropbox_subtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Sync via Dropbox (Apps/Submersion)'**
-  String get settings_cloudSync_provider_dropbox_subtitle;
-
   /// No description provided for @settings_cloudSync_provider_dropbox_title.
   ///
   /// In en, this message translates to:
@@ -35215,18 +35259,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Google Drive'**
   String get settings_cloudSync_provider_googleDrive;
-
-  /// No description provided for @settings_cloudSync_provider_googleDrive_subtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Sync via Google Drive'**
-  String get settings_cloudSync_provider_googleDrive_subtitle;
-
-  /// No description provided for @settings_cloudSync_googleDrive_desktopNotConfigured.
-  ///
-  /// In en, this message translates to:
-  /// **'Not available in this build'**
-  String get settings_cloudSync_googleDrive_desktopNotConfigured;
 
   /// No description provided for @settings_cloudSync_googleDrive_browserWait_title.
   ///
@@ -35252,41 +35284,11 @@ abstract class AppLocalizations {
   /// **'Failed to initialize {providerName} provider'**
   String settings_cloudSync_provider_initFailed(Object providerName);
 
-  /// No description provided for @settings_cloudSync_provider_notAvailable.
-  ///
-  /// In en, this message translates to:
-  /// **'Not available on this platform'**
-  String get settings_cloudSync_provider_notAvailable;
-
-  /// No description provided for @settings_cloudSync_provider_s3_edit.
-  ///
-  /// In en, this message translates to:
-  /// **'Edit S3 configuration'**
-  String get settings_cloudSync_provider_s3_edit;
-
-  /// No description provided for @settings_cloudSync_provider_s3_subtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Works with any S3-compatible storage service'**
-  String get settings_cloudSync_provider_s3_subtitle;
-
   /// No description provided for @settings_cloudSync_provider_s3_title.
   ///
   /// In en, this message translates to:
   /// **'S3-Compatible Storage'**
   String get settings_cloudSync_provider_s3_title;
-
-  /// No description provided for @settings_cloudSync_provider_webdav_edit.
-  ///
-  /// In en, this message translates to:
-  /// **'Edit WebDAV configuration'**
-  String get settings_cloudSync_provider_webdav_edit;
-
-  /// No description provided for @settings_cloudSync_provider_webdav_subtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Any WebDAV server'**
-  String get settings_cloudSync_provider_webdav_subtitle;
 
   /// No description provided for @settings_cloudSync_provider_webdav_title.
   ///
@@ -35306,12 +35308,6 @@ abstract class AppLocalizations {
   /// **'Any Git host'**
   String get settings_cloudSync_provider_git_subtitle;
 
-  /// No description provided for @settings_cloudSync_provider_git_edit.
-  ///
-  /// In en, this message translates to:
-  /// **'Edit Git configuration'**
-  String get settings_cloudSync_provider_git_edit;
-
   /// No description provided for @settings_cloudSync_provider_git_lastReset.
   ///
   /// In en, this message translates to:
@@ -35329,48 +35325,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Select a cloud provider to enable sync'**
   String get settings_cloudSync_selectProviderHint;
-
-  /// No description provided for @settings_cloudSync_signOut.
-  ///
-  /// In en, this message translates to:
-  /// **'Sign Out'**
-  String get settings_cloudSync_signOut;
-
-  /// No description provided for @settings_cloudSync_signOutDialog_cancel.
-  ///
-  /// In en, this message translates to:
-  /// **'Cancel'**
-  String get settings_cloudSync_signOutDialog_cancel;
-
-  /// No description provided for @settings_cloudSync_signOutDialog_content.
-  ///
-  /// In en, this message translates to:
-  /// **'This will disconnect from the cloud provider. Your local data will remain intact.'**
-  String get settings_cloudSync_signOutDialog_content;
-
-  /// No description provided for @settings_cloudSync_signOutDialog_signOut.
-  ///
-  /// In en, this message translates to:
-  /// **'Sign Out'**
-  String get settings_cloudSync_signOutDialog_signOut;
-
-  /// No description provided for @settings_cloudSync_signOutDialog_title.
-  ///
-  /// In en, this message translates to:
-  /// **'Sign Out?'**
-  String get settings_cloudSync_signOutDialog_title;
-
-  /// No description provided for @settings_cloudSync_signOutSuccess.
-  ///
-  /// In en, this message translates to:
-  /// **'Signed out from cloud provider'**
-  String get settings_cloudSync_signOutSuccess;
-
-  /// No description provided for @settings_cloudSync_signOut_subtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Disconnect from cloud provider'**
-  String get settings_cloudSync_signOut_subtitle;
 
   /// No description provided for @settings_cloudSync_status_conflictsDetected.
   ///
@@ -35414,23 +35368,11 @@ abstract class AppLocalizations {
   /// **'Sync Now'**
   String get settings_cloudSync_syncNow;
 
-  /// No description provided for @settings_cloudSync_syncOnLaunch.
-  ///
-  /// In en, this message translates to:
-  /// **'Sync on Launch'**
-  String get settings_cloudSync_syncOnLaunch;
-
   /// No description provided for @settings_cloudSync_syncOnLaunch_subtitle.
   ///
   /// In en, this message translates to:
   /// **'Check for updates at startup'**
   String get settings_cloudSync_syncOnLaunch_subtitle;
-
-  /// No description provided for @settings_cloudSync_syncOnResume.
-  ///
-  /// In en, this message translates to:
-  /// **'Sync on Resume'**
-  String get settings_cloudSync_syncOnResume;
 
   /// No description provided for @settings_cloudSync_syncOnResume_subtitle.
   ///
@@ -35998,6 +35940,18 @@ abstract class AppLocalizations {
   /// **'Cloud photo'**
   String get settings_conflict_field_cloudAssetId;
 
+  /// No description provided for @settings_conflict_field_colorAdjustment.
+  ///
+  /// In en, this message translates to:
+  /// **'Color adjustment'**
+  String get settings_conflict_field_colorAdjustment;
+
+  /// No description provided for @settings_conflict_field_autoColorCorrection.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic color correction'**
+  String get settings_conflict_field_autoColorCorrection;
+
   /// No description provided for @settings_conflict_field_cns.
   ///
   /// In en, this message translates to:
@@ -36093,6 +36047,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Service'**
   String get settings_conflict_field_connectedAccounts_kind;
+
+  /// No description provided for @settings_conflict_field_connectedAccounts_location.
+  ///
+  /// In en, this message translates to:
+  /// **'Account location'**
+  String get settings_conflict_field_connectedAccounts_location;
+
+  /// No description provided for @settings_conflict_field_connectedAccounts_nickname.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get settings_conflict_field_connectedAccounts_nickname;
 
   /// No description provided for @settings_conflict_field_connectionType.
   ///
@@ -42018,11 +41984,47 @@ abstract class AppLocalizations {
   /// **'Built-in and custom dive site types'**
   String get settings_manage_siteTypes_subtitle;
 
-  /// No description provided for @settings_manage_header_manageData.
+  /// No description provided for @settings_manage_header_equipment.
   ///
   /// In en, this message translates to:
-  /// **'Manage Data'**
-  String get settings_manage_header_manageData;
+  /// **'Equipment'**
+  String get settings_manage_header_equipment;
+
+  /// No description provided for @settings_manage_header_dives.
+  ///
+  /// In en, this message translates to:
+  /// **'Dives'**
+  String get settings_manage_header_dives;
+
+  /// No description provided for @settings_manage_header_planning.
+  ///
+  /// In en, this message translates to:
+  /// **'Planning'**
+  String get settings_manage_header_planning;
+
+  /// No description provided for @settings_manage_header_training.
+  ///
+  /// In en, this message translates to:
+  /// **'Training'**
+  String get settings_manage_header_training;
+
+  /// No description provided for @settings_manage_header_checklists.
+  ///
+  /// In en, this message translates to:
+  /// **'Checklists'**
+  String get settings_manage_header_checklists;
+
+  /// No description provided for @settings_manage_header_organization.
+  ///
+  /// In en, this message translates to:
+  /// **'Organization'**
+  String get settings_manage_header_organization;
+
+  /// No description provided for @settings_manage_header_setup.
+  ///
+  /// In en, this message translates to:
+  /// **'Setup'**
+  String get settings_manage_header_setup;
 
   /// No description provided for @settings_manage_species.
   ///
@@ -42612,12 +42614,6 @@ abstract class AppLocalizations {
   /// **'Switch Diver'**
   String get settings_profileHub_switchDiver;
 
-  /// No description provided for @settings_s3Config_action_remove.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove Configuration'**
-  String get settings_s3Config_action_remove;
-
   /// No description provided for @settings_s3Config_action_testConnection.
   ///
   /// In en, this message translates to:
@@ -42629,12 +42625,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Advanced'**
   String get settings_s3Config_advanced_title;
-
-  /// No description provided for @settings_s3Config_appBar_title.
-  ///
-  /// In en, this message translates to:
-  /// **'S3-Compatible Storage'**
-  String get settings_s3Config_appBar_title;
 
   /// No description provided for @settings_s3Config_error_secureStorage.
   ///
@@ -42702,36 +42692,6 @@ abstract class AppLocalizations {
   /// **'Secret Access Key'**
   String get settings_s3Config_field_secretAccessKey_label;
 
-  /// No description provided for @settings_s3Config_remove_confirm_action.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove'**
-  String get settings_s3Config_remove_confirm_action;
-
-  /// No description provided for @settings_s3Config_remove_confirm_body.
-  ///
-  /// In en, this message translates to:
-  /// **'Sync via S3 will stop on this device. Your data in the bucket is not deleted.'**
-  String get settings_s3Config_remove_confirm_body;
-
-  /// No description provided for @settings_s3Config_remove_confirm_title.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove S3 configuration?'**
-  String get settings_s3Config_remove_confirm_title;
-
-  /// No description provided for @settings_s3Config_removed.
-  ///
-  /// In en, this message translates to:
-  /// **'S3 configuration removed'**
-  String get settings_s3Config_removed;
-
-  /// No description provided for @settings_s3Config_saved.
-  ///
-  /// In en, this message translates to:
-  /// **'S3 configuration saved'**
-  String get settings_s3Config_saved;
-
   /// No description provided for @settings_s3Config_test_regionDetected.
   ///
   /// In en, this message translates to:
@@ -42767,12 +42727,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This endpoint uses plain HTTP. Credentials and dive data will travel unencrypted; use only on a trusted network.'**
   String get settings_s3Config_warning_http;
-
-  /// No description provided for @settings_gitConfig_action_remove.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove configuration'**
-  String get settings_gitConfig_action_remove;
 
   /// No description provided for @settings_gitConfig_action_testConnection.
   ///
@@ -43002,30 +42956,6 @@ abstract class AppLocalizations {
   /// **'This repository is public'**
   String get settings_gitConfig_public_title;
 
-  /// No description provided for @settings_gitConfig_remove_confirm_action.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove'**
-  String get settings_gitConfig_remove_confirm_action;
-
-  /// No description provided for @settings_gitConfig_remove_confirm_body.
-  ///
-  /// In en, this message translates to:
-  /// **'The repository address and token are removed from this device. The repository is kept.'**
-  String get settings_gitConfig_remove_confirm_body;
-
-  /// No description provided for @settings_gitConfig_remove_confirm_title.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove Git configuration?'**
-  String get settings_gitConfig_remove_confirm_title;
-
-  /// No description provided for @settings_gitConfig_removed.
-  ///
-  /// In en, this message translates to:
-  /// **'Git configuration removed'**
-  String get settings_gitConfig_removed;
-
   /// No description provided for @settings_gitConfig_saved.
   ///
   /// In en, this message translates to:
@@ -43092,23 +43022,11 @@ abstract class AppLocalizations {
   /// **'Forget'**
   String get settings_webdavConfig_action_forgetCertificate;
 
-  /// No description provided for @settings_webdavConfig_action_remove.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove configuration'**
-  String get settings_webdavConfig_action_remove;
-
   /// No description provided for @settings_webdavConfig_action_testConnection.
   ///
   /// In en, this message translates to:
   /// **'Test connection'**
   String get settings_webdavConfig_action_testConnection;
-
-  /// No description provided for @settings_webdavConfig_appBar_title.
-  ///
-  /// In en, this message translates to:
-  /// **'WebDAV'**
-  String get settings_webdavConfig_appBar_title;
 
   /// No description provided for @settings_webdavConfig_error_conflict.
   ///
@@ -43247,36 +43165,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Username'**
   String get settings_webdavConfig_field_username_label;
-
-  /// No description provided for @settings_webdavConfig_remove_confirm_action.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove'**
-  String get settings_webdavConfig_remove_confirm_action;
-
-  /// No description provided for @settings_webdavConfig_remove_confirm_body.
-  ///
-  /// In en, this message translates to:
-  /// **'The server details and password are removed from this device. Files on the server are kept.'**
-  String get settings_webdavConfig_remove_confirm_body;
-
-  /// No description provided for @settings_webdavConfig_remove_confirm_title.
-  ///
-  /// In en, this message translates to:
-  /// **'Remove WebDAV configuration?'**
-  String get settings_webdavConfig_remove_confirm_title;
-
-  /// No description provided for @settings_webdavConfig_removed.
-  ///
-  /// In en, this message translates to:
-  /// **'WebDAV configuration removed'**
-  String get settings_webdavConfig_removed;
-
-  /// No description provided for @settings_webdavConfig_saved.
-  ///
-  /// In en, this message translates to:
-  /// **'WebDAV configuration saved'**
-  String get settings_webdavConfig_saved;
 
   /// No description provided for @settings_webdavConfig_test_success.
   ///
@@ -47584,7 +47472,7 @@ abstract class AppLocalizations {
   /// No description provided for @insights_timePatterns_timeOfDay_subtitle.
   ///
   /// In en, this message translates to:
-  /// **'Morning, afternoon, evening, or night'**
+  /// **'Dawn, morning, afternoon, dusk or night'**
   String get insights_timePatterns_timeOfDay_subtitle;
 
   /// No description provided for @insights_timePatterns_timeOfDay_title.
@@ -54965,6 +54853,42 @@ abstract class AppLocalizations {
   /// **'Select Region'**
   String get maps_regionSelector_selectRegionButton;
 
+  /// No description provided for @maps_regionSelector_dragToMove.
+  ///
+  /// In en, this message translates to:
+  /// **'Drag to move the map, pinch or use + / - to zoom'**
+  String get maps_regionSelector_dragToMove;
+
+  /// No description provided for @maps_regionSelector_modeMove.
+  ///
+  /// In en, this message translates to:
+  /// **'Move'**
+  String get maps_regionSelector_modeMove;
+
+  /// No description provided for @maps_regionSelector_modeSelect.
+  ///
+  /// In en, this message translates to:
+  /// **'Select'**
+  String get maps_regionSelector_modeSelect;
+
+  /// No description provided for @maps_regionSelector_zoomIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom in'**
+  String get maps_regionSelector_zoomIn;
+
+  /// No description provided for @maps_regionSelector_zoomOut.
+  ///
+  /// In en, this message translates to:
+  /// **'Zoom out'**
+  String get maps_regionSelector_zoomOut;
+
+  /// No description provided for @maps_regionSelector_dateLine.
+  ///
+  /// In en, this message translates to:
+  /// **'The box crosses the date line. Keep it on one side, or draw two boxes.'**
+  String get maps_regionSelector_dateLine;
+
   /// No description provided for @tankPresets_addPreset.
   ///
   /// In en, this message translates to:
@@ -58430,12 +58354,6 @@ abstract class AppLocalizations {
   /// **'Signed in'**
   String get settings_connectedAccounts_status_signedIn;
 
-  /// No description provided for @settings_connectedAccounts_status_needsSignIn.
-  ///
-  /// In en, this message translates to:
-  /// **'Needs sign-in'**
-  String get settings_connectedAccounts_status_needsSignIn;
-
   /// No description provided for @settings_connectedAccounts_status_unavailable.
   ///
   /// In en, this message translates to:
@@ -58448,11 +58366,29 @@ abstract class AppLocalizations {
   /// **'Sign out on this device'**
   String get settings_connectedAccounts_disconnectDevice;
 
-  /// No description provided for @settings_connectedAccounts_removeFromLibrary.
+  /// No description provided for @settings_connectedAccounts_rename.
   ///
   /// In en, this message translates to:
-  /// **'Remove from library'**
-  String get settings_connectedAccounts_removeFromLibrary;
+  /// **'Rename'**
+  String get settings_connectedAccounts_rename;
+
+  /// No description provided for @settings_connectedAccounts_renameTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Rename account'**
+  String get settings_connectedAccounts_renameTitle;
+
+  /// No description provided for @settings_connectedAccounts_renameField.
+  ///
+  /// In en, this message translates to:
+  /// **'Name'**
+  String get settings_connectedAccounts_renameField;
+
+  /// Helper under the account name field; name is the short name the account gets when the field is left empty.
+  ///
+  /// In en, this message translates to:
+  /// **'Leave empty to use {name}'**
+  String settings_connectedAccounts_renameDefault(String name);
 
   /// No description provided for @settings_connectedAccounts_removeConfirmTitle.
   ///
@@ -58550,18 +58486,6 @@ abstract class AppLocalizations {
   /// **'Not used on this device'**
   String get settings_connectedAccounts_usage_none;
 
-  /// No description provided for @settings_connectedAccounts_usage_databaseSync.
-  ///
-  /// In en, this message translates to:
-  /// **'Database sync'**
-  String get settings_connectedAccounts_usage_databaseSync;
-
-  /// No description provided for @settings_connectedAccounts_usage_mediaStorage.
-  ///
-  /// In en, this message translates to:
-  /// **'Media storage'**
-  String get settings_connectedAccounts_usage_mediaStorage;
-
   /// Connected account usage: a shared site library by name.
   ///
   /// In en, this message translates to:
@@ -58603,6 +58527,252 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Could not check what this account is used for on this device. Anything that uses it here may stop working.'**
   String get settings_connectedAccounts_usage_unknown;
+
+  /// No description provided for @settings_accounts_ownServer_title.
+  ///
+  /// In en, this message translates to:
+  /// **'My own server'**
+  String get settings_accounts_ownServer_title;
+
+  /// No description provided for @settings_accounts_ownServer_s3.
+  ///
+  /// In en, this message translates to:
+  /// **'S3-compatible'**
+  String get settings_accounts_ownServer_s3;
+
+  /// No description provided for @settings_accounts_ownServer_webdav.
+  ///
+  /// In en, this message translates to:
+  /// **'WebDAV'**
+  String get settings_accounts_ownServer_webdav;
+
+  /// No description provided for @settings_accounts_checkConnection.
+  ///
+  /// In en, this message translates to:
+  /// **'Check connection'**
+  String get settings_accounts_checkConnection;
+
+  /// No description provided for @settings_accounts_save.
+  ///
+  /// In en, this message translates to:
+  /// **'Save'**
+  String get settings_accounts_save;
+
+  /// No description provided for @settings_accounts_saved.
+  ///
+  /// In en, this message translates to:
+  /// **'Account saved'**
+  String get settings_accounts_saved;
+
+  /// No description provided for @settings_accounts_signInTo.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to {account}'**
+  String settings_accounts_signInTo(String account);
+
+  /// No description provided for @settings_accounts_sheet_yours.
+  ///
+  /// In en, this message translates to:
+  /// **'Your accounts'**
+  String get settings_accounts_sheet_yours;
+
+  /// No description provided for @settings_accounts_sheet_add.
+  ///
+  /// In en, this message translates to:
+  /// **'Add an account'**
+  String get settings_accounts_sheet_add;
+
+  /// No description provided for @settings_accounts_signInHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to use it here'**
+  String get settings_accounts_signInHere;
+
+  /// No description provided for @settings_accounts_state_notSignedIn.
+  ///
+  /// In en, this message translates to:
+  /// **'Not signed in on this device'**
+  String get settings_accounts_state_notSignedIn;
+
+  /// No description provided for @settings_accounts_continue.
+  ///
+  /// In en, this message translates to:
+  /// **'Continue'**
+  String get settings_accounts_continue;
+
+  /// No description provided for @settings_accounts_add.
+  ///
+  /// In en, this message translates to:
+  /// **'Add account'**
+  String get settings_accounts_add;
+
+  /// No description provided for @settings_accounts_signInAgain.
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in again'**
+  String get settings_accounts_signInAgain;
+
+  /// No description provided for @settings_accounts_usedHere.
+  ///
+  /// In en, this message translates to:
+  /// **'Used on this device for {features}'**
+  String settings_accounts_usedHere(String features);
+
+  /// No description provided for @settings_accounts_folders.
+  ///
+  /// In en, this message translates to:
+  /// **'Folders'**
+  String get settings_accounts_folders;
+
+  /// No description provided for @settings_accounts_removeEverywhere.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove from all devices'**
+  String get settings_accounts_removeEverywhere;
+
+  /// No description provided for @settings_accounts_icloudManaged.
+  ///
+  /// In en, this message translates to:
+  /// **'Managed by your Apple ID in device settings'**
+  String get settings_accounts_icloudManaged;
+
+  /// No description provided for @settings_accounts_serverDetails.
+  ///
+  /// In en, this message translates to:
+  /// **'Server details'**
+  String get settings_accounts_serverDetails;
+
+  /// No description provided for @settings_accounts_usage_sync.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync between devices'**
+  String get settings_accounts_usage_sync;
+
+  /// No description provided for @settings_accounts_usage_photos.
+  ///
+  /// In en, this message translates to:
+  /// **'Photos & videos'**
+  String get settings_accounts_usage_photos;
+
+  /// No description provided for @settings_accounts_folder_other.
+  ///
+  /// In en, this message translates to:
+  /// **'Other folder'**
+  String get settings_accounts_folder_other;
+
+  /// No description provided for @settings_accounts_notUsedYet.
+  ///
+  /// In en, this message translates to:
+  /// **'Not used yet'**
+  String get settings_accounts_notUsedYet;
+
+  /// No description provided for @settings_sync_using.
+  ///
+  /// In en, this message translates to:
+  /// **'Using: {account}'**
+  String settings_sync_using(String account);
+
+  /// No description provided for @settings_sync_change.
+  ///
+  /// In en, this message translates to:
+  /// **'Change'**
+  String get settings_sync_change;
+
+  /// No description provided for @settings_sync_notSetUp.
+  ///
+  /// In en, this message translates to:
+  /// **'Not set up'**
+  String get settings_sync_notSetUp;
+
+  /// No description provided for @settings_sync_offCustomFolder.
+  ///
+  /// In en, this message translates to:
+  /// **'Off while the database is in a custom folder'**
+  String get settings_sync_offCustomFolder;
+
+  /// No description provided for @settings_sync_keepInStep.
+  ///
+  /// In en, this message translates to:
+  /// **'Keep devices in step automatically'**
+  String get settings_sync_keepInStep;
+
+  /// No description provided for @settings_sync_alsoAtLaunch.
+  ///
+  /// In en, this message translates to:
+  /// **'Also sync at launch'**
+  String get settings_sync_alsoAtLaunch;
+
+  /// No description provided for @settings_sync_alsoOnReturn.
+  ///
+  /// In en, this message translates to:
+  /// **'Also sync when the app returns'**
+  String get settings_sync_alsoOnReturn;
+
+  /// No description provided for @settings_sync_encryption.
+  ///
+  /// In en, this message translates to:
+  /// **'Encryption'**
+  String get settings_sync_encryption;
+
+  /// No description provided for @settings_sync_devices.
+  ///
+  /// In en, this message translates to:
+  /// **'Devices using this library'**
+  String get settings_sync_devices;
+
+  /// No description provided for @settings_sync_troubleshoot.
+  ///
+  /// In en, this message translates to:
+  /// **'Troubleshoot'**
+  String get settings_sync_troubleshoot;
+
+  /// No description provided for @settings_sync_replaceLibrary.
+  ///
+  /// In en, this message translates to:
+  /// **'Replace the library with this device\'s copy'**
+  String get settings_sync_replaceLibrary;
+
+  /// No description provided for @settings_sync_stop.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop syncing on this device'**
+  String get settings_sync_stop;
+
+  /// No description provided for @settings_sync_stop_subtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Your account stays signed in'**
+  String get settings_sync_stop_subtitle;
+
+  /// No description provided for @settings_sync_stop_confirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Stop syncing on this device?'**
+  String get settings_sync_stop_confirmTitle;
+
+  /// No description provided for @settings_sync_stop_confirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This device stops syncing. Your account stays signed in, and your dives stay here and in the cloud.'**
+  String get settings_sync_stop_confirmBody;
+
+  /// No description provided for @settings_sync_stopped.
+  ///
+  /// In en, this message translates to:
+  /// **'Sync stopped on this device'**
+  String get settings_sync_stopped;
+
+  /// No description provided for @settings_sync_cleanup_confirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Delete old data?'**
+  String get settings_sync_cleanup_confirmTitle;
+
+  /// No description provided for @settings_sync_cleanup_confirmBody.
+  ///
+  /// In en, this message translates to:
+  /// **'This deletes the old sync files from {backend}. Your dives stay on this device and in the account you sync with now.'**
+  String settings_sync_cleanup_confirmBody(String backend);
 
   /// No description provided for @media_unavailablePlaceholder_volumeOffline.
   ///
@@ -74676,11 +74846,27 @@ abstract class AppLocalizations {
   /// **'Afternoon'**
   String get insights_timePatterns_timeOfDay_afternoon;
 
-  /// No description provided for @insights_timePatterns_timeOfDay_evening.
+  /// No description provided for @insights_timePatterns_timeOfDay_dawn.
   ///
   /// In en, this message translates to:
-  /// **'Evening'**
-  String get insights_timePatterns_timeOfDay_evening;
+  /// **'Dawn'**
+  String get insights_timePatterns_timeOfDay_dawn;
+
+  /// Footnote under the dives-by-time-of-day pie chart, shown when some dives have no site coordinates and were bucketed on fixed clock times. The two times are already formatted in the diver's 12-hour or 24-hour setting.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 dive has no site location and uses default sunrise ({sunrise}) and sunset ({sunset}) times} other{{count} dives have no site location and use default sunrise ({sunrise}) and sunset ({sunset}) times}}'**
+  String insights_timePatterns_timeOfDay_defaultSunTimes(
+    int count,
+    String sunrise,
+    String sunset,
+  );
+
+  /// No description provided for @insights_timePatterns_timeOfDay_dusk.
+  ///
+  /// In en, this message translates to:
+  /// **'Dusk'**
+  String get insights_timePatterns_timeOfDay_dusk;
 
   /// No description provided for @insights_timePatterns_timeOfDay_morning.
   ///
@@ -76719,12 +76905,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Update with: {command}'**
   String autoUpdate_banner_packageManagerHint(String command);
-
-  /// Subtitle of the iCloud provider tile on the Cloud Sync page.
-  ///
-  /// In en, this message translates to:
-  /// **'Sync via Apple iCloud'**
-  String get settings_cloudSync_provider_icloud_subtitle;
 
   /// Hint text of the search field in the debug log viewer app bar.
   ///
@@ -79804,6 +79984,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'A small glyph showing where each item is served from. Problem badges always show.'**
   String get settings_media_provenanceBadgesSubtitle;
+
+  /// No description provided for @settings_media_autoColorCorrection.
+  ///
+  /// In en, this message translates to:
+  /// **'Automatic color correction'**
+  String get settings_media_autoColorCorrection;
+
+  /// No description provided for @settings_media_autoColorCorrectionSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Warms up blue underwater photos and videos on screen, using the depth each was taken at. Your files are never changed.'**
+  String get settings_media_autoColorCorrectionSubtitle;
 
   /// No description provided for @settings_photosMedia_cacheHeader.
   ///
