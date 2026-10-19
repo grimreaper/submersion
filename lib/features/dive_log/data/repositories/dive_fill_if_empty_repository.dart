@@ -6,13 +6,15 @@ import 'package:submersion/core/data/repositories/sync_repository.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/domain/visibility/visibility_range.dart';
 import 'package:submersion/core/services/database_service.dart';
+import 'package:submersion/core/services/sync/sync_event_bus.dart';
 
 /// Writes that fill a dive's details only where the dive has none, for a
 /// cloud import bringing in what the diver logged in the source app
 /// (issue #3491). The counterparts of [DiveRepository.fillNotesIfEmpty] and
 /// [DiveRepository.addWeightIfNone]: the emptiness check sits in the same
 /// SQL statement as the write, so nothing written in Submersion is ever
-/// overwritten. Each returns whether it wrote.
+/// overwritten. Each returns whether it wrote, and a write that changed
+/// something asks for a sync, as the species and dive center writes do.
 class DiveFillIfEmptyRepository {
   AppDatabase get _db => DatabaseService.instance.database;
   final SyncRepository _syncRepository = SyncRepository();
@@ -79,7 +81,9 @@ class DiveFillIfEmptyRepository {
     final existing = await (_db.select(
       _db.diveCustomFields,
     )..where((t) => t.diveId.equals(diveId))).get();
-    final labels = {for (final row in existing) row.fieldKey.toLowerCase()};
+    final labels = {
+      for (final row in existing) row.fieldKey.trim().toLowerCase(),
+    };
     var sortOrder = existing.fold<int>(
       -1,
       (top, row) => row.sortOrder > top ? row.sortOrder : top,
@@ -87,7 +91,7 @@ class DiveFillIfEmptyRepository {
     final now = DateTime.now().millisecondsSinceEpoch;
     var added = 0;
     for (final field in fields) {
-      if (!labels.add(field.key.toLowerCase())) continue;
+      if (!labels.add(field.key.trim().toLowerCase())) continue;
       final id = _uuid.v4();
       sortOrder++;
       await _db
@@ -137,6 +141,7 @@ class DiveFillIfEmptyRepository {
       recordId: diveId,
       localUpdatedAt: now,
     );
+    SyncEventBus.notifyLocalChange();
     return true;
   }
 
@@ -149,5 +154,6 @@ class DiveFillIfEmptyRepository {
       recordId: diveId,
       localUpdatedAt: now,
     );
+    SyncEventBus.notifyLocalChange();
   }
 }

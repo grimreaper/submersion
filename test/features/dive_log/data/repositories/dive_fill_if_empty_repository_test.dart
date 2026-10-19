@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/database/database.dart' show AppDatabase;
 import 'package:submersion/core/domain/visibility/visibility_range.dart';
+import 'package:submersion/core/services/sync/sync_event_bus.dart';
 import 'package:submersion/features/dive_log/data/repositories/dive_fill_if_empty_repository.dart';
 
 import '../../../../helpers/test_database.dart';
@@ -124,6 +125,43 @@ void main() {
     });
   });
 
+  group('sync', () {
+    // A write the diver's other devices should receive asks for a sync, as
+    // the species and dive center writes in the same import do.
+    Future<int> notificationsDuring(Future<void> Function() write) async {
+      var count = 0;
+      final sub = SyncEventBus.changes.listen((_) => count++);
+      addTearDown(sub.cancel);
+      await write();
+      await Future<void>.delayed(Duration.zero);
+      return count;
+    }
+
+    test('each write that changes the dive asks for a sync', () async {
+      expect(
+        await notificationsDuring(() => repo.linkDiveCenterIfNone('d1', 'c1')),
+        1,
+      );
+      expect(
+        await notificationsDuring(
+          () => repo.addCustomFieldsIfMissing('d1', [
+            (key: 'Suit', value: 'Drysuit'),
+          ]),
+        ),
+        1,
+      );
+    });
+
+    test('a write the guard refuses asks for nothing', () async {
+      await setColumn("dive_center_id = 'c2'");
+
+      expect(
+        await notificationsDuring(() => repo.linkDiveCenterIfNone('d1', 'c1')),
+        0,
+      );
+    });
+  });
+
   group('addCustomFieldsIfMissing', () {
     Future<List<Map<String, Object?>>> fields() async => [
       for (final row
@@ -155,6 +193,21 @@ void main() {
         {'field_key': 'suit', 'field_value': 'Wetsuit 5mm', 'sort_order': 4},
         {'field_key': 'Environment', 'field_value': 'See', 'sort_order': 5},
       ]);
+    });
+
+    test('a label with stray spaces counts as present', () async {
+      await db.customStatement(
+        'INSERT INTO dive_custom_fields '
+        '(id, dive_id, field_key, field_value, sort_order, created_at) '
+        "VALUES ('f1', 'd1', ' Suit ', 'Wetsuit', 0, 1000)",
+      );
+
+      expect(
+        await repo.addCustomFieldsIfMissing('d1', [
+          (key: 'Suit', value: 'Drysuit'),
+        ]),
+        0,
+      );
     });
 
     test('adding nothing leaves the dive untouched', () async {

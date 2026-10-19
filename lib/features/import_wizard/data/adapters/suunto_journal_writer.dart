@@ -107,17 +107,14 @@ class SuuntoJournalWriter {
     }
 
     if (journal.marineLife.isNotEmpty) {
-      final sighted = <String>{};
-      var read = false;
-      await _try('marine life', diveId, () async {
-        sighted.addAll([
+      final sighted = await _try('marine life', diveId, () async {
+        return {
           for (final s in await _species.getSightingsForDive(diveId))
             s.speciesId,
-        ]);
-        read = true;
+        };
       });
       // Each animal on its own, so one failing does not cost the others.
-      if (read) {
+      if (sighted != null) {
         for (final name in journal.marineLife) {
           await _try('sighting of $name', diveId, () async {
             final species = await _species.getOrCreateSpecies(
@@ -141,19 +138,22 @@ class SuuntoJournalWriter {
     }
   }
 
-  Future<void> _try(
+  /// Runs [write], logging rather than throwing a failure; returns its
+  /// result, or null when it failed.
+  Future<T?> _try<T>(
     String what,
     String diveId,
-    Future<void> Function() write,
+    Future<T> Function() write,
   ) async {
     try {
-      await write();
+      return await write();
     } catch (e, st) {
       _log.error(
         'Could not bring the Suunto $what onto dive $diveId',
         error: e,
         stackTrace: st,
       );
+      return null;
     }
   }
 }
