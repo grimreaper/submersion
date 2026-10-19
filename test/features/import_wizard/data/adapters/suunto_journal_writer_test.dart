@@ -12,6 +12,9 @@ import 'package:submersion/features/dive_centers/data/repositories/dive_center_r
 import 'package:submersion/features/dive_centers/domain/entities/dive_center.dart';
 import 'package:submersion/features/dive_computer/domain/entities/downloaded_dive.dart';
 import 'package:submersion/features/import_wizard/data/adapters/suunto_journal_writer.dart';
+import 'package:submersion/features/marine_life/data/repositories/species_repository.dart';
+import 'package:submersion/features/marine_life/domain/entities/species.dart';
+import 'package:submersion/core/constants/enums.dart' show SpeciesCategory;
 
 import '../../../../helpers/test_database.dart';
 
@@ -252,6 +255,29 @@ void main() {
     expect(await count('dive_weights'), 1);
   });
 
+  test('one animal failing does not cost the dive the others', () async {
+    final failing = SuuntoJournalWriter(species: _FailingSpecies('Barsch'));
+
+    await failing.attach(
+      'd1',
+      parsed(),
+      diverId,
+      scale: VisibilityScale.tropical,
+    );
+
+    expect(
+      await rows(
+        'SELECT sp.common_name FROM sightings s '
+        "JOIN species sp ON sp.id = s.species_id WHERE s.dive_id = 'd1' "
+        'ORDER BY sp.common_name',
+      ),
+      [
+        {'common_name': 'Aal'},
+        {'common_name': 'Krebse'},
+      ],
+    );
+  });
+
   test('an empty journal writes nothing', () async {
     await writer.attach(
       'd1',
@@ -270,4 +296,24 @@ class _ThrowingCenters extends DiveCenterRepository {
     String name, {
     required String diverId,
   }) async => throw StateError('disk full');
+}
+
+class _FailingSpecies extends SpeciesRepository {
+  _FailingSpecies(this.failingName);
+
+  final String failingName;
+
+  @override
+  Future<Species> getOrCreateSpecies({
+    required String commonName,
+    String? scientificName,
+    required SpeciesCategory category,
+  }) async {
+    if (commonName == failingName) throw StateError('disk full');
+    return super.getOrCreateSpecies(
+      commonName: commonName,
+      scientificName: scientificName,
+      category: category,
+    );
+  }
 }

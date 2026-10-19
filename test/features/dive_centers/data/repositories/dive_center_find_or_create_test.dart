@@ -2,6 +2,7 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:submersion/core/database/database.dart' show AppDatabase;
 import 'package:submersion/features/dive_centers/data/repositories/dive_center_repository.dart';
+import 'package:submersion/features/dive_centers/domain/entities/dive_center.dart';
 
 import '../../../../helpers/test_database.dart';
 
@@ -76,6 +77,19 @@ void main() {
     expect((await repo.getDiveCenterById('c-unowned'))!.diverId, 'diver-1');
   });
 
+  test('a center claimed by another diver meanwhile is not returned', () async {
+    // Another import claims the unowned center between this one's lookup and
+    // its claim: the center is no longer this diver's to link.
+    await insertCenter('c-unowned', null, 'TKL');
+    final racing = _ClaimedMeanwhile(db, 'c-unowned', 'diver-2');
+
+    final center = await racing.findOrCreateByName('TKL', diverId: 'diver-1');
+
+    expect(center.id, isNot('c-unowned'));
+    expect(center.diverId, 'diver-1');
+    expect(await centerCount(), 2);
+  });
+
   test('never takes another diver\'s center', () async {
     await insertCenter('c-theirs', 'diver-2', 'TKL');
 
@@ -86,4 +100,24 @@ void main() {
     expect(center.name, 'TKL');
     expect(await centerCount(), 2);
   });
+}
+
+/// Gives the center to [otherDiverId] the moment it is looked up, as a
+/// concurrent import claiming it first would.
+class _ClaimedMeanwhile extends DiveCenterRepository {
+  _ClaimedMeanwhile(this.db, this.centerId, this.otherDiverId);
+
+  final AppDatabase db;
+  final String centerId;
+  final String otherDiverId;
+
+  @override
+  Future<DiveCenter?> getDiveCenterById(String id) async {
+    if (id == centerId) {
+      await db.customStatement(
+        "UPDATE dive_centers SET diver_id = '$otherDiverId' WHERE id = '$id'",
+      );
+    }
+    return super.getDiveCenterById(id);
+  }
 }

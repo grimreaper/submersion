@@ -208,10 +208,13 @@ class DiveCenterRepository {
         .get();
     if (rows.isNotEmpty) {
       final found = await getDiveCenterById(rows.first.read<String>('id'));
+      // The row is re-checked here: another import may have claimed it
+      // since the lookup, and then it is no longer this diver's to link.
       if (found != null) {
-        if (found.diverId != null) return found;
-        await _claimForDiver(found.id, diverId);
-        return found.copyWith(diverId: diverId);
+        if (found.diverId == diverId) return found;
+        if (found.diverId == null && await _claimForDiver(found.id, diverId)) {
+          return found.copyWith(diverId: diverId);
+        }
       }
     }
     final now = DateTime.now();
@@ -226,9 +229,10 @@ class DiveCenterRepository {
     );
   }
 
-  /// Gives an unowned center to [diverId]. [updateDiveCenter] leaves the
-  /// owner alone, so the claim is its own guarded write.
-  Future<void> _claimForDiver(String centerId, String diverId) async {
+  /// Gives an unowned center to [diverId], returning false when it was
+  /// claimed by someone else first. [updateDiveCenter] leaves the owner
+  /// alone, so the claim is its own guarded write.
+  Future<bool> _claimForDiver(String centerId, String diverId) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     final changed = await _db.customUpdate(
       'UPDATE dive_centers SET diver_id = ?, updated_at = ? '
@@ -240,13 +244,14 @@ class DiveCenterRepository {
       ],
       updates: {_db.diveCenters},
     );
-    if (changed == 0) return;
+    if (changed == 0) return false;
     await _syncRepository.markRecordPending(
       entityType: 'diveCenters',
       recordId: centerId,
       localUpdatedAt: now,
     );
     SyncEventBus.notifyLocalChange();
+    return true;
   }
 
   /// Update an existing dive center

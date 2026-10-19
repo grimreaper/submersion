@@ -107,20 +107,28 @@ class SuuntoJournalWriter {
     }
 
     if (journal.marineLife.isNotEmpty) {
+      final sighted = <String>{};
+      var read = false;
       await _try('marine life', diveId, () async {
-        final sighted = {
+        sighted.addAll([
           for (final s in await _species.getSightingsForDive(diveId))
             s.speciesId,
-        };
-        for (final name in journal.marineLife) {
-          final species = await _species.getOrCreateSpecies(
-            commonName: name,
-            category: SpeciesCategory.other,
-          );
-          if (!sighted.add(species.id)) continue;
-          await _species.addSighting(diveId: diveId, speciesId: species.id);
-        }
+        ]);
+        read = true;
       });
+      // Each animal on its own, so one failing does not cost the others.
+      if (read) {
+        for (final name in journal.marineLife) {
+          await _try('sighting of $name', diveId, () async {
+            final species = await _species.getOrCreateSpecies(
+              commonName: name,
+              category: SpeciesCategory.other,
+            );
+            if (!sighted.add(species.id)) return;
+            await _species.addSighting(diveId: diveId, speciesId: species.id);
+          });
+        }
+      }
     }
 
     final fields = suuntoCustomFields(journal);
