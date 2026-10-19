@@ -133,9 +133,10 @@ void main() {
       );
       await Future<void>.delayed(const Duration(milliseconds: 100));
       await p.deleteFile('Submersion Sync/x.json');
-      final flushing = p.flush(timeout: const Duration(milliseconds: 300));
+      // Room for its own push on a busy runner; the hold outlasts it.
+      final flushing = p.flush(timeout: const Duration(seconds: 3));
       // Queued behind the held upload for longer than its timeout.
-      await Future<void>.delayed(const Duration(milliseconds: 600));
+      await Future<void>.delayed(const Duration(seconds: 4));
       transport.hold = null;
       release.complete();
       await upload;

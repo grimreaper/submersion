@@ -608,17 +608,13 @@ class GitStorageProvider
     // would only run the due-reset check, which the next flush runs anyway.
     if (_pendingDeletes.isEmpty && _writesInFlight > 0) return Future.value();
     final pushing = Completer<Duration>();
-    void startClock() {
-      if (timeout != null && !pushing.isCompleted) pushing.complete(timeout);
-    }
-
     final run = _serial(() async {
       _deleteTimer?.cancel();
       final deleting = _pendingDeletes.isNotEmpty;
       if (deleting) await _pace();
       // From here on the flush is doing its own work: opening the branch,
       // pushing, and the reset check all count against [timeout].
-      startClock();
+      if (timeout != null) pushing.complete(timeout);
       // Deletes recorded without a loaded branch still have to reach it.
       final session = deleting ? await _opened() : _session;
       if (session == null) return;
