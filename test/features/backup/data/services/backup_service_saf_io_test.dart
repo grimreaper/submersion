@@ -8,12 +8,15 @@ import 'package:sqlite3/sqlite3.dart' as sqlite3;
 
 import 'package:submersion/core/data/repositories/sync_repository.dart';
 import 'package:submersion/core/database/database.dart';
+import 'package:submersion/core/services/cloud_storage/cloud_storage_provider.dart';
 import 'package:submersion/features/backup/data/repositories/backup_preferences.dart';
 import 'package:submersion/features/backup/data/services/backup_saf_port.dart';
 import 'package:submersion/features/backup/data/services/backup_service.dart';
 import 'package:submersion/features/backup/domain/entities/backup_record.dart';
+import 'package:submersion/features/backup/domain/entities/backup_settings.dart';
 
 import '../../../../helpers/mock_channels.dart';
+import '../../../../support/fake_cloud_storage_provider.dart';
 
 /// Adapter whose [databasePath] points at a real file (so size reads work) and
 /// whose [backup] copies it, mirroring the production filesystem copy.
@@ -79,6 +82,23 @@ class _FakeSafPort implements BackupSafPort {
 
   @override
   Future<String?> resolveTree(String treeUri) async => 'Backups';
+}
+
+/// Records the path each upload read from, and whether it was still there.
+class _RecordingUploads extends FakeCloudStorageProvider {
+  final uploadedFrom = <String>[];
+  bool existedDuringUpload = false;
+
+  @override
+  Future<UploadResult> uploadFileFromPath(
+    String sourcePath,
+    String filename, {
+    String? folderId,
+  }) {
+    uploadedFrom.add(sourcePath);
+    existedDuringUpload = File(sourcePath).existsSync();
+    return super.uploadFileFromPath(sourcePath, filename, folderId: folderId);
+  }
 }
 
 class _SpySync extends SyncRepository {
@@ -161,6 +181,32 @@ void main() {
       expect(File(port.wroteFrom!).existsSync(), isFalse);
     },
   );
+
+  test('a SAF folder plus the cloud copy uploads a real file', () async {
+    final live = _validDb(tmp.path, 'live.db');
+    await prefs.setBackupLocation('content://tree/1');
+    await prefs.setCloudBackupEnabled(true);
+    final cloud = _RecordingUploads();
+    final service = BackupService(
+      dbAdapter: _FileWritingAdapter(live),
+      preferences: prefs,
+      safPort: _FakeSafPort(),
+      cloudProvider: cloud,
+    );
+
+    final record = await service.performBackup();
+
+    expect(cloud.uploadedFrom, hasLength(1));
+    expect(cloud.uploadedFrom.single, isNot(startsWith('content://')));
+    expect(cloud.existedDuringUpload, isTrue);
+    expect(File(cloud.uploadedFrom.single).existsSync(), isFalse);
+    expect(record.location, BackupLocation.both);
+    expect(record.localPath, startsWith('content://'));
+    expect(
+      prefs.getSettings().lastBackupDestination,
+      LastBackupDestination.cloud,
+    );
+  });
 
   test(
     'restoreFromBackup streams a SAF backup to a temp file and restores it',

@@ -207,6 +207,15 @@ class BackupService {
   }) async {
     final filename = await _generateFilename();
     final encKey = await _activeBackupKey();
+    final settings = _preferences.getSettings();
+    // The cloud copy and a backup folder are independent (#3482): the copy
+    // uploads from a filesystem file holding the stored bytes, never from
+    // the folder's ref, which on Android is a content:// URI.
+    final wantsCopy = settings.cloudBackupEnabled && _cloudProvider != null;
+    ({String? fileId, String? accountId}) copy = (
+      fileId: null,
+      accountId: null,
+    );
 
     final String ref;
     final int sizeBytes;
@@ -217,7 +226,14 @@ class BackupService {
       // URI, and the size comes back with it. A SAF ref has no File length to
       // ask, and the live database file's length is not the answer either: the
       // export is compacted and folds in rows that were still in the WAL.
-      final written = await target.write(_dbAdapter, filename, note: note);
+      final written = await target.write(
+        _dbAdapter,
+        filename,
+        note: note,
+        whileWritten: wantsCopy
+            ? (path) async => copy = await _copyToCloud(path, storedName)
+            : null,
+      );
       ref = written.ref;
       sizeBytes = written.sizeBytes;
     } else {
@@ -244,6 +260,7 @@ class BackupService {
         );
         ref = await target.writeSource(tempSbe, storedName);
         sizeBytes = await File(tempSbe).length();
+        if (wantsCopy) copy = await _copyToCloud(tempSbe, storedName);
       } finally {
         for (final t in [tempPlain, tempSbe]) {
           final f = File(t);
@@ -260,40 +277,11 @@ class BackupService {
 
     // Get dive and site counts
     final counts = await _getDiveSiteCounts();
-
-    // Attempt cloud upload (cloud + a custom location are mutually exclusive,
-    // so ref is always a filesystem path here).
-    String? cloudFileId;
-    var location = BackupLocation.local;
-
-    final settings = _preferences.getSettings();
-    // The account the provider uploads through, read before the upload: a
-    // switch while it runs must not be recorded as this copy's account.
-    String? uploadAccountId;
-    if (settings.cloudBackupEnabled && _cloudProvider != null) {
-      uploadAccountId = await _copyAccountIdOrNull();
-      try {
-        cloudFileId = await _uploadToCloud(ref, storedName);
-        // Only a real file id means a cloud copy exists: the upload also
-        // gives up (returning null) when the backup folder is unreachable or
-        // sync encryption is locked on this device (issue #3089), and history
-        // that claims `both` with no id sends restore looking for a file that
-        // was never written.
-        if (cloudFileId != null) {
-          location = BackupLocation.both;
-          _log.info('Backup uploaded to cloud: $cloudFileId');
-        } else {
-          _log.warning('Cloud upload skipped, backup is local-only');
-        }
-      } catch (e, stack) {
-        _log.error(
-          'Cloud upload failed, backup is local-only',
-          error: e,
-          stackTrace: stack,
-        );
-        // Local backup still succeeded — continue with local-only
-      }
-    }
+    final cloudFileId = copy.fileId;
+    final uploadAccountId = copy.accountId;
+    final location = cloudFileId != null
+        ? BackupLocation.both
+        : BackupLocation.local;
 
     final record = BackupRecord(
       id: _uuid.v4(),
@@ -332,6 +320,38 @@ class BackupService {
 
     _log.info('Backup completed: ${record.filename} (${record.formattedSize})');
     return record;
+  }
+
+  /// Uploads [sourcePath] as the cloud copy [storedName]. Never throws: the
+  /// backup on this device already succeeded, so a failed copy only leaves
+  /// it local-only. The account is read before the upload: a switch while it
+  /// runs must not be recorded as this copy's account.
+  Future<({String? fileId, String? accountId})> _copyToCloud(
+    String sourcePath,
+    String storedName,
+  ) async {
+    final accountId = await _copyAccountIdOrNull();
+    try {
+      final fileId = await _uploadToCloud(sourcePath, storedName);
+      // Only a real file id means a cloud copy exists: the upload also gives
+      // up (returning null) when the backup folder is unreachable or sync
+      // encryption is locked on this device (issue #3089), and history that
+      // claims `both` with no id sends restore looking for a file that was
+      // never written.
+      if (fileId == null) {
+        _log.warning('Cloud upload skipped, backup is local-only');
+      } else {
+        _log.info('Backup uploaded to cloud: $fileId');
+      }
+      return (fileId: fileId, accountId: accountId);
+    } catch (e, stack) {
+      _log.error(
+        'Cloud upload failed, backup is local-only',
+        error: e,
+        stackTrace: stack,
+      );
+      return (fileId: null, accountId: accountId);
+    }
   }
 
   /// Export a backup to a user-specified file path.
