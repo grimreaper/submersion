@@ -32,9 +32,13 @@ class _HistoryKeepingCloud extends FakeCloudStorageProvider
     implements DeferredWriteProvider, HistoryResettable {
   final calls = <String>[];
   bool failReset = false;
+  bool failFlush = false;
 
   @override
-  Future<void> flush({Duration? timeout}) async => calls.add('flush');
+  Future<void> flush({Duration? timeout}) async {
+    calls.add('flush');
+    if (failFlush) throw StateError('push failed');
+  }
 
   @override
   Future<void> resetHistoryNow() async {
@@ -336,6 +340,26 @@ void main() {
     await buildService().pruneOldBackups(1);
     expect(preferences.getHistory(), hasLength(1));
     expect(keeping.calls, ['flush']);
+  });
+
+  test('pruning keeps records whose cloud deletes did not push', () async {
+    final keeping = _HistoryKeepingCloud()..failFlush = true;
+    cloud = keeping;
+    await preferences.setCloudBackupEnabled(true);
+    for (var i = 0; i < 3; i++) {
+      await buildService().performBackup();
+    }
+    await buildService().pruneOldBackups(1);
+    // Kept, local copies included, so the next prune tries again.
+    final kept = preferences.getHistory();
+    expect(kept, hasLength(3));
+    for (final r in kept) {
+      expect(File(r.localPath!).existsSync(), isTrue);
+    }
+
+    keeping.failFlush = false;
+    await buildService().pruneOldBackups(1);
+    expect(preferences.getHistory(), hasLength(1));
   });
 
   test(

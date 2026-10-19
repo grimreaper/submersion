@@ -1214,14 +1214,13 @@ class BackupService {
 
   /// Delete a specific backup (local file + cloud file + metadata).
   Future<void> deleteBackup(BackupRecord record) =>
-      _deleteBackup(record, flushCloud: true);
+      _deleteBackup(record, deleteCloud: true);
 
-  /// [deleteBackup]. Without [flushCloud], a backend that batches deletes
-  /// (Git) has only recorded the cloud delete; the caller flushes once for
-  /// a whole batch.
+  /// [deleteBackup]. Without [deleteCloud] the cloud copy is left to the
+  /// caller, which has already deleted it (pruning batches those deletes).
   Future<void> _deleteBackup(
     BackupRecord record, {
-    required bool flushCloud,
+    required bool deleteCloud,
   }) async {
     _log.info('Deleting backup: ${record.filename}');
 
@@ -1241,11 +1240,11 @@ class BackupService {
     }
 
     // Delete cloud file
-    if (record.cloudFileId != null && _cloudProvider != null) {
+    if (deleteCloud && record.cloudFileId != null && _cloudProvider != null) {
       try {
         await _cloudProvider.deleteFile(record.cloudFileId!);
         // A backend that batches deletes (Git) has only recorded it so far.
-        if (flushCloud) await flushDeferredWrites(_cloudProvider);
+        await flushDeferredWrites(_cloudProvider);
         _log.info('Deleted cloud file: ${record.cloudFileId}');
       } catch (e, stack) {
         _log.error('Failed to delete cloud file', error: e, stackTrace: stack);
@@ -1345,9 +1344,48 @@ class BackupService {
       'Pruning ${toDelete.length} old manual backups (keeping $keepCount)',
     );
 
+    // Cloud copies first, pushed in one batch on a backend that defers
+    // deletes (Git). A record goes only after that push: if it fails, the
+    // records whose cloud copy it covered stay, local copy and all, and the
+    // next prune deletes them again.
+    final provider = _cloudProvider;
+    var cloudPushed = true;
+    if (provider != null) {
+      var recorded = 0;
+      for (final record in toDelete) {
+        final id = record.cloudFileId;
+        if (id == null) continue;
+        try {
+          await provider.deleteFile(id);
+          recorded++;
+        } catch (e, st) {
+          // As for a single delete: a cloud copy this backend refuses to
+          // delete does not keep its record in history.
+          _log.warning(
+            'Failed to delete pruned cloud backup ${record.filename}',
+            error: e,
+            stackTrace: st,
+          );
+        }
+      }
+      if (recorded > 0) {
+        try {
+          await flushDeferredWrites(provider);
+        } catch (e, st) {
+          cloudPushed = false;
+          _log.warning(
+            'Pruned backups not deleted from the cloud; retried next prune',
+            error: e,
+            stackTrace: st,
+          );
+        }
+      }
+    }
+
     for (final record in toDelete) {
+      if (!cloudPushed && record.cloudFileId != null) continue;
       try {
-        await _deleteBackup(record, flushCloud: false);
+        await _deleteBackup(record, deleteCloud: false);
       } catch (e, st) {
         // Best-effort: pruning is a side effect of the operation that
         // triggered it (a fresh backup, or the safety snapshot restoreFromFile
@@ -1363,18 +1401,6 @@ class BackupService {
           stackTrace: st,
         );
       }
-    }
-    // One commit for the whole batch on a backend that defers deletes.
-    final provider = _cloudProvider;
-    if (provider == null) return;
-    try {
-      await flushDeferredWrites(provider);
-    } catch (e, st) {
-      _log.warning(
-        'Pruned backups not yet deleted from the cloud; retried later',
-        error: e,
-        stackTrace: st,
-      );
     }
   }
 
