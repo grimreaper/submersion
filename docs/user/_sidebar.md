@@ -3,6 +3,9 @@
 - [Installation](installation.md)
 - [Your First Dive](first-dive.md)
 
+**How-To Guides**
+- [All How-To Guides](how-to-guides.md)
+
 **Logging Your Dives**
 - [The Dashboard](dashboard.md)
 - [Logging Dives](dive-logging.md)
