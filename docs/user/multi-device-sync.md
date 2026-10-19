@@ -212,8 +212,11 @@ itself over HTTPS, so nothing else needs to be installed on your devices.
 [Encrypted Sync](encrypted-sync.md) turned on, so your dive data is never
 readable by others. If the repository is public, Submersion saves the settings
 but does not sync until you turn encryption on, and it will not let you turn
-encryption off while the repository stays public. Cloud backups to a public
-repository also need backup encryption: an unencrypted backup is refused.
+encryption off while it can see the repository is public. Even if the host
+does not answer in time and encryption is turned off, nothing unencrypted is
+uploaded to a public repository: sync stops until encryption is back on or the
+repository is private. Cloud backups to a public repository also need backup
+encryption: an unencrypted backup is refused.
 
 ## Troubleshooting
 

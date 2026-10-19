@@ -1,3 +1,4 @@
+import 'dart:async';
 import 'dart:typed_data';
 
 import 'package:flutter_test/flutter_test.dart';
@@ -9,6 +10,19 @@ import '../../../helpers/git_http_backend_server.dart';
 import '../../../helpers/git_test_provider.dart';
 
 Uint8List _bytes(String s) => Uint8List.fromList(s.codeUnits);
+
+/// Counts how often the branch's refs are read.
+class _CountingTransport extends GitHttpTransport {
+  _CountingTransport(super.remote);
+
+  int lsRefsCalls = 0;
+
+  @override
+  Future<GitRefAdvertisement> lsRefs(String branch) {
+    lsRefsCalls++;
+    return super.lsRefs(branch);
+  }
+}
 
 void main() {
   final skip = skipUnlessGit();
@@ -82,6 +96,27 @@ void main() {
       await syncBranchFiles(repo),
       isNot(contains('Submersion Sync/x.json')),
     );
+  }, skip: skip);
+
+  test('a first listing reads the refs once', () async {
+    final server = await startGitTestServer(
+      requireUser: 'diver',
+      requirePassword: 'tok',
+    );
+    await server.createBareRepo('sync');
+    final writer = await gitTestProvider(server.repoUrl('sync'));
+    await writer.uploadFile(_bytes('x'), 'x.json', folderId: 'Submersion Sync');
+    final transport = Completer<_CountingTransport>();
+    final p = await gitTestProvider(
+      server.repoUrl('sync'),
+      transportFactory: (config) {
+        final t = _CountingTransport(config.toRemote());
+        if (!transport.isCompleted) transport.complete(t);
+        return t;
+      },
+    );
+    await p.listFiles(folderId: 'Submersion Sync');
+    expect((await transport.future).lsRefsCalls, 1);
   }, skip: skip);
 
   test('concurrent first calls share one session', () async {

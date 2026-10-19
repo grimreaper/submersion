@@ -314,6 +314,16 @@ class GitStorageProvider
     return session;
   }
 
+  /// The branch as the host has it now: opened on a new session, refreshed
+  /// otherwise, so either way the refs are read once.
+  Future<(GitBranchSession, GitBranchSnapshot)> _latest() async {
+    final session = await _requireSession();
+    final snap = session.current == null
+        ? await session.open()
+        : await session.refresh();
+    return (session, snap);
+  }
+
   void _invalidate() {
     _generation++;
     _session?.transport.close();
@@ -649,8 +659,7 @@ class GitStorageProvider
     String? folderId,
     String? namePattern,
   }) async {
-    final session = await _opened();
-    final snap = await session.refresh();
+    final (session, snap) = await _latest();
     _noteSnapshot(session);
     final prefix = '${folderId ?? CloudStorageProviderMixin.syncFolderName}/';
     final out = <CloudFileInfo>[];
@@ -679,8 +688,7 @@ class GitStorageProvider
   @override
   Future<CloudFileInfo?> getFileInfo(String fileId) async {
     if (_hidden(fileId)) return null;
-    final session = await _opened();
-    final snap = await session.refresh();
+    final (_, snap) = await _latest();
     final entry = snap.index.entries[fileId];
     if (entry == null) return null;
     return _info(

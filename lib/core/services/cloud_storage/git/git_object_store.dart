@@ -120,15 +120,18 @@ final class FileGitObjectStore implements GitObjectStore {
     final file = _fileFor(id);
     final entry = index[file.path];
     if (entry == null) return null;
-    final Uint8List bytes;
+    Uint8List? bytes;
     try {
       bytes = await file.readAsBytes();
     } on FileSystemException {
+      bytes = null;
+    }
+    // Gone, or emptied by a crash: forgotten, so the next read fetches it.
+    if (bytes == null || bytes.isEmpty) {
       index.remove(file.path);
       _total -= entry.size;
       return null;
     }
-    if (bytes.isEmpty) return null;
     index[file.path] = (size: entry.size, recency: ++_clock);
     return GitStoredObject(
       id: id,

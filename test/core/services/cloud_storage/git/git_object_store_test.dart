@@ -103,6 +103,23 @@ void main() {
       expect(stale.existsSync(), isFalse);
     });
 
+    test(
+      'an empty object file counts as missing, so it is fetched again',
+      () async {
+        final dir = tempDirForTest('git_store_');
+        final a = _blob('a');
+        await FileGitObjectStore(dir).put(a);
+        File(
+          p.join(dir.path, a.id.hex.substring(0, 2), a.id.hex.substring(2)),
+        ).writeAsBytesSync(const []);
+        final store = FileGitObjectStore(dir);
+        expect(await store.get(a.id), isNull);
+        expect(await store.has(a.id), isFalse);
+        await store.put(a);
+        expect((await store.get(a.id))?.body, a.body);
+      },
+    );
+
     test('concurrent first uses count the directory once', () async {
       final dir = tempDirForTest('git_store_');
       final a = _blob('a', pad: 1000);
