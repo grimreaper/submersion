@@ -28,6 +28,7 @@ Future<GitStorageProvider> gitTestProvider(
   Duration minPushSpacing = Duration.zero,
   Duration maxPacingWait = const Duration(seconds: 10),
   String deviceName = "Eric's iPhone",
+  GitDeviceSource? device,
 }) async {
   final store = GitCredentialsStore(storage: InMemoryKeychain());
   await store.save(
@@ -37,7 +38,9 @@ Future<GitStorageProvider> gitTestProvider(
     store: store,
     storeFactory: storeFactory ?? (_) async => MemoryGitObjectStore(),
     transportFactory: transportFactory,
-    device: () async => (deviceId: gitTestDeviceId, deviceName: deviceName),
+    device:
+        device ??
+        () async => (deviceId: gitTestDeviceId, deviceName: deviceName),
     encryptionEnabled: encryption ?? () async => encrypted,
     deleteQuietPeriod: deleteQuietPeriod,
     minPushSpacing: minPushSpacing,

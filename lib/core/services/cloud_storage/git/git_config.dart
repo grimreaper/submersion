@@ -7,15 +7,18 @@ const String kDefaultGitBranch = 'submersion-sync';
 /// same for every host.
 enum GitHostKind { github, gitlab, bitbucket, giteaLike, other }
 
+/// A self-hosted instance counts when one label of its host name is the
+/// family's name (`gitlab.example.org`, `git.forgejo.example`), never when
+/// the name only appears inside a word (`notgitlab.example`).
 GitHostKind detectGitHost(Uri cloneUrl) {
   final host = cloneUrl.host.toLowerCase();
+  final labels = host.split('.').toSet();
   if (host == 'github.com') return GitHostKind.github;
   if (host == 'bitbucket.org') return GitHostKind.bitbucket;
-  if (host.contains('gitlab')) return GitHostKind.gitlab;
+  if (labels.contains('gitlab')) return GitHostKind.gitlab;
   if (host == 'codeberg.org' ||
-      host == 'gitea.com' ||
-      host.contains('gitea') ||
-      host.contains('forgejo')) {
+      labels.contains('gitea') ||
+      labels.contains('forgejo')) {
     return GitHostKind.giteaLike;
   }
   return GitHostKind.other;

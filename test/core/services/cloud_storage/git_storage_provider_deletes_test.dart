@@ -119,6 +119,26 @@ void main() {
     expect((await transport.future).lsRefsCalls, 1);
   }, skip: skip);
 
+  test('the device is looked up once per session, not per commit', () async {
+    final server = await startGitTestServer(
+      requireUser: 'diver',
+      requirePassword: 'tok',
+    );
+    await server.createBareRepo('sync');
+    var lookups = 0;
+    final p = await gitTestProvider(
+      server.repoUrl('sync'),
+      device: () async {
+        lookups++;
+        return (deviceId: gitTestDeviceId, deviceName: 'Dive laptop');
+      },
+    );
+    for (final name in ['a.json', 'b.json', 'c.json']) {
+      await p.uploadFile(_bytes(name), name, folderId: 'Submersion Sync');
+    }
+    expect(lookups, 1);
+  }, skip: skip);
+
   test('concurrent first calls share one session', () async {
     final server = await startGitTestServer(
       requireUser: 'diver',

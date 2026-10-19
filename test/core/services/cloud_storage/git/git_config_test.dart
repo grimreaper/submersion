@@ -70,6 +70,21 @@ void main() {
       );
       expect(kind('https://git.example.net/a/b.git'), GitHostKind.other);
     });
+
+    test('a family name inside another word is not that host', () {
+      expect(kind('https://notgitlab.example/a/b'), GitHostKind.other);
+      expect(kind('https://mygitea-mirror.example/a/b'), GitHostKind.other);
+      expect(kind('https://forgejoish.example/a/b'), GitHostKind.other);
+      // So the address is kept as typed, with no .git added.
+      expect(
+        GitConfig(
+          repoUrl: 'https://notgitlab.example/a/b',
+          username: 'u',
+          token: 't',
+        ).repoUrl,
+        'https://notgitlab.example/a/b',
+      );
+    });
   });
 
   group('validate', () {

@@ -75,6 +75,9 @@ void main() {
     test('rejects hex of the wrong length or alphabet', () {
       expect(() => GitObjectId.fromHex('abc'), throwsFormatException);
       expect(() => GitObjectId.fromHex('z' * 40), throwsFormatException);
+      // int.parse would read a sign as part of the number.
+      expect(() => GitObjectId.fromHex('+f${'0' * 38}'), throwsFormatException);
+      expect(() => GitObjectId.fromHex('-f${'0' * 38}'), throwsFormatException);
     });
   });
 

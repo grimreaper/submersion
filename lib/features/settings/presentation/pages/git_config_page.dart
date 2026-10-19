@@ -176,10 +176,8 @@ class _GitConfigPageState extends ConsumerState<GitConfigPage> {
     } on GitException catch (e) {
       _showSnack(gitErrorText(l10n, e, branch: _build().branch), isError: true);
     } catch (e) {
-      _showSnack(
-        '${l10n.settings_gitConfig_error_secureStorage}: $e',
-        isError: true,
-      );
+      // Test connection reads nothing from the keychain.
+      _showSnack('${l10n.common_error_tryAgain} ($e)', isError: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -218,6 +216,7 @@ class _GitConfigPageState extends ConsumerState<GitConfigPage> {
     // even if the page is popped mid-save (the WebDAV page does the same).
     final container = ProviderScope.containerOf(context, listen: false);
     setState(() => _busy = true);
+    var savingToKeychain = false;
     try {
       final provider = container.read(gitStorageProviderInstanceProvider);
       final (config, report) = await _withTrust(provider.testConnection);
@@ -235,7 +234,9 @@ class _GitConfigPageState extends ConsumerState<GitConfigPage> {
         if (!await _confirmPublic() || !mounted) return;
         setState(() => _busy = true);
       }
+      savingToKeychain = true;
       await provider.saveConfig(config);
+      savingToKeychain = false;
       container.read(selectedCloudProviderTypeProvider.notifier).state =
           CloudProviderType.git;
       await container
@@ -256,7 +257,9 @@ class _GitConfigPageState extends ConsumerState<GitConfigPage> {
       _showSnack(gitErrorText(l10n, e, branch: _build().branch), isError: true);
     } catch (e) {
       _showSnack(
-        '${l10n.settings_gitConfig_error_secureStorage}: $e',
+        savingToKeychain
+            ? '${l10n.settings_gitConfig_error_secureStorage}: $e'
+            : '${l10n.common_error_tryAgain} ($e)',
         isError: true,
       );
     } finally {

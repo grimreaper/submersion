@@ -38,16 +38,18 @@ final class GitObjectId {
     if (hex.length != 40) {
       throw FormatException('A Git object id is 40 hex digits: "$hex"');
     }
+    // Checked first: int.parse would also take a sign ("+f" as 15).
+    if (!_hexDigits.hasMatch(hex)) {
+      throw FormatException('Not a hex Git object id: "$hex"');
+    }
     final bytes = Uint8List(20);
     for (var i = 0; i < 20; i++) {
-      final byte = int.tryParse(hex.substring(i * 2, i * 2 + 2), radix: 16);
-      if (byte == null) {
-        throw FormatException('Not a hex Git object id: "$hex"');
-      }
-      bytes[i] = byte;
+      bytes[i] = int.parse(hex.substring(i * 2, i * 2 + 2), radix: 16);
     }
     return GitObjectId(bytes);
   }
+
+  static final RegExp _hexDigits = RegExp(r'^[0-9a-fA-F]{40}$');
 
   /// All zeros: Git's "no object" (the old id when creating a ref).
   static final GitObjectId zero = GitObjectId(Uint8List(20));

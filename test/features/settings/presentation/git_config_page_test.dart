@@ -63,8 +63,13 @@ class _FakeGit extends GitStorageProvider {
     saved = null;
   }
 
+  /// Thrown by saveConfig, as a keychain failure would be.
+  Object? saveFails;
+
   @override
   Future<void> saveConfig(GitConfig config) async {
+    final fail = saveFails;
+    if (fail != null) throw fail;
     saves++;
     saved = config;
   }
@@ -262,6 +267,29 @@ void main() {
     await tester.pumpAndSettle();
     expect(find.text('Enter a valid branch name'), findsOneWidget);
     expect(git.tests, 0);
+  });
+
+  testWidgets('a failure outside Git and the keychain is not blamed on '
+      'secure storage', (tester) async {
+    await pumpPage(tester);
+    await fillValidForm(tester);
+    git.failWith = StateError('boom');
+    await tester.tap(find.byKey(const Key('git-test')));
+    await tester.pumpAndSettle();
+    expect(find.textContaining('Something went wrong'), findsOneWidget);
+    expect(find.textContaining('secure storage'), findsNothing);
+  });
+
+  testWidgets('a keychain failure on save says so', (tester) async {
+    await pumpPage(tester);
+    await fillValidForm(tester);
+    git.saveFails = StateError('keychain locked');
+    await tester.tap(find.byKey(const Key('git-save')));
+    await tester.pumpAndSettle();
+    expect(
+      find.textContaining('Could not access secure storage'),
+      findsOneWidget,
+    );
   });
 
   testWidgets('every failure shows its own localized text', (tester) async {

@@ -615,9 +615,16 @@ class GitBranchSession {
   /// when the host refuses the rewrite itself.
   Future<bool> resetHistoryIfDue({bool force = false}) async {
     for (var attempt = 1; ; attempt++) {
-      final snap = _current ?? await open();
+      var snap = _current ?? await open();
       if (!force && snap.meta.deletedBytesSinceReset < resetThresholdBytes) {
         return false;
+      }
+      // Nothing deleted or replaced since the last reset (or since the
+      // branch was made): the history is the current files already. Checked
+      // against the host, since a peer may have committed since.
+      if (force && snap.meta.deletedBytesSinceReset == 0) {
+        snap = await refresh();
+        if (snap.meta.deletedBytesSinceReset == 0) return false;
       }
       final meta = GitBranchMeta(
         formatVersion: snap.meta.formatVersion,

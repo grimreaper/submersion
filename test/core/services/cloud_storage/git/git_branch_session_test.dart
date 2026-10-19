@@ -295,6 +295,22 @@ void main() {
     skip: skip,
   );
 
+  test('a forced reset with nothing to drop pushes nothing', () async {
+    final server = await startGitTestServer();
+    final repo = await server.createBareRepo('sync');
+    final s = gitTestSession(server.repoUrl('sync'));
+    await s.open();
+    await s.commit(
+      GitChange(puts: {'Submersion Sync/x.json': gitText('x')}),
+      messagePrefix: 'Sync',
+    );
+    expect(await s.resetHistoryIfDue(force: true), isTrue);
+    final tip = await runGit(repo, ['rev-parse', 'refs/heads/$gitTestBranch']);
+    // A second purge right after (a wipe, then a library replace).
+    expect(await s.resetHistoryIfDue(force: true), isFalse);
+    expect(await runGit(repo, ['rev-parse', 'refs/heads/$gitTestBranch']), tip);
+  }, skip: skip);
+
   test(
     'a due reset that races a peer commit waits for the next sync',
     () async {
@@ -368,6 +384,11 @@ void main() {
       final repo = await server.createBareRepo('sync');
       final s = gitTestSession(server.repoUrl('sync'));
       await s.open();
+      // Something to drop, or the reset would not be pushed at all.
+      await s.commit(
+        GitChange(puts: {'Submersion Sync/x.json': gitText('x')}),
+        messagePrefix: 'Sync',
+      );
       await runGit(repo, ['config', 'receive.denyNonFastForwards', 'true']);
       await expectLater(
         s.resetHistoryIfDue(force: true),

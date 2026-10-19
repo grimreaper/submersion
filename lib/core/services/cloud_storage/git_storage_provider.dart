@@ -132,6 +132,7 @@ class GitStorageProvider
   Future<GitBranchSession>? _starting;
   int _generation = 0;
   bool? _knownPublic;
+  ({String deviceId, String? deviceName})? _knownDevice;
   DateTime? _lastPushStart;
   Timer? _deleteTimer;
   Future<void> _lock = Future.value();
@@ -296,8 +297,11 @@ class GitStorageProvider
     }
   }
 
+  /// Who commits say they are from. The device is looked up once per
+  /// session; the encryption setting every time, since it decides whether
+  /// the device name may appear at all.
   Future<GitCommitIdentity> _identity() async {
-    final device = await _device();
+    final device = _knownDevice ??= await _device();
     return gitCommitIdentityFor(
       deviceId: device.deviceId,
       deviceName: device.deviceName,
@@ -331,6 +335,7 @@ class GitStorageProvider
     _starting = null;
     _cachedConfig = null;
     _knownPublic = null;
+    _knownDevice = null;
     _pendingDeletes.clear();
     _unpushedDeletes.clear();
   }
