@@ -67,8 +67,12 @@ List<BackupRecord> mergeCloudBackups(
   String? accountId,
 }) {
   final knownIds = {for (final r in history) ?r.cloudFileId};
+  // A name says "this backup" only within one account: a record whose copy
+  // is noted in another account cannot account for a file listed here.
   final knownStems = {
-    for (final r in history) p.basenameWithoutExtension(r.filename),
+    for (final r in history)
+      if (r.cloudAccountId == null || r.cloudAccountId == accountId)
+        p.basenameWithoutExtension(r.filename),
   };
 
   // `add` returns false for an id already seen: a legacy Drive file with two

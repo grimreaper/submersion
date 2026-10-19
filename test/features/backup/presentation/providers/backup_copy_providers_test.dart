@@ -1,6 +1,8 @@
 // Issue #3482 phase 3: the backup copy goes to the account the diver chose,
 // built the way sync builds its provider, or follows sync when none is chosen.
 
+import 'dart:async';
+
 import 'package:cryptography/cryptography.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -92,6 +94,7 @@ void main() {
     Map<String, Object> prefs, {
     bool unlocked = false,
     bool onRoster = true,
+    Future<bool> Function()? rosterLookup,
     bool customFolder = false,
   }) async {
     SharedPreferences.setMockInitialValues(prefs);
@@ -105,7 +108,9 @@ void main() {
           AccountProviderRegistry([adapter]),
         ),
         cloudStorageProviderProvider.overrideWithValue(syncProvider),
-        copyRowOnRosterProvider.overrideWith((ref, id) async => onRoster),
+        copyRowOnRosterProvider.overrideWith(
+          (ref, id) => (rosterLookup ?? () async => onRoster)(),
+        ),
         isCloudSyncDisabledByCustomFolderProvider.overrideWithValue(
           customFolder,
         ),
@@ -127,6 +132,18 @@ void main() {
     );
     addTearDown(c.dispose);
     return c;
+  }
+
+  /// Reads the copy provider once the roster lookup has settled, as the
+  /// app sees it after its first rebuild.
+  Future<CloudStorageProvider?> settledCopyProvider(ProviderContainer c) async {
+    c.listen(backupCopyProviderProvider, (_, _) {});
+    try {
+      await c.read(copyRowOnRosterProvider('acct-b').future);
+    } on Object {
+      // An unreadable roster settles too.
+    }
+    return c.read(backupCopyProviderProvider);
   }
 
   const pinned = {
@@ -200,7 +217,7 @@ void main() {
 
     test('a chosen account builds from that row, not the sync one', () async {
       final c = await container(pinned);
-      final provider = c.read(backupCopyProviderProvider);
+      final provider = await settledCopyProvider(c);
       expect(adapter.built, ['acct-b']);
       expect(provider?.providerName, 'copy:acct-b');
     });
@@ -210,7 +227,7 @@ void main() {
       () async {
         final c = await container(pinned, unlocked: true);
         expect(
-          c.read(backupCopyProviderProvider),
+          await settledCopyProvider(c),
           isA<EncryptingCloudStorageProvider>(),
         );
       },
@@ -220,10 +237,27 @@ void main() {
     // is copied to an account the diver removed.
     test('a chosen account gone from the roster copies nowhere', () async {
       final c = await container(pinned, onRoster: false);
-      // The provider rebuilds once the roster lookup lands.
-      c.listen(backupCopyProviderProvider, (_, _) {});
-      await c.read(copyRowOnRosterProvider('acct-b').future);
+      expect(await settledCopyProvider(c), isNull);
+    });
+
+    // Review of #3541: a removed account must not get a copy in the window
+    // before the roster has answered.
+    test('nothing is copied while the roster lookup is pending', () async {
+      final c = await container(
+        pinned,
+        rosterLookup: () => Completer<bool>().future,
+      );
       expect(c.read(backupCopyProviderProvider), isNull);
+      expect(adapter.built, isEmpty);
+    });
+
+    // As in the background: a database hiccup costs a copy nothing.
+    test('an unreadable roster still copies', () async {
+      final c = await container(
+        pinned,
+        rosterLookup: () async => throw StateError('database closed'),
+      );
+      expect((await settledCopyProvider(c))?.providerName, 'copy:acct-b');
     });
 
     test('the copy off still lists the sync folder, as before', () async {

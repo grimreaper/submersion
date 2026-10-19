@@ -95,9 +95,9 @@ final copyRowOnRosterProvider = FutureProvider.family<bool, String>((
 /// [SyncCapable] adapter, from the stored id and kind alone: waiting for the
 /// roster here would copy through the wrong account while it loads. A row
 /// the roster no longer has (removed, perhaps on another device, with its
-/// keys still in this keychain) resolves to no provider, so nothing is
-/// copied there and the backup reports its copy missing; it never falls
-/// back to the sync account.
+/// keys still in this keychain), or has not confirmed yet, resolves to no
+/// provider, so nothing is copied there and the backup reports its copy
+/// missing; it never falls back to the sync account.
 final backupCopyProviderProvider = Provider<CloudStorageProvider?>((ref) {
   final accountId = ref.watch(pinnedCopyAccountIdProvider);
   final kind = ref.watch(
@@ -106,9 +106,13 @@ final backupCopyProviderProvider = Provider<CloudStorageProvider?>((ref) {
   if (accountId == null || kind == null) {
     return ref.watch(cloudStorageProviderProvider);
   }
-  if (ref.watch(copyRowOnRosterProvider(accountId)).value == false) {
-    return null;
-  }
+  // Nothing is copied until the roster confirms the row, so an account
+  // removed elsewhere gets no copy while the lookup runs; this rebuilds once
+  // it lands. An unreadable roster copies, as in the background: a
+  // database hiccup costs a copy nothing.
+  final onRoster = ref.watch(copyRowOnRosterProvider(accountId));
+  final unreadable = onRoster.hasError && !onRoster.hasValue;
+  if (!unreadable && onRoster.value != true) return null;
   final raw = ref
       .watch(accountProviderRegistryProvider)
       .capabilityFor<SyncCapable>(kind)

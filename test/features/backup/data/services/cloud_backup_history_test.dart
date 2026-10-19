@@ -165,6 +165,32 @@ void main() {
     });
   });
 
+  // Review of #3541: a same-named backup in another account does not hide
+  // this account's file.
+  test('a name match only counts within the listed account', () {
+    final elsewhere = BackupRecord(
+      id: 'r1',
+      filename: 'submersion_backup_2026-10-19_101500.db',
+      timestamp: DateTime(2026, 10, 19),
+      sizeBytes: 1,
+      location: BackupLocation.cloud,
+      cloudFileId: 'other-id',
+      cloudAccountId: 'acct-a',
+    );
+    final merged = mergeCloudBackups(
+      [elsewhere],
+      [
+        CloudFileInfo(
+          id: 'f1',
+          name: 'submersion_backup_2026-10-19_101500.sbe',
+          modifiedTime: DateTime(2026, 10, 19),
+        ),
+      ],
+      accountId: 'acct-b',
+    );
+    expect(merged.map((r) => r.cloudFileId), containsAll(['other-id', 'f1']));
+  });
+
   test('rows from a listing note the account they were listed from', () {
     final merged = mergeCloudBackups(const [], [
       CloudFileInfo(
