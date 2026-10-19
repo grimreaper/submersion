@@ -47,6 +47,7 @@ Open **Settings > Data > Database Cloud Sync** and choose under
 | **Google Drive** | Google accounts, on any mix of devices | Sign in with your Google account. Works on iOS, Android and macOS; on Windows and Linux only in builds that include Google sign-in. |
 | **Dropbox** | Dropbox accounts | Sign in with your Dropbox account; files live in `Apps/Submersion`. |
 | **S3-Compatible Storage** | Full control over where data lives | Any S3-compatible provider: Cloudflare R2, Amazon S3, Backblaze B2, MinIO, self-hosted. Every platform. You supply an endpoint, a bucket and access keys. |
+| **Git** | Divers who already keep things in Git | Any Git host over HTTPS: GitHub, GitLab, Gitea, Forgejo, Bitbucket, self-hosted. Every platform. You supply a repository address, a username and an access token. See [Git repositories](#git-repositories). |
 
 A provider that is not available in your build says so. The
 [Cloudflare R2 walkthrough](#example-cloudflare-r2-s3-compatible) at the end of
@@ -58,6 +59,8 @@ this page shows a complete setup that works on every platform.
 2. Choose a provider. For iCloud, Google Drive or Dropbox, sign in when asked.
    For S3-compatible storage, enter the endpoint, bucket and keys (see the
    [Cloudflare R2 example](#example-cloudflare-r2-s3-compatible)).
+   For Git, enter the repository address, username, access token and branch
+   (see [Git repositories](#git-repositories)).
 3. Run the first sync with **Sync Now**.
 
 ### The "Combine Libraries?" Prompt
@@ -166,6 +169,49 @@ on this device. Neither touches the data already in your storage.
   read your logbook at all, turn on end-to-end encryption: Submersion then
   encrypts every sync file and cloud backup on your device before upload, with a
   key only you hold. See [Encrypted Sync](encrypted-sync.md).
+
+## Git Repositories
+
+Submersion can sync through a repository on any Git host. It talks to the host
+itself over HTTPS, so nothing else needs to be installed on your devices.
+
+**What to enter:**
+
+- **Repository address:** the HTTPS address you would clone from, for example
+  `https://github.com/you/dive-log.git`. The web address of the repository works
+  too.
+- **Username and access token:** create a token on the host that can push to
+  this one repository. The setup screen shows which kind to create for the host
+  in your address:
+  - **GitHub:** a fine-grained token for the repository, with *Contents: read
+    and write*.
+  - **GitLab:** a personal or project access token with `write_repository`.
+    GitLab tokens expire within a year; paste a new one when sync says the
+    token was rejected.
+  - **Bitbucket:** an API token with repository read and write access. App
+    passwords no longer work.
+  - **Gitea and Forgejo:** an access token with `write:repository`.
+- **Branch:** `submersion-sync` unless you choose another name.
+
+**How the repository is used:**
+
+- **Submersion keeps its branch to itself.** It writes only to a branch it
+  created. It refuses a branch that already holds other content, so your
+  `main` and other branches are never touched.
+- **History is reset now and then.** Sync snapshots are large and Git keeps
+  every old one, so once enough has been deleted Submersion replaces its
+  branch's history with a single fresh commit. Your hosting service frees the
+  space on its own schedule.
+- **Backups go there too.** When cloud backup is on, backups are stored in the
+  same repository under `Submersion Backups`.
+- **A repository used only for Submersion works best.** In an empty repository,
+  Submersion's branch becomes the default branch.
+
+**Public repositories** are allowed only with
+[Encrypted Sync](encrypted-sync.md) turned on, so your dive data is never
+readable by others. If the repository is public, Submersion saves the settings
+but does not sync until you turn encryption on, and it will not let you turn
+encryption off while the repository stays public.
 
 ## Troubleshooting
 
