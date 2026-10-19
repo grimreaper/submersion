@@ -19,6 +19,16 @@ class _HeldPushes extends GitHttpTransport {
 
   Completer<void>? hold;
 
+  /// Holds every ref read until it completes, while set.
+  Completer<void>? holdRefs;
+
+  @override
+  Future<GitRefAdvertisement> lsRefs(String branch) async {
+    final held = holdRefs;
+    if (held != null) await held.future;
+    return super.lsRefs(branch);
+  }
+
   @override
   Future<void> push({
     required String branch,
@@ -133,6 +143,56 @@ void main() {
       final files = await syncBranchFiles(repo);
       expect(files, contains('Submersion Sync/y.json'));
       expect(files, isNot(contains('Submersion Sync/x.json')));
+    }, skip: skip);
+
+    test('with nothing to push, does not wait for a running upload', () async {
+      final (_, transport, p) = await setUpHeld();
+      final release = transport.hold = Completer<void>();
+      final upload = p.uploadFile(
+        _bytes('y'),
+        'y.json',
+        folderId: 'Submersion Sync',
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 100));
+      await p
+          .flush(timeout: const Duration(milliseconds: 300))
+          .timeout(
+            const Duration(seconds: 2),
+            onTimeout: () => throw StateError('waited for the upload'),
+          );
+      transport.hold = null;
+      release.complete();
+      await upload;
+    }, skip: skip);
+
+    test('counts opening the branch for its deletes', () async {
+      final server = await startGitTestServer(
+        requireUser: 'diver',
+        requirePassword: 'tok',
+      );
+      await server.createBareRepo('sync');
+      final writer = await gitTestProvider(server.repoUrl('sync'));
+      await writer.uploadFile(
+        _bytes('x'),
+        'x.json',
+        folderId: 'Submersion Sync',
+      );
+      // A new session whose first ref read never answers.
+      final p = await gitTestProvider(
+        server.repoUrl('sync'),
+        transportFactory: (config) =>
+            _HeldPushes(config.toRemote())..holdRefs = Completer<void>(),
+      );
+      await p.deleteFile('Submersion Sync/x.json');
+      await expectLater(
+        p
+            .flush(timeout: const Duration(milliseconds: 200))
+            .timeout(
+              const Duration(seconds: 2),
+              onTimeout: () => throw StateError('the open was not timed'),
+            ),
+        throwsA(isA<TimeoutException>()),
+      );
     }, skip: skip);
 
     test('runs out once its own push takes too long', () async {

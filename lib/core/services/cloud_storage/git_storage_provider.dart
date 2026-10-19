@@ -340,10 +340,15 @@ class GitStorageProvider
     _unpushedDeletes.clear();
   }
 
+  /// Writes queued or running in [_serial].
+  int _writesInFlight = 0;
+
   /// Runs [action] after every write started before it, one at a time.
   Future<T> _serial<T>(Future<T> Function() action) {
+    _writesInFlight++;
     final result = _lock.then((_) => action());
-    _lock = result.then((_) {}, onError: (_) {});
+    void done() => _writesInFlight--;
+    _lock = result.then((_) => done(), onError: (_) => done());
     return result;
   }
 
@@ -599,6 +604,9 @@ class GitStorageProvider
 
   @override
   Future<void> flush({Duration? timeout}) {
+    // Nothing deferred, and another write holds the branch: waiting for it
+    // would only run the due-reset check, which the next flush runs anyway.
+    if (_pendingDeletes.isEmpty && _writesInFlight > 0) return Future.value();
     final pushing = Completer<Duration>();
     void startClock() {
       if (timeout != null && !pushing.isCompleted) pushing.complete(timeout);
@@ -606,15 +614,17 @@ class GitStorageProvider
 
     final run = _serial(() async {
       _deleteTimer?.cancel();
+      final deleting = _pendingDeletes.isNotEmpty;
+      if (deleting) await _pace();
+      // From here on the flush is doing its own work: opening the branch,
+      // pushing, and the reset check all count against [timeout].
+      startClock();
       // Deletes recorded without a loaded branch still have to reach it.
-      final session = _pendingDeletes.isNotEmpty ? await _opened() : _session;
+      final session = deleting ? await _opened() : _session;
       if (session == null) return;
       if (_pendingDeletes.isNotEmpty) {
-        await _pace();
-        startClock();
         await _commitWithDeletes(session, messagePrefix: 'Sync');
       }
-      startClock();
       if (session.current != null) {
         // Best effort: the deletes above already landed, so a reset that
         // fails must not make the caller report them as failed. A due reset
