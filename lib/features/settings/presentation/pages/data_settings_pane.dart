@@ -23,6 +23,7 @@ import 'package:submersion/features/settings/presentation/pages/retype_other_gea
 import 'package:submersion/features/settings/presentation/pages/s3_config_page.dart';
 import 'package:submersion/features/settings/presentation/pages/storage_settings_page.dart';
 import 'package:submersion/features/settings/presentation/pages/storage_usage_page.dart';
+import 'package:submersion/features/settings/presentation/pages/git_config_page.dart';
 import 'package:submersion/features/settings/presentation/pages/webdav_config_page.dart';
 import 'package:submersion/features/settings/presentation/widgets/settings_pane_navigator.dart';
 import 'package:submersion/features/shared_library/presentation/pages/change_library_connection_page.dart';
@@ -66,6 +67,7 @@ Widget? dataPanePage(Uri location) {
     ['cloud-sync'] => const CloudSyncPage(),
     ['cloud-sync', 's3-config'] => const S3ConfigPage(),
     ['cloud-sync', 'webdav-config'] => const WebDavConfigPage(),
+    ['cloud-sync', 'git-config'] => const GitConfigPage(),
     ['shared-libraries'] => const SharedLibrariesPage(),
     ['shared-libraries', 'connect'] => ConnectSharedLibraryPage(
       initialPrefix: location.queryParameters['prefix'],

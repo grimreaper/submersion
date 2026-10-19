@@ -560,7 +560,8 @@ class _CloudSyncPageState extends ConsumerState<CloudSyncPage> {
         GitProviderTile(
           isSelected: selectedProvider == CloudProviderType.git,
           onSelect: () => _selectProvider(context, ref, CloudProviderType.git),
-          onEdit: () => context.push('/settings/cloud-sync/git-config'),
+          onEdit: () =>
+              context.pushSettingsPage('/settings/cloud-sync/git-config'),
         ),
         // The tile disappears in builds without a Dropbox app key
         // (dropboxAppKey empty) so users never see a connect dialog that
