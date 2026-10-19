@@ -259,15 +259,21 @@ void main() {
           ),
         ),
       );
-      await expectLater(
-        runGit(repo, [
-          'rev-parse',
-          '--verify',
-          '-q',
-          'refs/heads/$kDefaultGitBranch',
-        ]),
-        throwsA(anything),
+      // Turning encryption on must still be possible: the keyslot file holds
+      // only a wrapped key, so it may land while sync is unencrypted.
+      await plain.uploadFile(
+        _bytes('{"slots":[]}'),
+        'submersion_keyslots.json',
+        folderId: 'Submersion Sync',
       );
+      final files = await runGit(repo, [
+        'ls-tree',
+        '-r',
+        '--name-only',
+        'refs/heads/$kDefaultGitBranch',
+      ]);
+      expect(files, contains('Submersion Sync/submersion_keyslots.json'));
+      expect(files, isNot(contains('Submersion Sync/x.json')));
       final sealed = await _provider(server.repoUrl('open'), encrypted: true);
       await sealed.uploadFile(
         _bytes('x'),

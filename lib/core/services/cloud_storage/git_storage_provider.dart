@@ -20,6 +20,7 @@ import 'package:submersion/core/services/cloud_storage/git/git_http_transport.da
 import 'package:submersion/core/services/cloud_storage/git/git_object_id.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_object_store.dart';
 import 'package:submersion/core/services/logger_service.dart';
+import 'package:submersion/core/services/sync/crypto/keyslots.dart';
 import 'package:submersion/core/services/sync/sync_device_metadata.dart';
 import 'package:submersion/core/services/sync/sync_preferences.dart';
 
@@ -228,15 +229,12 @@ class GitStorageProvider
     );
   }
 
-  /// The session with its branch open. The public-repository check runs
-  /// first, because opening creates the branch when it is missing, and that
-  /// is already a write.
+  /// The session with its branch open. Opening may create the branch, but a
+  /// new branch holds only the README and Submersion's own marker files, so
+  /// it needs no public-repository check; data uploads do.
   Future<GitBranchSession> _opened() async {
     final session = await _requireSession();
-    if (session.current == null) {
-      await _ensurePublicSafe(session);
-      await session.open();
-    }
+    if (session.current == null) await session.open();
     return session;
   }
 
@@ -256,9 +254,9 @@ class GitStorageProvider
     return result;
   }
 
-  /// Refuses writes to a public repository while sync is unencrypted. The
-  /// check runs once per session; a failed check is not cached, so turning
-  /// encryption on takes effect on the next write.
+  /// Refuses data uploads to a public repository while sync is unencrypted.
+  /// The check runs once per session; a failed check is not cached, so
+  /// turning encryption on takes effect on the next upload.
   Future<void> _ensurePublicSafe(GitBranchSession session) async {
     if (_publicChecked) return;
     final public = await session.transport.isPubliclyReadable();
@@ -285,7 +283,6 @@ class GitStorageProvider
   @override
   Future<void> authenticate() async {
     final session = await _requireSession();
-    await _ensurePublicSafe(session);
     await session.open();
     _log.info('Git branch ${session.branch} opened');
   }
@@ -339,7 +336,11 @@ class GitStorageProvider
   }) {
     return _serial(() async {
       final session = await _opened();
-      await _ensurePublicSafe(session);
+      // The keyslot file holds only a wrapped key, so it may land in a
+      // public repository: without it, encryption could never be turned on.
+      if (p.posix.basename(path) != KeyslotFile.cloudFileName) {
+        await _ensurePublicSafe(session);
+      }
       final deletes = Map<String, GitObjectId>.of(_pendingDeletes);
       await _pace();
       await session.commit(
@@ -416,7 +417,6 @@ class GitStorageProvider
     final session = _session;
     if (session == null) return;
     if (_pendingDeletes.isNotEmpty) {
-      await _ensurePublicSafe(session);
       final deletes = Map<String, GitObjectId>.of(_pendingDeletes);
       await _pace();
       await session.commit(GitChange(deletes: deletes), messagePrefix: 'Sync');
