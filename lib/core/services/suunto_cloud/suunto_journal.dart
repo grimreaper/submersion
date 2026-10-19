@@ -142,12 +142,13 @@ class SuuntoJournal {
   }
 
   /// Kilograms from `{value, unit}`. An unknown unit is skipped rather than
-  /// guessed.
+  /// guessed, and so is a weight of zero or less, which would otherwise
+  /// stand on the dive as a real one.
   static double? _weightKg(Object? weights) {
     if (weights is! Map) return null;
     final value = weights['value'];
     final unit = weights['unit'];
-    if (value is! num || unit is! String) return null;
+    if (value is! num || value <= 0 || unit is! String) return null;
     return switch (unit.trim().toUpperCase()) {
       'KG' => value.toDouble(),
       'LB' || 'LBS' => value * _kgPerPound,

@@ -58,6 +58,20 @@ void main() {
     );
   });
 
+  test('a weight of zero or less is no weight', () {
+    // A 0 kg belt would show on the dive and then stop a real weight from
+    // ever being added.
+    for (final value in [0, -2]) {
+      expect(
+        SuuntoJournal.parse({
+          'diveWeights': {'value': value, 'unit': 'KG'},
+        }).weightKg,
+        isNull,
+        reason: '$value',
+      );
+    }
+  });
+
   test('blank values yield nothing', () {
     final journal = SuuntoJournal.parse({
       'diveBuddy': [

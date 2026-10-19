@@ -173,6 +173,9 @@ void main() {
 
     final row = await dive();
     expect(row['dive_center_id'], 'c-mine');
+    // The journal's center is not even created: it would sit unlinked in
+    // the diver's list.
+    expect(await count('dive_centers'), 1);
     expect(row['visibility_meters'], 8);
     expect(row['visibility_min_meters'], isNull);
     expect(row['current_strength'], 'strong');

@@ -18,6 +18,18 @@ class DiveFillIfEmptyRepository {
   final SyncRepository _syncRepository = SyncRepository();
   static const _uuid = Uuid();
 
+  /// Whether dive [diveId] already has a dive center, so a caller can skip
+  /// finding or creating one it would not link.
+  Future<bool> hasDiveCenter(String diveId) async {
+    final row = await _db
+        .customSelect(
+          'SELECT dive_center_id FROM dives WHERE id = ?',
+          variables: [Variable.withString(diveId)],
+        )
+        .getSingleOrNull();
+    return row?.read<String?>('dive_center_id') != null;
+  }
+
   /// Links [centerId] to dive [diveId] when the dive has no dive center.
   Future<bool> linkDiveCenterIfNone(String diveId, String centerId) =>
       _updateDiveWhere(

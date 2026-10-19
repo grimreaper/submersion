@@ -51,6 +51,9 @@ class SuuntoJournalWriter {
     final centerName = journal.diveCenter;
     if (centerName != null) {
       await _try('dive center', diveId, () async {
+        // Checked first so a dive that has a center never gains an unlinked
+        // one in the diver's list; the link itself stays guarded.
+        if (await _fill.hasDiveCenter(diveId)) return;
         final center = await _centers.findOrCreateByName(
           centerName,
           diverId: diverId,
