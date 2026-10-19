@@ -136,6 +136,8 @@ class _GitConfigPageState extends ConsumerState<GitConfigPage> {
       return (config, await op(config));
     } on GitUntrustedCertificateException catch (e) {
       if (!mounted) rethrow;
+      // No progress bar behind a question the diver has to answer.
+      setState(() => _busy = false);
       final trusted = await showWebDavTrustDialog(
         context,
         WebDavUntrustedCertificateException(
@@ -144,6 +146,7 @@ class _GitConfigPageState extends ConsumerState<GitConfigPage> {
         ),
       );
       if (!trusted) rethrow;
+      if (mounted) setState(() => _busy = true);
       _pinnedCertSha256 = e.certificate.sha256;
       config = _build();
       return (config, await op(config));

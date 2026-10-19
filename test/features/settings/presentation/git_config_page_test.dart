@@ -9,6 +9,7 @@ import 'package:submersion/core/services/cloud_storage/git/git_config.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_credentials_store.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_errors.dart';
 import 'package:submersion/core/services/cloud_storage/git_storage_provider.dart';
+import 'package:submersion/core/services/cloud_storage/webdav/webdav_tls.dart';
 import 'package:submersion/core/services/sync/library_epoch.dart';
 import 'package:submersion/core/services/sync/sync_cleanup_outcome.dart';
 import 'package:submersion/core/services/sync/sync_service.dart'
@@ -33,16 +34,33 @@ class _FakeGit extends GitStorageProvider {
     isPublic: false,
   );
   Object? failWith;
+
+  /// Thrown by the next testConnection only.
+  Object? failOnce;
   int tests = 0;
   int saves = 0;
+  int signOuts = 0;
   GitConfig? saved;
+  final tested = <GitConfig>[];
 
   @override
   Future<GitConnectionReport> testConnection(GitConfig config) async {
     tests++;
+    tested.add(config);
+    final once = failOnce;
+    if (once != null) {
+      failOnce = null;
+      throw once;
+    }
     final error = failWith;
     if (error != null) throw error;
     return report;
+  }
+
+  @override
+  Future<void> signOut() async {
+    signOuts++;
+    saved = null;
   }
 
   @override
@@ -346,4 +364,84 @@ void main() {
     expect(find.text('This repository is public'), findsNothing);
     expect(git.saves, 1);
   });
+
+  testWidgets('a saved config fills the form and can be removed', (
+    tester,
+  ) async {
+    git.saved = GitConfig(
+      repoUrl: 'https://gitlab.com/group/r',
+      username: 'you',
+      token: 'glpat_x',
+      branch: 'dive-sync',
+    );
+    await pumpPage(tester);
+    expect(find.text('https://gitlab.com/group/r.git'), findsOneWidget);
+    expect(find.text('dive-sync'), findsOneWidget);
+    expect(find.textContaining('write_repository'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('git-remove')));
+    await tester.pumpAndSettle();
+    expect(find.text('Remove Git configuration?'), findsOneWidget);
+    await tester.tap(find.byKey(const Key('git-remove-confirm')));
+    await tester.pumpAndSettle();
+    expect(git.signOuts, 1);
+  });
+
+  testWidgets('removal can be cancelled', (tester) async {
+    git.saved = GitConfig(
+      repoUrl: 'https://github.com/you/r',
+      username: 'you',
+      token: 't',
+    );
+    await pumpPage(tester);
+    await tester.tap(find.byKey(const Key('git-remove')));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+    expect(git.signOuts, 0);
+  });
+
+  testWidgets('an existing Submersion branch is reported as found', (
+    tester,
+  ) async {
+    git.report = const GitConnectionReport(
+      branchExists: true,
+      willBecomeDefault: false,
+      isPublic: false,
+    );
+    await pumpPage(tester);
+    await fillValidForm(tester);
+    await tester.tap(find.byKey(const Key('git-test')));
+    await tester.pumpAndSettle();
+    expect(
+      find.text('Connected to the Submersion branch submersion-sync.'),
+      findsOneWidget,
+    );
+  });
+
+  testWidgets(
+    'a trusted self-signed certificate is pinned and the test retried',
+    (tester) async {
+      git.failOnce = GitUntrustedCertificateException(
+        WebDavCertificateDetails(
+          host: 'git.example.net',
+          port: 443,
+          sha256: 'ab' * 32,
+          subject: 'CN=git.example.net',
+          issuer: 'CN=git.example.net',
+          startValidity: DateTime.utc(2026),
+          endValidity: DateTime.utc(2027),
+        ),
+      );
+      await pumpPage(tester);
+      await fillValidForm(tester, url: 'https://git.example.net/you/r');
+      await tester.tap(find.byKey(const Key('git-test')));
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('Trust this certificate'));
+      await tester.pumpAndSettle();
+      expect(git.tests, 2);
+      expect(git.tested.first.pinnedCertSha256, isNull);
+      expect(git.tested.last.pinnedCertSha256, 'ab' * 32);
+      expect(find.textContaining('Connected.'), findsOneWidget);
+    },
+  );
 }
