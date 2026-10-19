@@ -7,7 +7,7 @@ const ProfileSeriesCodec _codec = ProfileSeriesCodec();
 
 /// Decodes one stored series row into a [ProfileSeries].
 ///
-/// Throws [ProfileSeriesCodecException] when the blob does not decode; each
+/// Throws a `ProfileSeriesCodecException` when the blob does not decode; each
 /// caller decides what an unreadable row means for it. Pure and free of
 /// database or logger state, so it runs on a background isolate as readily
 /// as on the UI one (#3506).
