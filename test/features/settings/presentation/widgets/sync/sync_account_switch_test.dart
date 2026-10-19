@@ -326,6 +326,22 @@ void main() {
     expect(ref.read(selectedCloudProviderTypeProvider), CloudProviderType.s3);
   });
 
+  testWidgets('a Git account without keys here records no departure', (
+    tester,
+  ) async {
+    final (context, ref) = await pumpHost(tester, lastSync: _t);
+    final git = _group('gitrow', AccountKind.git, 'you/dive-log @ github.com');
+
+    await useAccountForSync(context, ref, git, current: dropbox);
+    await tester.pump();
+
+    expect(notifier.departures, 0);
+    expect(
+      ref.read(selectedCloudProviderTypeProvider),
+      isNot(CloudProviderType.git),
+    );
+  });
+
   testWidgets('choosing a Git account points sync at it, with its keys', (
     tester,
   ) async {

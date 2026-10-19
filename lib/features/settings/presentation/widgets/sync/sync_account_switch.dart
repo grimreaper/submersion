@@ -215,8 +215,22 @@ Future<void> useAccountForSync(
   // default name to be found by.
   ConnectedAccount? syncRow;
   if (group.kind == AccountKind.git) {
-    // A Git account is one repository and branch: one row, sync's own.
-    syncRow = group.rows.first;
+    // A Git account is one repository and branch: one row, sync's own,
+    // which can take sync only with its keys here (checked, like an own
+    // server's, before anything is recorded).
+    final row = group.rows.first;
+    if (await container.read(accountCredentialsStoreProvider).read(row.id) ==
+        null) {
+      if (context.mounted) {
+        ScaffoldMessenger.of(context).showSnackBar(
+          SnackBar(
+            content: Text(context.l10n.settings_accounts_signInTo(group.label)),
+          ),
+        );
+      }
+      return;
+    }
+    syncRow = row;
   } else if (group.isOwnServer) {
     try {
       syncRow =
