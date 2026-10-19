@@ -2138,9 +2138,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get settings_cloudSync_encryption_cancel => 'Cancel';
 
   @override
-  String get settings_backupEncryption_title => 'Backup encryption';
-
-  @override
   String get settings_backupEncryption_subtitleOff =>
       'Protect your backups with a password';
 
@@ -2427,9 +2424,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backup_backingUp => 'Backing up...';
 
   @override
-  String get backup_backupNow => 'Backup Now';
-
-  @override
   String get backup_note_dialog_title => 'Back up now';
 
   @override
@@ -2440,12 +2434,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backup_note_dialog_confirm => 'Back Up';
-
-  @override
-  String get backup_cloud_enabled => 'Cloud backup';
-
-  @override
-  String get backup_cloud_enabled_subtitle => 'Upload backups to cloud storage';
 
   @override
   String get backup_delete_dialog_cancel => 'Cancel';
@@ -2465,12 +2453,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backup_delete_dialog_title => 'Delete Backup';
 
   @override
-  String get backup_export_bottomSheet_title => 'Export Backup';
-
-  @override
-  String get backup_export_saveToFile => 'Save to File';
-
-  @override
   String get backup_export_saveToFile_subtitle =>
       'Choose where to save the backup file';
 
@@ -2480,12 +2462,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get backup_export_share_subtitle =>
       'Send via AirDrop, email, or other apps';
-
-  @override
-  String get backup_export_subtitle => 'Save your dive data to a file';
-
-  @override
-  String get backup_export_title => 'Export Backup';
 
   @override
   String get backup_frequency_daily => 'Daily';
@@ -2529,12 +2505,6 @@ class AppLocalizationsEn extends AppLocalizations {
       'This file does not appear to be a valid Submersion backup';
 
   @override
-  String get backup_import_subtitle => 'Import a backup from any location';
-
-  @override
-  String get backup_import_title => 'Restore from File';
-
-  @override
   String get backup_import_validating => 'Validating backup file...';
 
   @override
@@ -2542,9 +2512,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get backup_location_default => 'Default location';
-
-  @override
-  String get backup_location_title => 'Backup Location';
 
   @override
   String get backup_replaceConfirm_confirm => 'Replace Everywhere';
@@ -2613,9 +2580,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get backup_restoreComplete_title => 'Restore Complete';
 
   @override
-  String get backup_schedule_enabled => 'Automatic backups';
-
-  @override
   String get backup_schedule_frequency => 'Frequency';
 
   @override
@@ -2629,9 +2593,6 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get backup_schedule_retention_subtitle =>
       'Older backups are automatically removed';
-
-  @override
-  String get backup_section_auto => 'Automatic Backups';
 
   @override
   String get backup_section_history => 'History';
@@ -52880,4 +52841,51 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settings_backups_copyStops =>
       'Backups will stop making a copy off this device.';
+
+  @override
+  String settings_backups_copyTo(String account) {
+    return 'Copy to $account';
+  }
+
+  @override
+  String get settings_backups_copySameAsSync => 'Same account as sync';
+
+  @override
+  String get settings_backups_noCopy => 'No copy off this device';
+
+  @override
+  String get settings_backups_chooseAccount => 'Choose an account';
+
+  @override
+  String get settings_backups_copyAccountGone =>
+      'The copy\'s account was removed';
+
+  @override
+  String get settings_backups_auto => 'Back up automatically';
+
+  @override
+  String get settings_backups_backUpNow => 'Back up now';
+
+  @override
+  String get settings_backups_restoreFile => 'Restore from a file';
+
+  @override
+  String settings_backups_keepLast(int count) {
+    return 'Keep the last $count backups';
+  }
+
+  @override
+  String get settings_backups_folder => 'Backup folder on this device';
+
+  @override
+  String get settings_backups_useDefault => 'Use default';
+
+  @override
+  String get settings_backups_saveFile => 'Save a backup file';
+
+  @override
+  String get settings_backups_saveToFolder => 'Save to a folder';
+
+  @override
+  String get settings_backups_passwordProtection => 'Password protection';
 }

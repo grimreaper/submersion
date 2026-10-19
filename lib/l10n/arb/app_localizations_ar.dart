@@ -2215,9 +2215,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get settings_cloudSync_encryption_cancel => 'إلغاء';
 
   @override
-  String get settings_backupEncryption_title => 'تشفير النسخ الاحتياطي';
-
-  @override
   String get settings_backupEncryption_subtitleOff =>
       'احمِ نسخك الاحتياطية بكلمة مرور';
 
@@ -2508,9 +2505,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get backup_backingUp => 'جاري النسخ الاحتياطي...';
 
   @override
-  String get backup_backupNow => 'نسخ احتياطي الآن';
-
-  @override
   String get backup_note_dialog_title => 'نسخ احتياطي الآن';
 
   @override
@@ -2521,13 +2515,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get backup_note_dialog_confirm => 'نسخ احتياطي';
-
-  @override
-  String get backup_cloud_enabled => 'نسخ احتياطي سحابي';
-
-  @override
-  String get backup_cloud_enabled_subtitle =>
-      'رفع النسخ الاحتياطية إلى التخزين السحابي';
 
   @override
   String get backup_delete_dialog_cancel => 'إلغاء';
@@ -2547,12 +2534,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get backup_delete_dialog_title => 'حذف النسخة الاحتياطية';
 
   @override
-  String get backup_export_bottomSheet_title => 'تصدير النسخة الاحتياطية';
-
-  @override
-  String get backup_export_saveToFile => 'حفظ في ملف';
-
-  @override
   String get backup_export_saveToFile_subtitle =>
       'اختر مكان حفظ ملف النسخة الاحتياطية';
 
@@ -2562,12 +2543,6 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get backup_export_share_subtitle =>
       'إرسال عبر AirDrop أو البريد الإلكتروني أو تطبيقات أخرى';
-
-  @override
-  String get backup_export_subtitle => 'حفظ بيانات الغوص في ملف';
-
-  @override
-  String get backup_export_title => 'تصدير النسخة الاحتياطية';
 
   @override
   String get backup_frequency_daily => 'يومي';
@@ -2611,12 +2586,6 @@ class AppLocalizationsAr extends AppLocalizations {
       'لا يبدو أن هذا الملف نسخة احتياطية صالحة من Submersion';
 
   @override
-  String get backup_import_subtitle => 'استيراد نسخة احتياطية من أي مكان';
-
-  @override
-  String get backup_import_title => 'الاستعادة من ملف';
-
-  @override
   String get backup_import_validating =>
       'جارٍ التحقق من ملف النسخة الاحتياطية...';
 
@@ -2625,9 +2594,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get backup_location_default => 'الموقع الافتراضي';
-
-  @override
-  String get backup_location_title => 'موقع النسخة الاحتياطية';
 
   @override
   String get backup_replaceConfirm_confirm => 'استبدال في كل مكان';
@@ -2697,9 +2663,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get backup_restoreComplete_title => 'اكتملت الاستعادة';
 
   @override
-  String get backup_schedule_enabled => 'نسخ احتياطي تلقائي';
-
-  @override
   String get backup_schedule_frequency => 'التكرار';
 
   @override
@@ -2713,9 +2676,6 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get backup_schedule_retention_subtitle =>
       'تتم إزالة النسخ الاحتياطية القديمة تلقائياً';
-
-  @override
-  String get backup_section_auto => 'النسخ الاحتياطي التلقائي';
 
   @override
   String get backup_section_history => 'السجل';
@@ -54398,4 +54358,50 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get settings_backups_copyStops =>
       'ستتوقف النسخ الاحتياطية عن إنشاء نسخة خارج هذا الجهاز.';
+
+  @override
+  String settings_backups_copyTo(String account) {
+    return 'نسخة في $account';
+  }
+
+  @override
+  String get settings_backups_copySameAsSync => 'نفس حساب المزامنة';
+
+  @override
+  String get settings_backups_noCopy => 'لا توجد نسخة خارج هذا الجهاز';
+
+  @override
+  String get settings_backups_chooseAccount => 'اختيار حساب';
+
+  @override
+  String get settings_backups_copyAccountGone => 'تمت إزالة حساب النسخة';
+
+  @override
+  String get settings_backups_auto => 'النسخ الاحتياطي تلقائيًا';
+
+  @override
+  String get settings_backups_backUpNow => 'النسخ الاحتياطي الآن';
+
+  @override
+  String get settings_backups_restoreFile => 'الاستعادة من ملف';
+
+  @override
+  String settings_backups_keepLast(int count) {
+    return 'الاحتفاظ بآخر $count نسخ احتياطية';
+  }
+
+  @override
+  String get settings_backups_folder => 'مجلد النسخ الاحتياطي على هذا الجهاز';
+
+  @override
+  String get settings_backups_useDefault => 'استخدام الافتراضي';
+
+  @override
+  String get settings_backups_saveFile => 'حفظ ملف نسخة احتياطية';
+
+  @override
+  String get settings_backups_saveToFolder => 'الحفظ في مجلد';
+
+  @override
+  String get settings_backups_passwordProtection => 'الحماية بكلمة مرور';
 }

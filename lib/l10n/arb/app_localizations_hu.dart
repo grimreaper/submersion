@@ -2153,9 +2153,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get settings_cloudSync_encryption_cancel => 'Mégse';
 
   @override
-  String get settings_backupEncryption_title => 'Biztonsági mentés titkosítása';
-
-  @override
   String get settings_backupEncryption_subtitleOff =>
       'Védje a biztonsági mentéseit jelszóval';
 
@@ -2445,9 +2442,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get backup_backingUp => 'Mentés folyamatban...';
 
   @override
-  String get backup_backupNow => 'Mentés Most';
-
-  @override
   String get backup_note_dialog_title => 'Mentés most';
 
   @override
@@ -2458,13 +2452,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get backup_note_dialog_confirm => 'Mentés';
-
-  @override
-  String get backup_cloud_enabled => 'Felhő mentés';
-
-  @override
-  String get backup_cloud_enabled_subtitle =>
-      'Mentések feltöltése a felhőtárhelyre';
 
   @override
   String get backup_delete_dialog_cancel => 'Mégse';
@@ -2484,12 +2471,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get backup_delete_dialog_title => 'Mentés Törlése';
 
   @override
-  String get backup_export_bottomSheet_title => 'Mentés exportálása';
-
-  @override
-  String get backup_export_saveToFile => 'Mentés fájlba';
-
-  @override
   String get backup_export_saveToFile_subtitle =>
       'Válassza ki, hová mentse a biztonsági mentés fájlt';
 
@@ -2499,12 +2480,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get backup_export_share_subtitle =>
       'Küldés AirDrop, e-mail vagy más alkalmazáson keresztül';
-
-  @override
-  String get backup_export_subtitle => 'Merülési adatok mentése fájlba';
-
-  @override
-  String get backup_export_title => 'Mentés exportálása';
 
   @override
   String get backup_frequency_daily => 'Napi';
@@ -2549,13 +2524,6 @@ class AppLocalizationsHu extends AppLocalizations {
       'Ez a fájl nem tűnik érvényes Submersion biztonsági mentésnek';
 
   @override
-  String get backup_import_subtitle =>
-      'Biztonsági mentés importálása bármely helyről';
-
-  @override
-  String get backup_import_title => 'Visszaállítás fájlból';
-
-  @override
   String get backup_import_validating =>
       'Biztonsági mentés fájl ellenőrzése...';
 
@@ -2564,9 +2532,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get backup_location_default => 'Alapértelmezett hely';
-
-  @override
-  String get backup_location_title => 'Mentés helye';
 
   @override
   String get backup_replaceConfirm_confirm => 'Csere mindenhol';
@@ -2637,9 +2602,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get backup_restoreComplete_title => 'Visszaállítás befejezve';
 
   @override
-  String get backup_schedule_enabled => 'Automatikus mentések';
-
-  @override
   String get backup_schedule_frequency => 'Gyakoriság';
 
   @override
@@ -2653,9 +2615,6 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get backup_schedule_retention_subtitle =>
       'A régebbi mentések automatikusan eltávolításra kerülnek';
-
-  @override
-  String get backup_section_auto => 'Automatikus mentések';
 
   @override
   String get backup_section_history => 'Előzmények';
@@ -53422,4 +53381,52 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get settings_backups_copyStops =>
       'A mentésekről nem készül többé másolat ezen az eszközön kívül.';
+
+  @override
+  String settings_backups_copyTo(String account) {
+    return 'Másolat ide: $account';
+  }
+
+  @override
+  String get settings_backups_copySameAsSync =>
+      'Ugyanaz a fiók, mint a szinkronizálásé';
+
+  @override
+  String get settings_backups_noCopy => 'Nincs másolat ezen az eszközön kívül';
+
+  @override
+  String get settings_backups_chooseAccount => 'Fiók kiválasztása';
+
+  @override
+  String get settings_backups_copyAccountGone =>
+      'A másolat fiókját eltávolították';
+
+  @override
+  String get settings_backups_auto => 'Automatikus mentés';
+
+  @override
+  String get settings_backups_backUpNow => 'Mentés most';
+
+  @override
+  String get settings_backups_restoreFile => 'Visszaállítás fájlból';
+
+  @override
+  String settings_backups_keepLast(int count) {
+    return 'Az utolsó $count mentés megtartása';
+  }
+
+  @override
+  String get settings_backups_folder => 'Mentési mappa ezen az eszközön';
+
+  @override
+  String get settings_backups_useDefault => 'Alapértelmezett használata';
+
+  @override
+  String get settings_backups_saveFile => 'Mentési fájl mentése';
+
+  @override
+  String get settings_backups_saveToFolder => 'Mentés mappába';
+
+  @override
+  String get settings_backups_passwordProtection => 'Jelszavas védelem';
 }

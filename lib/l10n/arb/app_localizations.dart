@@ -3325,12 +3325,6 @@ abstract class AppLocalizations {
   /// **'Cancel'**
   String get settings_cloudSync_encryption_cancel;
 
-  /// No description provided for @settings_backupEncryption_title.
-  ///
-  /// In en, this message translates to:
-  /// **'Backup encryption'**
-  String get settings_backupEncryption_title;
-
   /// No description provided for @settings_backupEncryption_subtitleOff.
   ///
   /// In en, this message translates to:
@@ -3829,12 +3823,6 @@ abstract class AppLocalizations {
   /// **'Backing up...'**
   String get backup_backingUp;
 
-  /// No description provided for @backup_backupNow.
-  ///
-  /// In en, this message translates to:
-  /// **'Backup Now'**
-  String get backup_backupNow;
-
   /// No description provided for @backup_note_dialog_title.
   ///
   /// In en, this message translates to:
@@ -3858,18 +3846,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Back Up'**
   String get backup_note_dialog_confirm;
-
-  /// No description provided for @backup_cloud_enabled.
-  ///
-  /// In en, this message translates to:
-  /// **'Cloud backup'**
-  String get backup_cloud_enabled;
-
-  /// No description provided for @backup_cloud_enabled_subtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Upload backups to cloud storage'**
-  String get backup_cloud_enabled_subtitle;
 
   /// No description provided for @backup_delete_dialog_cancel.
   ///
@@ -3901,18 +3877,6 @@ abstract class AppLocalizations {
   /// **'Delete Backup'**
   String get backup_delete_dialog_title;
 
-  /// No description provided for @backup_export_bottomSheet_title.
-  ///
-  /// In en, this message translates to:
-  /// **'Export Backup'**
-  String get backup_export_bottomSheet_title;
-
-  /// No description provided for @backup_export_saveToFile.
-  ///
-  /// In en, this message translates to:
-  /// **'Save to File'**
-  String get backup_export_saveToFile;
-
   /// No description provided for @backup_export_saveToFile_subtitle.
   ///
   /// In en, this message translates to:
@@ -3930,18 +3894,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Send via AirDrop, email, or other apps'**
   String get backup_export_share_subtitle;
-
-  /// No description provided for @backup_export_subtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Save your dive data to a file'**
-  String get backup_export_subtitle;
-
-  /// No description provided for @backup_export_title.
-  ///
-  /// In en, this message translates to:
-  /// **'Export Backup'**
-  String get backup_export_title;
 
   /// No description provided for @backup_frequency_daily.
   ///
@@ -4015,18 +3967,6 @@ abstract class AppLocalizations {
   /// **'This file does not appear to be a valid Submersion backup'**
   String get backup_import_invalidFile;
 
-  /// No description provided for @backup_import_subtitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Import a backup from any location'**
-  String get backup_import_subtitle;
-
-  /// No description provided for @backup_import_title.
-  ///
-  /// In en, this message translates to:
-  /// **'Restore from File'**
-  String get backup_import_title;
-
   /// No description provided for @backup_import_validating.
   ///
   /// In en, this message translates to:
@@ -4044,12 +3984,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Default location'**
   String get backup_location_default;
-
-  /// No description provided for @backup_location_title.
-  ///
-  /// In en, this message translates to:
-  /// **'Backup Location'**
-  String get backup_location_title;
 
   /// No description provided for @backup_replaceConfirm_confirm.
   ///
@@ -4165,12 +4099,6 @@ abstract class AppLocalizations {
   /// **'Restore Complete'**
   String get backup_restoreComplete_title;
 
-  /// No description provided for @backup_schedule_enabled.
-  ///
-  /// In en, this message translates to:
-  /// **'Automatic backups'**
-  String get backup_schedule_enabled;
-
   /// No description provided for @backup_schedule_frequency.
   ///
   /// In en, this message translates to:
@@ -4194,12 +4122,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Older backups are automatically removed'**
   String get backup_schedule_retention_subtitle;
-
-  /// No description provided for @backup_section_auto.
-  ///
-  /// In en, this message translates to:
-  /// **'Automatic Backups'**
-  String get backup_section_auto;
 
   /// No description provided for @backup_section_history.
   ///
@@ -85173,6 +85095,90 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Backups will stop making a copy off this device.'**
   String get settings_backups_copyStops;
+
+  /// Backups page Using row: where the backup copy goes
+  ///
+  /// In en, this message translates to:
+  /// **'Copy to {account}'**
+  String settings_backups_copyTo(String account);
+
+  /// Subtitle of the Copy to row when the copy follows the account sync uses
+  ///
+  /// In en, this message translates to:
+  /// **'Same account as sync'**
+  String get settings_backups_copySameAsSync;
+
+  /// Backups page: backups stay on this device only; also the off choice in the account sheet
+  ///
+  /// In en, this message translates to:
+  /// **'No copy off this device'**
+  String get settings_backups_noCopy;
+
+  /// Action on the Copy to row when no account receives the copy
+  ///
+  /// In en, this message translates to:
+  /// **'Choose an account'**
+  String get settings_backups_chooseAccount;
+
+  /// Copy to row when the account chosen for the copy no longer exists
+  ///
+  /// In en, this message translates to:
+  /// **'The copy\'s account was removed'**
+  String get settings_backups_copyAccountGone;
+
+  /// Switch: run backups on a schedule
+  ///
+  /// In en, this message translates to:
+  /// **'Back up automatically'**
+  String get settings_backups_auto;
+
+  /// Make a backup now
+  ///
+  /// In en, this message translates to:
+  /// **'Back up now'**
+  String get settings_backups_backUpNow;
+
+  /// Restore the library from a backup file the diver picks
+  ///
+  /// In en, this message translates to:
+  /// **'Restore from a file'**
+  String get settings_backups_restoreFile;
+
+  /// Advanced: how many backups are kept before older ones are removed
+  ///
+  /// In en, this message translates to:
+  /// **'Keep the last {count} backups'**
+  String settings_backups_keepLast(int count);
+
+  /// Advanced: the folder on this device that backups are written to
+  ///
+  /// In en, this message translates to:
+  /// **'Backup folder on this device'**
+  String get settings_backups_folder;
+
+  /// Return the backup folder to the app's own default
+  ///
+  /// In en, this message translates to:
+  /// **'Use default'**
+  String get settings_backups_useDefault;
+
+  /// Advanced: save a backup file somewhere the diver chooses, or share it
+  ///
+  /// In en, this message translates to:
+  /// **'Save a backup file'**
+  String get settings_backups_saveFile;
+
+  /// In the Save a backup file sheet: write the file into a folder the diver picks
+  ///
+  /// In en, this message translates to:
+  /// **'Save to a folder'**
+  String get settings_backups_saveToFolder;
+
+  /// Advanced: header of the backup file encryption controls
+  ///
+  /// In en, this message translates to:
+  /// **'Password protection'**
+  String get settings_backups_passwordProtection;
 }
 
 class _AppLocalizationsDelegate

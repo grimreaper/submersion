@@ -2131,9 +2131,6 @@ class AppLocalizationsHe extends AppLocalizations {
   String get settings_cloudSync_encryption_cancel => 'ביטול';
 
   @override
-  String get settings_backupEncryption_title => 'הצפנת גיבוי';
-
-  @override
   String get settings_backupEncryption_subtitleOff =>
       'הגן על הגיבויים שלך באמצעות סיסמה';
 
@@ -2419,9 +2416,6 @@ class AppLocalizationsHe extends AppLocalizations {
   String get backup_backingUp => 'מגבה...';
 
   @override
-  String get backup_backupNow => 'גבה עכשיו';
-
-  @override
   String get backup_note_dialog_title => 'גבה עכשיו';
 
   @override
@@ -2432,12 +2426,6 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get backup_note_dialog_confirm => 'גבה';
-
-  @override
-  String get backup_cloud_enabled => 'גיבוי ענן';
-
-  @override
-  String get backup_cloud_enabled_subtitle => 'העלה גיבויים לאחסון ענן';
 
   @override
   String get backup_delete_dialog_cancel => 'ביטול';
@@ -2457,12 +2445,6 @@ class AppLocalizationsHe extends AppLocalizations {
   String get backup_delete_dialog_title => 'מחיקת גיבוי';
 
   @override
-  String get backup_export_bottomSheet_title => 'ייצוא גיבוי';
-
-  @override
-  String get backup_export_saveToFile => 'שמירה לקובץ';
-
-  @override
   String get backup_export_saveToFile_subtitle =>
       'בחר היכן לשמור את קובץ הגיבוי';
 
@@ -2472,12 +2454,6 @@ class AppLocalizationsHe extends AppLocalizations {
   @override
   String get backup_export_share_subtitle =>
       'שליחה דרך AirDrop, דוא\"ל או אפליקציות אחרות';
-
-  @override
-  String get backup_export_subtitle => 'שמור את נתוני הצלילה שלך לקובץ';
-
-  @override
-  String get backup_export_title => 'ייצוא גיבוי';
 
   @override
   String get backup_frequency_daily => 'יומי';
@@ -2521,12 +2497,6 @@ class AppLocalizationsHe extends AppLocalizations {
       'נראה שקובץ זה אינו גיבוי תקין של Submersion';
 
   @override
-  String get backup_import_subtitle => 'ייבא גיבוי מכל מיקום';
-
-  @override
-  String get backup_import_title => 'שחזור מקובץ';
-
-  @override
   String get backup_import_validating => 'מאמת קובץ גיבוי...';
 
   @override
@@ -2534,9 +2504,6 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get backup_location_default => 'מיקום ברירת מחדל';
-
-  @override
-  String get backup_location_title => 'מיקום הגיבוי';
 
   @override
   String get backup_replaceConfirm_confirm => 'החלפה בכל מקום';
@@ -2604,9 +2571,6 @@ class AppLocalizationsHe extends AppLocalizations {
   String get backup_restoreComplete_title => 'השחזור הושלם';
 
   @override
-  String get backup_schedule_enabled => 'גיבויים אוטומטיים';
-
-  @override
   String get backup_schedule_frequency => 'תדירות';
 
   @override
@@ -2620,9 +2584,6 @@ class AppLocalizationsHe extends AppLocalizations {
   @override
   String get backup_schedule_retention_subtitle =>
       'גיבויים ישנים יותר מוסרים אוטומטית';
-
-  @override
-  String get backup_section_auto => 'גיבויים אוטומטיים';
 
   @override
   String get backup_section_history => 'היסטוריה';
@@ -52597,4 +52558,50 @@ class AppLocalizationsHe extends AppLocalizations {
   @override
   String get settings_backups_copyStops =>
       'הגיבויים יפסיקו ליצור עותק מחוץ למכשיר הזה.';
+
+  @override
+  String settings_backups_copyTo(String account) {
+    return 'עותק ב-$account';
+  }
+
+  @override
+  String get settings_backups_copySameAsSync => 'אותו חשבון כמו הסנכרון';
+
+  @override
+  String get settings_backups_noCopy => 'אין עותק מחוץ למכשיר הזה';
+
+  @override
+  String get settings_backups_chooseAccount => 'בחירת חשבון';
+
+  @override
+  String get settings_backups_copyAccountGone => 'החשבון של העותק הוסר';
+
+  @override
+  String get settings_backups_auto => 'גיבוי אוטומטי';
+
+  @override
+  String get settings_backups_backUpNow => 'גיבוי עכשיו';
+
+  @override
+  String get settings_backups_restoreFile => 'שחזור מקובץ';
+
+  @override
+  String settings_backups_keepLast(int count) {
+    return 'שמירת $count הגיבויים האחרונים';
+  }
+
+  @override
+  String get settings_backups_folder => 'תיקיית הגיבוי במכשיר הזה';
+
+  @override
+  String get settings_backups_useDefault => 'שימוש בברירת המחדל';
+
+  @override
+  String get settings_backups_saveFile => 'שמירת קובץ גיבוי';
+
+  @override
+  String get settings_backups_saveToFolder => 'שמירה בתיקייה';
+
+  @override
+  String get settings_backups_passwordProtection => 'הגנה בסיסמה';
 }

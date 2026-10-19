@@ -2159,10 +2159,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get settings_cloudSync_encryption_cancel => 'Cancelar';
 
   @override
-  String get settings_backupEncryption_title =>
-      'Cifrado de copias de seguridad';
-
-  @override
   String get settings_backupEncryption_subtitleOff =>
       'Protege tus copias de seguridad con una contraseña';
 
@@ -2453,9 +2449,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get backup_backingUp => 'Creando copia...';
 
   @override
-  String get backup_backupNow => 'Hacer Copia Ahora';
-
-  @override
   String get backup_note_dialog_title => 'Hacer copia ahora';
 
   @override
@@ -2466,13 +2459,6 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get backup_note_dialog_confirm => 'Hacer copia';
-
-  @override
-  String get backup_cloud_enabled => 'Copia en la nube';
-
-  @override
-  String get backup_cloud_enabled_subtitle =>
-      'Subir copias al almacenamiento en la nube';
 
   @override
   String get backup_delete_dialog_cancel => 'Cancelar';
@@ -2492,12 +2478,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get backup_delete_dialog_title => 'Eliminar Copia';
 
   @override
-  String get backup_export_bottomSheet_title => 'Exportar Copia de Seguridad';
-
-  @override
-  String get backup_export_saveToFile => 'Guardar en Archivo';
-
-  @override
   String get backup_export_saveToFile_subtitle =>
       'Elige dónde guardar el archivo de copia de seguridad';
 
@@ -2507,13 +2487,6 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get backup_export_share_subtitle =>
       'Enviar por AirDrop, correo u otras apps';
-
-  @override
-  String get backup_export_subtitle =>
-      'Guarda tus datos de buceo en un archivo';
-
-  @override
-  String get backup_export_title => 'Exportar Copia de Seguridad';
 
   @override
   String get backup_frequency_daily => 'Diaria';
@@ -2558,13 +2531,6 @@ class AppLocalizationsEs extends AppLocalizations {
       'Este archivo no parece ser una copia de seguridad válida de Submersion';
 
   @override
-  String get backup_import_subtitle =>
-      'Importar una copia de seguridad desde cualquier ubicación';
-
-  @override
-  String get backup_import_title => 'Restaurar desde Archivo';
-
-  @override
   String get backup_import_validating =>
       'Validando archivo de copia de seguridad...';
 
@@ -2573,9 +2539,6 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get backup_location_default => 'Ubicación predeterminada';
-
-  @override
-  String get backup_location_title => 'Ubicación de Copia de Seguridad';
 
   @override
   String get backup_replaceConfirm_confirm => 'Reemplazar en todas partes';
@@ -2648,9 +2611,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get backup_restoreComplete_title => 'Restauración Completa';
 
   @override
-  String get backup_schedule_enabled => 'Copias automáticas';
-
-  @override
   String get backup_schedule_frequency => 'Frecuencia';
 
   @override
@@ -2664,9 +2624,6 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get backup_schedule_retention_subtitle =>
       'Las copias más antiguas se eliminan automáticamente';
-
-  @override
-  String get backup_section_auto => 'Copias de Seguridad Automáticas';
 
   @override
   String get backup_section_history => 'Historial';
@@ -53759,4 +53716,53 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get settings_backups_copyStops =>
       'Las copias de seguridad dejarán de guardar una copia fuera de este dispositivo.';
+
+  @override
+  String settings_backups_copyTo(String account) {
+    return 'Copia en $account';
+  }
+
+  @override
+  String get settings_backups_copySameAsSync =>
+      'La misma cuenta que la sincronización';
+
+  @override
+  String get settings_backups_noCopy => 'Sin copia fuera de este dispositivo';
+
+  @override
+  String get settings_backups_chooseAccount => 'Elegir una cuenta';
+
+  @override
+  String get settings_backups_copyAccountGone =>
+      'Se eliminó la cuenta de la copia';
+
+  @override
+  String get settings_backups_auto =>
+      'Hacer copia de seguridad automáticamente';
+
+  @override
+  String get settings_backups_backUpNow => 'Hacer copia ahora';
+
+  @override
+  String get settings_backups_restoreFile => 'Restaurar desde un archivo';
+
+  @override
+  String settings_backups_keepLast(int count) {
+    return 'Conservar las últimas $count copias';
+  }
+
+  @override
+  String get settings_backups_folder => 'Carpeta de copias en este dispositivo';
+
+  @override
+  String get settings_backups_useDefault => 'Usar predeterminada';
+
+  @override
+  String get settings_backups_saveFile => 'Guardar un archivo de copia';
+
+  @override
+  String get settings_backups_saveToFolder => 'Guardar en una carpeta';
+
+  @override
+  String get settings_backups_passwordProtection => 'Protección con contraseña';
 }

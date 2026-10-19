@@ -2149,9 +2149,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get settings_cloudSync_encryption_cancel => 'Annuleren';
 
   @override
-  String get settings_backupEncryption_title => 'Back-upversleuteling';
-
-  @override
   String get settings_backupEncryption_subtitleOff =>
       'Bescherm uw back-ups met een wachtwoord';
 
@@ -2441,9 +2438,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get backup_backingUp => 'Back-up maken...';
 
   @override
-  String get backup_backupNow => 'Nu Back-up Maken';
-
-  @override
   String get backup_note_dialog_title => 'Nu back-up maken';
 
   @override
@@ -2454,13 +2448,6 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get backup_note_dialog_confirm => 'Back-up maken';
-
-  @override
-  String get backup_cloud_enabled => 'Cloud back-up';
-
-  @override
-  String get backup_cloud_enabled_subtitle =>
-      'Back-ups uploaden naar cloudopslag';
 
   @override
   String get backup_delete_dialog_cancel => 'Annuleren';
@@ -2480,12 +2467,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get backup_delete_dialog_title => 'Back-up Verwijderen';
 
   @override
-  String get backup_export_bottomSheet_title => 'Back-up exporteren';
-
-  @override
-  String get backup_export_saveToFile => 'Opslaan als bestand';
-
-  @override
   String get backup_export_saveToFile_subtitle =>
       'Kies waar het back-upbestand wordt opgeslagen';
 
@@ -2495,12 +2476,6 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get backup_export_share_subtitle =>
       'Verzenden via AirDrop, e-mail of andere apps';
-
-  @override
-  String get backup_export_subtitle => 'Sla je duikgegevens op in een bestand';
-
-  @override
-  String get backup_export_title => 'Back-up exporteren';
 
   @override
   String get backup_frequency_daily => 'Dagelijks';
@@ -2544,13 +2519,6 @@ class AppLocalizationsNl extends AppLocalizations {
       'Dit bestand lijkt geen geldige Submersion-back-up te zijn';
 
   @override
-  String get backup_import_subtitle =>
-      'Importeer een back-up vanaf elke locatie';
-
-  @override
-  String get backup_import_title => 'Herstellen vanuit bestand';
-
-  @override
   String get backup_import_validating => 'Back-upbestand valideren...';
 
   @override
@@ -2558,9 +2526,6 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get backup_location_default => 'Standaardlocatie';
-
-  @override
-  String get backup_location_title => 'Back-uplocatie';
 
   @override
   String get backup_replaceConfirm_confirm => 'Overal vervangen';
@@ -2631,9 +2596,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get backup_restoreComplete_title => 'Herstel Voltooid';
 
   @override
-  String get backup_schedule_enabled => 'Automatische back-ups';
-
-  @override
   String get backup_schedule_frequency => 'Frequentie';
 
   @override
@@ -2647,9 +2609,6 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get backup_schedule_retention_subtitle =>
       'Oudere back-ups worden automatisch verwijderd';
-
-  @override
-  String get backup_section_auto => 'Automatische back-ups';
 
   @override
   String get backup_section_history => 'Geschiedenis';
@@ -53377,4 +53336,52 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get settings_backups_copyStops =>
       'Back-ups maken dan geen kopie meer buiten dit apparaat.';
+
+  @override
+  String settings_backups_copyTo(String account) {
+    return 'Kopie in $account';
+  }
+
+  @override
+  String get settings_backups_copySameAsSync =>
+      'Hetzelfde account als synchronisatie';
+
+  @override
+  String get settings_backups_noCopy => 'Geen kopie buiten dit apparaat';
+
+  @override
+  String get settings_backups_chooseAccount => 'Kies een account';
+
+  @override
+  String get settings_backups_copyAccountGone =>
+      'Het account van de kopie is verwijderd';
+
+  @override
+  String get settings_backups_auto => 'Automatisch back-uppen';
+
+  @override
+  String get settings_backups_backUpNow => 'Nu back-uppen';
+
+  @override
+  String get settings_backups_restoreFile => 'Herstellen vanuit een bestand';
+
+  @override
+  String settings_backups_keepLast(int count) {
+    return 'De laatste $count back-ups bewaren';
+  }
+
+  @override
+  String get settings_backups_folder => 'Back-upmap op dit apparaat';
+
+  @override
+  String get settings_backups_useDefault => 'Standaard gebruiken';
+
+  @override
+  String get settings_backups_saveFile => 'Een back-upbestand opslaan';
+
+  @override
+  String get settings_backups_saveToFolder => 'Opslaan in een map';
+
+  @override
+  String get settings_backups_passwordProtection => 'Wachtwoordbeveiliging';
 }

@@ -2066,9 +2066,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings_cloudSync_encryption_cancel => '取消';
 
   @override
-  String get settings_backupEncryption_title => '备份加密';
-
-  @override
   String get settings_backupEncryption_subtitleOff => '使用密码保护您的备份';
 
   @override
@@ -2338,9 +2335,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backup_backingUp => '正在备份...';
 
   @override
-  String get backup_backupNow => '立即备份';
-
-  @override
   String get backup_note_dialog_title => '立即备份';
 
   @override
@@ -2351,12 +2345,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backup_note_dialog_confirm => '备份';
-
-  @override
-  String get backup_cloud_enabled => '云端备份';
-
-  @override
-  String get backup_cloud_enabled_subtitle => '将备份上传至云存储';
 
   @override
   String get backup_delete_dialog_cancel => '取消';
@@ -2375,12 +2363,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backup_delete_dialog_title => '删除备份';
 
   @override
-  String get backup_export_bottomSheet_title => '导出备份';
-
-  @override
-  String get backup_export_saveToFile => '保存到文件';
-
-  @override
   String get backup_export_saveToFile_subtitle => '选择备份文件的保存位置';
 
   @override
@@ -2388,12 +2370,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backup_export_share_subtitle => '通过隔空投送、电子邮件或其他应用发送';
-
-  @override
-  String get backup_export_subtitle => '将您的潜水数据保存到文件';
-
-  @override
-  String get backup_export_title => '导出备份';
 
   @override
   String get backup_frequency_daily => '每天';
@@ -2436,12 +2412,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backup_import_invalidFile => '此文件似乎不是有效的 Submersion 备份文件';
 
   @override
-  String get backup_import_subtitle => '从任意位置导入备份';
-
-  @override
-  String get backup_import_title => '从文件恢复';
-
-  @override
   String get backup_import_validating => '正在验证备份文件...';
 
   @override
@@ -2449,9 +2419,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backup_location_default => '默认位置';
-
-  @override
-  String get backup_location_title => '备份位置';
 
   @override
   String get backup_replaceConfirm_confirm => '全部替换';
@@ -2517,9 +2484,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get backup_restoreComplete_title => '恢复完成';
 
   @override
-  String get backup_schedule_enabled => '自动备份';
-
-  @override
   String get backup_schedule_frequency => '频率';
 
   @override
@@ -2532,9 +2496,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get backup_schedule_retention_subtitle => '旧备份将自动删除';
-
-  @override
-  String get backup_section_auto => '自动备份';
 
   @override
   String get backup_section_history => '历史记录';
@@ -50469,4 +50430,50 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settings_backups_copyStops => '备份将不再在此设备之外保留副本。';
+
+  @override
+  String settings_backups_copyTo(String account) {
+    return '副本存放在$account';
+  }
+
+  @override
+  String get settings_backups_copySameAsSync => '与同步使用同一账户';
+
+  @override
+  String get settings_backups_noCopy => '不在此设备之外保留副本';
+
+  @override
+  String get settings_backups_chooseAccount => '选择账户';
+
+  @override
+  String get settings_backups_copyAccountGone => '副本所在的账户已被移除';
+
+  @override
+  String get settings_backups_auto => '自动备份';
+
+  @override
+  String get settings_backups_backUpNow => '立即备份';
+
+  @override
+  String get settings_backups_restoreFile => '从文件恢复';
+
+  @override
+  String settings_backups_keepLast(int count) {
+    return '保留最近 $count 个备份';
+  }
+
+  @override
+  String get settings_backups_folder => '此设备上的备份文件夹';
+
+  @override
+  String get settings_backups_useDefault => '使用默认位置';
+
+  @override
+  String get settings_backups_saveFile => '保存备份文件';
+
+  @override
+  String get settings_backups_saveToFolder => '保存到文件夹';
+
+  @override
+  String get settings_backups_passwordProtection => '密码保护';
 }
