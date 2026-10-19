@@ -197,7 +197,7 @@ class DiveCenterRepository {
     final rows = await _db
         .customSelect(
           'SELECT id FROM dive_centers '
-          'WHERE unicode_lower(name) = unicode_lower(?) '
+          'WHERE unicode_lower(TRIM(name)) = unicode_lower(?) '
           'AND (diver_id = ? OR diver_id IS NULL) '
           'ORDER BY diver_id IS NULL, rowid LIMIT 1',
           variables: [

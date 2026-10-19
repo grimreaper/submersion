@@ -104,6 +104,13 @@ void main() {
     expect((journal.current!.id, journal.current!.text), ('strong', 'strong'));
   });
 
+  test('a code with text but no id keeps its text', () {
+    final journal = SuuntoJournal.parse({
+      'diveVisibility': {'id': '', 'value': 'Trueb'},
+    });
+    expect((journal.visibility!.id, journal.visibility!.text), ('', 'Trueb'));
+  });
+
   test('malformed shapes are passed over', () {
     final journal = SuuntoJournal.parse({
       'diveSuit': 'x',

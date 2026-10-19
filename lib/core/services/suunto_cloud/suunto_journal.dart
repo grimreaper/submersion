@@ -4,8 +4,8 @@
 class SuuntoCoded {
   const SuuntoCoded({required this.id, required this.text});
 
-  /// The language-independent code. Only this is ever mapped to a
-  /// Submersion value.
+  /// The language-independent code, empty when the workout carried none.
+  /// Only this is ever mapped to a Submersion value.
   final String id;
 
   /// What the diver saw in the Suunto app ("Gut"), or [id] when the workout
@@ -134,11 +134,14 @@ class SuuntoJournal {
     return List.unmodifiable(values);
   }
 
+  /// A coded entry, kept when it has an id or text: text with no id is
+  /// still what the diver logged, kept as text since nothing can map it.
   static SuuntoCoded? _coded(Object? entry) {
     if (entry is! Map) return null;
     final id = _text(entry['id']);
-    if (id == null) return null;
-    return SuuntoCoded(id: id, text: _text(entry['value']) ?? id);
+    final text = _text(entry['value']) ?? id;
+    if (text == null) return null;
+    return SuuntoCoded(id: id ?? '', text: text);
   }
 
   /// Kilograms from `{value, unit}`. An unknown unit is skipped rather than

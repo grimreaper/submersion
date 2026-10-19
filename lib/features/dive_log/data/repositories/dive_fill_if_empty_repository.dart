@@ -41,14 +41,17 @@ class DiveFillIfEmptyRepository {
 
   /// Writes [range] as dive [diveId]'s visibility, the shape a band pick in
   /// the edit form saves (issue #3226), when the dive records no visibility
-  /// in any form: not the legacy band, a measurement or a range.
+  /// in any form: not the legacy band, a measurement or a range. A legacy
+  /// `unknown` band counts as none, as it does in the edit form, and is
+  /// cleared with the write.
   Future<bool> fillVisibilityRangeIfEmpty(
     String diveId,
     VisibilityRange range,
   ) => _updateDiveWhere(
-    'visibility_min_meters = ?, visibility_max_meters = ?',
+    'visibility = NULL, visibility_min_meters = ?, visibility_max_meters = ?',
     [Variable(range.minM), Variable(range.maxM)],
-    'visibility IS NULL AND visibility_meters IS NULL '
+    "(visibility IS NULL OR visibility = 'unknown') "
+        'AND visibility_meters IS NULL '
         'AND visibility_min_meters IS NULL '
         'AND visibility_max_meters IS NULL',
     diveId,

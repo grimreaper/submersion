@@ -55,6 +55,14 @@ void main() {
     ]);
   });
 
+  test('a code with no id is kept as text', () {
+    const journal = SuuntoJournal(
+      visibility: SuuntoCoded(id: '', text: 'Trueb'),
+    );
+
+    expect(suuntoCustomFields(journal), [(key: 'Visibility', value: 'Trueb')]);
+  });
+
   test('a mapped code adds no custom field', () {
     const journal = SuuntoJournal(
       visibility: SuuntoCoded(id: 'good', text: 'Gut'),

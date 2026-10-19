@@ -58,6 +58,15 @@ void main() {
     expect(center.id, 'c-own');
   });
 
+  test('matches a stored name with stray spaces', () async {
+    await insertCenter('c-own', 'diver-1', ' TKL ');
+
+    final center = await repo.findOrCreateByName('TKL', diverId: 'diver-1');
+
+    expect(center.id, 'c-own');
+    expect(await centerCount(), 1);
+  });
+
   test('claims an unowned center for the diver', () async {
     await insertCenter('c-unowned', null, 'TKL');
 

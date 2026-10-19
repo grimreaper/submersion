@@ -89,6 +89,22 @@ void main() {
     }
   });
 
+  test('a legacy unknown band counts as no visibility', () async {
+    // The edit form treats it as empty, so the import does too.
+    await setColumn("visibility = 'unknown'");
+
+    expect(
+      await repo.fillVisibilityRangeIfEmpty(
+        'd1',
+        const VisibilityRange(minM: 15, maxM: 30),
+      ),
+      isTrue,
+    );
+    final row = await dive();
+    expect(row['visibility'], isNull);
+    expect(row['visibility_min_meters'], 15);
+  });
+
   group('fillCurrentStrengthIfEmpty', () {
     test('writes the strength on a dive with none', () async {
       expect(
