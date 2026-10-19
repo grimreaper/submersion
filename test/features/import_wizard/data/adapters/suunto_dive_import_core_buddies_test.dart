@@ -1,6 +1,7 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:submersion/core/services/suunto_cloud/suunto_dive_parser.dart';
+import 'package:submersion/core/services/suunto_cloud/suunto_journal.dart';
 import 'package:submersion/features/dive_computer/domain/entities/downloaded_dive.dart';
 import 'package:submersion/features/dive_import/domain/services/dive_matcher.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_computer.dart';
@@ -49,7 +50,7 @@ SuuntoParsedDive _parsedWithBuddies() => SuuntoParsedDive(
   ),
   deviceName: 'Suunto Nautic',
   serialNumber: 'SN-1',
-  buddies: const ['Buddy 1', 'Buddy 2'],
+  journal: const SuuntoJournal(buddies: ['Buddy 1', 'Buddy 2']),
 );
 
 void main() {
