@@ -118,7 +118,10 @@ class BackupCopyRow extends ConsumerWidget {
         final ConnectedAccount row;
         try {
           row = await _syncRowOf(ref, group);
-        } on StateError {
+        } on Object {
+          // No keys for the server here (StateError), or the keychain or
+          // roster refused: the copy stays where it was, and the diver hears
+          // the one step that fixes the common case.
           if (context.mounted) {
             ScaffoldMessenger.of(context).showSnackBar(
               SnackBar(

@@ -107,6 +107,9 @@ class _FakeAdapter implements BackupDatabaseAdapter {
 class _FakeGroupService extends Fake implements AccountGroupService {
   final ensured = <(String, AccountRole)>[];
 
+  /// Thrown from [ensureRole] when set.
+  Object? failure;
+
   @override
   Future<ConnectedAccount> ensureRole(
     AccountGroup group,
@@ -114,6 +117,7 @@ class _FakeGroupService extends Fake implements AccountGroupService {
     String? libraryFolder,
   }) async {
     ensured.add((group.key, role));
+    if (failure case final f?) throw f;
     return _row('s3-sync', AccountKind.s3, 'dives @ minio.home');
   }
 }
@@ -318,6 +322,18 @@ void main() {
       expect(s.copyAccountKind, AccountKind.s3);
     });
 
+    testWidgets('a failure making the sync folder row says so', (tester) async {
+      await pumpPage(tester);
+      groupService.failure = Exception('keychain locked');
+      await openSheet(tester, 'Choose an account');
+
+      await tester.tap(inSheet('dives @ minio.home'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sign in to dives @ minio.home'), findsOneWidget);
+      expect(backupPrefs.getSettings().cloudBackupEnabled, isFalse);
+    });
+
     testWidgets('backing out changes nothing', (tester) async {
       await pumpPage(tester, initialPrefs: {'backup_cloud_enabled': true});
       await openSheet(tester, 'Change');
@@ -344,6 +360,14 @@ void main() {
 
       expect(backupPrefs.getSettings().frequency, BackupFrequency.daily);
       expect(find.text('Daily'), findsOneWidget);
+    });
+
+    testWidgets('a screen reader hears the frequency itself', (tester) async {
+      final handle = tester.ensureSemantics();
+      await pumpPage(tester, initialPrefs: {'backup_enabled': true});
+
+      expect(find.bySemanticsLabel(RegExp('Weekly')), findsOneWidget);
+      handle.dispose();
     });
 
     testWidgets('off hides the frequency', (tester) async {

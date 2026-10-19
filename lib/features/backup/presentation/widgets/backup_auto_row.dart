@@ -26,7 +26,10 @@ class BackupAutoRow extends ConsumerWidget {
       subtitle: settings.enabled
           ? TileSubtitleAction(
               label: backupFrequencyLabel(l10n, settings.frequency),
-              semanticsLabel: l10n.backup_schedule_frequency,
+              // The value is the label; the name only adds context.
+              semanticsLabel:
+                  '${l10n.backup_schedule_frequency}: '
+                  '${backupFrequencyLabel(l10n, settings.frequency)}',
               onPressed: () async {
                 final picked = await showBackupChoiceDialog(
                   context,
