@@ -240,4 +240,98 @@ void main() {
     );
     expect(tile.enabled, isFalse);
   });
+
+  group('with a none choice', () {
+    Future<Future<AccountSheetChoice?> Function()> pumpNone(
+      WidgetTester tester, {
+      bool noneSelected = false,
+    }) async {
+      AccountSheetChoice? result;
+      var done = false;
+      await tester.binding.setSurfaceSize(const Size(500, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            accountGroupsProvider.overrideWith((ref) async => [_drive]),
+            offerableAccountKindsProvider.overrideWithValue(const [
+              AccountKindOffer.dropbox,
+            ]),
+          ],
+          child: MaterialApp(
+            locale: const Locale('en'),
+            localizationsDelegates: AppLocalizations.localizationsDelegates,
+            supportedLocales: AppLocalizations.supportedLocales,
+            home: Builder(
+              builder: (context) => Scaffold(
+                body: TextButton(
+                  onPressed: () async {
+                    result = await showAccountOrNoneSheet(
+                      context,
+                      noneLabel: 'Nowhere else',
+                      noneSelected: noneSelected,
+                    );
+                    done = true;
+                  },
+                  child: const Text('open'),
+                ),
+              ),
+            ),
+          ),
+        ),
+      );
+      return () async {
+        expect(done, isTrue, reason: 'the sheet is still open');
+        return result;
+      };
+    }
+
+    testWidgets('the none choice sits first and returns ChoseNone', (
+      tester,
+    ) async {
+      final result = await pumpNone(tester);
+      await open(tester);
+
+      expect(
+        tester.getTopLeft(find.text('Nowhere else')).dy,
+        lessThan(tester.getTopLeft(find.text('Google Drive')).dy),
+      );
+      await tester.tap(find.text('Nowhere else'));
+      await tester.pumpAndSettle();
+      expect(await result(), isA<ChoseNone>());
+    });
+
+    testWidgets('an account returns ChoseAccount', (tester) async {
+      final result = await pumpNone(tester);
+      await open(tester);
+
+      await tester.tap(find.text('Google Drive'));
+      await tester.pumpAndSettle();
+      final choice = await result();
+      expect(choice, isA<ChoseAccount>());
+      expect((choice as ChoseAccount).group.key, _drive.key);
+    });
+
+    testWidgets('the none choice shows as selected', (tester) async {
+      await pumpNone(tester, noneSelected: true);
+      await open(tester);
+
+      final tile = tester.widget<ListTile>(
+        find.ancestor(
+          of: find.text('Nowhere else'),
+          matching: find.byType(ListTile),
+        ),
+      );
+      expect(tile.selected, isTrue);
+    });
+
+    testWidgets('backing out returns nothing', (tester) async {
+      final result = await pumpNone(tester);
+      await open(tester);
+
+      await tester.tapAt(const Offset(250, 20));
+      await tester.pumpAndSettle();
+      expect(await result(), isNull);
+    });
+  });
 }
