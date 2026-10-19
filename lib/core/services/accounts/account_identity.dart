@@ -1,6 +1,7 @@
 import 'package:uuid/uuid.dart';
 
 import 'package:submersion/core/services/accounts/account_kind.dart';
+import 'package:submersion/core/services/cloud_storage/git/git_config.dart';
 import 'package:submersion/core/services/cloud_storage/s3/s3_config.dart';
 import 'package:submersion/core/services/cloud_storage/webdav/webdav_config.dart';
 
@@ -27,6 +28,11 @@ String s3NaturalKey(S3Config config) =>
 /// new app password does not mint a new account.
 String webdavNaturalKey(WebDavConfig config) =>
     '${config.davRoot}|${config.folder}';
+
+/// Endpoint identity for a Git account: the normalized clone address plus the
+/// branch, so two branches of one repository stay separate accounts. The
+/// token is excluded, so a new token does not mint a new account.
+String gitNaturalKey(GitConfig config) => '${config.repoUrl}|${config.branch}';
 
 /// Natural key for a kind that can only have one instance per library.
 ///
