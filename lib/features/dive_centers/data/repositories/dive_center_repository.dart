@@ -182,6 +182,73 @@ class DiveCenterRepository {
     }
   }
 
+  /// The diver's dive center called [name] (ignoring case), else an unowned
+  /// one of that name claimed for the diver, else a new one for the diver.
+  /// For an import that knows a center only by name (issue #3491). Centers
+  /// are diver-scoped, so another diver's namesake is never linked.
+  Future<domain.DiveCenter> findOrCreateByName(
+    String name, {
+    required String diverId,
+  }) async {
+    final trimmed = name.trim();
+    if (trimmed.isEmpty) {
+      throw ArgumentError('Dive center name cannot be empty');
+    }
+    final rows = await _db
+        .customSelect(
+          'SELECT id FROM dive_centers '
+          'WHERE unicode_lower(name) = unicode_lower(?) '
+          'AND (diver_id = ? OR diver_id IS NULL) '
+          'ORDER BY diver_id IS NULL, rowid LIMIT 1',
+          variables: [
+            Variable.withString(trimmed),
+            Variable.withString(diverId),
+          ],
+        )
+        .get();
+    if (rows.isNotEmpty) {
+      final found = await getDiveCenterById(rows.first.read<String>('id'));
+      if (found != null) {
+        if (found.diverId != null) return found;
+        await _claimForDiver(found.id, diverId);
+        return found.copyWith(diverId: diverId);
+      }
+    }
+    final now = DateTime.now();
+    return createDiveCenter(
+      domain.DiveCenter(
+        id: '',
+        diverId: diverId,
+        name: trimmed,
+        createdAt: now,
+        updatedAt: now,
+      ),
+    );
+  }
+
+  /// Gives an unowned center to [diverId]. [updateDiveCenter] leaves the
+  /// owner alone, so the claim is its own guarded write.
+  Future<void> _claimForDiver(String centerId, String diverId) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final changed = await _db.customUpdate(
+      'UPDATE dive_centers SET diver_id = ?, updated_at = ? '
+      'WHERE id = ? AND diver_id IS NULL',
+      variables: [
+        Variable.withString(diverId),
+        Variable.withInt(now),
+        Variable.withString(centerId),
+      ],
+      updates: {_db.diveCenters},
+    );
+    if (changed == 0) return;
+    await _syncRepository.markRecordPending(
+      entityType: 'diveCenters',
+      recordId: centerId,
+      localUpdatedAt: now,
+    );
+    SyncEventBus.notifyLocalChange();
+  }
+
   /// Update an existing dive center
   Future<void> updateDiveCenter(domain.DiveCenter center) async {
     try {
