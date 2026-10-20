@@ -13,6 +13,7 @@ import 'package:submersion/core/services/cloud_storage/git/git_object_store.dart
 import 'package:submersion/core/services/cloud_storage/git/git_objects.dart';
 import 'package:submersion/core/services/cloud_storage/git/git_tree_editor.dart';
 import 'package:submersion/core/services/cloud_storage/git/pack_writer.dart';
+import 'package:submersion/core/services/logger_service.dart';
 
 /// Who a commit says it is from. [messageLabel] goes in the message
 /// (`Sync from <label>`).
@@ -133,6 +134,7 @@ class GitBranchSession {
   int _appliedLook = 0;
 
   static final Random _random = Random();
+  static final _log = LoggerService.forClass(GitBranchSession);
   static Duration _jitter(int attempt) =>
       Duration(milliseconds: 200 * attempt + _random.nextInt(300));
 
@@ -328,7 +330,10 @@ class GitBranchSession {
           code: GitErrorCode.indexUnreadable,
           cause: e,
         );
-      } on FormatException {
+      } on FormatException catch (e) {
+        _log.warning(
+          'Rebuilding the damaged file index on $branch from its tree: $e',
+        );
         read = GitIndex.empty;
       }
     }
@@ -397,11 +402,7 @@ class GitBranchSession {
       GitIndex(
         Map.unmodifiable({
           ...current.index.entries,
-          path: GitIndexEntry(
-            blobId: blobId,
-            size: size,
-            modifiedMs: known.modifiedMs,
-          ),
+          path: known.copyWith(size: size),
         }),
       ),
     );

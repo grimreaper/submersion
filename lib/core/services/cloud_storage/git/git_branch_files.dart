@@ -50,6 +50,12 @@ final class GitIndexEntry {
 
   /// The writing device's clock when it uploaded the file, in UTC epoch ms.
   final int modifiedMs;
+
+  GitIndexEntry copyWith({int? size}) => GitIndexEntry(
+    blobId: blobId,
+    size: size ?? this.size,
+    modifiedMs: modifiedMs,
+  );
 }
 
 /// An index written by a newer Submersion: reading it as this version's
