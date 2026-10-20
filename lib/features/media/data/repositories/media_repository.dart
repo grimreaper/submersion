@@ -2247,17 +2247,27 @@ class MediaRepository {
   /// section Phase 3): the store becomes the source of truth, the local
   /// pointers clear, and the orphan flag lifts. Refused per row without the
   /// contentHash + remoteUploadedAt stamp pair -- converting an unconfirmed
-  /// row would render nothing anywhere. Sync-safe like [_unlinkColumns].
-  Future<void> convertToCloudBacked(List<String> mediaIds) async {
-    if (mediaIds.isEmpty) return;
+  /// row would render nothing anywhere. The stamp must also be one made in
+  /// [storeId], the attached store, or name no store (issue #3482): a row
+  /// whose only copy is in a store the device has changed away from would
+  /// resolve against one that never held it. Sync-safe like
+  /// [_unlinkColumns]. Returns the ids actually converted.
+  Future<Set<String>> convertToCloudBacked(
+    List<String> mediaIds, {
+    required String storeId,
+  }) async {
+    if (mediaIds.isEmpty) return const {};
     final rows = await (_db.select(
       _db.media,
     )..where((t) => t.id.isIn(mediaIds))).get();
     final qualified = [
       for (final row in rows)
-        if (row.contentHash != null && row.remoteUploadedAt != null) row.id,
+        if (row.contentHash != null &&
+            row.remoteUploadedAt != null &&
+            (row.remoteStoreId == null || row.remoteStoreId == storeId))
+          row.id,
     ];
-    if (qualified.isEmpty) return;
+    if (qualified.isEmpty) return const {};
     final now = DateTime.now().millisecondsSinceEpoch;
     await _db.transaction(() async {
       await (_db.update(_db.media)..where((t) => t.id.isIn(qualified))).write(
@@ -2282,6 +2292,7 @@ class MediaRepository {
       }
     });
     SyncEventBus.notifyLocalChange();
+    return qualified.toSet();
   }
 
   /// Deletes the enrichment rows of [mediaIds], each with a tombstone.
@@ -2766,6 +2777,23 @@ class MediaRepository {
     return (copied: row.read(copied) ?? 0, total: row.read(total) ?? 0);
   }
 
+  /// How many logbook photos and videos only [storeId] holds (issue #3482):
+  /// cloud-backed rows whose stamps were made there or name no store. A
+  /// device that moves its copies to another store can no longer open them.
+  Future<int> countHeldOnlyInStore(String storeId) async {
+    final held = countAll(
+      filter:
+          isLinkedToLogbook(_db.media) &
+          _db.media.sourceType.equals('mediaStore') &
+          (_db.media.remoteStoreId.isNull() |
+              _db.media.remoteStoreId.equals(storeId)),
+    );
+    final row = await (_db.selectOnly(
+      _db.media,
+    )..addColumns([held])).getSingle();
+    return row.read(held) ?? 0;
+  }
+
   /// Rows the media store holds a copy of once uploaded: linked to the
   /// logbook, and this device's own (or from before origin tracking).
   ///
@@ -2850,15 +2878,29 @@ class MediaRepository {
   /// Names [storeId] as the store of every stamped row that names none
   /// (issue #3482), before this device moves to another store: those stamps
   /// were made in [storeId], and left unclaimed they would count for the
-  /// next one. Each row syncs under a new upload clock. Returns how many
-  /// rows were claimed.
+  /// next one. Only rows whose upload facts this device wrote last are
+  /// claimed: another device's unclaimed stamps were made in whichever store
+  /// that device was on, which this one cannot know. The claimed rows sync
+  /// under one new upload clock. Returns how many rows were claimed.
   Future<int> claimUnownedStamps(String storeId) async {
+    final node = await _syncRepository.localNodeId();
+    if (node == null) return 0;
     final id = _db.media.id;
+    final escaped = node.replaceAllMapped(
+      RegExp(r'[\\%_]'),
+      (m) => '\\${m[0]}',
+    );
+    // A null upload clock falls back to the row clock (spec 5.1).
+    final writtenHere = coalesce([
+      _db.media.uploadFactsHlc,
+      _db.media.hlc,
+    ]).like('%:$escaped', escapeChar: r'\');
     final unclaimed =
         _db.media.remoteStoreId.isNull() &
         (_db.media.remoteUploadedAt.isNotNull() |
             _db.media.remoteThumbUploadedAt.isNotNull() |
-            _db.media.remoteCompressedUploadedAt.isNotNull());
+            _db.media.remoteCompressedUploadedAt.isNotNull()) &
+        writtenHere;
     final now = DateTime.now().millisecondsSinceEpoch;
     final ids = await _db.transaction(() async {
       final ids =
@@ -2874,14 +2916,12 @@ class MediaRepository {
       await (_db.update(_db.media)..where((_) => unclaimed)).write(
         MediaCompanion(remoteStoreId: Value(storeId), updatedAt: Value(now)),
       );
-      for (final mediaId in ids) {
-        await _syncRepository.markFactsPending(
-          entityType: 'media',
-          recordId: mediaId,
-          localUpdatedAt: now,
-          group: SyncFactGroups.mediaUpload,
-        );
-      }
+      await _syncRepository.markFactsPendingForAll(
+        entityType: 'media',
+        recordIds: ids,
+        localUpdatedAt: now,
+        group: SyncFactGroups.mediaUpload,
+      );
       return ids;
     });
     if (ids.isNotEmpty) SyncEventBus.notifyLocalChange();

@@ -183,4 +183,42 @@ void main() {
     expect(enqueued, 1);
     expect((await queue.allForTesting()).single.mediaId, elsewhere.id);
   });
+  // A switch leaves the old store's terminal failures behind; tapping
+  // Upload everything must give them a fresh attempt budget against the
+  // attached store, or they count as queued and never upload.
+  test('re-arms a terminally failed upload row so it can be claimed', () async {
+    final photo = await mediaRow(name: 'stuck.jpg');
+    final id = await queue.enqueueUpload(mediaId: photo.id);
+    for (var i = 0; i < 5; i++) {
+      await queue.markFailed(id, 'insufficient space');
+    }
+    expect((await queue.allForTesting()).single.state, 'failed');
+
+    expect(await service.enqueueAll(), 1);
+
+    final row = (await queue.allForTesting()).single;
+    expect(row.id, id);
+    expect(row.state, 'pending');
+    expect(row.attempts, 0);
+    expect(row.errorMessage, isNull);
+    final claimed = await queue.claimNextPending(DateTime.now());
+    expect(claimed?.id, id);
+    queue.release(id);
+  });
+
+  test('resets the attempt count of a pending upload row', () async {
+    final photo = await mediaRow(name: 'retrying.jpg');
+    final id = await queue.enqueueUpload(mediaId: photo.id);
+    for (var i = 0; i < 4; i++) {
+      await queue.markFailed(id, 'insufficient space');
+    }
+
+    expect(await service.enqueueAll(), 1);
+
+    final row = (await queue.allForTesting()).single;
+    expect(row.state, 'pending');
+    expect(row.attempts, 0);
+    expect(row.nextAttemptAt, isNull);
+    expect(await queue.nextPending(DateTime.now()), isNotNull);
+  });
 }

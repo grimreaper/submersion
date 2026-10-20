@@ -54470,5 +54470,28 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
+  String settings_photos_switchConsequenceUnnamed(String choice) {
+    return 'Dit apparaat stopt met zijn huidige kopieën en begint of sluit aan bij kopieën in $choice. Er wordt niets verwijderd.';
+  }
+
+  @override
+  String settings_photos_switchHeldOnly(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count foto\'s staan alleen in de huidige kopieën en openen na de wijziging niet meer op dit apparaat.',
+      one:
+          '1 foto staat alleen in de huidige kopieën en opent na de wijziging niet meer op dit apparaat.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String settings_photos_startedSeparate(String account) {
+    return 'Er zijn geen kopieën gevonden in $account, dus dit apparaat is daar met aparte kopieën begonnen.';
+  }
+
+  @override
   String get settings_conflict_field_remoteStoreId => 'Geüpload naar';
 }

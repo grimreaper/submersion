@@ -1,11 +1,13 @@
 import 'dart:convert';
 import 'dart:io';
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:submersion/core/data/repositories/sync_repository.dart';
+import 'package:submersion/core/database/database.dart' hide ConnectedAccount;
 import 'package:submersion/core/services/accounts/account_kind.dart';
 import 'package:submersion/core/services/accounts/connected_account.dart';
 import 'package:submersion/core/services/cloud_storage/s3/s3_config.dart';
@@ -61,6 +63,7 @@ void main() {
   late MediaStoreCredentialsStore credentials;
   late MediaStoreAttachState attachState;
   late MediaStoresRepository storesRepository;
+  late AppDatabase db;
 
   final config = S3Config(
     endpoint: 'https://minio.example.com',
@@ -71,7 +74,7 @@ void main() {
   );
 
   setUp(() async {
-    await setUpTestDatabase();
+    db = await setUpTestDatabase();
     SharedPreferences.setMockInitialValues({});
     credentials = MediaStoreCredentialsStore(storage: InMemoryKeychain());
     attachState = MediaStoreAttachState(
@@ -152,6 +155,41 @@ void main() {
     expect(await credentials.load(), isNull);
     expect(await attachState.attachedStoreId(), isNull);
     expect(await storesRepository.getActive(), isNotNull);
+  });
+
+  // A store announced before descriptors recorded their account: the
+  // attached device fills it in, so another device joins the right folder.
+  test(
+    'the attached account is recorded on a descriptor naming none',
+    () async {
+      final result = await service().attachToAccountRow(
+        _row('s3-media', AccountKind.s3),
+        InMemoryMediaObjectStore(),
+      );
+      await (db.update(db.mediaStores)
+            ..where((t) => t.id.equals(result.storeId)))
+          .write(const MediaStoresCompanion(accountId: Value(null)));
+      final before = (await storesRepository.getById(result.storeId))!;
+
+      await service().recordAttachedAccount();
+
+      final after = (await storesRepository.getById(result.storeId))!;
+      expect(before.accountId, isNull);
+      expect(after.accountId, 's3-media');
+    },
+  );
+
+  test('a recorded account is never overwritten', () async {
+    final result = await service().attachToAccountRow(
+      _row('s3-media', AccountKind.s3),
+      InMemoryMediaObjectStore(),
+    );
+    await storesRepository.recordAccount(result.storeId, 'other');
+
+    expect(
+      (await storesRepository.getById(result.storeId))!.accountId,
+      's3-media',
+    );
   });
 
   // Issue #3482: stamps that name no store were made in the store the

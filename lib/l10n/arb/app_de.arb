@@ -16240,5 +16240,8 @@
   "settings_photos_suspended_title": "Uploads angehalten",
   "settings_photos_separateConsequence": "Die Kopien der Bibliothek liegen in {current}. Mit {choice} beginnen dort separate Kopien. Es wird nichts gelöscht.",
   "settings_photos_joinConsequence": "Dieses Gerät beginnt Kopien in {choice} oder schließt sich ihnen an. Es wird nichts gelöscht.",
+  "settings_photos_switchConsequenceUnnamed": "Dieses Gerät verwendet seine bisherigen Kopien nicht mehr und beginnt oder übernimmt Kopien in {choice}. Es wird nichts gelöscht.",
+  "settings_photos_switchHeldOnly": "{count, plural, =1{1 Foto liegt nur in den bisherigen Kopien und lässt sich nach dem Wechsel auf diesem Gerät nicht mehr öffnen.} other{{count} Fotos liegen nur in den bisherigen Kopien und lassen sich nach dem Wechsel auf diesem Gerät nicht mehr öffnen.}}",
+  "settings_photos_startedSeparate": "In {account} wurden keine Kopien gefunden, daher hat dieses Gerät dort separate Kopien begonnen.",
   "settings_conflict_field_remoteStoreId": "Hochgeladen in"
 }

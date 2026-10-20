@@ -26,11 +26,8 @@ class PhotosStatusLine extends ConsumerWidget {
     final status = photosStatus(
       attached: copies.attached,
       announced: copies.store != null,
-      pendingSetup: items.any(
-        (i) =>
-            !i.dismissed &&
-            (i.kind == SetupItemKind.mediaStoreAttach ||
-                i.kind == SetupItemKind.mediaStoreReconnect),
+      reconnect: items.any(
+        (i) => !i.dismissed && i.kind == SetupItemKind.mediaStoreReconnect,
       ),
       reachable: copies.attached
           ? ref.watch(photosStoreReachableProvider)

@@ -51483,5 +51483,26 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String settings_photos_switchConsequenceUnnamed(String choice) {
+    return '此设备将停止使用当前的副本，并在$choice中开始或加入副本。不会删除任何内容。';
+  }
+
+  @override
+  String settings_photos_switchHeldOnly(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 张照片仅保存在当前副本中，更换后将无法在此设备上打开。',
+      one: '1 张照片仅保存在当前副本中，更换后将无法在此设备上打开。',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String settings_photos_startedSeparate(String account) {
+    return '在$account中未找到副本，因此此设备在那里开始了单独的副本。';
+  }
+
+  @override
   String get settings_conflict_field_remoteStoreId => '上传至';
 }

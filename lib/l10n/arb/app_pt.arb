@@ -16119,5 +16119,8 @@
   "settings_photos_suspended_title": "Envios pausados",
   "settings_photos_separateConsequence": "As cópias da biblioteca estão em {current}. Escolher {choice} inicia cópias separadas lá. Nada é excluído.",
   "settings_photos_joinConsequence": "Este dispositivo inicia cópias em {choice} ou junta-se a elas. Nada é excluído.",
+  "settings_photos_switchConsequenceUnnamed": "Este dispositivo deixa de usar as cópias atuais e inicia ou se junta às cópias em {choice}. Nada é excluído.",
+  "settings_photos_switchHeldOnly": "{count, plural, =1{{count} foto está apenas nas cópias atuais e não abrirá neste dispositivo após a mudança.} other{{count} fotos estão apenas nas cópias atuais e não abrirão neste dispositivo após a mudança.}}",
+  "settings_photos_startedSeparate": "Nenhuma cópia foi encontrada em {account}, então este dispositivo iniciou cópias separadas lá.",
   "settings_conflict_field_remoteStoreId": "Enviado para"
 }

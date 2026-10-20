@@ -141,33 +141,43 @@ class MediaStoreService {
   /// folder or starts one, and the attachment and the synced descriptor both
   /// name [row], so a second device holding the account joins with nothing
   /// to type. A null [store] means the account has no usable keys here.
+  ///
+  /// [replacing] moves an attached device to [store]: the current
+  /// attachment stands until the marker check succeeds, and only then is
+  /// it replaced and the legacy key blob cleared, so a failure leaves the
+  /// device on the copies it had.
   Future<MediaStoreConnectResult> attachToAccountRow(
     domain.ConnectedAccount row,
-    MediaObjectStore? store,
-  ) async {
+    MediaObjectStore? store, {
+    bool replacing = false,
+  }) async {
     final type = row.kind.cloudProviderType;
     if (store == null || type == null) {
-      throw MediaStoreException(
+      throw MediaStoreAccountUnusable(
         '${row.label} is not signed in or cannot hold copies on this device',
-        kind: MediaStoreErrorKind.auth,
       );
     }
+    // Read before anything changes: the store this device is on is the one
+    // its unclaimed stamps were made in.
+    final previous =
+        await _attachState.attachedStoreId() ??
+        (await _storesRepository.getActive())?.id;
     final ensured = await _ensureMarker(store);
     final newId = ensured.marker.storeId;
     // Stamps naming no store were made in the store this device was on, or
     // else the one the library announces. Claim them for it before moving,
     // or they would count as copies in the new store (issue #3482).
-    final previous =
-        await _attachState.attachedStoreId() ??
-        (await _storesRepository.getActive())?.id;
     if (previous != null && previous != newId) {
       await _mediaRepository.claimUnownedStamps(previous);
     }
+    // Replaces any attachment in one step and bumps its generation, so the
+    // old store's worker stands down.
     await _attachState.setAttached(
       ensured.marker.storeId,
       providerType: type,
       accountId: row.id,
     );
+    if (replacing) await _credentials.clear();
     await _storesRepository.upsertActive(
       storeId: ensured.marker.storeId,
       providerType: type.name,
@@ -200,10 +210,33 @@ class MediaStoreService {
     }
   }
 
+  /// Records this device's account on its store's descriptor when that
+  /// names none (schema v302 added the column with no backfill), so a
+  /// second device joins the copies in their own folder rather than a
+  /// default one.
+  Future<void> recordAttachedAccount() async {
+    final storeId = await _attachState.attachedStoreId();
+    final accountId = await _attachState.attachedAccountId();
+    if (storeId == null || accountId == null) return;
+    await _storesRepository.recordAccount(storeId, accountId);
+  }
+
+  /// The store the library most recently announced on one of [accountIds].
+  Future<MediaStoreDescriptor?> storeOnAccounts(Iterable<String> accountIds) =>
+      _storesRepository.latestOnAccounts(accountIds);
+
   /// Detaches this device. Credentials and attach state are cleared; the
   /// synced descriptor row and everything in the bucket remain.
   Future<void> disconnect() async {
     await _credentials.clear();
     await _attachState.clear();
   }
+}
+
+/// An account chosen for the copies that holds no usable keys on this
+/// device, or cannot hold copies at all. Raised before anything changes;
+/// the screens ask the diver to sign in rather than show [message].
+class MediaStoreAccountUnusable extends MediaStoreException {
+  const MediaStoreAccountUnusable(super.message)
+    : super(kind: MediaStoreErrorKind.auth);
 }

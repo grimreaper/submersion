@@ -97,6 +97,41 @@ class MediaStoresRepository {
     );
   }
 
+  /// Records [accountId] as the roster row store [storeId] lives on, when
+  /// its descriptor names none: a store announced before descriptors
+  /// recorded their account. Leaves updatedAt alone, as [stampLastSweep]
+  /// does: filling in a fact is not a new announcement.
+  Future<void> recordAccount(String storeId, String accountId) async {
+    final now = DateTime.now().millisecondsSinceEpoch;
+    final written =
+        await (_db.update(_db.mediaStores)
+              ..where((t) => t.id.equals(storeId) & t.accountId.isNull()))
+            .write(MediaStoresCompanion(accountId: Value(accountId)));
+    if (written == 0) return;
+    await _syncRepository.markRecordPending(
+      entityType: 'mediaStores',
+      recordId: storeId,
+      localUpdatedAt: now,
+    );
+    SyncEventBus.notifyLocalChange();
+  }
+
+  /// The most recently announced store living on one of [accountIds], or
+  /// null when the library has none there.
+  Future<MediaStoreDescriptor?> latestOnAccounts(
+    Iterable<String> accountIds,
+  ) async {
+    final ids = accountIds.toList();
+    if (ids.isEmpty) return null;
+    final row =
+        await (_db.select(_db.mediaStores)
+              ..where((t) => t.accountId.isIn(ids))
+              ..orderBy([(t) => OrderingTerm.desc(t.updatedAt)])
+              ..limit(1))
+            .getSingleOrNull();
+    return row == null ? null : _toDescriptor(row);
+  }
+
   /// Records a completed Verify Library sweep (orphan-prevention spec
   /// 6.4). Synced, so one device's sweep satisfies the fleet-wide 30-day
   /// cadence for every device. Leaves updatedAt alone: it orders the

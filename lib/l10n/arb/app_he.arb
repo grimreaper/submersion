@@ -16119,5 +16119,8 @@
   "settings_photos_suspended_title": "ההעלאות מושהות",
   "settings_photos_separateConsequence": "העותקים של הספרייה נמצאים ב-{current}. בחירה ב-{choice} מתחילה שם עותקים נפרדים. שום דבר לא נמחק.",
   "settings_photos_joinConsequence": "המכשיר הזה מתחיל עותקים ב-{choice} או מצטרף אליהם. שום דבר לא נמחק.",
+  "settings_photos_switchConsequenceUnnamed": "המכשיר הזה מפסיק להשתמש בעותקים הנוכחיים שלו ומתחיל או מצטרף לעותקים ב-{choice}. שום דבר לא נמחק.",
+  "settings_photos_switchHeldOnly": "{count, plural, =1{תמונה אחת שמורה רק בעותקים הנוכחיים ולא תיפתח במכשיר הזה אחרי השינוי.} other{{count} תמונות שמורות רק בעותקים הנוכחיים ולא ייפתחו במכשיר הזה אחרי השינוי.}}",
+  "settings_photos_startedSeparate": "לא נמצאו עותקים ב-{account}, ולכן המכשיר הזה התחיל שם עותקים נפרדים.",
   "settings_conflict_field_remoteStoreId": "הועלה אל"
 }

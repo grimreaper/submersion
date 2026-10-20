@@ -148,6 +148,24 @@ void main() {
     });
   });
 
+  group('photos only a store holds', () {
+    test('counts cloud-backed rows made in the store or naming none', () async {
+      Future<void> cloudBacked(String name, String? store) async {
+        final id = await add(name, original: true, store: store);
+        await (db.update(db.media)..where((m) => m.id.equals(id))).write(
+          const MediaCompanion(sourceType: Value('mediaStore')),
+        );
+      }
+
+      await cloudBacked('here.jpg', 'store-a');
+      await cloudBacked('legacy.jpg', null);
+      await cloudBacked('elsewhere.jpg', 'store-b');
+      await add('local.jpg', original: true, store: 'store-a');
+
+      expect(await repo.countHeldOnlyInStore('store-a'), 2);
+    });
+  });
+
   group('claiming unclaimed stamps', () {
     test('names the store on stamped rows that have none', () async {
       final legacy = await add('legacy.jpg', original: true);
@@ -173,6 +191,40 @@ void main() {
       final after = (await row(legacy)).uploadFactsHlc;
       expect(after, isNotNull);
       expect(after, isNot(before));
+    });
+
+    test('leaves rows another device last stamped', () async {
+      final mine = await add('mine.jpg', original: true);
+      final theirs = await add('theirs.jpg', original: true);
+      await (db.update(db.media)..where((m) => m.id.equals(theirs))).write(
+        const MediaCompanion(
+          uploadFactsHlc: Value('000000000000001:000000:other-device'),
+        ),
+      );
+
+      final claimed = await repo.claimUnownedStamps('store-a');
+
+      expect(claimed, 1);
+      expect((await row(mine)).remoteStoreId, 'store-a');
+      expect((await row(theirs)).remoteStoreId, isNull);
+    });
+
+    test('claims every row under one clock and marks each pending', () async {
+      final ids = [
+        for (var i = 0; i < 3; i++) await add('legacy-$i.jpg', original: true),
+      ];
+
+      await repo.claimUnownedStamps('store-a');
+
+      final clocks = {for (final id in ids) (await row(id)).uploadFactsHlc};
+      expect(clocks, hasLength(1));
+      final pending = await (db.select(
+        db.syncRecords,
+      )..where((r) => r.entityType.equals('media'))).get();
+      expect(
+        pending.where((r) => r.syncStatus == 'pending').map((r) => r.recordId),
+        containsAll(ids),
+      );
     });
 
     test('after a claim the new store counts from zero', () async {

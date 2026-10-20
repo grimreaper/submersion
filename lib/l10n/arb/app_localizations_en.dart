@@ -53943,5 +53943,28 @@ class AppLocalizationsEn extends AppLocalizations {
   }
 
   @override
+  String settings_photos_switchConsequenceUnnamed(String choice) {
+    return 'This device stops using its current copies and starts or joins copies in $choice. Nothing is deleted.';
+  }
+
+  @override
+  String settings_photos_switchHeldOnly(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count photos are kept only in the current copies and will not open on this device after the change.',
+      one:
+          '1 photo is kept only in the current copies and will not open on this device after the change.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String settings_photos_startedSeparate(String account) {
+    return 'No copies were found in $account, so this device started separate copies there.';
+  }
+
+  @override
   String get settings_conflict_field_remoteStoreId => 'Uploaded to';
 }

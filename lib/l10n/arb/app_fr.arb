@@ -16119,5 +16119,8 @@
   "settings_photos_suspended_title": "Envois en pause",
   "settings_photos_separateConsequence": "Les copies de la bibliothèque se trouvent dans {current}. Choisir {choice} y lance des copies distinctes. Rien n'est supprimé.",
   "settings_photos_joinConsequence": "Cet appareil lance des copies dans {choice} ou les rejoint. Rien n'est supprimé.",
+  "settings_photos_switchConsequenceUnnamed": "Cet appareil cesse d'utiliser ses copies actuelles et commence ou rejoint des copies dans {choice}. Rien n'est supprimé.",
+  "settings_photos_switchHeldOnly": "{count, plural, =1{{count} photo se trouve uniquement dans les copies actuelles et ne s'ouvrira plus sur cet appareil après le changement.} other{{count} photos se trouvent uniquement dans les copies actuelles et ne s'ouvriront plus sur cet appareil après le changement.}}",
+  "settings_photos_startedSeparate": "Aucune copie n'a été trouvée dans {account}, cet appareil y a donc commencé des copies distinctes.",
   "settings_conflict_field_remoteStoreId": "Envoyé vers"
 }

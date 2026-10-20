@@ -86781,6 +86781,24 @@ abstract class AppLocalizations {
   /// **'This device starts or joins copies in {choice}. Nothing is deleted.'**
   String settings_photos_joinConsequence(String choice);
 
+  /// Account sheet: what choosing another account for photo copies does, when the account in use cannot be named. {choice} is an account name.
+  ///
+  /// In en, this message translates to:
+  /// **'This device stops using its current copies and starts or joins copies in {choice}. Nothing is deleted.'**
+  String settings_photos_switchConsequenceUnnamed(String choice);
+
+  /// Account sheet: added after the switch consequence when some photos exist only in the store being left (cloud-backed photos). Plural on count.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{1 photo is kept only in the current copies and will not open on this device after the change.} other{{count} photos are kept only in the current copies and will not open on this device after the change.}}'**
+  String settings_photos_switchHeldOnly(int count);
+
+  /// Snackbar after choosing an account for photo copies that held none, so a new separate set was started instead of joining the library's copies. {account} is an account name.
+  ///
+  /// In en, this message translates to:
+  /// **'No copies were found in {account}, so this device started separate copies there.'**
+  String settings_photos_startedSeparate(String account);
+
   /// Sync conflict field label: the photo copies store a media item's upload stamps refer to
   ///
   /// In en, this message translates to:

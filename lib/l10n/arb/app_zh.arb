@@ -16119,5 +16119,8 @@
   "settings_photos_suspended_title": "上传已暂停",
   "settings_photos_separateConsequence": "资料库的副本位于 {current}。选择 {choice} 会在那里开始另一套副本。不会删除任何内容。",
   "settings_photos_joinConsequence": "此设备会在 {choice} 中开始副本或加入现有副本。不会删除任何内容。",
+  "settings_photos_switchConsequenceUnnamed": "此设备将停止使用当前的副本，并在{choice}中开始或加入副本。不会删除任何内容。",
+  "settings_photos_switchHeldOnly": "{count, plural, =1{1 张照片仅保存在当前副本中，更换后将无法在此设备上打开。} other{{count} 张照片仅保存在当前副本中，更换后将无法在此设备上打开。}}",
+  "settings_photos_startedSeparate": "在{account}中未找到副本，因此此设备在那里开始了单独的副本。",
   "settings_conflict_field_remoteStoreId": "上传至"
 }

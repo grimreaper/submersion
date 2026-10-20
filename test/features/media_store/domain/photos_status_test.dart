@@ -13,14 +13,14 @@ void main() {
   PhotosStatus status({
     bool attached = true,
     bool announced = true,
-    bool pendingSetup = false,
+    bool reconnect = false,
     bool? reachable = true,
     ({int copied, int total})? counted = progress,
     MediaTransferSummary? summary = const MediaTransferSummary(),
   }) => photosStatus(
     attached: attached,
     announced: announced,
-    pendingSetup: pendingSetup,
+    reconnect: reconnect,
     reachable: reachable,
     progress: counted,
     summary: summary,
@@ -37,8 +37,12 @@ void main() {
     expect(status(attached: false), isA<PhotosFinishSettingUp>());
   });
 
-  test('a pending setup item needs finishing even when attached', () {
-    expect(status(pendingSetup: true), isA<PhotosFinishSettingUp>());
+  // The preflight's marker mismatch always yields a reconnect item, so the
+  // item is how the status line learns of it, and names what to do.
+  test('a pending reconnect pauses uploads until the account is chosen', () {
+    final s = status(reconnect: true);
+    expect(s, isA<PhotosPaused>());
+    expect((s as PhotosPaused).kind, MediaTransferHoldKind.markerMismatch);
   });
 
   test('while the store is being checked it says so', () {
@@ -99,6 +103,44 @@ void main() {
           reachable: false,
           summary: held(MediaTransferHoldKind.detached),
         ),
+        isA<PhotosFinishSettingUp>(),
+      );
+    });
+
+    // An attached device whose library announces another store still says
+    // what is true of its own copies; finishing setup is for a device that
+    // has not joined any store.
+    test('attached, a store announced elsewhere does not mask uploads', () {
+      expect(
+        status(summary: const MediaTransferSummary(queued: 2)),
+        isA<PhotosUploading>(),
+      );
+      expect(status(reachable: false), isA<PhotosUnreachable>());
+      expect(
+        status(summary: held(MediaTransferHoldKind.detached)),
+        isA<PhotosPaused>(),
+      );
+    });
+
+    test('a store that cannot be opened outranks a pending reconnect', () {
+      expect(
+        status(reconnect: true, reachable: false),
+        isA<PhotosUnreachable>(),
+      );
+      expect(status(reconnect: true, reachable: null), isA<PhotosChecking>());
+    });
+
+    test('a pending reconnect outranks another hold and uploading', () {
+      final s = status(
+        reconnect: true,
+        summary: held(MediaTransferHoldKind.offline),
+      );
+      expect((s as PhotosPaused).kind, MediaTransferHoldKind.markerMismatch);
+    });
+
+    test('not attached, a pending reconnect still reads as finishing', () {
+      expect(
+        status(attached: false, reconnect: true),
         isA<PhotosFinishSettingUp>(),
       );
     });

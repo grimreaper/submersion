@@ -32435,6 +32435,12 @@
   "@settings_photos_separateConsequence": {"description": "Account sheet consequence on the Photos page when this device sets up copies in a different account from the one the library's copies already live in. {current} and {choice} are account names.", "placeholders": {"current": {"type": "String"}, "choice": {"type": "String"}}},
   "settings_photos_joinConsequence": "This device starts or joins copies in {choice}. Nothing is deleted.",
   "@settings_photos_joinConsequence": {"description": "Account sheet consequence on the Photos page when the copies in use predate stores recording their account, so it is unknown whether the chosen account holds them. {choice} is an account name.", "placeholders": {"choice": {"type": "String"}}},
+  "settings_photos_switchConsequenceUnnamed": "This device stops using its current copies and starts or joins copies in {choice}. Nothing is deleted.",
+  "@settings_photos_switchConsequenceUnnamed": {"description": "Account sheet: what choosing another account for photo copies does, when the account in use cannot be named. {choice} is an account name.", "placeholders": {"choice": {"type": "String"}}},
+  "settings_photos_switchHeldOnly": "{count, plural, =1{1 photo is kept only in the current copies and will not open on this device after the change.} other{{count} photos are kept only in the current copies and will not open on this device after the change.}}",
+  "@settings_photos_switchHeldOnly": {"description": "Account sheet: added after the switch consequence when some photos exist only in the store being left (cloud-backed photos). Plural on count.", "placeholders": {"count": {"type": "int"}}},
+  "settings_photos_startedSeparate": "No copies were found in {account}, so this device started separate copies there.",
+  "@settings_photos_startedSeparate": {"description": "Snackbar after choosing an account for photo copies that held none, so a new separate set was started instead of joining the library's copies. {account} is an account name.", "placeholders": {"account": {"type": "String"}}},
   "settings_conflict_field_remoteStoreId": "Uploaded to",
   "@settings_conflict_field_remoteStoreId": {"description": "Sync conflict field label: the photo copies store a media item's upload stamps refer to"}
 }

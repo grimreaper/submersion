@@ -54804,5 +54804,28 @@ class AppLocalizationsIt extends AppLocalizations {
   }
 
   @override
+  String settings_photos_switchConsequenceUnnamed(String choice) {
+    return 'Questo dispositivo smette di usare le copie attuali e avvia o si unisce alle copie in $choice. Non viene eliminato nulla.';
+  }
+
+  @override
+  String settings_photos_switchHeldOnly(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count foto sono conservate solo nelle copie attuali e non si apriranno su questo dispositivo dopo il cambio.',
+      one:
+          '1 foto è conservata solo nelle copie attuali e non si aprirà su questo dispositivo dopo il cambio.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String settings_photos_startedSeparate(String account) {
+    return 'Non sono state trovate copie in $account, quindi questo dispositivo ha avviato lì copie separate.';
+  }
+
+  @override
   String get settings_conflict_field_remoteStoreId => 'Caricato in';
 }

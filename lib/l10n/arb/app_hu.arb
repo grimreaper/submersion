@@ -16119,5 +16119,8 @@
   "settings_photos_suspended_title": "Feltöltések szüneteltetve",
   "settings_photos_separateConsequence": "A könyvtár másolatai itt vannak: {current}. A(z) {choice} választásával ott külön másolatok indulnak. Semmi sem törlődik.",
   "settings_photos_joinConsequence": "Ez az eszköz másolatokat indít itt: {choice}, vagy csatlakozik hozzájuk. Semmi sem törlődik.",
+  "settings_photos_switchConsequenceUnnamed": "Ez az eszköz nem használja tovább a jelenlegi másolatait, és másolatokat indít vagy csatlakozik hozzájuk itt: {choice}. Semmi sem törlődik.",
+  "settings_photos_switchHeldOnly": "{count, plural, =1{1 fotó csak a jelenlegi másolatokban van meg, és a váltás után nem nyitható meg ezen az eszközön.} other{{count} fotó csak a jelenlegi másolatokban van meg, és a váltás után nem nyitható meg ezen az eszközön.}}",
+  "settings_photos_startedSeparate": "Itt nem találhatók másolatok: {account}, ezért ez az eszköz külön másolatokat indított ott.",
   "settings_conflict_field_remoteStoreId": "Feltöltés helye"
 }

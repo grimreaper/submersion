@@ -16119,5 +16119,8 @@
   "settings_photos_suspended_title": "Caricamenti in pausa",
   "settings_photos_separateConsequence": "Le copie della libreria sono in {current}. Scegliere {choice} avvia lì copie separate. Non viene eliminato nulla.",
   "settings_photos_joinConsequence": "Questo dispositivo avvia copie in {choice} o si unisce a quelle esistenti. Non viene eliminato nulla.",
+  "settings_photos_switchConsequenceUnnamed": "Questo dispositivo smette di usare le copie attuali e avvia o si unisce alle copie in {choice}. Non viene eliminato nulla.",
+  "settings_photos_switchHeldOnly": "{count, plural, =1{1 foto è conservata solo nelle copie attuali e non si aprirà su questo dispositivo dopo il cambio.} other{{count} foto sono conservate solo nelle copie attuali e non si apriranno su questo dispositivo dopo il cambio.}}",
+  "settings_photos_startedSeparate": "Non sono state trovate copie in {account}, quindi questo dispositivo ha avviato lì copie separate.",
   "settings_conflict_field_remoteStoreId": "Caricato in"
 }

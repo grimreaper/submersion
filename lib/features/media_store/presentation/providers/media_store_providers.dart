@@ -546,6 +546,15 @@ final FutureProvider<MediaStoreRuntime?> mediaStoreRuntimeProvider =
       if (attachedId == null) return null;
       final store = await ref.watch(attachedMediaObjectStoreProvider.future);
       if (store == null) return null;
+      // Fills in the account a store announced before descriptors recorded
+      // it, so other devices join it in its own folder. Best effort.
+      try {
+        await ref.read(mediaStoreServiceProvider).recordAttachedAccount();
+      } on Object catch (e) {
+        LoggerService.forClass(
+          MediaStoreService,
+        ).warning('Could not record the media store account: $e');
+      }
 
       final cache = await openMediaCacheStore(mediaCachePrefsOrNull(ref));
       final resolver = MediaStoreResolver(store: store, cache: cache);

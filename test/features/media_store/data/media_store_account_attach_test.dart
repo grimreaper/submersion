@@ -3,10 +3,12 @@
 // store is built the way the runtime builds it, and today's marker checks
 // decide whether this joins an existing store or starts one.
 
+import 'package:drift/drift.dart' show Value;
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:submersion/core/data/repositories/connected_accounts_repository.dart';
+import 'package:submersion/core/database/database.dart' hide ConnectedAccount;
 import 'package:submersion/core/services/accounts/account_credentials_store.dart';
 import 'package:submersion/core/services/accounts/account_group.dart';
 import 'package:submersion/core/services/accounts/account_group_service.dart';
@@ -21,8 +23,11 @@ import 'package:submersion/core/services/cloud_storage/s3/s3_config.dart';
 import 'package:submersion/core/services/media_store/media_object_store.dart';
 import 'package:submersion/core/services/media_store/media_store_attach_state.dart';
 import 'package:submersion/core/services/media_store/media_store_credentials_store.dart';
+import 'package:submersion/core/services/media_store/store_marker.dart';
 import 'package:submersion/features/media_store/data/media_store_account_attach.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
+import 'package:submersion/features/media/domain/entities/media_item.dart';
+import 'package:submersion/features/media/domain/entities/media_source_type.dart';
 import 'package:submersion/features/media_store/data/media_store_service.dart';
 import 'package:submersion/features/media_store/data/media_stores_repository.dart';
 
@@ -31,6 +36,13 @@ import '../../../helpers/test_database.dart';
 import '../../../support/fake_keychain_storage.dart';
 
 final _t = DateTime.utc(2026);
+
+final _legacyS3 = S3Config(
+  endpoint: 'https://old.example:9000',
+  bucket: 'old',
+  accessKeyId: 'AKIA0',
+  secretAccessKey: 'old',
+);
 
 ConnectedAccount _row(String id, AccountKind kind, String label) =>
     ConnectedAccount(
@@ -125,16 +137,20 @@ void main() {
   late MediaStoresRepository stores;
   late MediaStoreService service;
   late InMemoryMediaObjectStore bucket;
+  late MediaStoreCredentialsStore legacyKeys;
+  late AppDatabase db;
 
   setUp(() async {
-    await setUpTestDatabase();
+    db = await setUpTestDatabase();
     SharedPreferences.setMockInitialValues({});
     attachState = MediaStoreAttachState(
       prefs: await SharedPreferences.getInstance(),
     );
     stores = MediaStoresRepository();
     service = MediaStoreService(
-      credentials: MediaStoreCredentialsStore(storage: InMemoryKeychain()),
+      credentials: legacyKeys = MediaStoreCredentialsStore(
+        storage: InMemoryKeychain(),
+      ),
       attachState: attachState,
       storesRepository: stores,
       mediaRepository: MediaRepository(),
@@ -144,6 +160,30 @@ void main() {
   });
 
   tearDown(tearDownTestDatabase);
+
+  /// A photo uploaded on this device before stamps named their store.
+  Future<String> stampedWithoutStore() async {
+    final created = await MediaRepository().createMedia(
+      MediaItem(
+        id: '',
+        mediaType: MediaType.photo,
+        sourceType: MediaSourceType.platformGallery,
+        filePath: 'legacy.jpg',
+        originalFilename: 'legacy.jpg',
+        takenAt: _t,
+        createdAt: _t,
+        updatedAt: _t,
+      ),
+    );
+    await (db.update(db.media)..where((m) => m.id.equals(created.id))).write(
+      const MediaCompanion(remoteUploadedAt: Value(1)),
+    );
+    return created.id;
+  }
+
+  Future<String?> storeOf(String id) async => (await (db.select(
+    db.media,
+  )..where((m) => m.id.equals(id))).getSingle()).remoteStoreId;
 
   MediaStoreAccountAttach attacher(
     AccountKind kind,
@@ -280,7 +320,10 @@ void main() {
     expect(await attachState.attachedStoreId(), first.storeId);
   });
 
-  test('a switch whose marker check fails stays detached', () async {
+  // The new account is first contacted by its marker check, so a refusal
+  // there (rotated keys, a server that is down) must not cost the device
+  // the copies it is using.
+  test('a switch whose marker check fails keeps the current copies', () async {
     final a = _row('a-row', AccountKind.dropbox, 'Dropbox');
     final b = _row('b-row', AccountKind.dropbox, 'Dropbox 2');
     final refusing = InMemoryMediaObjectStore();
@@ -288,7 +331,7 @@ void main() {
       'a-row': bucket,
       'b-row': refusing,
     });
-    await attach.attach(_group(a));
+    final first = await attach.attach(_group(a));
     refusing.failNextWith = const MediaStoreException(
       'denied',
       kind: MediaStoreErrorKind.auth,
@@ -299,7 +342,56 @@ void main() {
       throwsA(isA<MediaStoreException>()),
     );
 
-    expect(await attachState.attachedStoreId(), isNull);
+    expect(await attachState.attachedStoreId(), first.storeId);
+    expect(await attachState.attachedAccountId(), 'a-row');
+  });
+
+  // Stamps naming no store were made in the store being left: the claim
+  // must name it, not the store the library happens to announce.
+  test('switching claims unowned stamps for the store being left', () async {
+    final a = _row('a-row', AccountKind.dropbox, 'Dropbox');
+    final b = _row('b-row', AccountKind.dropbox, 'Dropbox 2');
+    final c = _row('c-row', AccountKind.dropbox, 'Dropbox 3');
+    final attach = attacher(AccountKind.dropbox, {
+      'a-row': bucket,
+      'b-row': InMemoryMediaObjectStore(),
+      'c-row': InMemoryMediaObjectStore(),
+    });
+    final first = await attach.attach(_group(a));
+    // Another device announced a third store since.
+    await stores.upsertActive(
+      storeId: 'announced-elsewhere',
+      providerType: 'dropbox',
+      displayHint: 'Dropbox 3',
+      accountId: c.id,
+    );
+    final legacy = await stampedWithoutStore();
+
+    await attach.switchTo(_group(b));
+
+    expect(await storeOf(legacy), first.storeId);
+  });
+
+  test('a switch clears the legacy key blob only once attached', () async {
+    final a = _row('a-row', AccountKind.dropbox, 'Dropbox');
+    final b = _row('b-row', AccountKind.dropbox, 'Dropbox 2');
+    final refusing = InMemoryMediaObjectStore();
+    final attach = attacher(AccountKind.dropbox, {
+      'a-row': bucket,
+      'b-row': refusing,
+    });
+    await attach.attach(_group(a));
+    await legacyKeys.save(_legacyS3);
+    refusing.failNextWith = const MediaStoreException(
+      'down',
+      kind: MediaStoreErrorKind.fatal,
+    );
+
+    await expectLater(attach.switchTo(_group(b)), throwsA(anything));
+    expect(await legacyKeys.load(), isNotNull);
+
+    await attach.switchTo(_group(b));
+    expect(await legacyKeys.load(), isNull);
   });
 
   test('switching attaches the new account\'s store', () async {
@@ -388,6 +480,32 @@ void main() {
         expect(written?.accessKeyId, 'AKIA1');
       },
     );
+
+    // A store set up in a custom folder before descriptors recorded their
+    // row: the folder carrying its marker is found, not a new default one.
+    test('a store recording no row is found in its own folder', () async {
+      final (group, media) = await server();
+      final existing = await StoreMarkerStore(store: bucket).ensure();
+      final attach = MediaStoreAccountAttach(
+        service: service,
+        accounts: accounts,
+        registry: AccountProviderRegistry([
+          _MediaAdapter(AccountKind.s3, {
+            for (final r in group.rows)
+              r.id: r.id == media.id ? bucket : InMemoryMediaObjectStore(),
+          }),
+        ]),
+      );
+
+      final result = await attach.attach(
+        group,
+        storeId: existing.marker.storeId,
+      );
+
+      expect(result.createdNewStore, isFalse);
+      expect(result.storeId, existing.marker.storeId);
+      expect(await attachState.attachedAccountId(), media.id);
+    });
 
     test('a recorded row on another account is ignored', () async {
       final (group, _) = await server();

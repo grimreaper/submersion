@@ -82,9 +82,9 @@ the device they were entered on.
 | **{copied} of {total} copied, {n} uploading** | Uploads are running |
 | **Waiting for a connection** | Offline; uploads resume on their own |
 | **{n} waiting to retry** | Uploads that failed and will try again |
-| **Uploads paused: ...** | The account could not be checked, this device is no longer connected, or the account now holds different copies (choose the account again) |
+| **Uploads paused: ...** | The account could not be checked, this device is no longer connected, or the account now holds different copies than this device joined (**Uploads paused: choose the account again**: tap **Copies in {account}** and choose the same account) |
 | **Could not reach {account}** | The account could not be opened with this device's keys |
-| **Finish setting up this device** | The library keeps copies this device has not joined yet |
+| **Finish setting up this device** | The library keeps copies this device has not joined yet. A device already keeping copies reports on its own copies instead, even when the library has since moved to another account; the card at the top of the page offers the move |
 
 ## What Gets Uploaded
 
@@ -236,8 +236,18 @@ starts or joins copies in the new account. Nothing is deleted from either.
 
 The new account counts its own copies. Photos already copied to the old account
 read as not yet copied there, and **Upload everything already attached** copies
-them across. Choosing the same account again (for example, after it could not
-be reached) reconnects to the copies already there.
+the ones this device still has (in the gallery or on disk) across, including
+any that had stopped retrying. Choosing the same account again (for example,
+after it could not be reached) reconnects to the copies already there. If the
+change cannot reach the new account, nothing changes and this device keeps
+using the current copies.
+
+Photos whose only copy is in the old account cannot be copied across: photos
+kept only in the cloud, and gallery photos or local files removed from this
+device after they were copied. After the change they show a placeholder on
+this device, although the old account still holds them. When some photos are
+kept only in the cloud, the list says how many before you confirm. To keep
+them viewable, choose the old account again.
 
 **Stop keeping copies on this device** (under **Advanced**) stops this device
 uploading and fetching. It does not delete anything from your bucket or account,

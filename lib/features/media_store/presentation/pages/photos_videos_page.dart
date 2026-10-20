@@ -14,11 +14,33 @@ import 'package:submersion/l10n/l10n_extension.dart';
 /// Photos & videos (spec section 8.3): where copies are kept and what is
 /// true of them, how uploads run, where photos come from, then Advanced.
 /// It replaces the Photos & Media hub and the Media Storage page.
-class PhotosVideosPage extends ConsumerWidget {
+class PhotosVideosPage extends ConsumerStatefulWidget {
   const PhotosVideosPage({super.key});
 
+  /// This page's route: the media store setup items resolve here.
+  static const route = '/settings/photos-media';
+
   @override
-  Widget build(BuildContext context, WidgetRef ref) {
+  ConsumerState<PhotosVideosPage> createState() => _PhotosVideosPageState();
+}
+
+class _PhotosVideosPageState extends ConsumerState<PhotosVideosPage> {
+  /// The Using row, whose Set up / Change is what resolves the media store
+  /// items the pending setup card lists on this page.
+  final _usingRowKey = GlobalKey();
+
+  void _showUsingRow() {
+    final usingRow = _usingRowKey.currentContext;
+    if (usingRow == null) return;
+    Scrollable.ensureVisible(
+      usingRow,
+      duration: const Duration(milliseconds: 250),
+      alignmentPolicy: ScrollPositionAlignmentPolicy.keepVisibleAtEnd,
+    );
+  }
+
+  @override
+  Widget build(BuildContext context) {
     final l10n = context.l10n;
     final attached = ref.watch(photosCopiesProvider).value?.attached ?? false;
     return Scaffold(
@@ -37,11 +59,21 @@ class PhotosVideosPage extends ConsumerWidget {
       body: ListView(
         padding: const EdgeInsets.only(bottom: 24),
         children: [
-          const PendingSetupCard(margin: EdgeInsets.fromLTRB(16, 16, 16, 0)),
+          // A media item opens this very page: point at the Using row
+          // instead of stacking another copy of it.
+          PendingSetupCard(
+            margin: const EdgeInsets.fromLTRB(16, 16, 16, 0),
+            hostRoute: PhotosVideosPage.route,
+            onHostRoute: _showUsingRow,
+          ),
           _header(context, l10n.settings_photos_cloudHeader),
-          const PhotosUsingRow(),
+          KeyedSubtree(key: _usingRowKey, child: const PhotosUsingRow()),
           const PhotosStatusLine(),
-          if (attached) const PhotosUploadSettings(),
+          // Keyed, like the Advanced section below: the list matches its
+          // children by key, so attaching or detaching (which adds or drops
+          // this row) cannot hand a later sibling's State to another.
+          if (attached)
+            const PhotosUploadSettings(key: ValueKey('photos-upload-settings')),
           _header(context, l10n.settings_photos_sourcesHeader),
           ListTile(
             leading: const Icon(Icons.photo_library_outlined),
@@ -50,7 +82,12 @@ class PhotosVideosPage extends ConsumerWidget {
             trailing: const Icon(Icons.chevron_right),
             onTap: () => context.pushSettingsPage('/settings/media-sources'),
           ),
-          PhotosAdvancedSection(attached: attached),
+          // Its State holds any export, verify or backfill in flight, which
+          // must survive the upload settings above appearing or going.
+          PhotosAdvancedSection(
+            key: const ValueKey('photos-advanced-section'),
+            attached: attached,
+          ),
         ],
       ),
     );

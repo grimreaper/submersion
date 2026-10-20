@@ -5,7 +5,9 @@ import 'package:submersion/features/media_store/data/media_transfer_queue_reposi
 
 /// "Upload existing library" (design spec section 9 trigger 2). Enqueues
 /// every eligible photo; enqueueUpload is idempotent per media id, so
-/// re-running is safe.
+/// re-running is safe. Existing upload rows of the candidates are re-armed
+/// with a fresh attempt budget, so ones that failed against a store the
+/// diver has since left reach the attached one.
 class MediaBackfillService {
   MediaBackfillService({
     required MediaRepository mediaRepository,
@@ -30,6 +32,11 @@ class MediaBackfillService {
     for (final id in ids) {
       await _queue.enqueueUpload(mediaId: id);
     }
+    // enqueueUpload hands back a terminally failed row unchanged, and a
+    // pending one keeps the attempts it spent, possibly against another
+    // store. Asking to upload everything is an explicit retry of them.
+    final rearmed = await _queue.rearmUploads(ids);
+    if (rearmed > 0) _log.info('Backfill re-armed $rearmed upload rows');
     _log.info('Backfill enqueued ${ids.length} items');
     return ids.length;
   }

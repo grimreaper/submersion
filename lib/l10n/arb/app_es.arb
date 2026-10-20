@@ -16119,5 +16119,8 @@
   "settings_photos_suspended_title": "Subidas en pausa",
   "settings_photos_separateConsequence": "Las copias de la biblioteca están en {current}. Elegir {choice} inicia copias separadas allí. No se elimina nada.",
   "settings_photos_joinConsequence": "Este dispositivo inicia copias en {choice} o se une a ellas. No se elimina nada.",
+  "settings_photos_switchConsequenceUnnamed": "Este dispositivo deja de usar sus copias actuales y empieza o se une a copias en {choice}. No se elimina nada.",
+  "settings_photos_switchHeldOnly": "{count, plural, =1{1 foto solo está en las copias actuales y no se abrirá en este dispositivo después del cambio.} other{{count} fotos solo están en las copias actuales y no se abrirán en este dispositivo después del cambio.}}",
+  "settings_photos_startedSeparate": "No se encontraron copias en {account}, así que este dispositivo empezó copias independientes allí.",
   "settings_conflict_field_remoteStoreId": "Subido a"
 }

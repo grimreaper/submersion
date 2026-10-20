@@ -53668,5 +53668,28 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
+  String settings_photos_switchConsequenceUnnamed(String choice) {
+    return 'המכשיר הזה מפסיק להשתמש בעותקים הנוכחיים שלו ומתחיל או מצטרף לעותקים ב-$choice. שום דבר לא נמחק.';
+  }
+
+  @override
+  String settings_photos_switchHeldOnly(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count תמונות שמורות רק בעותקים הנוכחיים ולא ייפתחו במכשיר הזה אחרי השינוי.',
+      one:
+          'תמונה אחת שמורה רק בעותקים הנוכחיים ולא תיפתח במכשיר הזה אחרי השינוי.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String settings_photos_startedSeparate(String account) {
+    return 'לא נמצאו עותקים ב-$account, ולכן המכשיר הזה התחיל שם עותקים נפרדים.';
+  }
+
+  @override
   String get settings_conflict_field_remoteStoreId => 'הועלה אל';
 }

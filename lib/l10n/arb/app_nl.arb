@@ -16119,5 +16119,8 @@
   "settings_photos_suspended_title": "Uploads gepauzeerd",
   "settings_photos_separateConsequence": "De kopieën van de bibliotheek staan in {current}. Met {choice} begin je daar aparte kopieën. Er wordt niets verwijderd.",
   "settings_photos_joinConsequence": "Dit apparaat begint kopieën in {choice} of sluit zich erbij aan. Er wordt niets verwijderd.",
+  "settings_photos_switchConsequenceUnnamed": "Dit apparaat stopt met zijn huidige kopieën en begint of sluit aan bij kopieën in {choice}. Er wordt niets verwijderd.",
+  "settings_photos_switchHeldOnly": "{count, plural, =1{1 foto staat alleen in de huidige kopieën en opent na de wijziging niet meer op dit apparaat.} other{{count} foto's staan alleen in de huidige kopieën en openen na de wijziging niet meer op dit apparaat.}}",
+  "settings_photos_startedSeparate": "Er zijn geen kopieën gevonden in {account}, dus dit apparaat is daar met aparte kopieën begonnen.",
   "settings_conflict_field_remoteStoreId": "Geüpload naar"
 }

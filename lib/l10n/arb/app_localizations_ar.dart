@@ -55545,5 +55545,34 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String settings_photos_switchConsequenceUnnamed(String choice) {
+    return 'يتوقف هذا الجهاز عن استخدام نسخه الحالية ويبدأ نسخًا في $choice أو ينضم إليها. لا يُحذف أي شيء.';
+  }
+
+  @override
+  String settings_photos_switchHeldOnly(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count صورة محفوظة فقط في النسخ الحالية ولن تُفتح على هذا الجهاز بعد التغيير.',
+      many:
+          '$count صورة محفوظة فقط في النسخ الحالية ولن تُفتح على هذا الجهاز بعد التغيير.',
+      few:
+          '$count صور محفوظة فقط في النسخ الحالية ولن تُفتح على هذا الجهاز بعد التغيير.',
+      two:
+          'صورتان محفوظتان فقط في النسخ الحالية ولن تُفتحا على هذا الجهاز بعد التغيير.',
+      one:
+          'صورة واحدة محفوظة فقط في النسخ الحالية ولن تُفتح على هذا الجهاز بعد التغيير.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String settings_photos_startedSeparate(String account) {
+    return 'لم يُعثر على نسخ في $account، لذا بدأ هذا الجهاز نسخًا منفصلة هناك.';
+  }
+
+  @override
   String get settings_conflict_field_remoteStoreId => 'تم الرفع إلى';
 }

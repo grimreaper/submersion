@@ -54490,5 +54490,28 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String settings_photos_switchConsequenceUnnamed(String choice) {
+    return 'Ez az eszköz nem használja tovább a jelenlegi másolatait, és másolatokat indít vagy csatlakozik hozzájuk itt: $choice. Semmi sem törlődik.';
+  }
+
+  @override
+  String settings_photos_switchHeldOnly(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count fotó csak a jelenlegi másolatokban van meg, és a váltás után nem nyitható meg ezen az eszközön.',
+      one:
+          '1 fotó csak a jelenlegi másolatokban van meg, és a váltás után nem nyitható meg ezen az eszközön.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String settings_photos_startedSeparate(String account) {
+    return 'Itt nem találhatók másolatok: $account, ezért ez az eszköz külön másolatokat indított ott.';
+  }
+
+  @override
   String get settings_conflict_field_remoteStoreId => 'Feltöltés helye';
 }

@@ -52,6 +52,7 @@ class _Attach extends Fake implements MediaStoreAccountAttach {
   final storeAccountIds = <String?>[];
   final switched = <String>[];
   Object? failure;
+  MediaStoreConnectResult? result;
 
   static const _result = MediaStoreConnectResult(
     storeId: 's1',
@@ -62,11 +63,12 @@ class _Attach extends Fake implements MediaStoreAccountAttach {
   Future<MediaStoreConnectResult> attach(
     AccountGroup group, {
     String? storeAccountId,
+    String? storeId,
   }) async {
     attached.add(group.key);
     storeAccountIds.add(storeAccountId);
     if (failure case final f?) throw f;
-    return _result;
+    return result ?? _result;
   }
 
   @override
@@ -321,6 +323,47 @@ void main() {
       expect(attach.attached, [_dropbox.key]);
     });
 
+    // Two logins of one kind share a roster row, so the row cannot promise
+    // the copies are there: an account that held none says a second set
+    // was started rather than claim the join.
+    testWidgets('joining an account that held no copies says so', (
+      tester,
+    ) async {
+      attach.result = const MediaStoreConnectResult(
+        storeId: 'minted',
+        createdNewStore: true,
+      );
+      await pumpPage(tester, copies: _copies(attached: false, group: _dropbox));
+      await open(tester);
+
+      await tester.tap(inSheet('Dropbox'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.text(
+          'No copies were found in Dropbox, so this device started separate '
+          'copies there.',
+        ),
+        findsOneWidget,
+      );
+    });
+
+    testWidgets('an account with no keys here asks to sign in', (tester) async {
+      attach.failure = const MediaStoreAccountUnusable(
+        'Dropbox is not signed in on this device',
+      );
+      await pumpPage(
+        tester,
+        copies: _copies(attached: false, announced: false),
+      );
+      await open(tester);
+
+      await tester.tap(inSheet('Dropbox'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Sign in to Dropbox'), findsOneWidget);
+    });
+
     testWidgets('a failed attach says why', (tester) async {
       attach.failure = const MediaStoreException(
         'Dropbox is not signed in',
@@ -356,6 +399,13 @@ void main() {
     MediaTransferSummary held(MediaTransferHoldKind kind) =>
         MediaTransferSummary(queued: 1, hold: MediaTransferHold(kind, 'x'));
 
+    const reconnectItem = PendingSetupItem(
+      kind: SetupItemKind.mediaStoreReconnect,
+      key: 'store_marker_s1',
+      label: 'Dropbox',
+      route: '/settings/photos-media',
+    );
+
     testWidgets('checking', (tester) async {
       await pumpStatus(tester, reachable: null);
       expect(find.text('Checking…'), findsOneWidget);
@@ -380,15 +430,21 @@ void main() {
       expect(find.text('Could not reach Dropbox'), findsOneWidget);
     });
 
+    // The preflight that finds a mismatch also yields the reconnect item,
+    // so the two always arrive together.
     testWidgets('a marker mismatch asks to choose the account again', (
       tester,
     ) async {
       await pumpStatus(
         tester,
         summary: held(MediaTransferHoldKind.markerMismatch),
+        items: const [reconnectItem],
       );
       expect(
-        find.text('Uploads paused: choose the account again'),
+        find.descendant(
+          of: find.byKey(const Key('photos-status')),
+          matching: find.text('Uploads paused: choose the account again'),
+        ),
         findsOneWidget,
       );
     });
@@ -423,27 +479,54 @@ void main() {
       expect(find.text('7 of 10 copied, 3 uploading'), findsOneWidget);
     });
 
-    testWidgets('a pending reconnect asks to finish setting up', (
+    testWidgets('a pending reconnect asks to choose the account again', (
       tester,
     ) async {
-      await pumpStatus(
-        tester,
-        items: const [
-          PendingSetupItem(
-            kind: SetupItemKind.mediaStoreReconnect,
-            key: 'store_marker_s1',
-            label: 'Dropbox',
-            route: '/settings/photos-media',
-          ),
-        ],
+      await pumpStatus(tester, items: const [reconnectItem]);
+      expect(
+        find.descendant(
+          of: find.byKey(const Key('photos-status')),
+          matching: find.text('Uploads paused: choose the account again'),
+        ),
+        findsOneWidget,
       );
-      // The pending setup card says it too, until phase 6 replaces it.
+      // The pending setup card above still offers the reconnect itself.
       expect(
         find.descendant(
           of: find.byKey(const Key('photos-status')),
           matching: find.text('Finish setting up this device'),
         ),
+        findsNothing,
+      );
+    });
+
+    // A library that announces another store raises an attach item, but
+    // this device is attached and uploading, and says so without alarm.
+    testWidgets('attached, an attach item for another store does not mask '
+        'uploads', (tester) async {
+      await pumpStatus(
+        tester,
+        summary: const MediaTransferSummary(transferring: 1, queued: 2),
+        items: const [
+          PendingSetupItem(
+            kind: SetupItemKind.mediaStoreAttach,
+            key: 'store_s2',
+            label: 'Google Drive',
+            route: '/settings/photos-media',
+          ),
+        ],
+      );
+      final line = find.byKey(const Key('photos-status'));
+      expect(
+        find.descendant(
+          of: line,
+          matching: find.text('7 of 10 copied, 3 uploading'),
+        ),
         findsOneWidget,
+      );
+      expect(
+        find.descendant(of: line, matching: find.byIcon(Icons.error_outline)),
+        findsNothing,
       );
     });
   });

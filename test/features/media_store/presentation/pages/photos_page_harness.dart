@@ -99,12 +99,15 @@ class PhotosPageHarness {
   final backfill = FakeBackfillService();
 
   /// The page. [statusHint] stands for "attached here, under that name";
-  /// null is nothing attached. Riverpod 3 does not export the Override
-  /// type, so [extraOverrides] is dynamic (the weight_planner precedent);
-  /// they go last, so a caller can override any default.
+  /// null is nothing attached. [copies], when given, answers the copies
+  /// instead, read afresh on each rebuild of the provider, so a test can
+  /// flip what is attached. Riverpod 3 does not export the Override type,
+  /// so [extraOverrides] is dynamic (the weight_planner precedent); they
+  /// must not override a provider overridden here, which Riverpod rejects.
   Widget app({
     bool apple = true,
     String? statusHint,
+    PhotosCopies Function()? copies,
     MediaTransferSummary summary = const MediaTransferSummary(),
     List<dynamic> extraOverrides = const [],
   }) => ProviderScope(
@@ -116,12 +119,14 @@ class PhotosPageHarness {
       mediaStoreServiceProvider.overrideWithValue(service),
       mediaBackfillServiceProvider.overrideWithValue(backfill),
       photosCopiesProvider.overrideWith(
-        (ref) async => (
-          attached: statusHint != null,
-          store: null,
-          group: null,
-          label: statusHint,
-        ),
+        (ref) async =>
+            copies?.call() ??
+            (
+              attached: statusHint != null,
+              store: null,
+              group: null,
+              label: statusHint,
+            ),
       ),
       photosStoreReachableProvider.overrideWithValue(true),
       mediaUploadProgressProvider.overrideWith(

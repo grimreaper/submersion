@@ -12,8 +12,9 @@ final class PhotosNotSetUp extends PhotosStatus {
   const PhotosNotSetUp();
 }
 
-/// The library has a store this device has not joined, or a setup item for
-/// it is pending (a sign-in, a reconnect).
+/// The library has a store this device has not joined. An attached device
+/// never reads this: what is true of its own copies comes first, even when
+/// the library announces another store.
 final class PhotosFinishSettingUp extends PhotosStatus {
   const PhotosFinishSettingUp();
 }
@@ -28,7 +29,8 @@ final class PhotosUnreachable extends PhotosStatus {
   const PhotosUnreachable();
 }
 
-/// The transfer drain is holding for a reason the diver is told about.
+/// The transfer drain is holding for a reason the diver is told about, or a
+/// reconnect is pending (a marker mismatch, which suspends the drain).
 final class PhotosPaused extends PhotosStatus {
   const PhotosPaused(this.kind);
   final MediaTransferHoldKind kind;
@@ -67,20 +69,29 @@ final class PhotosAllCopied extends PhotosStatus {
 /// The one status line, in order of what the diver most needs to know.
 ///
 /// [reachable] is the runtime fact that the attached store could be opened
-/// (null while checking); [progress] is the copied-of-total count (null
-/// until counted); [summary] is the transfer queue.
+/// (null while checking); [reconnect] is a pending reconnect item, which
+/// the preflight raises whenever it finds a marker mismatch; [progress] is
+/// the copied-of-total count (null until counted); [summary] is the
+/// transfer queue.
+///
+/// A pending attach item is no input: unattached, the announced store
+/// already reads as finishing setup, and attached, an attach item for
+/// another store must not mask reachability, holds or progress here.
 PhotosStatus photosStatus({
   required bool attached,
   required bool announced,
-  required bool pendingSetup,
+  required bool reconnect,
   required bool? reachable,
   required ({int copied, int total})? progress,
   required MediaTransferSummary? summary,
 }) {
   if (!attached && !announced) return const PhotosNotSetUp();
-  if (!attached || pendingSetup) return const PhotosFinishSettingUp();
+  if (!attached) return const PhotosFinishSettingUp();
   if (reachable == null) return const PhotosChecking();
   if (!reachable) return const PhotosUnreachable();
+  if (reconnect) {
+    return const PhotosPaused(MediaTransferHoldKind.markerMismatch);
+  }
   final hold = summary?.hold;
   if (hold != null) {
     return hold.suspends
