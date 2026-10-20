@@ -154,7 +154,7 @@ class GitStorageProvider
   static Future<GitObjectStore> _defaultStore(GitConfig config) async {
     final support = await getApplicationSupportDirectory();
     final key = sha1.convert(utf8.encode(gitNaturalKey(config))).toString();
-    return FileGitObjectStore(
+    return FileGitObjectStore.shared(
       Directory(p.join(support.path, 'git_objects', key)),
     );
   }

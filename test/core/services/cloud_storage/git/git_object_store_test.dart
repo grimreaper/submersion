@@ -135,4 +135,83 @@ void main() {
       expect(await store.has(b.id), isTrue);
     });
   });
+
+  group('FileGitObjectStore, two stores on one directory', () {
+    test('concurrent puts of one object all land', () async {
+      final dir = tempDirForTest('git_store_');
+      final first = FileGitObjectStore(dir);
+      final second = FileGitObjectStore(dir);
+      final a = _blob('a', pad: 1000);
+      await Future.wait([
+        for (var i = 0; i < 4; i++) ...[first.put(a), second.put(a)],
+      ]);
+      expect((await first.get(a.id))?.body, a.body);
+      expect((await second.get(a.id))?.body, a.body);
+      final leftovers = dir
+          .listSync(recursive: true)
+          .whereType<File>()
+          .where((f) => f.path.endsWith('.tmp'));
+      expect(leftovers, isEmpty);
+    });
+
+    test(
+      'an object one evicts reads as missing in the other, then comes back',
+      () async {
+        final dir = tempDirForTest('git_store_');
+        final a = _blob('a', pad: 1000);
+        final b = _blob('b', pad: 1000);
+        final c = _blob('c', pad: 1000);
+        final evicting = FileGitObjectStore(dir, maxBytes: 2100);
+        final reading = FileGitObjectStore(dir);
+        for (final o in [a, b, c]) {
+          await evicting.put(o);
+        }
+        // The reader indexes all three before the other store evicts one.
+        for (final o in [a, b, c]) {
+          expect(await reading.has(o.id), isTrue);
+        }
+        await evicting.trim(keep: () async => {b.id, c.id});
+        expect(await evicting.has(a.id), isFalse);
+
+        // Its index is stale, but the read is a miss, not an error.
+        expect(await reading.get(a.id), isNull);
+        expect(await reading.has(a.id), isFalse);
+        expect((await reading.get(b.id))?.body, b.body);
+
+        // Fetched again, it is readable in both.
+        await reading.put(a);
+        expect((await reading.get(a.id))?.body, a.body);
+        expect((await evicting.get(a.id))?.body, a.body);
+      },
+    );
+  });
+
+  group('FileGitObjectStore.shared', () {
+    test('is one instance per directory', () {
+      final dir = tempDirForTest('git_store_');
+      final store = FileGitObjectStore.shared(dir);
+      expect(FileGitObjectStore.shared(dir), same(store));
+      expect(
+        FileGitObjectStore.shared(Directory(p.join(dir.path, '.'))),
+        same(store),
+      );
+      expect(
+        FileGitObjectStore.shared(tempDirForTest('git_store_')),
+        isNot(same(store)),
+      );
+    });
+
+    test('scans the directory once however many callers share it', () async {
+      final dir = tempDirForTest('git_store_');
+      final a = _blob('a');
+      await FileGitObjectStore.shared(dir).put(a);
+      // A put through the shared store is seen at once by the next caller,
+      // without a rescan: the file is gone, yet the index still lists it.
+      File(
+        p.join(dir.path, a.id.hex.substring(0, 2), a.id.hex.substring(2)),
+      ).deleteSync();
+      expect(await FileGitObjectStore.shared(dir).has(a.id), isTrue);
+      expect(await FileGitObjectStore(dir).has(a.id), isFalse);
+    });
+  });
 }

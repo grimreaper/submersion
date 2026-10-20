@@ -58,9 +58,28 @@ final class MemoryGitObjectStore implements GitObjectStore {
 /// code followed by the body. [trim] deletes the least recently used
 /// objects above [maxBytes]. Recency lives in memory, seeded from file
 /// modification times the first time the store is used.
+///
+/// Stores on one directory share its files but not their bookkeeping: an
+/// object another store evicted reads as missing and is fetched again. Use
+/// [FileGitObjectStore.shared] so that, within an isolate, there is only one.
 final class FileGitObjectStore implements GitObjectStore {
-  FileGitObjectStore(this.root, {this.maxBytes = 256 * 1024 * 1024});
+  FileGitObjectStore(this.root, {this.maxBytes = _defaultMaxBytes});
 
+  /// The store for [root] in this isolate, made on first use. Each store
+  /// scans its whole directory once, which takes seconds on a full cache, and
+  /// keeps its own index; sharing one does both once and keeps eviction in
+  /// step. [maxBytes] applies only when the store is made.
+  factory FileGitObjectStore.shared(
+    Directory root, {
+    int maxBytes = _defaultMaxBytes,
+  }) => _shared.putIfAbsent(
+    p.canonicalize(root.path),
+    () => FileGitObjectStore(root, maxBytes: maxBytes),
+  );
+
+  static final Map<String, FileGitObjectStore> _shared = {};
+
+  static const int _defaultMaxBytes = 256 * 1024 * 1024;
   static const String _tmpSuffix = '.tmp';
   static const Duration _staleTmpAge = Duration(hours: 1);
   static final Random _random = Random();
@@ -114,11 +133,36 @@ final class FileGitObjectStore implements GitObjectStore {
     return index;
   }
 
+  /// [file]'s entry, adopting it when another store on this directory wrote
+  /// it after the scan. A miss here is followed by a fetch, so the extra stat
+  /// costs nothing next to it.
+  Future<({int size, int recency})?> _entryFor(
+    Map<String, ({int size, int recency})> index,
+    File file,
+  ) async {
+    final known = index[file.path];
+    if (known != null) return known;
+    final FileStat stat;
+    try {
+      stat = await file.stat();
+    } on FileSystemException {
+      return null;
+    }
+    if (stat.type != FileSystemEntityType.file || stat.size == 0) return null;
+    // A concurrent caller may have adopted or put it during the stat.
+    final raced = index[file.path];
+    if (raced != null) return raced;
+    final entry = (size: stat.size, recency: ++_clock);
+    index[file.path] = entry;
+    _total += stat.size;
+    return entry;
+  }
+
   @override
   Future<GitStoredObject?> get(GitObjectId id) async {
     final index = await _ensureIndex();
     final file = _fileFor(id);
-    final entry = index[file.path];
+    final entry = await _entryFor(index, file);
     if (entry == null) return null;
     Uint8List? bytes;
     try {
@@ -189,5 +233,5 @@ final class FileGitObjectStore implements GitObjectStore {
 
   @override
   Future<bool> has(GitObjectId id) async =>
-      (await _ensureIndex()).containsKey(_fileFor(id).path);
+      await _entryFor(await _ensureIndex(), _fileFor(id)) != null;
 }
