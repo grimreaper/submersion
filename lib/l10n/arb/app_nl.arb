@@ -7436,7 +7436,7 @@
   "settings_gitConfig_appBar_title": "Git",
   "settings_gitConfig_error_branchHasOtherContent": "De branch {branch} bevat al andere inhoud. Kies een nieuwe branchnaam: Submersion reset de geschiedenis van zijn branch.",
   "settings_gitConfig_error_forbidden": "Dit token mag niet naar de repository pushen. Geef het schrijftoegang tot de inhoud van de repository.",
-  "settings_gitConfig_error_indexUnreadable": "De bestandsindex op de branch {branch} ontbreekt, is beschadigd of komt van een nieuwere Submersion-versie. De synchronisatie is gestopt zodat er geen bestanden verloren gaan; werk Submersion bij of kies een nieuwe branch.",
+  "settings_gitConfig_error_indexUnreadable": "De bestandsindex op de branch {branch} komt van een nieuwere Submersion-versie. De synchronisatie is gestopt zodat er geen bestanden verloren gaan; werk Submersion bij of kies een nieuwe branch.",
   "settings_gitConfig_error_invalidConfig": "Controleer de gegevens van de repository.",
   "settings_gitConfig_error_notFound": "Geen repository op dit adres. Controleer het adres, en of het token de repository kan zien.",
   "settings_gitConfig_error_notGit": "Dit adres is geen Git-repository.",

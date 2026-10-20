@@ -25179,7 +25179,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String settings_gitConfig_error_indexUnreadable(String branch) {
-    return '分支 $branch 上的文件索引缺失、已损坏或来自更新版本的 Submersion。同步已停止，以免丢失文件；请更新 Submersion，或选择新的分支。';
+    return '分支 $branch 上的文件索引来自更新版本的 Submersion。同步已停止，以免丢失文件；请更新 Submersion，或选择新的分支。';
   }
 
   @override

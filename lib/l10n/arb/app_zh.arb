@@ -7601,7 +7601,7 @@
   "settings_gitConfig_appBar_title": "Git",
   "settings_gitConfig_error_branchHasOtherContent": "分支 {branch} 已有其他内容。请换一个分支名：Submersion 会重置其分支的历史记录。",
   "settings_gitConfig_error_forbidden": "此令牌无法推送到该仓库。请为其授予仓库内容的写入权限。",
-  "settings_gitConfig_error_indexUnreadable": "分支 {branch} 上的文件索引缺失、已损坏或来自更新版本的 Submersion。同步已停止，以免丢失文件；请更新 Submersion，或选择新的分支。",
+  "settings_gitConfig_error_indexUnreadable": "分支 {branch} 上的文件索引来自更新版本的 Submersion。同步已停止，以免丢失文件；请更新 Submersion，或选择新的分支。",
   "settings_gitConfig_error_invalidConfig": "请检查仓库信息。",
   "settings_gitConfig_error_notFound": "此地址没有仓库。请检查地址，以及令牌能否看到该仓库。",
   "settings_gitConfig_error_notGit": "此地址不是 Git 仓库。",

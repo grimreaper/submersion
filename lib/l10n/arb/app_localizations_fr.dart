@@ -26728,7 +26728,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String settings_gitConfig_error_indexUnreadable(String branch) {
-    return 'L\'index des fichiers de la branche $branch est absent, endommagé ou issu d\'une version plus récente de Submersion. La synchronisation s\'est arrêtée pour ne perdre aucun fichier ; mettez Submersion à jour ou choisissez une nouvelle branche.';
+    return 'L\'index des fichiers de la branche $branch est issu d\'une version plus récente de Submersion. La synchronisation s\'est arrêtée pour ne perdre aucun fichier ; mettez Submersion à jour ou choisissez une nouvelle branche.';
   }
 
   @override

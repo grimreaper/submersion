@@ -705,7 +705,7 @@ class GitStorageProvider
     return out;
   }
 
-  CloudFileInfo _info(String path, String name, int size, int modifiedMs) =>
+  CloudFileInfo _info(String path, String name, int? size, int modifiedMs) =>
       CloudFileInfo(
         id: path,
         name: name,

@@ -42827,7 +42827,7 @@ abstract class AppLocalizations {
   /// No description provided for @settings_gitConfig_error_indexUnreadable.
   ///
   /// In en, this message translates to:
-  /// **'The file index on the branch {branch} is missing, damaged or from a newer Submersion version. Syncing stopped so no files are lost; update Submersion, or choose a new branch.'**
+  /// **'The file index on the branch {branch} is from a newer Submersion version. Syncing stopped so no files are lost; update Submersion, or choose a new branch.'**
   String settings_gitConfig_error_indexUnreadable(String branch);
 
   /// No description provided for @settings_gitConfig_error_invalidConfig.

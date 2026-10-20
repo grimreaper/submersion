@@ -26666,7 +26666,7 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String settings_gitConfig_error_indexUnreadable(String branch) {
-    return 'El índice de archivos de la rama $branch falta, está dañado o es de una versión más reciente de Submersion. La sincronización se detuvo para no perder archivos; actualice Submersion o elija otra rama.';
+    return 'El índice de archivos de la rama $branch es de una versión más reciente de Submersion. La sincronización se detuvo para no perder archivos; actualice Submersion o elija otra rama.';
   }
 
   @override

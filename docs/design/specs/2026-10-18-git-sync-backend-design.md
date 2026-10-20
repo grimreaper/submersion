@@ -140,6 +140,11 @@ from it. Rules:
 
 - **Paths missing from the index** (a file added by hand) get their size from
   the blob when it is fetched, and their time from the tip commit.
+  Every load reconciles the index with the tip tree, so a file edited by hand
+  is treated the same way and a file deleted by hand leaves the index.
+- **A missing or damaged index** is rebuilt from the tree by the same rule.
+  An index from a newer format version stops sync instead, since rewriting
+  it in the older format would lose what the newer one adds.
 - **The index's own replaced blob** counts toward `deletedBytesSinceReset`,
   so its churn is reclaimed by resets like everything else.
 - **Encoding is the builder's choice:** gzipped JSON, or JSON split per

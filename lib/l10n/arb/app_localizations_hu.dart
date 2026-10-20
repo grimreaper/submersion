@@ -26522,7 +26522,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String settings_gitConfig_error_indexUnreadable(String branch) {
-    return 'A(z) $branch ág fájlindexe hiányzik, sérült, vagy a Submersion egy újabb verziójából származik. A szinkronizálás leállt, hogy ne vesszenek el fájlok; frissítse a Submersiont, vagy válasszon új ágat.';
+    return 'A(z) $branch ág fájlindexe a Submersion egy újabb verziójából származik. A szinkronizálás leállt, hogy ne vesszenek el fájlok; frissítse a Submersiont, vagy válasszon új ágat.';
   }
 
   @override

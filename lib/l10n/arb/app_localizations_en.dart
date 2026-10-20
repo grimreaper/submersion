@@ -26202,7 +26202,7 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String settings_gitConfig_error_indexUnreadable(String branch) {
-    return 'The file index on the branch $branch is missing, damaged or from a newer Submersion version. Syncing stopped so no files are lost; update Submersion, or choose a new branch.';
+    return 'The file index on the branch $branch is from a newer Submersion version. Syncing stopped so no files are lost; update Submersion, or choose a new branch.';
   }
 
   @override

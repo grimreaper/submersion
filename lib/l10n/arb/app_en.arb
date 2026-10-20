@@ -15187,7 +15187,7 @@
     }
   },
   "settings_gitConfig_error_forbidden": "This token cannot push to the repository. Give it write access to the repository's contents.",
-  "settings_gitConfig_error_indexUnreadable": "The file index on the branch {branch} is missing, damaged or from a newer Submersion version. Syncing stopped so no files are lost; update Submersion, or choose a new branch.",
+  "settings_gitConfig_error_indexUnreadable": "The file index on the branch {branch} is from a newer Submersion version. Syncing stopped so no files are lost; update Submersion, or choose a new branch.",
   "@settings_gitConfig_error_indexUnreadable": {
     "placeholders": {
       "branch": {

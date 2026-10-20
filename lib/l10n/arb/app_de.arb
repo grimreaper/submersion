@@ -7568,7 +7568,7 @@
   "settings_gitConfig_appBar_title": "Git",
   "settings_gitConfig_error_branchHasOtherContent": "Der Branch {branch} enthält bereits andere Inhalte. Wählen Sie einen neuen Branch-Namen: Submersion setzt den Verlauf seines Branches zurück.",
   "settings_gitConfig_error_forbidden": "Dieses Token kann nicht in das Repository pushen. Geben Sie ihm Schreibzugriff auf die Inhalte des Repositorys.",
-  "settings_gitConfig_error_indexUnreadable": "Der Dateiindex im Branch {branch} fehlt, ist beschädigt oder stammt aus einer neueren Submersion-Version. Die Synchronisierung wurde angehalten, damit keine Dateien verloren gehen; aktualisieren Sie Submersion oder wählen Sie einen neuen Branch.",
+  "settings_gitConfig_error_indexUnreadable": "Der Dateiindex im Branch {branch} stammt aus einer neueren Submersion-Version. Die Synchronisierung wurde angehalten, damit keine Dateien verloren gehen; aktualisieren Sie Submersion oder wählen Sie einen neuen Branch.",
   "settings_gitConfig_error_invalidConfig": "Prüfen Sie die Angaben zum Repository.",
   "settings_gitConfig_error_notFound": "Unter dieser Adresse gibt es kein Repository. Prüfen Sie die Adresse und ob das Token das Repository sehen kann.",
   "settings_gitConfig_error_notGit": "Diese Adresse ist kein Git-Repository.",

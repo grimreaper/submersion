@@ -26883,7 +26883,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String settings_gitConfig_error_indexUnreadable(String branch) {
-    return 'فهرس الملفات في الفرع $branch مفقود أو تالف أو من إصدار أحدث من Submersion. توقفت المزامنة حتى لا تُفقد أي ملفات؛ حدّث Submersion أو اختر فرعًا جديدًا.';
+    return 'فهرس الملفات في الفرع $branch من إصدار أحدث من Submersion. توقفت المزامنة حتى لا تُفقد أي ملفات؛ حدّث Submersion أو اختر فرعًا جديدًا.';
   }
 
   @override

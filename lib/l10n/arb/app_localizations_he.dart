@@ -25986,7 +25986,7 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String settings_gitConfig_error_indexUnreadable(String branch) {
-    return 'אינדקס הקבצים בענף $branch חסר, פגום או שייך לגרסה חדשה יותר של Submersion. הסנכרון נעצר כדי שלא יאבדו קבצים; עדכנו את Submersion או בחרו ענף חדש.';
+    return 'אינדקס הקבצים בענף $branch שייך לגרסה חדשה יותר של Submersion. הסנכרון נעצר כדי שלא יאבדו קבצים; עדכנו את Submersion או בחרו ענף חדש.';
   }
 
   @override

@@ -7436,7 +7436,7 @@
   "settings_gitConfig_appBar_title": "Git",
   "settings_gitConfig_error_branchHasOtherContent": "La rama {branch} ya tiene otro contenido. Elija otro nombre de rama: Submersion restablece el historial de su rama.",
   "settings_gitConfig_error_forbidden": "Este token no puede enviar cambios al repositorio. Concédale acceso de escritura al contenido del repositorio.",
-  "settings_gitConfig_error_indexUnreadable": "El índice de archivos de la rama {branch} falta, está dañado o es de una versión más reciente de Submersion. La sincronización se detuvo para no perder archivos; actualice Submersion o elija otra rama.",
+  "settings_gitConfig_error_indexUnreadable": "El índice de archivos de la rama {branch} es de una versión más reciente de Submersion. La sincronización se detuvo para no perder archivos; actualice Submersion o elija otra rama.",
   "settings_gitConfig_error_invalidConfig": "Revise los datos del repositorio.",
   "settings_gitConfig_error_notFound": "No hay ningún repositorio en esta dirección. Revise la dirección y que el token pueda ver el repositorio.",
   "settings_gitConfig_error_notGit": "Esta dirección no es un repositorio Git.",

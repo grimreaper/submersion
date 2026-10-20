@@ -26643,7 +26643,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String settings_gitConfig_error_indexUnreadable(String branch) {
-    return 'O índice de arquivos do branch $branch está ausente, danificado ou é de uma versão mais nova do Submersion. A sincronização parou para não perder arquivos; atualize o Submersion ou escolha um novo branch.';
+    return 'O índice de arquivos do branch $branch é de uma versão mais nova do Submersion. A sincronização parou para não perder arquivos; atualize o Submersion ou escolha um novo branch.';
   }
 
   @override

@@ -26476,7 +26476,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String settings_gitConfig_error_indexUnreadable(String branch) {
-    return 'De bestandsindex op de branch $branch ontbreekt, is beschadigd of komt van een nieuwere Submersion-versie. De synchronisatie is gestopt zodat er geen bestanden verloren gaan; werk Submersion bij of kies een nieuwe branch.';
+    return 'De bestandsindex op de branch $branch komt van een nieuwere Submersion-versie. De synchronisatie is gestopt zodat er geen bestanden verloren gaan; werk Submersion bij of kies een nieuwe branch.';
   }
 
   @override

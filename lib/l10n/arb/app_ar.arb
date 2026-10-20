@@ -7436,7 +7436,7 @@
   "settings_gitConfig_appBar_title": "Git",
   "settings_gitConfig_error_branchHasOtherContent": "الفرع {branch} يحتوي على محتوى آخر بالفعل. اختر اسم فرع جديدًا: يعيد Submersion تعيين سجل فرعه.",
   "settings_gitConfig_error_forbidden": "لا يمكن لهذا الرمز الدفع إلى المستودع. امنحه صلاحية الكتابة على محتوى المستودع.",
-  "settings_gitConfig_error_indexUnreadable": "فهرس الملفات في الفرع {branch} مفقود أو تالف أو من إصدار أحدث من Submersion. توقفت المزامنة حتى لا تُفقد أي ملفات؛ حدّث Submersion أو اختر فرعًا جديدًا.",
+  "settings_gitConfig_error_indexUnreadable": "فهرس الملفات في الفرع {branch} من إصدار أحدث من Submersion. توقفت المزامنة حتى لا تُفقد أي ملفات؛ حدّث Submersion أو اختر فرعًا جديدًا.",
   "settings_gitConfig_error_invalidConfig": "تحقق من بيانات المستودع.",
   "settings_gitConfig_error_notFound": "لا يوجد مستودع على هذا العنوان. تحقق من العنوان، ومن أن الرمز يستطيع رؤية المستودع.",
   "settings_gitConfig_error_notGit": "هذا العنوان ليس مستودع Git.",

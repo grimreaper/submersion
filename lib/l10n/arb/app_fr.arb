@@ -7336,7 +7336,7 @@
   "settings_gitConfig_appBar_title": "Git",
   "settings_gitConfig_error_branchHasOtherContent": "La branche {branch} contient déjà autre chose. Choisissez un autre nom de branche : Submersion réinitialise l'historique de sa branche.",
   "settings_gitConfig_error_forbidden": "Ce jeton ne peut pas pousser vers le dépôt. Donnez-lui l'accès en écriture au contenu du dépôt.",
-  "settings_gitConfig_error_indexUnreadable": "L'index des fichiers de la branche {branch} est absent, endommagé ou issu d'une version plus récente de Submersion. La synchronisation s'est arrêtée pour ne perdre aucun fichier ; mettez Submersion à jour ou choisissez une nouvelle branche.",
+  "settings_gitConfig_error_indexUnreadable": "L'index des fichiers de la branche {branch} est issu d'une version plus récente de Submersion. La synchronisation s'est arrêtée pour ne perdre aucun fichier ; mettez Submersion à jour ou choisissez une nouvelle branche.",
   "settings_gitConfig_error_invalidConfig": "Vérifiez les informations du dépôt.",
   "settings_gitConfig_error_notFound": "Aucun dépôt à cette adresse. Vérifiez l'adresse, et que le jeton peut voir le dépôt.",
   "settings_gitConfig_error_notGit": "Cette adresse n'est pas un dépôt Git.",

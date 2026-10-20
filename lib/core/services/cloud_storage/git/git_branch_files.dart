@@ -5,11 +5,15 @@ import 'package:submersion/core/services/cloud_storage/git/git_object_id.dart';
 
 /// The marker that makes a branch Submersion's, plus shared reset
 /// bookkeeping. Submersion never writes to a branch that lacks it.
-const String kGitMetaPath = '.submersion/branch.json';
+const String kGitMetaPath = '$kGitOwnFolder/branch.json';
+
+/// The folder holding Submersion's own bookkeeping files, which are never
+/// listed as files.
+const String kGitOwnFolder = '.submersion';
 
 /// Path to size and modified time for every file, since Git trees record
 /// neither.
-const String kGitIndexPath = '.submersion/index.json';
+const String kGitIndexPath = '$kGitOwnFolder/index.json';
 
 const String kGitReadmePath = 'README.md';
 
@@ -39,10 +43,24 @@ final class GitIndexEntry {
   });
 
   final GitObjectId blobId;
-  final int size;
+
+  /// Null until the blob is fetched, for a file another tool put on the
+  /// branch: Git trees record no sizes.
+  final int? size;
 
   /// The writing device's clock when it uploaded the file, in UTC epoch ms.
   final int modifiedMs;
+}
+
+/// An index written by a newer Submersion: reading it as this version's
+/// would drop what the newer format adds, so the branch is left alone.
+final class GitIndexTooNew implements Exception {
+  const GitIndexTooNew(this.version);
+
+  final int version;
+
+  @override
+  String toString() => 'GitIndexTooNew($version)';
 }
 
 /// The file index stored at [kGitIndexPath].
@@ -65,8 +83,11 @@ final class GitIndex {
             for (final path in paths)
               path: {
                 'blob': entries[path]!.blobId.hex,
-                'size': entries[path]!.size,
+                // Always an int, which readers that predate unknown sizes
+                // require; they ignore sizeKnown.
+                'size': entries[path]!.size ?? 0,
                 'mtime': entries[path]!.modifiedMs,
+                if (entries[path]!.size == null) 'sizeKnown': false,
               },
           },
         }),
@@ -74,9 +95,9 @@ final class GitIndex {
     );
   }
 
-  /// Throws [FormatException] on a malformed index, including one malformed
-  /// entry: dropping it would hide the file, and the next commit would write
-  /// the index back without it.
+  /// Throws [GitIndexTooNew] for a newer format version and
+  /// [FormatException] for an index that is not one at all. A malformed
+  /// entry is skipped: the session rebuilds it from the branch's tree.
   static GitIndex decode(Uint8List bytes) {
     final Object? json;
     try {
@@ -88,7 +109,8 @@ final class GitIndex {
       throw const FormatException('Git index is not an object');
     }
     final version = json['version'];
-    if (version is! int || version != 1) {
+    if (version is int && version > 1) throw GitIndexTooNew(version);
+    if (version != 1) {
       throw FormatException('Git index version $version is not supported');
     }
     final files = json['files'];
@@ -97,17 +119,20 @@ final class GitIndex {
     }
     final entries = <String, GitIndexEntry>{};
     for (final MapEntry(:key, :value) in files.entries) {
-      final malformed = FormatException(
-        'Git index entry for $key is malformed',
-      );
-      if (value is! Map<String, Object?>) throw malformed;
+      if (value is! Map<String, Object?>) continue;
       final blob = value['blob'];
       final size = value['size'];
       final mtime = value['mtime'];
-      if (blob is! String || size is! int || mtime is! int) throw malformed;
+      if (blob is! String || size is! int || mtime is! int) continue;
+      final GitObjectId blobId;
+      try {
+        blobId = GitObjectId.fromHex(blob);
+      } on FormatException {
+        continue;
+      }
       entries[key] = GitIndexEntry(
-        blobId: GitObjectId.fromHex(blob),
-        size: size,
+        blobId: blobId,
+        size: value['sizeKnown'] == false ? null : size,
         modifiedMs: mtime,
       );
     }

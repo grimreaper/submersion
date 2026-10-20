@@ -26662,7 +26662,7 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String settings_gitConfig_error_indexUnreadable(String branch) {
-    return 'L\'indice dei file del branch $branch manca, è danneggiato o proviene da una versione più recente di Submersion. La sincronizzazione si è fermata per non perdere file; aggiorna Submersion o scegli un nuovo branch.';
+    return 'L\'indice dei file del branch $branch proviene da una versione più recente di Submersion. La sincronizzazione si è fermata per non perdere file; aggiorna Submersion o scegli un nuovo branch.';
   }
 
   @override
