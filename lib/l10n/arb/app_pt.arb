@@ -16118,5 +16118,6 @@
   "media_info_actionCopyNow": "Copiar agora",
   "settings_photos_suspended_title": "Envios pausados",
   "settings_photos_separateConsequence": "As cópias da biblioteca estão em {current}. Escolher {choice} inicia cópias separadas lá. Nada é excluído.",
-  "settings_photos_joinConsequence": "Este dispositivo inicia cópias em {choice} ou junta-se a elas. Nada é excluído."
+  "settings_photos_joinConsequence": "Este dispositivo inicia cópias em {choice} ou junta-se a elas. Nada é excluído.",
+  "settings_conflict_field_remoteStoreId": "Enviado para"
 }

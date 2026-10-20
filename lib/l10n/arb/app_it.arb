@@ -16118,5 +16118,6 @@
   "media_info_actionCopyNow": "Copia ora",
   "settings_photos_suspended_title": "Caricamenti in pausa",
   "settings_photos_separateConsequence": "Le copie della libreria sono in {current}. Scegliere {choice} avvia lì copie separate. Non viene eliminato nulla.",
-  "settings_photos_joinConsequence": "Questo dispositivo avvia copie in {choice} o si unisce a quelle esistenti. Non viene eliminato nulla."
+  "settings_photos_joinConsequence": "Questo dispositivo avvia copie in {choice} o si unisce a quelle esistenti. Non viene eliminato nulla.",
+  "settings_conflict_field_remoteStoreId": "Caricato in"
 }

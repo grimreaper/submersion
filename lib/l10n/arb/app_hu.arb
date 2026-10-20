@@ -16118,5 +16118,6 @@
   "media_info_actionCopyNow": "Másolás most",
   "settings_photos_suspended_title": "Feltöltések szüneteltetve",
   "settings_photos_separateConsequence": "A könyvtár másolatai itt vannak: {current}. A(z) {choice} választásával ott külön másolatok indulnak. Semmi sem törlődik.",
-  "settings_photos_joinConsequence": "Ez az eszköz másolatokat indít itt: {choice}, vagy csatlakozik hozzájuk. Semmi sem törlődik."
+  "settings_photos_joinConsequence": "Ez az eszköz másolatokat indít itt: {choice}, vagy csatlakozik hozzájuk. Semmi sem törlődik.",
+  "settings_conflict_field_remoteStoreId": "Feltöltés helye"
 }

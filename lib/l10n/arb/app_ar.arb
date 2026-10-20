@@ -16118,5 +16118,6 @@
   "media_info_actionCopyNow": "النسخ الآن",
   "settings_photos_suspended_title": "تم إيقاف الرفع مؤقتًا",
   "settings_photos_separateConsequence": "نسخ المكتبة موجودة في {current}. اختيار {choice} يبدأ نسخًا منفصلة هناك. لا يُحذف أي شيء.",
-  "settings_photos_joinConsequence": "يبدأ هذا الجهاز نسخًا في {choice} أو ينضم إليها. لا يُحذف أي شيء."
+  "settings_photos_joinConsequence": "يبدأ هذا الجهاز نسخًا في {choice} أو ينضم إليها. لا يُحذف أي شيء.",
+  "settings_conflict_field_remoteStoreId": "تم الرفع إلى"
 }

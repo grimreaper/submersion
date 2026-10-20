@@ -53941,4 +53941,7 @@ class AppLocalizationsEn extends AppLocalizations {
   String settings_photos_joinConsequence(String choice) {
     return 'This device starts or joins copies in $choice. Nothing is deleted.';
   }
+
+  @override
+  String get settings_conflict_field_remoteStoreId => 'Uploaded to';
 }

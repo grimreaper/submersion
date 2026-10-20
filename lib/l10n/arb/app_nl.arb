@@ -16118,5 +16118,6 @@
   "media_info_actionCopyNow": "Nu kopiëren",
   "settings_photos_suspended_title": "Uploads gepauzeerd",
   "settings_photos_separateConsequence": "De kopieën van de bibliotheek staan in {current}. Met {choice} begin je daar aparte kopieën. Er wordt niets verwijderd.",
-  "settings_photos_joinConsequence": "Dit apparaat begint kopieën in {choice} of sluit zich erbij aan. Er wordt niets verwijderd."
+  "settings_photos_joinConsequence": "Dit apparaat begint kopieën in {choice} of sluit zich erbij aan. Er wordt niets verwijderd.",
+  "settings_conflict_field_remoteStoreId": "Geüpload naar"
 }

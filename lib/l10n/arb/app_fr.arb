@@ -16118,5 +16118,6 @@
   "media_info_actionCopyNow": "Copier maintenant",
   "settings_photos_suspended_title": "Envois en pause",
   "settings_photos_separateConsequence": "Les copies de la bibliothèque se trouvent dans {current}. Choisir {choice} y lance des copies distinctes. Rien n'est supprimé.",
-  "settings_photos_joinConsequence": "Cet appareil lance des copies dans {choice} ou les rejoint. Rien n'est supprimé."
+  "settings_photos_joinConsequence": "Cet appareil lance des copies dans {choice} ou les rejoint. Rien n'est supprimé.",
+  "settings_conflict_field_remoteStoreId": "Envoyé vers"
 }

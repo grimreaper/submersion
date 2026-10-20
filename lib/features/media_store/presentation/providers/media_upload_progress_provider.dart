@@ -10,5 +10,8 @@ final mediaUploadProgressProvider =
       final repository = ref.watch(mediaRepositoryProvider);
       ref.invalidateSelfWhen(repository.watchMediaChanges());
       ref.watch(mediaTransferSummaryProvider.select((s) => s.value?.total));
-      return repository.countUploadProgress();
+      // Counted for the attached store: copies in another store are not
+      // copies here (issue #3482).
+      final storeId = await ref.watch(mediaAttachedStoreIdProvider.future);
+      return repository.countUploadProgress(storeId: storeId);
     }, retry: (_, _) => null);

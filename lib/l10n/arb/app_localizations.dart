@@ -86780,6 +86780,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This device starts or joins copies in {choice}. Nothing is deleted.'**
   String settings_photos_joinConsequence(String choice);
+
+  /// Sync conflict field label: the photo copies store a media item's upload stamps refer to
+  ///
+  /// In en, this message translates to:
+  /// **'Uploaded to'**
+  String get settings_conflict_field_remoteStoreId;
 }
 
 class _AppLocalizationsDelegate

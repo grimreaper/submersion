@@ -32,6 +32,7 @@ class RecordingMediaStoreService extends MediaStoreService {
         credentials: MediaStoreCredentialsStore(storage: InMemoryKeychain()),
         attachState: MediaStoreAttachState(),
         storesRepository: MediaStoresRepository(),
+        mediaRepository: MediaRepository(),
       );
 
   int disconnectCalls = 0;

@@ -55543,4 +55543,7 @@ class AppLocalizationsAr extends AppLocalizations {
   String settings_photos_joinConsequence(String choice) {
     return 'يبدأ هذا الجهاز نسخًا في $choice أو ينضم إليها. لا يُحذف أي شيء.';
   }
+
+  @override
+  String get settings_conflict_field_remoteStoreId => 'تم الرفع إلى';
 }

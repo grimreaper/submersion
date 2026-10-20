@@ -54846,4 +54846,7 @@ class AppLocalizationsEs extends AppLocalizations {
   String settings_photos_joinConsequence(String choice) {
     return 'Este dispositivo inicia copias en $choice o se une a ellas. No se elimina nada.';
   }
+
+  @override
+  String get settings_conflict_field_remoteStoreId => 'Subido a';
 }

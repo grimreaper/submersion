@@ -22,6 +22,7 @@ import 'package:submersion/core/services/media_store/media_object_store.dart';
 import 'package:submersion/core/services/media_store/media_store_attach_state.dart';
 import 'package:submersion/core/services/media_store/media_store_credentials_store.dart';
 import 'package:submersion/features/media_store/data/media_store_account_attach.dart';
+import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media_store/data/media_store_service.dart';
 import 'package:submersion/features/media_store/data/media_stores_repository.dart';
 
@@ -136,6 +137,7 @@ void main() {
       credentials: MediaStoreCredentialsStore(storage: InMemoryKeychain()),
       attachState: attachState,
       storesRepository: stores,
+      mediaRepository: MediaRepository(),
       markerRetryBackoff: const [],
     );
     bucket = InMemoryMediaObjectStore();

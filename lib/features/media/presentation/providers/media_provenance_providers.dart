@@ -69,8 +69,14 @@ final mediaProvenanceProvider = Provider.family<MediaProvenance, MediaItem>((
   item,
 ) {
   final attached = ref.watch(mediaStoreAttachedProvider).value ?? false;
+  final storeId = ref.watch(mediaAttachedStoreIdProvider).value;
   final queue = ref.watch(mediaQueueFactsProvider(item.id)).value;
-  return MediaProvenance.from(item, storeAttached: attached, queue: queue);
+  return MediaProvenance.from(
+    item,
+    storeAttached: attached,
+    queue: queue,
+    storeId: storeId,
+  );
 }, isAutoDispose: true);
 
 /// Checks one item's source and persists the outcome.

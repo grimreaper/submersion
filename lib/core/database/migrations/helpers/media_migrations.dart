@@ -216,6 +216,21 @@ extension MediaMigrations on AppDatabase {
     }
   }
 
+  /// Idempotent DDL for the v303 media.remote_store_id column (issue
+  /// #3482): the store a row's upload stamps refer to. Called from the v303
+  /// onUpgrade step and the beforeOpen backstop, self-guarding when the
+  /// table is absent, like [_assertMediaStoresAccountColumn].
+  Future<void> _assertMediaRemoteStoreColumn() async {
+    final cols = await customSelect("PRAGMA table_info('media')").get();
+    if (cols.isEmpty) return;
+    final names = cols.map((c) => c.read<String>('name')).toSet();
+    if (!names.contains('remote_store_id')) {
+      await customStatement(
+        'ALTER TABLE media ADD COLUMN remote_store_id TEXT',
+      );
+    }
+  }
+
   /// Idempotent DDL for the v302 media_stores.account_id column (issue
   /// #3482): the roster row the attached store lives on. Called from the
   /// v302 onUpgrade step and the beforeOpen backstop, self-guarding when the

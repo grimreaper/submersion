@@ -170,6 +170,10 @@ final Map<String, ConflictField> mediaLibraryFields = {
     (l) => l.settings_conflict_field_remoteCompressedUploadedAt,
     FieldKind.dateTime,
   ),
+  'remoteStoreId': ConflictField(
+    (l) => l.settings_conflict_field_remoteStoreId,
+    FieldKind.opaque,
+  ),
   'remoteThumbUploadedAt': ConflictField(
     (l) => l.settings_conflict_field_remoteThumbUploadedAt,
     FieldKind.dateTime,

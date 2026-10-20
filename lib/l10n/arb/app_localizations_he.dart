@@ -53666,4 +53666,7 @@ class AppLocalizationsHe extends AppLocalizations {
   String settings_photos_joinConsequence(String choice) {
     return 'המכשיר הזה מתחיל עותקים ב-$choice או מצטרף אליהם. שום דבר לא נמחק.';
   }
+
+  @override
+  String get settings_conflict_field_remoteStoreId => 'הועלה אל';
 }

@@ -13,6 +13,9 @@ import 'package:submersion/core/services/media_store/icloud_media_platform.dart'
 import 'package:submersion/core/services/media_store/media_object_store.dart';
 import 'package:submersion/core/services/media_store/media_store_attach_state.dart';
 import 'package:submersion/core/services/media_store/media_store_credentials_store.dart';
+import 'package:submersion/features/media/data/repositories/media_repository.dart';
+import 'package:submersion/features/media/domain/entities/media_item.dart';
+import 'package:submersion/features/media/domain/entities/media_source_type.dart';
 import 'package:submersion/features/media_store/data/media_store_service.dart';
 import 'package:submersion/features/media_store/data/media_stores_repository.dart';
 
@@ -83,6 +86,7 @@ void main() {
         credentials: credentials,
         attachState: attachState,
         storesRepository: storesRepository,
+        mediaRepository: MediaRepository(),
         markerRetryBackoff: backoff,
       );
 
@@ -147,6 +151,82 @@ void main() {
     expect(await credentials.load(), isNull);
     expect(await attachState.attachedStoreId(), isNull);
     expect(await storesRepository.getActive(), isNotNull);
+  });
+
+  // Issue #3482: stamps that name no store were made in the store the
+  // library announced. Moving to another store claims them for it first,
+  // or they would count as copies in the new one.
+  group('unclaimed stamps', () {
+    Future<String> stampedRow() async {
+      final media = MediaRepository();
+      final created = await media.createMedia(
+        MediaItem(
+          id: '',
+          mediaType: MediaType.photo,
+          sourceType: MediaSourceType.localFile,
+          filePath: '/tmp/a.jpg',
+          takenAt: DateTime(2026),
+          createdAt: DateTime(2026),
+          updatedAt: DateTime(2026),
+        ),
+      );
+      await media.stampRemoteUploaded(
+        created.id,
+        uploadedAt: DateTime.utc(2026),
+      );
+      return created.id;
+    }
+
+    Future<String?> storeOf(String id) async =>
+        (await MediaRepository().getMediaById(id))!.remoteStoreId;
+
+    test(
+      'attaching to another store claims them for the one announced',
+      () async {
+        await storesRepository.upsertActive(
+          storeId: 'store-a',
+          providerType: 's3',
+          displayHint: 'old @ minio',
+        );
+        final id = await stampedRow();
+
+        final result = await service().attachToAccountRow(
+          _row('db-row', AccountKind.dropbox),
+          InMemoryMediaObjectStore(),
+        );
+
+        expect(result.storeId, isNot('store-a'));
+        expect(await storeOf(id), 'store-a');
+      },
+    );
+
+    test('rejoining the announced store claims nothing', () async {
+      final store = InMemoryMediaObjectStore();
+      final row = _row('db-row', AccountKind.dropbox);
+      await service().attachToAccountRow(row, store);
+      await service().disconnect();
+      final id = await stampedRow();
+
+      await service().attachToAccountRow(row, store);
+
+      expect(await storeOf(id), isNull);
+    });
+
+    test('a refused attach claims nothing', () async {
+      await storesRepository.upsertActive(
+        storeId: 'store-a',
+        providerType: 's3',
+        displayHint: 'old @ minio',
+      );
+      final id = await stampedRow();
+
+      await expectLater(
+        service().attachToAccountRow(_row('db-row', AccountKind.dropbox), null),
+        throwsA(isA<MediaStoreException>()),
+      );
+
+      expect(await storeOf(id), isNull);
+    });
   });
 
   // Issue #1356: the phone attached while the Mac's store.json had not

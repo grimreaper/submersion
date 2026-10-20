@@ -16239,5 +16239,6 @@
   "media_info_actionCopyNow": "Jetzt kopieren",
   "settings_photos_suspended_title": "Uploads angehalten",
   "settings_photos_separateConsequence": "Die Kopien der Bibliothek liegen in {current}. Mit {choice} beginnen dort separate Kopien. Es wird nichts gelöscht.",
-  "settings_photos_joinConsequence": "Dieses Gerät beginnt Kopien in {choice} oder schließt sich ihnen an. Es wird nichts gelöscht."
+  "settings_photos_joinConsequence": "Dieses Gerät beginnt Kopien in {choice} oder schließt sich ihnen an. Es wird nichts gelöscht.",
+  "settings_conflict_field_remoteStoreId": "Hochgeladen in"
 }

@@ -18,6 +18,7 @@ import 'package:submersion/core/services/media_store/media_store_attach_state.da
 import 'package:submersion/core/services/media_store/media_store_credentials_store.dart';
 import 'package:submersion/core/services/media_store/s3_media_object_store.dart';
 import 'package:submersion/core/services/media_store/store_marker.dart';
+import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media_store/data/media_stores_repository.dart';
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 
@@ -102,11 +103,13 @@ class MediaStoreService {
     required MediaStoreCredentialsStore credentials,
     required MediaStoreAttachState attachState,
     required MediaStoresRepository storesRepository,
+    required MediaRepository mediaRepository,
     List<Duration>? markerRetryBackoff,
   }) : _markerRetryBackoff = markerRetryBackoff ?? defaultMarkerRetryBackoff,
        _credentials = credentials,
        _attachState = attachState,
-       _storesRepository = storesRepository;
+       _storesRepository = storesRepository,
+       _mediaRepository = mediaRepository;
 
   /// How long to wait between attempts at the identity marker when the store
   /// answers that it cannot serve it yet.
@@ -130,6 +133,9 @@ class MediaStoreService {
   final MediaStoreAttachState _attachState;
   final MediaStoresRepository _storesRepository;
 
+  /// Claims the stamps that name no store before moving to another one.
+  final MediaRepository _mediaRepository;
+
   /// Attaches [store], built from the roster row [row], as the photo copies
   /// (issue #3482): today's marker check adopts the store already in that
   /// folder or starts one, and the attachment and the synced descriptor both
@@ -147,6 +153,16 @@ class MediaStoreService {
       );
     }
     final ensured = await _ensureMarker(store);
+    final newId = ensured.marker.storeId;
+    // Stamps naming no store were made in the store this device was on, or
+    // else the one the library announces. Claim them for it before moving,
+    // or they would count as copies in the new store (issue #3482).
+    final previous =
+        await _attachState.attachedStoreId() ??
+        (await _storesRepository.getActive())?.id;
+    if (previous != null && previous != newId) {
+      await _mediaRepository.claimUnownedStamps(previous);
+    }
     await _attachState.setAttached(
       ensured.marker.storeId,
       providerType: type,

@@ -115,6 +115,7 @@ extension BeforeOpenBackstops on AppDatabase {
     // v136 backstop: re-assert media_stores.last_sweep_at.
     await _assertMediaStoresLastSweepColumn();
     await _assertMediaStoresAccountColumn(); // v302
+    await _assertMediaRemoteStoreColumn(); // v303
 
     // v137 backstop: re-assert dives.weather_code.
     await _assertWeatherCodeColumn();

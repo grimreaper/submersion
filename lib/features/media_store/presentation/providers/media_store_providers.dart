@@ -312,6 +312,7 @@ final mediaBackfillServiceProvider = Provider<MediaBackfillService>(
   (ref) => MediaBackfillService(
     mediaRepository: ref.watch(mediaRepositoryProvider),
     queue: ref.watch(mediaTransferQueueRepositoryProvider),
+    attachState: ref.watch(mediaStoreAttachStateProvider),
   ),
 );
 
@@ -404,13 +405,25 @@ final FutureProvider<bool> mediaStoreAttachedProvider = FutureProvider<bool>((
   }
 });
 
+/// The store this device is attached to, for readers that see stamps
+/// through it (issue #3482); null when detached or not yet known.
+final FutureProvider<String?> mediaAttachedStoreIdProvider =
+    FutureProvider<String?>((ref) async {
+      try {
+        return await ref.watch(mediaStoreAttachStateProvider).attachedStoreId();
+      } on Object {
+        return null;
+      }
+    });
+
 /// Call after any media store attach change (connect or disconnect).
 ///
-/// Three providers cache attachment state:
+/// Four providers cache attachment state:
 /// [attachedMediaObjectStoreProvider] holds the store adapter,
 /// [mediaStoreRuntimeProvider] holds the runtime built from it, and
 /// [mediaStoreAttachedProvider] holds the cheap
-/// boolean the tile badge reads. Refreshing only the runtime leaves the
+/// boolean the tile badge reads, and [mediaAttachedStoreIdProvider] the
+/// store id stamps are read through. Refreshing only the runtime leaves the
 /// badge answering from a stale cache, so a freshly attached store shows
 /// no not-backed-up badges until the app restarts, and a disconnected one
 /// keeps showing them. Invalidating both together is the whole point of
@@ -430,18 +443,20 @@ void invalidateMediaStoreAttachmentWith(
   invalidate(attachedMediaObjectStoreProvider);
   invalidate(mediaStoreRuntimeProvider);
   invalidate(mediaStoreAttachedProvider);
+  invalidate(mediaAttachedStoreIdProvider);
 }
 
 final mediaStoresRepositoryProvider = Provider<MediaStoresRepository>(
   (ref) => MediaStoresRepository(),
 );
 
-/// Connect/test/disconnect flows for the Media Storage settings page.
+/// Attach and detach flows for the Photos & videos page.
 final mediaStoreServiceProvider = Provider<MediaStoreService>(
   (ref) => MediaStoreService(
     credentials: ref.watch(mediaStoreCredentialsStoreProvider),
     attachState: ref.watch(mediaStoreAttachStateProvider),
     storesRepository: ref.watch(mediaStoresRepositoryProvider),
+    mediaRepository: ref.watch(mediaRepositoryProvider),
   ),
 );
 
@@ -550,6 +565,7 @@ final FutureProvider<MediaStoreRuntime?> mediaStoreRuntimeProvider =
         cache: cache,
         quality: ref.watch(mediaUploadQualityPolicyProvider),
         videoTranscoder: PlatformVideoTranscoder(),
+        storeId: attachedId,
       );
       final deleteProcessor = MediaDeleteProcessor(
         queue: MediaTransferQueueRepository(),

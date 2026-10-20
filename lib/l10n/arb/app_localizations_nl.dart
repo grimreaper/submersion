@@ -54468,4 +54468,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String settings_photos_joinConsequence(String choice) {
     return 'Dit apparaat begint kopieën in $choice of sluit zich erbij aan. Er wordt niets verwijderd.';
   }
+
+  @override
+  String get settings_conflict_field_remoteStoreId => 'Geüpload naar';
 }

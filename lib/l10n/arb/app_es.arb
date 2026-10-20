@@ -16118,5 +16118,6 @@
   "media_info_actionCopyNow": "Copiar ahora",
   "settings_photos_suspended_title": "Subidas en pausa",
   "settings_photos_separateConsequence": "Las copias de la biblioteca están en {current}. Elegir {choice} inicia copias separadas allí. No se elimina nada.",
-  "settings_photos_joinConsequence": "Este dispositivo inicia copias en {choice} o se une a ellas. No se elimina nada."
+  "settings_photos_joinConsequence": "Este dispositivo inicia copias en {choice} o se une a ellas. No se elimina nada.",
+  "settings_conflict_field_remoteStoreId": "Subido a"
 }

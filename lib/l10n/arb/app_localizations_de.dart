@@ -54687,4 +54687,7 @@ class AppLocalizationsDe extends AppLocalizations {
   String settings_photos_joinConsequence(String choice) {
     return 'Dieses Gerät beginnt Kopien in $choice oder schließt sich ihnen an. Es wird nichts gelöscht.';
   }
+
+  @override
+  String get settings_conflict_field_remoteStoreId => 'Hochgeladen in';
 }

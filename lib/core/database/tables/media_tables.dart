@@ -85,6 +85,11 @@ class Media extends Table {
   TextColumn get compressedLevel => text().nullable()();
   IntColumn get compressedSizeBytes => integer().nullable()();
   IntColumn get remoteCompressedUploadedAt => integer().nullable()();
+  // The store the three remote_*_uploaded_at stamps refer to (v303, issue
+  // #3482). Null for stamps from before stores were recorded: those count
+  // for the attached store until a switch claims them for the store they
+  // were made in.
+  TextColumn get remoteStoreId => text().nullable()();
   // Media section Phase 1 (v140): kept-in-library marker. Dormant until the
   // Phase 2 link-management UI sets it; the orphan sweep will exclude rows
   // where it is true. Synced with the row like every other media column.

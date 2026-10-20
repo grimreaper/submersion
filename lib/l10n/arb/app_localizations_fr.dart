@@ -54917,4 +54917,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String settings_photos_joinConsequence(String choice) {
     return 'Cet appareil lance des copies dans $choice ou les rejoint. Rien n\'est supprimé.';
   }
+
+  @override
+  String get settings_conflict_field_remoteStoreId => 'Envoyé vers';
 }

@@ -54488,4 +54488,7 @@ class AppLocalizationsHu extends AppLocalizations {
   String settings_photos_joinConsequence(String choice) {
     return 'Ez az eszköz másolatokat indít itt: $choice, vagy csatlakozik hozzájuk. Semmi sem törlődik.';
   }
+
+  @override
+  String get settings_conflict_field_remoteStoreId => 'Feltöltés helye';
 }

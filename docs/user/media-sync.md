@@ -234,6 +234,11 @@ anywhere.
 says what that does first: this device stops using the current copies and
 starts or joins copies in the new account. Nothing is deleted from either.
 
+The new account counts its own copies. Photos already copied to the old account
+read as not yet copied there, and **Upload everything already attached** copies
+them across. Choosing the same account again (for example, after it could not
+be reached) reconnects to the copies already there.
+
 **Stop keeping copies on this device** (under **Advanced**) stops this device
 uploading and fetching. It does not delete anything from your bucket or account,
 and it does not affect your other devices.

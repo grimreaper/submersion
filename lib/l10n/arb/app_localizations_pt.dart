@@ -54793,4 +54793,7 @@ class AppLocalizationsPt extends AppLocalizations {
   String settings_photos_joinConsequence(String choice) {
     return 'Este dispositivo inicia cópias em $choice ou junta-se a elas. Nada é excluído.';
   }
+
+  @override
+  String get settings_conflict_field_remoteStoreId => 'Enviado para';
 }

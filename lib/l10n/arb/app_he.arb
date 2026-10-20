@@ -16118,5 +16118,6 @@
   "media_info_actionCopyNow": "העתקה עכשיו",
   "settings_photos_suspended_title": "ההעלאות מושהות",
   "settings_photos_separateConsequence": "העותקים של הספרייה נמצאים ב-{current}. בחירה ב-{choice} מתחילה שם עותקים נפרדים. שום דבר לא נמחק.",
-  "settings_photos_joinConsequence": "המכשיר הזה מתחיל עותקים ב-{choice} או מצטרף אליהם. שום דבר לא נמחק."
+  "settings_photos_joinConsequence": "המכשיר הזה מתחיל עותקים ב-{choice} או מצטרף אליהם. שום דבר לא נמחק.",
+  "settings_conflict_field_remoteStoreId": "הועלה אל"
 }

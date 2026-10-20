@@ -51481,4 +51481,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String settings_photos_joinConsequence(String choice) {
     return '此设备会在 $choice 中开始副本或加入现有副本。不会删除任何内容。';
   }
+
+  @override
+  String get settings_conflict_field_remoteStoreId => '上传至';
 }
