@@ -154,12 +154,8 @@ final class FileGitObjectStore implements GitObjectStore {
   ) async {
     final known = index[file.path];
     if (known != null) return known;
-    final FileStat stat;
-    try {
-      stat = await file.stat();
-    } on FileSystemException {
-      return null;
-    }
+    // A missing file stats as notFound rather than throwing.
+    final stat = await file.stat();
     if (stat.type != FileSystemEntityType.file || stat.size == 0) return null;
     // A concurrent caller may have adopted or put it during the stat.
     final raced = index[file.path];
