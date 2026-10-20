@@ -186,6 +186,26 @@ void main() {
     );
   });
 
+  test(
+    'a put adopts what another store wrote instead of rewriting it',
+    () async {
+      final dir = tempDirForTest('git_store_');
+      final a = _blob('a');
+      final reader = FileGitObjectStore(dir);
+      await reader.has(a.id); // scanned before the other store writes
+      await FileGitObjectStore(dir).put(a);
+      final file = File(
+        p.join(dir.path, a.id.hex.substring(0, 2), a.id.hex.substring(2)),
+      );
+      // Whole seconds: some file systems keep no finer modification times.
+      final written = DateTime(2020);
+      file.setLastModifiedSync(written);
+      await reader.put(a);
+      expect(file.lastModifiedSync(), written);
+      expect((await reader.get(a.id))?.body, a.body);
+    },
+  );
+
   group('FileGitObjectStore.shared', () {
     test('is one instance per directory', () {
       final dir = tempDirForTest('git_store_');

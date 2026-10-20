@@ -60,7 +60,8 @@ final class MemoryGitObjectStore implements GitObjectStore {
 /// modification times the first time the store is used.
 ///
 /// Stores on one directory share its files but not their bookkeeping: an
-/// object another store evicted reads as missing and is fetched again. Use
+/// object another store evicted reads as missing and is fetched again, and
+/// one another store wrote is adopted when first asked for. Use
 /// [FileGitObjectStore.shared] so that, within an isolate, there is only one.
 final class FileGitObjectStore implements GitObjectStore {
   FileGitObjectStore(this.root, {this.maxBytes = _defaultMaxBytes});
@@ -68,14 +69,22 @@ final class FileGitObjectStore implements GitObjectStore {
   /// The store for [root] in this isolate, made on first use. Each store
   /// scans its whole directory once, which takes seconds on a full cache, and
   /// keeps its own index; sharing one does both once and keeps eviction in
-  /// step. [maxBytes] applies only when the store is made.
+  /// step. Every caller for one directory must ask for the same [maxBytes].
   factory FileGitObjectStore.shared(
     Directory root, {
     int maxBytes = _defaultMaxBytes,
-  }) => _shared.putIfAbsent(
-    p.canonicalize(root.path),
-    () => FileGitObjectStore(root, maxBytes: maxBytes),
-  );
+  }) {
+    final store = _shared.putIfAbsent(
+      p.canonicalize(root.path),
+      () => FileGitObjectStore(root, maxBytes: maxBytes),
+    );
+    assert(
+      store.maxBytes == maxBytes,
+      'the shared store for ${root.path} is bounded at ${store.maxBytes} '
+      'bytes, not $maxBytes',
+    );
+    return store;
+  }
 
   static final Map<String, FileGitObjectStore> _shared = {};
 
@@ -158,6 +167,13 @@ final class FileGitObjectStore implements GitObjectStore {
     return entry;
   }
 
+  /// Drops [path] from the index. A no-op when a concurrent caller already
+  /// did, so its size is never subtracted twice.
+  void _forget(Map<String, ({int size, int recency})> index, String path) {
+    final gone = index.remove(path);
+    if (gone != null) _total -= gone.size;
+  }
+
   @override
   Future<GitStoredObject?> get(GitObjectId id) async {
     final index = await _ensureIndex();
@@ -172,11 +188,14 @@ final class FileGitObjectStore implements GitObjectStore {
     }
     // Gone, or emptied by a crash: forgotten, so the next read fetches it.
     if (bytes == null || bytes.isEmpty) {
-      index.remove(file.path);
-      _total -= entry.size;
+      _forget(index, file.path);
       return null;
     }
-    index[file.path] = (size: entry.size, recency: ++_clock);
+    // Unless a trim dropped it during the read: it is gone from disk.
+    final current = index[file.path];
+    if (current != null) {
+      index[file.path] = (size: current.size, recency: ++_clock);
+    }
     return GitStoredObject(
       id: id,
       type: GitObjectType.fromPackCode(bytes[0]),
@@ -188,8 +207,9 @@ final class FileGitObjectStore implements GitObjectStore {
   Future<void> put(GitStoredObject object) async {
     final index = await _ensureIndex();
     final file = _fileFor(object.id);
-    // Another store on the same directory may have deleted it since.
-    if (index.containsKey(file.path) && await file.exists()) return;
+    // Already here, perhaps written by another store on this directory; that
+    // store may also have deleted one this index still lists.
+    if (await _entryFor(index, file) != null && await file.exists()) return;
     await file.parent.create(recursive: true);
     // A name of its own: two puts of one object may run at once.
     final tmp = File(
@@ -226,8 +246,7 @@ final class FileGitObjectStore implements GitObjectStore {
       } on FileSystemException {
         // Already gone; only the bookkeeping is left to drop.
       }
-      index.remove(victim.key);
-      _total -= victim.value.size;
+      _forget(index, victim.key);
     }
   }
 
