@@ -14866,7 +14866,6 @@
   "media_timeInDive_save": "Opslaan",
   "media_timeInDive_cancel": "Annuleren",
   "media_timeInDive_reset": "Terugzetten naar automatisch",
-  "media_info_backupSection": "Back-up",
   "media_info_store": "Cloudopslag",
   "media_info_storeNotConnected": "Geen cloudopslag verbonden",
   "media_info_notEligible": "Deze bron komt niet in aanmerking voor back-up",
@@ -14898,7 +14897,6 @@
   "media_info_typeSignature": "Handtekening",
   "media_info_actionCheckNow": "Nu controleren",
   "media_info_actionLocate": "Bestand zoeken...",
-  "media_info_actionBackUpNow": "Nu back-uppen",
   "media_info_actionRetryUpload": "Upload opnieuw proberen",
   "media_info_actionReveal": "Tonen in bestandsbeheer",
   "media_info_actionCopyDiagnostics": "Diagnose kopiëren",
@@ -16117,5 +16115,6 @@
   "settings_photos_status_finishSetup": "Dit apparaat verder instellen",
   "settings_photos_status_unreachable": "{account} is niet bereikbaar",
   "settings_photos_suspended_detached": "Dit apparaat is niet meer verbonden met deze kopieën. Kies het account opnieuw in Foto's en video's.",
-  "settings_photos_suspended_mismatch": "Dit apparaat en het account zijn het niet meer eens over welke kopieën in gebruik zijn. Als u het account opnieuw kiest, worden de kopieën overgenomen die het nu bevat."
+  "settings_photos_suspended_mismatch": "Dit apparaat en het account zijn het niet meer eens over welke kopieën in gebruik zijn. Als u het account opnieuw kiest, worden de kopieën overgenomen die het nu bevat.",
+  "media_info_actionCopyNow": "Nu kopiëren"
 }

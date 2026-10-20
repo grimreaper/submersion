@@ -49972,9 +49972,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get media_timeInDive_reset => 'Visszaállítás automatikusra';
 
   @override
-  String get media_info_backupSection => 'Biztonsági mentés';
-
-  @override
   String get media_info_store => 'Felhő tárhely';
 
   @override
@@ -50076,9 +50073,6 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get media_info_actionLocate => 'Fájl keresése...';
-
-  @override
-  String get media_info_actionBackUpNow => 'Mentés most';
 
   @override
   String get media_info_actionRetryUpload => 'Feltöltés újra';
@@ -54482,4 +54476,7 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get settings_photos_suspended_mismatch =>
       'Ez az eszköz és a fiók már nem egyezik abban, mely másolatok vannak használatban. A fiók újbóli kiválasztása átveszi a benne most lévő másolatokat.';
+
+  @override
+  String get media_info_actionCopyNow => 'Másolás most';
 }

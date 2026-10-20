@@ -29657,7 +29657,6 @@
   "@media_timeInDive_reset": {
     "description": "Set-time dialog: button that removes the diver's pin so the position derives from the capture time again."
   },
-  "media_info_backupSection": "Backup",
   "media_info_store": "Cloud store",
   "media_info_storeNotConnected": "No cloud store connected",
   "media_info_notEligible": "This source is not eligible for backup",
@@ -29710,10 +29709,6 @@
   "media_info_actionLocate": "Locate file...",
   "@media_info_actionLocate": {
     "description": "Media info panel, Origin block: picks a replacement file for a missing local file"
-  },
-  "media_info_actionBackUpNow": "Back up now",
-  "@media_info_actionBackUpNow": {
-    "description": "Media info panel, Backup block: queues the item for upload"
   },
   "media_info_actionRetryUpload": "Retry upload",
   "@media_info_actionRetryUpload": {
@@ -32432,5 +32427,7 @@
   "settings_photos_suspended_detached": "This device is no longer connected to these copies. Choose the account again in Photos & videos.",
   "@settings_photos_suspended_detached": {"description": "Uploads page notice: this device was detached from the copies"},
   "settings_photos_suspended_mismatch": "This device and the account no longer agree on which copies are in use. Choosing the account again adopts the copies it holds now.",
-  "@settings_photos_suspended_mismatch": {"description": "Uploads page notice: the account now holds different copies than this device attached to"}
+  "@settings_photos_suspended_mismatch": {"description": "Uploads page notice: the account now holds different copies than this device attached to"},
+  "media_info_actionCopyNow": "Copy now",
+  "@media_info_actionCopyNow": {"description": "Media info panel: copy this item to the cloud now"}
 }

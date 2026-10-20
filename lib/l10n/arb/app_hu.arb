@@ -14866,7 +14866,6 @@
   "media_timeInDive_save": "Mentés",
   "media_timeInDive_cancel": "Mégse",
   "media_timeInDive_reset": "Visszaállítás automatikusra",
-  "media_info_backupSection": "Biztonsági mentés",
   "media_info_store": "Felhő tárhely",
   "media_info_storeNotConnected": "Nincs csatlakoztatott felhő tárhely",
   "media_info_notEligible": "Ez a forrás nem menthető",
@@ -14898,7 +14897,6 @@
   "media_info_typeSignature": "Aláírás",
   "media_info_actionCheckNow": "Ellenőrzés most",
   "media_info_actionLocate": "Fájl keresése...",
-  "media_info_actionBackUpNow": "Mentés most",
   "media_info_actionRetryUpload": "Feltöltés újra",
   "media_info_actionReveal": "Megjelenítés a fájlkezelőben",
   "media_info_actionCopyDiagnostics": "Diagnosztika másolása",
@@ -16117,5 +16115,6 @@
   "settings_photos_status_finishSetup": "Az eszköz beállításának befejezése",
   "settings_photos_status_unreachable": "{account} nem érhető el",
   "settings_photos_suspended_detached": "Ez az eszköz már nem kapcsolódik ezekhez a másolatokhoz. Válassza ki újra a fiókot a Fotók és videók oldalon.",
-  "settings_photos_suspended_mismatch": "Ez az eszköz és a fiók már nem egyezik abban, mely másolatok vannak használatban. A fiók újbóli kiválasztása átveszi a benne most lévő másolatokat."
+  "settings_photos_suspended_mismatch": "Ez az eszköz és a fiók már nem egyezik abban, mely másolatok vannak használatban. A fiók újbóli kiválasztása átveszi a benne most lévő másolatokat.",
+  "media_info_actionCopyNow": "Másolás most"
 }

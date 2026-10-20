@@ -14866,7 +14866,6 @@
   "media_timeInDive_save": "שמור",
   "media_timeInDive_cancel": "ביטול",
   "media_timeInDive_reset": "איפוס לאוטומטי",
-  "media_info_backupSection": "גיבוי",
   "media_info_store": "אחסון בענן",
   "media_info_storeNotConnected": "לא מחובר אחסון בענן",
   "media_info_notEligible": "מקור זה אינו זכאי לגיבוי",
@@ -14898,7 +14897,6 @@
   "media_info_typeSignature": "חתימה",
   "media_info_actionCheckNow": "בדוק עכשיו",
   "media_info_actionLocate": "אתר קובץ...",
-  "media_info_actionBackUpNow": "גבה עכשיו",
   "media_info_actionRetryUpload": "נסה להעלות שוב",
   "media_info_actionReveal": "הצג במנהל הקבצים",
   "media_info_actionCopyDiagnostics": "העתק אבחון",
@@ -16117,5 +16115,6 @@
   "settings_photos_status_finishSetup": "סיום הגדרת המכשיר הזה",
   "settings_photos_status_unreachable": "לא ניתן היה להגיע ל-{account}",
   "settings_photos_suspended_detached": "המכשיר הזה כבר אינו מחובר לעותקים האלה. בחרו שוב את החשבון בתמונות וסרטונים.",
-  "settings_photos_suspended_mismatch": "המכשיר הזה והחשבון כבר אינם מסכימים אילו עותקים בשימוש. בחירה מחדש בחשבון מאמצת את העותקים שהוא מחזיק עכשיו."
+  "settings_photos_suspended_mismatch": "המכשיר הזה והחשבון כבר אינם מסכימים אילו עותקים בשימוש. בחירה מחדש בחשבון מאמצת את העותקים שהוא מחזיק עכשיו.",
+  "media_info_actionCopyNow": "העתקה עכשיו"
 }

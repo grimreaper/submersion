@@ -14866,7 +14866,6 @@
   "media_timeInDive_save": "حفظ",
   "media_timeInDive_cancel": "إلغاء",
   "media_timeInDive_reset": "إعادة التعيين إلى التلقائي",
-  "media_info_backupSection": "النسخ الاحتياطي",
   "media_info_store": "التخزين السحابي",
   "media_info_storeNotConnected": "لا يوجد تخزين سحابي متصل",
   "media_info_notEligible": "هذا المصدر غير مؤهل للنسخ الاحتياطي",
@@ -14898,7 +14897,6 @@
   "media_info_typeSignature": "توقيع",
   "media_info_actionCheckNow": "تحقق الآن",
   "media_info_actionLocate": "تحديد موقع الملف...",
-  "media_info_actionBackUpNow": "انسخ احتياطيًا الآن",
   "media_info_actionRetryUpload": "إعادة محاولة الرفع",
   "media_info_actionReveal": "إظهار في مدير الملفات",
   "media_info_actionCopyDiagnostics": "نسخ التشخيص",
@@ -16117,5 +16115,6 @@
   "settings_photos_status_finishSetup": "إنهاء إعداد هذا الجهاز",
   "settings_photos_status_unreachable": "تعذر الوصول إلى {account}",
   "settings_photos_suspended_detached": "لم يعد هذا الجهاز متصلًا بهذه النسخ. اختر الحساب مرة أخرى في الصور ومقاطع الفيديو.",
-  "settings_photos_suspended_mismatch": "لم يعد هذا الجهاز والحساب متفقين على النسخ المستخدمة. يؤدي اختيار الحساب مرة أخرى إلى اعتماد النسخ الموجودة فيه الآن."
+  "settings_photos_suspended_mismatch": "لم يعد هذا الجهاز والحساب متفقين على النسخ المستخدمة. يؤدي اختيار الحساب مرة أخرى إلى اعتماد النسخ الموجودة فيه الآن.",
+  "media_info_actionCopyNow": "النسخ الآن"
 }

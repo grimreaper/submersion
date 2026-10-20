@@ -50252,9 +50252,6 @@ class AppLocalizationsIt extends AppLocalizations {
   String get media_timeInDive_reset => 'Ripristina automatico';
 
   @override
-  String get media_info_backupSection => 'Backup';
-
-  @override
   String get media_info_store => 'Archivio cloud';
 
   @override
@@ -50356,9 +50353,6 @@ class AppLocalizationsIt extends AppLocalizations {
 
   @override
   String get media_info_actionLocate => 'Trova file...';
-
-  @override
-  String get media_info_actionBackUpNow => 'Esegui backup ora';
 
   @override
   String get media_info_actionRetryUpload => 'Riprova caricamento';
@@ -54784,4 +54778,7 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get settings_photos_suspended_mismatch =>
       'Questo dispositivo e l\'account non concordano più su quali copie sono in uso. Scegliere di nuovo l\'account adotta le copie che contiene ora.';
+
+  @override
+  String get media_info_actionCopyNow => 'Copia ora';
 }

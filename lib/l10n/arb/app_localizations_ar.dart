@@ -50925,9 +50925,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get media_timeInDive_reset => 'إعادة التعيين إلى التلقائي';
 
   @override
-  String get media_info_backupSection => 'النسخ الاحتياطي';
-
-  @override
   String get media_info_store => 'التخزين السحابي';
 
   @override
@@ -51026,9 +51023,6 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get media_info_actionLocate => 'تحديد موقع الملف...';
-
-  @override
-  String get media_info_actionBackUpNow => 'انسخ احتياطيًا الآن';
 
   @override
   String get media_info_actionRetryUpload => 'إعادة محاولة الرفع';
@@ -55501,4 +55495,7 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get settings_photos_suspended_mismatch =>
       'لم يعد هذا الجهاز والحساب متفقين على النسخ المستخدمة. يؤدي اختيار الحساب مرة أخرى إلى اعتماد النسخ الموجودة فيه الآن.';
+
+  @override
+  String get media_info_actionCopyNow => 'النسخ الآن';
 }

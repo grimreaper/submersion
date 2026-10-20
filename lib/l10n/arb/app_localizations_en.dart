@@ -49475,9 +49475,6 @@ class AppLocalizationsEn extends AppLocalizations {
   String get media_timeInDive_reset => 'Reset to automatic';
 
   @override
-  String get media_info_backupSection => 'Backup';
-
-  @override
   String get media_info_store => 'Cloud store';
 
   @override
@@ -49576,9 +49573,6 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get media_info_actionLocate => 'Locate file...';
-
-  @override
-  String get media_info_actionBackUpNow => 'Back up now';
 
   @override
   String get media_info_actionRetryUpload => 'Retry upload';
@@ -53935,4 +53929,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settings_photos_suspended_mismatch =>
       'This device and the account no longer agree on which copies are in use. Choosing the account again adopts the copies it holds now.';
+
+  @override
+  String get media_info_actionCopyNow => 'Copy now';
 }

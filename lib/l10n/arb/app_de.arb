@@ -15014,7 +15014,6 @@
   "media_timeInDive_save": "Speichern",
   "media_timeInDive_cancel": "Abbrechen",
   "media_timeInDive_reset": "Auf automatisch zurücksetzen",
-  "media_info_backupSection": "Sicherung",
   "media_info_store": "Cloud-Speicher",
   "media_info_storeNotConnected": "Kein Cloud-Speicher verbunden",
   "media_info_notEligible": "Diese Quelle kann nicht gesichert werden",
@@ -15046,7 +15045,6 @@
   "media_info_typeSignature": "Unterschrift",
   "media_info_actionCheckNow": "Jetzt prüfen",
   "media_info_actionLocate": "Datei suchen...",
-  "media_info_actionBackUpNow": "Jetzt sichern",
   "media_info_actionRetryUpload": "Upload wiederholen",
   "media_info_actionReveal": "Im Dateimanager anzeigen",
   "media_info_actionCopyDiagnostics": "Diagnose kopieren",
@@ -16238,5 +16236,6 @@
   "settings_photos_status_finishSetup": "Einrichtung dieses Geräts abschließen",
   "settings_photos_status_unreachable": "{account} ist nicht erreichbar",
   "settings_photos_suspended_detached": "Dieses Gerät ist nicht mehr mit diesen Kopien verbunden. Wählen Sie das Konto unter Fotos & Videos erneut.",
-  "settings_photos_suspended_mismatch": "Dieses Gerät und das Konto sind sich nicht mehr einig, welche Kopien verwendet werden. Wenn Sie das Konto erneut wählen, werden die Kopien übernommen, die es jetzt enthält."
+  "settings_photos_suspended_mismatch": "Dieses Gerät und das Konto sind sich nicht mehr einig, welche Kopien verwendet werden. Wenn Sie das Konto erneut wählen, werden die Kopien übernommen, die es jetzt enthält.",
+  "media_info_actionCopyNow": "Jetzt kopieren"
 }

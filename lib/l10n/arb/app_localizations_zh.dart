@@ -47178,9 +47178,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get media_timeInDive_reset => '重置为自动';
 
   @override
-  String get media_info_backupSection => '备份';
-
-  @override
   String get media_info_store => '云存储';
 
   @override
@@ -47276,9 +47273,6 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get media_info_actionLocate => '查找文件...';
-
-  @override
-  String get media_info_actionBackUpNow => '立即备份';
 
   @override
   String get media_info_actionRetryUpload => '重试上传';
@@ -51474,4 +51468,7 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get settings_photos_suspended_mismatch =>
       '此设备与账户对正在使用哪些副本已不一致。重新选择该账户将采用其中现有的副本。';
+
+  @override
+  String get media_info_actionCopyNow => '立即复制';
 }

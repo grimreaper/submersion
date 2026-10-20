@@ -79535,12 +79535,6 @@ abstract class AppLocalizations {
   /// **'Reset to automatic'**
   String get media_timeInDive_reset;
 
-  /// No description provided for @media_info_backupSection.
-  ///
-  /// In en, this message translates to:
-  /// **'Backup'**
-  String get media_info_backupSection;
-
   /// No description provided for @media_info_store.
   ///
   /// In en, this message translates to:
@@ -79726,12 +79720,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Locate file...'**
   String get media_info_actionLocate;
-
-  /// Media info panel, Backup block: queues the item for upload
-  ///
-  /// In en, this message translates to:
-  /// **'Back up now'**
-  String get media_info_actionBackUpNow;
 
   /// Media info panel, Backup block: same action as Back up now, shown when the previous upload failed
   ///
@@ -86774,6 +86762,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This device and the account no longer agree on which copies are in use. Choosing the account again adopts the copies it holds now.'**
   String get settings_photos_suspended_mismatch;
+
+  /// Media info panel: copy this item to the cloud now
+  ///
+  /// In en, this message translates to:
+  /// **'Copy now'**
+  String get media_info_actionCopyNow;
 }
 
 class _AppLocalizationsDelegate

@@ -49939,9 +49939,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get media_timeInDive_reset => 'Terugzetten naar automatisch';
 
   @override
-  String get media_info_backupSection => 'Back-up';
-
-  @override
   String get media_info_store => 'Cloudopslag';
 
   @override
@@ -50042,9 +50039,6 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get media_info_actionLocate => 'Bestand zoeken...';
-
-  @override
-  String get media_info_actionBackUpNow => 'Nu back-uppen';
 
   @override
   String get media_info_actionRetryUpload => 'Upload opnieuw proberen';
@@ -54444,4 +54438,7 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get settings_photos_suspended_mismatch =>
       'Dit apparaat en het account zijn het niet meer eens over welke kopieën in gebruik zijn. Als u het account opnieuw kiest, worden de kopieën overgenomen die het nu bevat.';
+
+  @override
+  String get media_info_actionCopyNow => 'Nu kopiëren';
 }

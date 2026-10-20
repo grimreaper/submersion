@@ -14866,7 +14866,6 @@
   "media_timeInDive_save": "保存",
   "media_timeInDive_cancel": "取消",
   "media_timeInDive_reset": "重置为自动",
-  "media_info_backupSection": "备份",
   "media_info_store": "云存储",
   "media_info_storeNotConnected": "未连接云存储",
   "media_info_notEligible": "此来源不支持备份",
@@ -14898,7 +14897,6 @@
   "media_info_typeSignature": "签名",
   "media_info_actionCheckNow": "立即检查",
   "media_info_actionLocate": "查找文件...",
-  "media_info_actionBackUpNow": "立即备份",
   "media_info_actionRetryUpload": "重试上传",
   "media_info_actionReveal": "在文件管理器中显示",
   "media_info_actionCopyDiagnostics": "复制诊断信息",
@@ -16117,5 +16115,6 @@
   "settings_photos_status_finishSetup": "完成此设备的设置",
   "settings_photos_status_unreachable": "无法连接到{account}",
   "settings_photos_suspended_detached": "此设备已不再连接到这些副本。请在“照片和视频”中重新选择账户。",
-  "settings_photos_suspended_mismatch": "此设备与账户对正在使用哪些副本已不一致。重新选择该账户将采用其中现有的副本。"
+  "settings_photos_suspended_mismatch": "此设备与账户对正在使用哪些副本已不一致。重新选择该账户将采用其中现有的副本。",
+  "media_info_actionCopyNow": "立即复制"
 }

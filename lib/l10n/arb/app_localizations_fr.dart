@@ -50366,9 +50366,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get media_timeInDive_reset => 'Rétablir le mode automatique';
 
   @override
-  String get media_info_backupSection => 'Sauvegarde';
-
-  @override
   String get media_info_store => 'Stockage cloud';
 
   @override
@@ -50471,9 +50468,6 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get media_info_actionLocate => 'Localiser le fichier...';
-
-  @override
-  String get media_info_actionBackUpNow => 'Sauvegarder maintenant';
 
   @override
   String get media_info_actionRetryUpload => 'Réessayer le téléversement';
@@ -54899,4 +54893,7 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get settings_photos_suspended_mismatch =>
       'Cet appareil et le compte ne s\'accordent plus sur les copies utilisées. Choisir de nouveau le compte adopte les copies qu\'il contient maintenant.';
+
+  @override
+  String get media_info_actionCopyNow => 'Copier maintenant';
 }

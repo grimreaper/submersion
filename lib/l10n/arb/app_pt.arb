@@ -14866,7 +14866,6 @@
   "media_timeInDive_save": "Salvar",
   "media_timeInDive_cancel": "Cancelar",
   "media_timeInDive_reset": "Redefinir para automático",
-  "media_info_backupSection": "Backup",
   "media_info_store": "Armazenamento na nuvem",
   "media_info_storeNotConnected": "Nenhum armazenamento na nuvem conectado",
   "media_info_notEligible": "Esta fonte não pode ser copiada",
@@ -14898,7 +14897,6 @@
   "media_info_typeSignature": "Assinatura",
   "media_info_actionCheckNow": "Verificar agora",
   "media_info_actionLocate": "Localizar arquivo...",
-  "media_info_actionBackUpNow": "Fazer backup agora",
   "media_info_actionRetryUpload": "Tentar envio novamente",
   "media_info_actionReveal": "Mostrar no gerenciador de arquivos",
   "media_info_actionCopyDiagnostics": "Copiar diagnóstico",
@@ -16117,5 +16115,6 @@
   "settings_photos_status_finishSetup": "Concluir a configuração deste dispositivo",
   "settings_photos_status_unreachable": "Não foi possível acessar {account}",
   "settings_photos_suspended_detached": "Este dispositivo não está mais conectado a estas cópias. Escolha a conta novamente em Fotos e vídeos.",
-  "settings_photos_suspended_mismatch": "Este dispositivo e a conta não concordam mais sobre quais cópias estão em uso. Escolher a conta novamente adota as cópias que ela contém agora."
+  "settings_photos_suspended_mismatch": "Este dispositivo e a conta não concordam mais sobre quais cópias estão em uso. Escolher a conta novamente adota as cópias que ela contém agora.",
+  "media_info_actionCopyNow": "Copiar agora"
 }

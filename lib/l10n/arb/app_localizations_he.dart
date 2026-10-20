@@ -49205,9 +49205,6 @@ class AppLocalizationsHe extends AppLocalizations {
   String get media_timeInDive_reset => 'איפוס לאוטומטי';
 
   @override
-  String get media_info_backupSection => 'גיבוי';
-
-  @override
   String get media_info_store => 'אחסון בענן';
 
   @override
@@ -49304,9 +49301,6 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get media_info_actionLocate => 'אתר קובץ...';
-
-  @override
-  String get media_info_actionBackUpNow => 'גבה עכשיו';
 
   @override
   String get media_info_actionRetryUpload => 'נסה להעלות שוב';
@@ -53642,4 +53636,7 @@ class AppLocalizationsHe extends AppLocalizations {
   @override
   String get settings_photos_suspended_mismatch =>
       'המכשיר הזה והחשבון כבר אינם מסכימים אילו עותקים בשימוש. בחירה מחדש בחשבון מאמצת את העותקים שהוא מחזיק עכשיו.';
+
+  @override
+  String get media_info_actionCopyNow => 'העתקה עכשיו';
 }

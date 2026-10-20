@@ -14866,7 +14866,6 @@
   "media_timeInDive_save": "Enregistrer",
   "media_timeInDive_cancel": "Annuler",
   "media_timeInDive_reset": "Rétablir le mode automatique",
-  "media_info_backupSection": "Sauvegarde",
   "media_info_store": "Stockage cloud",
   "media_info_storeNotConnected": "Aucun stockage cloud connecté",
   "media_info_notEligible": "Cette source ne peut pas être sauvegardée",
@@ -14898,7 +14897,6 @@
   "media_info_typeSignature": "Signature",
   "media_info_actionCheckNow": "Vérifier maintenant",
   "media_info_actionLocate": "Localiser le fichier...",
-  "media_info_actionBackUpNow": "Sauvegarder maintenant",
   "media_info_actionRetryUpload": "Réessayer le téléversement",
   "media_info_actionReveal": "Afficher dans le gestionnaire de fichiers",
   "media_info_actionCopyDiagnostics": "Copier le diagnostic",
@@ -16117,5 +16115,6 @@
   "settings_photos_status_finishSetup": "Terminer la configuration de cet appareil",
   "settings_photos_status_unreachable": "Impossible de joindre {account}",
   "settings_photos_suspended_detached": "Cet appareil n'est plus connecté à ces copies. Choisissez de nouveau le compte dans Photos et vidéos.",
-  "settings_photos_suspended_mismatch": "Cet appareil et le compte ne s'accordent plus sur les copies utilisées. Choisir de nouveau le compte adopte les copies qu'il contient maintenant."
+  "settings_photos_suspended_mismatch": "Cet appareil et le compte ne s'accordent plus sur les copies utilisées. Choisir de nouveau le compte adopte les copies qu'il contient maintenant.",
+  "media_info_actionCopyNow": "Copier maintenant"
 }
