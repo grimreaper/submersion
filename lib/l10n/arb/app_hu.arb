@@ -10172,7 +10172,6 @@
   "settings_mediaStorage_transfers_state_deleting": "Eltávolítás a felhőből",
   "settings_mediaStorage_transfers_state_done": "Kész",
   "settings_mediaStorage_transfers_state_failed": "Sikertelen",
-  "settings_mediaStorage_transfers_suspended_title": "Átvitelek szüneteltetve",
   "settings_mediaStorage_transfers_suspended_unreachable": "A médiatárolót nem sikerült ellenőrizni. Az átvitelek automatikusan újrapróbálkoznak.",
   "settings_mediaStorage_report_action": "Médiajelentés exportálása",
   "settings_mediaStorage_report_done": "Médiajelentés exportálva",
@@ -16116,5 +16115,6 @@
   "settings_photos_status_unreachable": "{account} nem érhető el",
   "settings_photos_suspended_detached": "Ez az eszköz már nem kapcsolódik ezekhez a másolatokhoz. Válassza ki újra a fiókot a Fotók és videók oldalon.",
   "settings_photos_suspended_mismatch": "Ez az eszköz és a fiók már nem egyezik abban, mely másolatok vannak használatban. A fiók újbóli kiválasztása átveszi a benne most lévő másolatokat.",
-  "media_info_actionCopyNow": "Másolás most"
+  "media_info_actionCopyNow": "Másolás most",
+  "settings_photos_suspended_title": "Feltöltések szüneteltetve"
 }

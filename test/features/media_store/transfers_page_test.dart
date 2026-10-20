@@ -620,7 +620,7 @@ void main() {
     await tester.pump();
     await tester.pump();
 
-    expect(find.text('Transfers paused'), findsOneWidget);
+    expect(find.text('Uploads paused'), findsOneWidget);
     expect(find.text('Waiting'), findsOneWidget);
   });
 }

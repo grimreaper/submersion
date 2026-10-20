@@ -36843,10 +36843,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get settings_mediaStorage_transfers_state_failed => 'فشل';
 
   @override
-  String get settings_mediaStorage_transfers_suspended_title =>
-      'تم إيقاف عمليات النقل مؤقتًا';
-
-  @override
   String get settings_mediaStorage_transfers_suspended_unreachable =>
       'تعذّر التحقق من تخزين الوسائط. تتم إعادة محاولة عمليات النقل تلقائيًا.';
 
@@ -55498,4 +55494,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get media_info_actionCopyNow => 'النسخ الآن';
+
+  @override
+  String get settings_photos_suspended_title => 'تم إيقاف الرفع مؤقتًا';
 }

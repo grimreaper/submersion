@@ -10172,7 +10172,6 @@
   "settings_mediaStorage_transfers_state_deleting": "מסיר מהענן",
   "settings_mediaStorage_transfers_state_done": "הושלם",
   "settings_mediaStorage_transfers_state_failed": "נכשל",
-  "settings_mediaStorage_transfers_suspended_title": "ההעברות מושהות",
   "settings_mediaStorage_transfers_suspended_unreachable": "לא ניתן היה לבדוק את אחסון המדיה. ההעברות ינוסו שוב באופן אוטומטי.",
   "settings_mediaStorage_report_action": "ייצוא דוח מדיה",
   "settings_mediaStorage_report_done": "דוח המדיה יוצא",
@@ -16116,5 +16115,6 @@
   "settings_photos_status_unreachable": "לא ניתן היה להגיע ל-{account}",
   "settings_photos_suspended_detached": "המכשיר הזה כבר אינו מחובר לעותקים האלה. בחרו שוב את החשבון בתמונות וסרטונים.",
   "settings_photos_suspended_mismatch": "המכשיר הזה והחשבון כבר אינם מסכימים אילו עותקים בשימוש. בחירה מחדש בחשבון מאמצת את העותקים שהוא מחזיק עכשיו.",
-  "media_info_actionCopyNow": "העתקה עכשיו"
+  "media_info_actionCopyNow": "העתקה עכשיו",
+  "settings_photos_suspended_title": "ההעלאות מושהות"
 }

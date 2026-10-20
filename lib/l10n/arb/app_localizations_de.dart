@@ -36260,10 +36260,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get settings_mediaStorage_transfers_state_failed => 'Fehlgeschlagen';
 
   @override
-  String get settings_mediaStorage_transfers_suspended_title =>
-      'Übertragungen angehalten';
-
-  @override
   String get settings_mediaStorage_transfers_suspended_unreachable =>
       'Der Medienspeicher konnte nicht geprüft werden. Übertragungen werden automatisch wiederholt.';
 
@@ -54660,4 +54656,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get media_info_actionCopyNow => 'Jetzt kopieren';
+
+  @override
+  String get settings_photos_suspended_title => 'Uploads angehalten';
 }

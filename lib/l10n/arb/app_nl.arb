@@ -10172,7 +10172,6 @@
   "settings_mediaStorage_transfers_state_deleting": "Verwijderen uit de cloud",
   "settings_mediaStorage_transfers_state_done": "Klaar",
   "settings_mediaStorage_transfers_state_failed": "Mislukt",
-  "settings_mediaStorage_transfers_suspended_title": "Overdrachten gepauzeerd",
   "settings_mediaStorage_transfers_suspended_unreachable": "De mediaopslag kon niet worden gecontroleerd. Overdrachten worden automatisch opnieuw geprobeerd.",
   "settings_mediaStorage_report_action": "Mediarapport exporteren",
   "settings_mediaStorage_report_done": "Mediarapport geëxporteerd",
@@ -16116,5 +16115,6 @@
   "settings_photos_status_unreachable": "{account} is niet bereikbaar",
   "settings_photos_suspended_detached": "Dit apparaat is niet meer verbonden met deze kopieën. Kies het account opnieuw in Foto's en video's.",
   "settings_photos_suspended_mismatch": "Dit apparaat en het account zijn het niet meer eens over welke kopieën in gebruik zijn. Als u het account opnieuw kiest, worden de kopieën overgenomen die het nu bevat.",
-  "media_info_actionCopyNow": "Nu kopiëren"
+  "media_info_actionCopyNow": "Nu kopiëren",
+  "settings_photos_suspended_title": "Uploads gepauzeerd"
 }

@@ -10172,7 +10172,6 @@
   "settings_mediaStorage_transfers_state_deleting": "正在从云端移除",
   "settings_mediaStorage_transfers_state_done": "已完成",
   "settings_mediaStorage_transfers_state_failed": "失败",
-  "settings_mediaStorage_transfers_suspended_title": "传输已暂停",
   "settings_mediaStorage_transfers_suspended_unreachable": "无法检查媒体存储。传输将自动重试。",
   "settings_mediaStorage_report_action": "导出媒体报告",
   "settings_mediaStorage_report_done": "媒体报告已导出",
@@ -16116,5 +16115,6 @@
   "settings_photos_status_unreachable": "无法连接到{account}",
   "settings_photos_suspended_detached": "此设备已不再连接到这些副本。请在“照片和视频”中重新选择账户。",
   "settings_photos_suspended_mismatch": "此设备与账户对正在使用哪些副本已不一致。重新选择该账户将采用其中现有的副本。",
-  "media_info_actionCopyNow": "立即复制"
+  "media_info_actionCopyNow": "立即复制",
+  "settings_photos_suspended_title": "上传已暂停"
 }

@@ -57074,12 +57074,6 @@ abstract class AppLocalizations {
   /// **'Failed'**
   String get settings_mediaStorage_transfers_state_failed;
 
-  /// No description provided for @settings_mediaStorage_transfers_suspended_title.
-  ///
-  /// In en, this message translates to:
-  /// **'Transfers paused'**
-  String get settings_mediaStorage_transfers_suspended_title;
-
   /// Suspended transfers notice when the media store could not be checked; the raw error is shown beneath
   ///
   /// In en, this message translates to:
@@ -86768,6 +86762,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Copy now'**
   String get media_info_actionCopyNow;
+
+  /// Uploads page notice title: uploads are held
+  ///
+  /// In en, this message translates to:
+  /// **'Uploads paused'**
+  String get settings_photos_suspended_title;
 }
 
 class _AppLocalizationsDelegate

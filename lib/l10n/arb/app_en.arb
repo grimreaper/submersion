@@ -22100,7 +22100,6 @@
   "settings_mediaStorage_transfers_state_deleting": "Removing from cloud",
   "settings_mediaStorage_transfers_state_done": "Done",
   "settings_mediaStorage_transfers_state_failed": "Failed",
-  "settings_mediaStorage_transfers_suspended_title": "Transfers paused",
   "settings_mediaStorage_transfers_suspended_unreachable": "The media store could not be checked. Transfers retry automatically.",
   "@settings_mediaStorage_transfers_suspended_unreachable": {
     "description": "Suspended transfers notice when the media store could not be checked; the raw error is shown beneath"
@@ -32429,5 +32428,7 @@
   "settings_photos_suspended_mismatch": "This device and the account no longer agree on which copies are in use. Choosing the account again adopts the copies it holds now.",
   "@settings_photos_suspended_mismatch": {"description": "Uploads page notice: the account now holds different copies than this device attached to"},
   "media_info_actionCopyNow": "Copy now",
-  "@media_info_actionCopyNow": {"description": "Media info panel: copy this item to the cloud now"}
+  "@media_info_actionCopyNow": {"description": "Media info panel: copy this item to the cloud now"},
+  "settings_photos_suspended_title": "Uploads paused",
+  "@settings_photos_suspended_title": {"description": "Uploads page notice title: uploads are held"}
 }

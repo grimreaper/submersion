@@ -36134,10 +36134,6 @@ class AppLocalizationsHu extends AppLocalizations {
   String get settings_mediaStorage_transfers_state_failed => 'Sikertelen';
 
   @override
-  String get settings_mediaStorage_transfers_suspended_title =>
-      'Átvitelek szüneteltetve';
-
-  @override
   String get settings_mediaStorage_transfers_suspended_unreachable =>
       'A médiatárolót nem sikerült ellenőrizni. Az átvitelek automatikusan újrapróbálkoznak.';
 
@@ -54479,4 +54475,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get media_info_actionCopyNow => 'Másolás most';
+
+  @override
+  String get settings_photos_suspended_title => 'Feltöltések szüneteltetve';
 }

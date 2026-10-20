@@ -10304,7 +10304,6 @@
   "settings_mediaStorage_transfers_state_deleting": "Wird aus der Cloud entfernt",
   "settings_mediaStorage_transfers_state_done": "Fertig",
   "settings_mediaStorage_transfers_state_failed": "Fehlgeschlagen",
-  "settings_mediaStorage_transfers_suspended_title": "Übertragungen angehalten",
   "settings_mediaStorage_transfers_suspended_unreachable": "Der Medienspeicher konnte nicht geprüft werden. Übertragungen werden automatisch wiederholt.",
   "settings_mediaStorage_report_action": "Medienbericht exportieren",
   "settings_mediaStorage_report_done": "Medienbericht exportiert",
@@ -16237,5 +16236,6 @@
   "settings_photos_status_unreachable": "{account} ist nicht erreichbar",
   "settings_photos_suspended_detached": "Dieses Gerät ist nicht mehr mit diesen Kopien verbunden. Wählen Sie das Konto unter Fotos & Videos erneut.",
   "settings_photos_suspended_mismatch": "Dieses Gerät und das Konto sind sich nicht mehr einig, welche Kopien verwendet werden. Wenn Sie das Konto erneut wählen, werden die Kopien übernommen, die es jetzt enthält.",
-  "media_info_actionCopyNow": "Jetzt kopieren"
+  "media_info_actionCopyNow": "Jetzt kopieren",
+  "settings_photos_suspended_title": "Uploads angehalten"
 }

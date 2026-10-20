@@ -36089,10 +36089,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get settings_mediaStorage_transfers_state_failed => 'Mislukt';
 
   @override
-  String get settings_mediaStorage_transfers_suspended_title =>
-      'Overdrachten gepauzeerd';
-
-  @override
   String get settings_mediaStorage_transfers_suspended_unreachable =>
       'De mediaopslag kon niet worden gecontroleerd. Overdrachten worden automatisch opnieuw geprobeerd.';
 
@@ -54441,4 +54437,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get media_info_actionCopyNow => 'Nu kopiëren';
+
+  @override
+  String get settings_photos_suspended_title => 'Uploads gepauzeerd';
 }

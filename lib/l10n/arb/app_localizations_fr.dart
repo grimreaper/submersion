@@ -36436,10 +36436,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settings_mediaStorage_transfers_state_failed => 'Échec';
 
   @override
-  String get settings_mediaStorage_transfers_suspended_title =>
-      'Transferts en pause';
-
-  @override
   String get settings_mediaStorage_transfers_suspended_unreachable =>
       'Le stockage multimédia n\'a pas pu être vérifié. Les transferts seront relancés automatiquement.';
 
@@ -54896,4 +54892,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get media_info_actionCopyNow => 'Copier maintenant';
+
+  @override
+  String get settings_photos_suspended_title => 'Envois en pause';
 }

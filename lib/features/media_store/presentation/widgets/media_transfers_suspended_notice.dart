@@ -44,7 +44,7 @@ class MediaTransfersSuspendedNotice extends ConsumerWidget {
         Icons.pause_circle_outline,
         color: theme.colorScheme.tertiary,
       ),
-      title: Text(l10n.settings_mediaStorage_transfers_suspended_title),
+      title: Text(l10n.settings_photos_suspended_title),
       subtitle: Text(subtitle),
     );
   }

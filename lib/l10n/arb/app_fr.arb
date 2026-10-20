@@ -10172,7 +10172,6 @@
   "settings_mediaStorage_transfers_state_deleting": "Suppression du cloud",
   "settings_mediaStorage_transfers_state_done": "Terminé",
   "settings_mediaStorage_transfers_state_failed": "Échec",
-  "settings_mediaStorage_transfers_suspended_title": "Transferts en pause",
   "settings_mediaStorage_transfers_suspended_unreachable": "Le stockage multimédia n'a pas pu être vérifié. Les transferts seront relancés automatiquement.",
   "settings_mediaStorage_report_action": "Exporter le rapport des médias",
   "settings_mediaStorage_report_done": "Rapport des médias exporté",
@@ -16116,5 +16115,6 @@
   "settings_photos_status_unreachable": "Impossible de joindre {account}",
   "settings_photos_suspended_detached": "Cet appareil n'est plus connecté à ces copies. Choisissez de nouveau le compte dans Photos et vidéos.",
   "settings_photos_suspended_mismatch": "Cet appareil et le compte ne s'accordent plus sur les copies utilisées. Choisir de nouveau le compte adopte les copies qu'il contient maintenant.",
-  "media_info_actionCopyNow": "Copier maintenant"
+  "media_info_actionCopyNow": "Copier maintenant",
+  "settings_photos_suspended_title": "Envois en pause"
 }

@@ -10172,7 +10172,6 @@
   "settings_mediaStorage_transfers_state_deleting": "Eliminando de la nube",
   "settings_mediaStorage_transfers_state_done": "Completado",
   "settings_mediaStorage_transfers_state_failed": "Fallido",
-  "settings_mediaStorage_transfers_suspended_title": "Transferencias en pausa",
   "settings_mediaStorage_transfers_suspended_unreachable": "No se pudo comprobar el almacenamiento de medios. Las transferencias se reintentan automáticamente.",
   "settings_mediaStorage_report_action": "Exportar informe de medios",
   "settings_mediaStorage_report_done": "Informe de medios exportado",
@@ -16116,5 +16115,6 @@
   "settings_photos_status_unreachable": "No se pudo acceder a {account}",
   "settings_photos_suspended_detached": "Este dispositivo ya no está conectado a estas copias. Vuelva a elegir la cuenta en Fotos y vídeos.",
   "settings_photos_suspended_mismatch": "Este dispositivo y la cuenta ya no coinciden en qué copias se usan. Volver a elegir la cuenta adopta las copias que contiene ahora.",
-  "media_info_actionCopyNow": "Copiar ahora"
+  "media_info_actionCopyNow": "Copiar ahora",
+  "settings_photos_suspended_title": "Subidas en pausa"
 }

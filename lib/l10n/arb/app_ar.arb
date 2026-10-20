@@ -10172,7 +10172,6 @@
   "settings_mediaStorage_transfers_state_deleting": "جارٍ الإزالة من السحابة",
   "settings_mediaStorage_transfers_state_done": "تم",
   "settings_mediaStorage_transfers_state_failed": "فشل",
-  "settings_mediaStorage_transfers_suspended_title": "تم إيقاف عمليات النقل مؤقتًا",
   "settings_mediaStorage_transfers_suspended_unreachable": "تعذّر التحقق من تخزين الوسائط. تتم إعادة محاولة عمليات النقل تلقائيًا.",
   "settings_mediaStorage_report_action": "تصدير تقرير الوسائط",
   "settings_mediaStorage_report_done": "تم تصدير تقرير الوسائط",
@@ -16116,5 +16115,6 @@
   "settings_photos_status_unreachable": "تعذر الوصول إلى {account}",
   "settings_photos_suspended_detached": "لم يعد هذا الجهاز متصلًا بهذه النسخ. اختر الحساب مرة أخرى في الصور ومقاطع الفيديو.",
   "settings_photos_suspended_mismatch": "لم يعد هذا الجهاز والحساب متفقين على النسخ المستخدمة. يؤدي اختيار الحساب مرة أخرى إلى اعتماد النسخ الموجودة فيه الآن.",
-  "media_info_actionCopyNow": "النسخ الآن"
+  "media_info_actionCopyNow": "النسخ الآن",
+  "settings_photos_suspended_title": "تم إيقاف الرفع مؤقتًا"
 }

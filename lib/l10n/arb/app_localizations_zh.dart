@@ -34234,9 +34234,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings_mediaStorage_transfers_state_failed => '失败';
 
   @override
-  String get settings_mediaStorage_transfers_suspended_title => '传输已暂停';
-
-  @override
   String get settings_mediaStorage_transfers_suspended_unreachable =>
       '无法检查媒体存储。传输将自动重试。';
 
@@ -51471,4 +51468,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get media_info_actionCopyNow => '立即复制';
+
+  @override
+  String get settings_photos_suspended_title => '上传已暂停';
 }
