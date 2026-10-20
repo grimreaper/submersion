@@ -13,10 +13,7 @@ import '../../../../helpers/git_test_provider.dart';
 import '../../../../helpers/git_test_session.dart';
 
 /// The time [fixedGitEnv] gives every commit made with stock git.
-final int _handCommitMs = DateTime.fromMillisecondsSinceEpoch(
-  1700000000 * 1000,
-  isUtc: true,
-).millisecondsSinceEpoch;
+const int _handCommitMs = 1700000000 * 1000;
 
 const String _keep = 'Submersion Sync/keep.json';
 const String _added = 'Submersion Sync/added.json';
