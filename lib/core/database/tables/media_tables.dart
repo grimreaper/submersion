@@ -351,6 +351,10 @@ class MediaStores extends Table {
   // v136: epoch millis of the last completed Verify Library sweep on ANY
   // device (fleet-wide cadence; orphan-prevention spec 6.4).
   IntColumn get lastSweepAt => integer().nullable()();
+  // v302: the connected_accounts row the store lives on (issue #3482), so a
+  // second device holding that account attaches with nothing to type. Null
+  // for a store announced before it was recorded.
+  TextColumn get accountId => text().nullable()();
 
   @override
   Set<Column> get primaryKey => {id};

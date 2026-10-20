@@ -262,6 +262,11 @@ final Map<String, ConflictField> mediaLibraryOverrides = {
     (l) => l.settings_conflict_field_connectedAccounts_nickname,
     FieldKind.shortText,
   ),
+  // A roster row id: shown as changed under the roster's own "Account" word.
+  'mediaStores.accountId': ConflictField(
+    (l) => l.settings_conflict_field_accountIdentifier,
+    FieldKind.opaque,
+  ),
   'settings.key': ConflictField(
     (l) => l.settings_conflict_field_settings_key,
     FieldKind.shortText,

@@ -162,6 +162,7 @@ void main() {
               providerType: 's3',
               displayHint: 'dive-media @ minio.host',
               lastSweepAt: null,
+              accountId: null,
             )),
           ),
         ],
@@ -199,6 +200,7 @@ void main() {
         providerType: 'dropbox',
         displayHint: 'Dropbox',
         lastSweepAt: null,
+        accountId: null,
       );
       changes.add(null);
       await Future<void>.delayed(Duration.zero);

@@ -11,6 +11,10 @@ typedef MediaStoreDescriptor = ({
   String providerType,
   String displayHint,
   DateTime? lastSweepAt,
+
+  /// The roster row the store lives on; null for a store announced before
+  /// it was recorded.
+  String? accountId,
 });
 
 /// Synced `media_stores` rows: the secret-free announcement that this
@@ -34,6 +38,7 @@ class MediaStoresRepository {
     required String storeId,
     required String providerType,
     required String displayHint,
+    String? accountId,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     await _db
@@ -45,6 +50,11 @@ class MediaStoresRepository {
             displayHint: Value(displayHint),
             createdAt: Value(now),
             updatedAt: Value(now),
+            // Absent, not null, when unknown: a reattach that does not know
+            // the account never clears the recorded one.
+            accountId: accountId == null
+                ? const Value.absent()
+                : Value(accountId),
           ),
         );
     await _syncRepository.markRecordPending(
@@ -83,6 +93,7 @@ class MediaStoresRepository {
       lastSweepAt: row.lastSweepAt == null
           ? null
           : DateTime.fromMillisecondsSinceEpoch(row.lastSweepAt!),
+      accountId: row.accountId,
     );
   }
 
