@@ -2727,55 +2727,76 @@ class MediaRepository {
   /// gain protection soonest. Scoped to rows linked to a dive or site so
   /// orphaned rows are never uploaded (orphan-prevention spec section 4.1).
   Future<List<String>> getBackfillCandidateIds() async {
-    // A row another device imported is that device's to upload: this one
-    // cannot read its path, so enqueueing it only manufactures a "source
-    // unavailable" failure. Rows from before origin tracking carry no id
-    // and keep today's verdict.
-    final thisDevice = await _syncRepository.getDeviceId();
     final id = _db.media.id;
     final query = _db.selectOnly(_db.media)
       ..addColumns([id])
       ..where(
-        isLinkedToLogbook(_db.media) &
-            (_db.media.originDeviceId.isNull() |
-                _db.media.originDeviceId.equals(thisDevice)) &
-            // Photos from any uploadable source.
-            ((_db.media.remoteUploadedAt.isNull() &
-                    _db.media.remoteCompressedUploadedAt.isNull() &
-                    _db.media.fileType.equals('photo') &
-                    _db.media.sourceType.isIn([
-                      'platformGallery',
-                      'localFile',
-                      'serviceConnector',
-                    ])) |
-                // Gallery and local videos upload their original, so a
-                // missing original stamp is their backfill signal. Without
-                // this branch a local video could never be uploaded after
-                // the fact and would show a permanent not-backed-up badge.
-                //
-                // serviceConnector is deliberately absent: connector videos
-                // are thumb-only and never get remoteUploadedAt, so
-                // including them here would re-enqueue them on every
-                // backfill run forever. They are covered by the thumb
-                // branch below.
-                (_db.media.remoteUploadedAt.isNull() &
-                    _db.media.remoteCompressedUploadedAt.isNull() &
-                    _db.media.fileType.equals('video') &
-                    _db.media.sourceType.isIn([
-                      'platformGallery',
-                      'localFile',
-                    ])) |
-                // Connector videos are thumb-only (no original in the store
-                // by design), so their backfill signal is the missing thumb
-                // stamp.
-                (_db.media.remoteThumbUploadedAt.isNull() &
-                    _db.media.fileType.equals('video') &
-                    _db.media.sourceType.equals('serviceConnector'))),
+        _uploadEligible(await _syncRepository.getDeviceId()) &
+            _uploadDone().not(),
       )
       ..orderBy([OrderingTerm.desc(_db.media.takenAt)]);
     final rows = await query.get();
     return rows.map((r) => r.read(id)!).toList();
   }
+
+  /// How many of the rows the media store would ever hold are copied there
+  /// (issue #3482): the same rule as [getBackfillCandidateIds], so what is
+  /// left to copy is exactly what a backfill would upload.
+  Future<({int copied, int total})> countUploadProgress() async {
+    final eligible = _uploadEligible(await _syncRepository.getDeviceId());
+    final done = _uploadDone();
+    final total = countAll(filter: eligible);
+    final copied = countAll(filter: eligible & done);
+    final row = await (_db.selectOnly(
+      _db.media,
+    )..addColumns([total, copied])).getSingle();
+    return (copied: row.read(copied) ?? 0, total: row.read(total) ?? 0);
+  }
+
+  /// Rows the media store holds a copy of once uploaded: linked to the
+  /// logbook, and this device's own (or from before origin tracking).
+  ///
+  /// A row another device imported is that device's to upload: this one
+  /// cannot read its path, so enqueueing it only manufactures a "source
+  /// unavailable" failure. Rows from before origin tracking carry no id and
+  /// keep today's verdict.
+  Expression<bool> _uploadEligible(String thisDevice) =>
+      isLinkedToLogbook(_db.media) &
+      (_db.media.originDeviceId.isNull() |
+          _db.media.originDeviceId.equals(thisDevice)) &
+      // Photos from any uploadable source.
+      ((_db.media.fileType.equals('photo') &
+              _db.media.sourceType.isIn([
+                'platformGallery',
+                'localFile',
+                'serviceConnector',
+              ])) |
+          // Gallery, local and connector videos.
+          (_db.media.fileType.equals('video') &
+              _db.media.sourceType.isIn([
+                'platformGallery',
+                'localFile',
+                'serviceConnector',
+              ])));
+
+  /// Whether an eligible row's copy is complete.
+  ///
+  /// Photos, and gallery and local videos, upload their original (or a
+  /// compressed rendition), so either stamp completes them. Without the
+  /// video branch a local video could never be uploaded after the fact and
+  /// would show a permanent not-backed-up badge.
+  ///
+  /// Connector videos are thumb-only (no original in the store by design),
+  /// so the thumb stamp completes them. They never get remoteUploadedAt:
+  /// judging them by it would re-enqueue them on every backfill forever.
+  Expression<bool> _uploadDone() =>
+      ((_db.media.fileType.equals('photo') |
+              _db.media.sourceType.isIn(['platformGallery', 'localFile'])) &
+          (_db.media.remoteUploadedAt.isNotNull() |
+              _db.media.remoteCompressedUploadedAt.isNotNull())) |
+      (_db.media.fileType.equals('video') &
+          _db.media.sourceType.equals('serviceConnector') &
+          _db.media.remoteThumbUploadedAt.isNotNull());
 
   /// Confirms the thumbnail object exists in the media store.
   Future<void> stampRemoteThumbUploaded(
