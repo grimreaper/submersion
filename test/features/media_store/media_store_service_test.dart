@@ -2,6 +2,7 @@ import 'dart:convert';
 import 'dart:io';
 
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:submersion/core/data/repositories/sync_repository.dart';
@@ -236,11 +237,12 @@ void main() {
       'downloading', () async {
     final container = await Directory.systemTemp.createTemp('icloud_attach');
     addTearDown(() => container.delete(recursive: true));
-    final marker = File('${container.path}/submersion-media/smv1/store.json')
-      ..createSync(recursive: true)
-      ..writeAsStringSync(
-        '{"storeId":"store-from-the-mac","formatVersion":1,"createdAt":""}',
-      );
+    final marker =
+        File(p.join(container.path, 'submersion-media', 'smv1', 'store.json'))
+          ..createSync(recursive: true)
+          ..writeAsStringSync(
+            '{"storeId":"store-from-the-mac","formatVersion":1,"createdAt":""}',
+          );
 
     await expectLater(
       service().attachToAccountRow(

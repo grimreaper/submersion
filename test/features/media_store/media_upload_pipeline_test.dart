@@ -7,6 +7,7 @@ import 'dart:ui' show Size;
 
 import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:path/path.dart' as p;
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/local_cache_database.dart';
@@ -172,7 +173,7 @@ void main() {
   );
 
   Future<File> fixture(List<int> bytes, String name) async {
-    final f = File('${root.path}/$name');
+    final f = File(p.join(root.path, name));
     await f.writeAsBytes(bytes, flush: true);
     return f;
   }
