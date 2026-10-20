@@ -1,6 +1,8 @@
 // The Photos page's actions say why they failed instead of leaving an
 // unhandled error and a silent tap (issue #3482 review).
 
+import 'dart:async';
+
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/services/media_store/media_store_policies.dart';
@@ -19,6 +21,24 @@ class _RefusingPolicies extends MediaStorePolicies {
   @override
   Future<void> setAutoUpload(bool value) async =>
       throw StateError('prefs unavailable');
+}
+
+/// Holds each auto-upload write open until [release] completes.
+class _SlowPolicies extends MediaStorePolicies {
+  final writes = <bool>[];
+  final release = Completer<void>();
+
+  @override
+  Future<bool> autoUpload() async => false;
+
+  @override
+  Future<bool> photosOnCellular() async => false;
+
+  @override
+  Future<void> setAutoUpload(bool value) async {
+    writes.add(value);
+    await release.future;
+  }
 }
 
 void main() {
@@ -102,5 +122,43 @@ void main() {
     expect(toggle.value, isFalse);
     expect(find.text('Could not save. Try again.'), findsOneWidget);
     expect(tester.takeException(), isNull);
+  });
+
+  // A second tap while the first write is saving could finish first and be
+  // overwritten by the older value; the switch waits for its write instead.
+  testWidgets('an upload switch is held while its write saves', (tester) async {
+    final policies = _SlowPolicies();
+    tester.view.physicalSize = const Size(800, 2200);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.runAsync(() async {
+      await tester.pumpWidget(
+        h.app(
+          statusHint: 'dive-media @ minio',
+          extraOverrides: [
+            mediaStorePoliciesProvider.overrideWithValue(policies),
+          ],
+        ),
+      );
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await tester.pump();
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await tester.pump();
+    });
+    final toggle = find.byKey(const Key('media-s3-policy-auto-upload'));
+
+    await tapAndSettle(tester, const Key('media-s3-policy-auto-upload'));
+    await tapAndSettle(tester, const Key('media-s3-policy-auto-upload'));
+
+    expect(policies.writes, [true]);
+    expect(tester.widget<SwitchListTile>(toggle).onChanged, isNull);
+
+    policies.release.complete();
+    await tester.runAsync(() async {
+      await Future<void>.delayed(const Duration(milliseconds: 50));
+      await tester.pump();
+    });
+    expect(tester.widget<SwitchListTile>(toggle).onChanged, isNotNull);
+    expect(tester.widget<SwitchListTile>(toggle).value, isTrue);
   });
 }
