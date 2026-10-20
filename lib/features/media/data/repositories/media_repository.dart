@@ -2618,7 +2618,7 @@ class MediaRepository {
       })
     >
   >
-  getRemoteStampedSummaries() async {
+  getRemoteStampedSummaries({String? storeId}) async {
     // selectOnly projection: full rows would drag the imageData BLOB
     // (signature bytes) into memory for every stamped row, and the verify
     // sweep only needs a few scalars.
@@ -2633,7 +2633,13 @@ class MediaRepository {
       ..addColumns([id, hash, filename, fileType, original, thumb, rendition])
       ..where(
         hash.isNotNull() &
-            (original.isNotNull() | thumb.isNotNull() | rendition.isNotNull()),
+            (original.isNotNull() | thumb.isNotNull() | rendition.isNotNull()) &
+            // With [storeId], only stamps made in that store or naming none
+            // (issue #3482): another store's stamps say nothing about it.
+            (storeId == null
+                ? const Constant(true)
+                : _db.media.remoteStoreId.isNull() |
+                      _db.media.remoteStoreId.equals(storeId)),
       );
     final rows = await query.get();
     return [
@@ -2862,7 +2868,10 @@ class MediaRepository {
               .map((r) => r.read(id)!)
               .get();
       if (ids.isEmpty) return ids;
-      await (_db.update(_db.media)..where((t) => t.id.isIn(ids))).write(
+      // The same predicate, not `id IN (...)`: a large library would bind
+      // more ids than SQLite allows in one statement. The transaction keeps
+      // the two reads of it the same set.
+      await (_db.update(_db.media)..where((_) => unclaimed)).write(
         MediaCompanion(remoteStoreId: Value(storeId), updatedAt: Value(now)),
       );
       for (final mediaId in ids) {

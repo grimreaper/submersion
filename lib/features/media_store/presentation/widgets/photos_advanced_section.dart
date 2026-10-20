@@ -173,6 +173,8 @@ class _PhotosAdvancedSectionState extends ConsumerState<PhotosAdvancedSection> {
       _showSnack(l10n.settings_mediaStorage_backfill_enqueued(count));
       final runtime = await ref.read(mediaStoreRuntimeProvider.future);
       unawaited(runtime?.worker?.drain());
+    } catch (e) {
+      _showSnack('$e', isError: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }
@@ -268,6 +270,8 @@ class _PhotosAdvancedSectionState extends ConsumerState<PhotosAdvancedSection> {
       await ref.read(mediaStoreServiceProvider).disconnect();
       invalidateMediaStoreAttachment(ref);
       ref.invalidate(photosCopiesProvider);
+    } catch (e) {
+      _showSnack('$e', isError: true);
     } finally {
       if (mounted) setState(() => _busy = false);
     }

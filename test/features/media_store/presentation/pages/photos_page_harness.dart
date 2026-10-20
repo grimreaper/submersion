@@ -37,9 +37,13 @@ class RecordingMediaStoreService extends MediaStoreService {
 
   int disconnectCalls = 0;
 
+  /// Thrown by [disconnect] when set.
+  Object? failure;
+
   @override
   Future<void> disconnect() async {
     disconnectCalls++;
+    if (failure case final f?) throw f;
   }
 }
 
@@ -53,9 +57,13 @@ class FakeBackfillService extends MediaBackfillService {
 
   int calls = 0;
 
+  /// Thrown by [enqueueAll] when set.
+  Object? failure;
+
   @override
   Future<int> enqueueAll() async {
     calls++;
+    if (failure case final f?) throw f;
     return 7;
   }
 }

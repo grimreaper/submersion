@@ -361,6 +361,20 @@ void main() {
       expect(find.text('Checking…'), findsOneWidget);
     });
 
+    testWidgets('unreachable with no account name still reads whole', (
+      tester,
+    ) async {
+      await pumpPage(
+        tester,
+        copies: (attached: true, store: null, group: null, label: null),
+        reachable: false,
+      );
+      expect(
+        find.text('Uploads paused: the account could not be checked'),
+        findsOneWidget,
+      );
+    });
+
     testWidgets('unreachable names the account', (tester) async {
       await pumpStatus(tester, reachable: false);
       expect(find.text('Could not reach Dropbox'), findsOneWidget);

@@ -68,7 +68,11 @@ String photosStatusText(
   PhotosNotSetUp() => l10n.settings_sync_notSetUp,
   PhotosFinishSettingUp() => l10n.settings_photos_status_finishSetup,
   PhotosChecking() => l10n.settings_data_status_checking,
-  PhotosUnreachable() => l10n.settings_photos_status_unreachable(account),
+  // A store this device cannot name yet is "the account".
+  PhotosUnreachable() =>
+    account.isEmpty
+        ? l10n.settings_photos_status_pausedUnreachable
+        : l10n.settings_photos_status_unreachable(account),
   PhotosPaused(:final kind) => switch (kind) {
     MediaTransferHoldKind.detached =>
       l10n.settings_photos_status_pausedDetached,

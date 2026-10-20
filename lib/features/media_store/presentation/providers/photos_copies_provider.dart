@@ -41,9 +41,11 @@ final photosCopiesProvider = FutureProvider.autoDispose<PhotosCopies>((
     ..invalidateSelfWhen(MediaStoreAttachState.markerMismatchChanges);
   final attached = await ref.watch(mediaStoreAttachedProvider.future);
   final attachedId = attached ? await attachState.attachedStoreId() : null;
+  // Attached: that store only, even before its descriptor syncs in, so the
+  // row never names (or rejoins) another store the library announces.
   final store = attachedId == null
       ? await stores.getActive()
-      : await stores.getById(attachedId) ?? await stores.getActive();
+      : await stores.getById(attachedId);
   final accountId = attached
       ? await attachState.attachedAccountId()
       : store?.accountId;
