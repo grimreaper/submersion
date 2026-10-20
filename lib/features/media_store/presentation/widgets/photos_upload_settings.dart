@@ -38,6 +38,25 @@ class _PhotosUploadSettingsState extends ConsumerState<PhotosUploadSettings> {
     });
   }
 
+  /// Shows [value] at once, and puts the switch back and says so when
+  /// [write] fails, so it never shows a choice that was not saved.
+  Future<void> _save(
+    Future<void> Function() write, {
+    required void Function(bool) apply,
+    required bool value,
+  }) async {
+    final messenger = ScaffoldMessenger.of(context);
+    final failed = context.l10n.equipmentConditionSettings_saveFailed;
+    setState(() => apply(value));
+    try {
+      await write();
+    } catch (_) {
+      if (!mounted) return;
+      setState(() => apply(!value));
+      messenger.showSnackBar(SnackBar(content: Text(failed)));
+    }
+  }
+
   @override
   Widget build(BuildContext context) {
     final l10n = context.l10n;
@@ -50,10 +69,11 @@ class _PhotosUploadSettingsState extends ConsumerState<PhotosUploadSettings> {
             secondary: const Icon(Icons.cloud_upload_outlined),
             title: Text(l10n.settings_photos_autoUpload),
             value: autoUpload,
-            onChanged: (value) async {
-              setState(() => _autoUpload = value);
-              await ref.read(mediaStorePoliciesProvider).setAutoUpload(value);
-            },
+            onChanged: (value) => _save(
+              () => ref.read(mediaStorePoliciesProvider).setAutoUpload(value),
+              apply: (v) => _autoUpload = v,
+              value: value,
+            ),
           ),
         if (_photosOnCellular case final onCellular?)
           SwitchListTile(
@@ -61,12 +81,13 @@ class _PhotosUploadSettingsState extends ConsumerState<PhotosUploadSettings> {
             secondary: const Icon(Icons.signal_cellular_alt),
             title: Text(l10n.settings_photos_cellular),
             value: onCellular,
-            onChanged: (value) async {
-              setState(() => _photosOnCellular = value);
-              await ref
+            onChanged: (value) => _save(
+              () => ref
                   .read(mediaStorePoliciesProvider)
-                  .setPhotosOnCellular(value);
-            },
+                  .setPhotosOnCellular(value),
+              apply: (v) => _photosOnCellular = v,
+              value: value,
+            ),
           ),
         ListTile(
           key: const Key('media-s3-transfers'),

@@ -29,12 +29,15 @@ void main() {
 
   tearDown(tearDownTestDatabase);
 
-  Future<PhotosCopies> read() async {
+  Future<PhotosCopies> read({bool groupsFail = false}) async {
     final container = ProviderContainer(
       overrides: [
         mediaStoreAttachStateProvider.overrideWithValue(attachState),
         mediaStoresRepositoryProvider.overrideWithValue(stores),
-        accountGroupsProvider.overrideWith((ref) async => const []),
+        accountGroupsProvider.overrideWith(
+          (ref) async =>
+              groupsFail ? throw StateError('keychain locked') : const [],
+        ),
       ],
     );
     addTearDown(container.dispose);
@@ -77,4 +80,25 @@ void main() {
     expect(copies.store?.id, 'store-b');
     expect(copies.label, 'Dropbox');
   });
+
+  test(
+    'an account probe failure still knows the copies are attached',
+    () async {
+      await stores.upsertActive(
+        storeId: 'store-a',
+        providerType: 'dropbox',
+        displayHint: 'Dropbox',
+      );
+      await attachState.setAttached(
+        'store-a',
+        providerType: CloudProviderType.dropbox,
+      );
+
+      final copies = await read(groupsFail: true);
+
+      expect(copies.attached, isTrue);
+      expect(copies.group, isNull);
+      expect(copies.label, 'Dropbox');
+    },
+  );
 }

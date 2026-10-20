@@ -49,7 +49,15 @@ final photosCopiesProvider = FutureProvider.autoDispose<PhotosCopies>((
   final accountId = attached
       ? await attachState.attachedAccountId()
       : store?.accountId;
-  final groups = await ref.watch(accountGroupsProvider.future);
+  // The groups only name the account. A probe that fails (a locked
+  // keychain) must not make an attached device read as not set up, so the
+  // copies fall back to the store's own name.
+  List<AccountGroup> groups;
+  try {
+    groups = await ref.watch(accountGroupsProvider.future);
+  } on Object {
+    groups = const [];
+  }
   final group = groups.holding(accountId);
   return (
     attached: attached,
