@@ -173,9 +173,10 @@ void main() {
         await evicting.trim(keep: () async => {b.id, c.id});
         expect(await evicting.has(a.id), isFalse);
 
-        // Its index is stale, but the read is a miss, not an error.
-        expect(await reading.get(a.id), isNull);
+        // Its index is stale, but it reports the object missing, and the
+        // read is a miss, not an error.
         expect(await reading.has(a.id), isFalse);
+        expect(await reading.get(a.id), isNull);
         expect((await reading.get(b.id))?.body, b.body);
 
         // Fetched again, it is readable in both.
@@ -221,17 +222,29 @@ void main() {
       );
     });
 
+    test('refuses a different bound for a directory it already has', () {
+      final dir = tempDirForTest('git_store_');
+      FileGitObjectStore.shared(dir);
+      expect(
+        () => FileGitObjectStore.shared(dir, maxBytes: 4096),
+        throwsArgumentError,
+      );
+    });
+
     test('scans the directory once however many callers share it', () async {
       final dir = tempDirForTest('git_store_');
       final a = _blob('a');
       await FileGitObjectStore.shared(dir).put(a);
-      // A put through the shared store is seen at once by the next caller,
-      // without a rescan: the file is gone, yet the index still lists it.
-      File(
-        p.join(dir.path, a.id.hex.substring(0, 2), a.id.hex.substring(2)),
-      ).deleteSync();
+      // Only a scan deletes a temp file left long ago, so one placed after
+      // the first use survives every later caller of the shared store.
+      final stale = File(p.join(dir.path, 'ab', 'cdef.3c4d.tmp'))
+        ..createSync(recursive: true)
+        ..setLastModifiedSync(DateTime.now().subtract(const Duration(days: 1)));
       expect(await FileGitObjectStore.shared(dir).has(a.id), isTrue);
-      expect(await FileGitObjectStore(dir).has(a.id), isFalse);
+      expect(stale.existsSync(), isTrue);
+      // A store of its own scans, as the control.
+      expect(await FileGitObjectStore(dir).has(a.id), isTrue);
+      expect(stale.existsSync(), isFalse);
     });
   });
 }

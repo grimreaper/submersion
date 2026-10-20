@@ -69,7 +69,8 @@ final class FileGitObjectStore implements GitObjectStore {
   /// The store for [root] in this isolate, made on first use. Each store
   /// scans its whole directory once, which takes seconds on a full cache, and
   /// keeps its own index; sharing one does both once and keeps eviction in
-  /// step. Every caller for one directory must ask for the same [maxBytes].
+  /// step. Every caller for one directory must ask for the same [maxBytes];
+  /// a different one is an [ArgumentError].
   factory FileGitObjectStore.shared(
     Directory root, {
     int maxBytes = _defaultMaxBytes,
@@ -78,11 +79,13 @@ final class FileGitObjectStore implements GitObjectStore {
       p.canonicalize(root.path),
       () => FileGitObjectStore(root, maxBytes: maxBytes),
     );
-    assert(
-      store.maxBytes == maxBytes,
-      'the shared store for ${root.path} is bounded at ${store.maxBytes} '
-      'bytes, not $maxBytes',
-    );
+    if (store.maxBytes != maxBytes) {
+      throw ArgumentError.value(
+        maxBytes,
+        'maxBytes',
+        'the shared store for ${root.path} is bounded at ${store.maxBytes}',
+      );
+    }
     return store;
   }
 
@@ -250,6 +253,14 @@ final class FileGitObjectStore implements GitObjectStore {
   }
 
   @override
-  Future<bool> has(GitObjectId id) async =>
-      await _entryFor(await _ensureIndex(), _fileFor(id)) != null;
+  Future<bool> has(GitObjectId id) async {
+    final index = await _ensureIndex();
+    final file = _fileFor(id);
+    if (await _entryFor(index, file) == null) return false;
+    // Another store on this directory may have evicted it: say so now, so
+    // the caller fetches it rather than failing on the read.
+    if (await file.exists()) return true;
+    _forget(index, file.path);
+    return false;
+  }
 }
