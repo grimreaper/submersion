@@ -70,7 +70,7 @@ class PhotosMediaSetupPage extends ConsumerWidget {
             title: l10n.settings_setupGuide_stepStorage,
             description: l10n.settings_setupGuide_stepStorage_desc,
             done: status?.storage ?? false,
-            route: '/settings/media-storage',
+            route: '/settings/photos-media',
           ),
           _StepCard(
             icon: Icons.cloud_sync,

@@ -36059,51 +36059,8 @@ class AppLocalizationsNl extends AppLocalizations {
       'Nog geen items bij de geselecteerde duiken';
 
   @override
-  String get settings_mediaStorage_entry_title => 'Mediaopslag';
-
-  @override
-  String get settings_mediaStorage_entry_subtitle =>
-      'Bewaar originele foto\'s en video\'s in je eigen cloudopslag';
-
-  @override
-  String get settings_mediaStorage_status_notConfigured =>
-      'Geen mediaopslag verbonden op dit apparaat';
-
-  @override
-  String settings_mediaStorage_status_connected(String hint) {
-    return 'Verbonden met $hint';
-  }
-
-  @override
-  String get settings_mediaStorage_test_success => 'Verbinding geslaagd';
-
-  @override
-  String get settings_mediaStorage_saved => 'Mediaopslag verbonden';
-
-  @override
   String get settings_mediaStorage_error_notReady =>
       'De cloudopslag kon nog niet worden gelezen. Wacht even en probeer het opnieuw.';
-
-  @override
-  String get settings_mediaStorage_action_disconnect => 'Loskoppelen';
-
-  @override
-  String get settings_mediaStorage_disconnect_confirm_title =>
-      'Mediaopslag loskoppelen?';
-
-  @override
-  String get settings_mediaStorage_disconnect_confirm_body =>
-      'Dit apparaat stopt met het uploaden en ophalen van media. Er wordt niets uit je bucket verwijderd.';
-
-  @override
-  String get settings_mediaStorage_action_copyFromSync =>
-      'Instellingen van Sync kopiëren';
-
-  @override
-  String get settings_mediaStorage_transfers_title => 'Overdrachten';
-
-  @override
-  String get settings_mediaStorage_transfers_entry => 'Overdrachten bekijken';
 
   @override
   String get settings_mediaStorage_transfers_empty => 'Geen overdrachten';
@@ -36136,30 +36093,8 @@ class AppLocalizationsNl extends AppLocalizations {
       'Overdrachten gepauzeerd';
 
   @override
-  String get settings_mediaStorage_transfers_suspended_subtitle =>
-      'Dit apparaat en de cloudopslag zijn het niet meer eens over welke opslag in gebruik is. Opnieuw verbinden neemt de opslag over die de cloud nu bevat.';
-
-  @override
-  String get settings_mediaStorage_transfers_suspended_detached =>
-      'Dit apparaat is niet meer gekoppeld aan deze mediaopslag. Opnieuw koppelen kan via Mediaopslag.';
-
-  @override
   String get settings_mediaStorage_transfers_suspended_unreachable =>
       'De mediaopslag kon niet worden gecontroleerd. Overdrachten worden automatisch opnieuw geprobeerd.';
-
-  @override
-  String settings_mediaStorage_transfers_queued(int count) {
-    return '$count in wachtrij';
-  }
-
-  @override
-  String settings_mediaStorage_transfers_waitingRetry(int count) {
-    return '$count wachten op nieuwe poging';
-  }
-
-  @override
-  String get settings_mediaStorage_transfers_waitingConnection =>
-      'Wachten op verbinding';
 
   @override
   String get settings_mediaStorage_report_action => 'Mediarapport exporteren';
@@ -36174,9 +36109,6 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get settings_mediaStorage_report_running =>
       'Mediarapport wordt gemaakt...';
-
-  @override
-  String get settings_mediaStorage_verify_action => 'Bibliotheek verifiëren';
 
   @override
   String get settings_mediaStorage_verify_running =>
@@ -36226,47 +36158,8 @@ class AppLocalizationsNl extends AppLocalizations {
       'Er is niets verwijderd: verwijderingen wachten tot de uploads klaar zijn.';
 
   @override
-  String get settings_mediaStorage_backfill_action =>
-      'Bestaande bibliotheek uploaden';
-
-  @override
   String settings_mediaStorage_backfill_enqueued(int count) {
     return '$count uploads in wachtrij';
-  }
-
-  @override
-  String get settings_mediaStorage_policy_autoUpload =>
-      'Foto\'s automatisch uploaden';
-
-  @override
-  String get settings_mediaStorage_policy_photosOnCellular =>
-      'Foto\'s uploaden via mobiel';
-
-  @override
-  String get settings_mediaStorage_provider_label => 'Provider';
-
-  @override
-  String get settings_mediaStorage_provider_webdav => 'WebDAV';
-
-  @override
-  String get settings_mediaStorage_webdav_useSyncServer =>
-      'Mijn synchronisatieserver gebruiken';
-
-  @override
-  String get settings_mediaStorage_connect_dropbox_hint =>
-      'Gebruikt je Dropbox-koppeling uit Synchronisatie tussen apparaten. Media wordt opgeslagen in je Dropbox-appmap.';
-
-  @override
-  String get settings_mediaStorage_connect_gdrive_hint =>
-      'Meldt aan met Google. Media wordt opgeslagen in de privé-Drive-ruimte van deze app.';
-
-  @override
-  String get settings_mediaStorage_connect_icloud_hint =>
-      'Media wordt opgeslagen in de iCloud-container van deze app en synchroniseert via je Apple ID.';
-
-  @override
-  String settings_mediaStorage_connect_action(String provider) {
-    return '$provider verbinden';
   }
 
   @override
@@ -36853,21 +36746,7 @@ class AppLocalizationsNl extends AppLocalizations {
   String get settings_setup_dismiss => 'Negeren';
 
   @override
-  String get settings_photosMedia_sourcesHeader => 'Waar foto\'s vandaan komen';
-
-  @override
-  String get settings_photosMedia_storageHeader =>
-      'Waar kopieën worden bewaard';
-
-  @override
-  String get settings_photosMedia_displayHeader => 'Weergave';
-
-  @override
   String get settings_photosMedia_guidedSetup => 'Begeleide installatie';
-
-  @override
-  String get settings_photosMedia_photoSources_title =>
-      'Fotobibliotheek en bronnen';
 
   @override
   String get settings_photosMedia_photoSources_subtitle =>
@@ -54461,4 +54340,108 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get settings_backups_passwordProtection => 'Wachtwoordbeveiliging';
+
+  @override
+  String get settings_photos_cloudHeader => 'Kopieën in de cloud';
+
+  @override
+  String settings_photos_copiesIn(String account) {
+    return 'Kopieën in $account';
+  }
+
+  @override
+  String settings_photos_attached(String account) {
+    return 'Kopieën ingesteld in $account';
+  }
+
+  @override
+  String get settings_photos_autoUpload =>
+      'Nieuwe foto\'s automatisch uploaden';
+
+  @override
+  String get settings_photos_cellular => 'Mobiele data gebruiken';
+
+  @override
+  String get settings_photos_uploads => 'Uploads';
+
+  @override
+  String get settings_photos_sourcesHeader => 'Waar foto\'s vandaan komen';
+
+  @override
+  String get settings_photos_library => 'Fotobibliotheek en bestanden';
+
+  @override
+  String get settings_photos_quality => 'Uploadkwaliteit';
+
+  @override
+  String get settings_photos_uploadAll => 'Alles uploaden wat al is bijgevoegd';
+
+  @override
+  String get settings_photos_verify => 'Kopieën controleren';
+
+  @override
+  String get settings_photos_stopKeeping =>
+      'Stoppen met kopieën op dit apparaat';
+
+  @override
+  String get settings_photos_stopKeepingBody =>
+      'Dit apparaat stopt met het uploaden en ophalen van kopieën. Er wordt niets uit het account verwijderd.';
+
+  @override
+  String settings_photos_switchConsequence(String current, String choice) {
+    return 'Dit apparaat stopt met de kopieën in $current en begint of sluit aan bij kopieën in $choice. Er wordt niets verwijderd.';
+  }
+
+  @override
+  String settings_photos_status_copied(int copied, int total) {
+    return '$copied van $total gekopieerd';
+  }
+
+  @override
+  String settings_photos_status_uploading(int copied, int total, int count) {
+    return '$copied van $total gekopieerd, $count worden geüpload';
+  }
+
+  @override
+  String settings_photos_status_uploadingOnly(int count) {
+    return '$count worden geüpload';
+  }
+
+  @override
+  String get settings_photos_status_waitingConnection =>
+      'Wachten op een verbinding';
+
+  @override
+  String settings_photos_status_waitingRetry(int count) {
+    return '$count wachten op een nieuwe poging';
+  }
+
+  @override
+  String get settings_photos_status_pausedUnreachable =>
+      'Uploads gepauzeerd: het account kon niet worden gecontroleerd';
+
+  @override
+  String get settings_photos_status_pausedDetached =>
+      'Uploads gepauzeerd: dit apparaat is niet verbonden met deze kopieën';
+
+  @override
+  String get settings_photos_status_pausedMismatch =>
+      'Uploads gepauzeerd: kies het account opnieuw';
+
+  @override
+  String get settings_photos_status_finishSetup =>
+      'Dit apparaat verder instellen';
+
+  @override
+  String settings_photos_status_unreachable(String account) {
+    return '$account is niet bereikbaar';
+  }
+
+  @override
+  String get settings_photos_suspended_detached =>
+      'Dit apparaat is niet meer verbonden met deze kopieën. Kies het account opnieuw in Foto\'s en video\'s.';
+
+  @override
+  String get settings_photos_suspended_mismatch =>
+      'Dit apparaat en het account zijn het niet meer eens over welke kopieën in gebruik zijn. Als u het account opnieuw kiest, worden de kopieën overgenomen die het nu bevat.';
 }

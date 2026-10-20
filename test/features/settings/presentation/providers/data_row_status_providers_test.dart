@@ -538,7 +538,7 @@ void main() {
               kind: SetupItemKind.mediaStoreAttach,
               key: 'store_1',
               label: 'photos @ nas',
-              route: '/settings/media-storage',
+              route: '/settings/photos-media',
             ),
           ],
         ),

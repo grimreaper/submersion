@@ -36405,51 +36405,8 @@ class AppLocalizationsFr extends AppLocalizations {
       'Aucun élément sur les plongées sélectionnées pour l\'instant';
 
   @override
-  String get settings_mediaStorage_entry_title => 'Stockage des médias';
-
-  @override
-  String get settings_mediaStorage_entry_subtitle =>
-      'Stockez les originaux photo et vidéo dans votre propre espace cloud';
-
-  @override
-  String get settings_mediaStorage_status_notConfigured =>
-      'Aucun stockage de médias connecté sur cet appareil';
-
-  @override
-  String settings_mediaStorage_status_connected(String hint) {
-    return 'Connecté à $hint';
-  }
-
-  @override
-  String get settings_mediaStorage_test_success => 'Connexion réussie';
-
-  @override
-  String get settings_mediaStorage_saved => 'Stockage des médias connecté';
-
-  @override
   String get settings_mediaStorage_error_notReady =>
       'Le stockage cloud n\'a pas encore pu être lu. Patientez un instant, puis réessayez.';
-
-  @override
-  String get settings_mediaStorage_action_disconnect => 'Déconnecter';
-
-  @override
-  String get settings_mediaStorage_disconnect_confirm_title =>
-      'Déconnecter le stockage des médias ?';
-
-  @override
-  String get settings_mediaStorage_disconnect_confirm_body =>
-      'Cet appareil cesse d\'envoyer et de récupérer des médias. Rien n\'est supprimé de votre bucket.';
-
-  @override
-  String get settings_mediaStorage_action_copyFromSync =>
-      'Copier les réglages de Sync';
-
-  @override
-  String get settings_mediaStorage_transfers_title => 'Transferts';
-
-  @override
-  String get settings_mediaStorage_transfers_entry => 'Voir les transferts';
 
   @override
   String get settings_mediaStorage_transfers_empty => 'Aucun transfert';
@@ -36483,30 +36440,8 @@ class AppLocalizationsFr extends AppLocalizations {
       'Transferts en pause';
 
   @override
-  String get settings_mediaStorage_transfers_suspended_subtitle =>
-      'Cet appareil et le stockage cloud ne s\'accordent plus sur le magasin utilisé. Reconnecter le stockage des médias adopte celui que le cloud contient désormais.';
-
-  @override
-  String get settings_mediaStorage_transfers_suspended_detached =>
-      'Cet appareil n\'est plus connecté à ce stockage multimédia. Il peut être reconnecté dans Stockage multimédia.';
-
-  @override
   String get settings_mediaStorage_transfers_suspended_unreachable =>
       'Le stockage multimédia n\'a pas pu être vérifié. Les transferts seront relancés automatiquement.';
-
-  @override
-  String settings_mediaStorage_transfers_queued(int count) {
-    return '$count en file';
-  }
-
-  @override
-  String settings_mediaStorage_transfers_waitingRetry(int count) {
-    return '$count en attente de nouvelle tentative';
-  }
-
-  @override
-  String get settings_mediaStorage_transfers_waitingConnection =>
-      'En attente d\'une connexion';
 
   @override
   String get settings_mediaStorage_report_action =>
@@ -36522,9 +36457,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get settings_mediaStorage_report_running =>
       'Création du rapport des médias...';
-
-  @override
-  String get settings_mediaStorage_verify_action => 'Vérifier la bibliothèque';
 
   @override
   String get settings_mediaStorage_verify_running =>
@@ -36574,47 +36506,8 @@ class AppLocalizationsFr extends AppLocalizations {
       'Rien n\'a été supprimé : les suppressions attendent la fin des envois.';
 
   @override
-  String get settings_mediaStorage_backfill_action =>
-      'Envoyer la bibliothèque existante';
-
-  @override
   String settings_mediaStorage_backfill_enqueued(int count) {
     return '$count envois en file';
-  }
-
-  @override
-  String get settings_mediaStorage_policy_autoUpload =>
-      'Envoyer les photos automatiquement';
-
-  @override
-  String get settings_mediaStorage_policy_photosOnCellular =>
-      'Envoyer les photos en cellulaire';
-
-  @override
-  String get settings_mediaStorage_provider_label => 'Fournisseur';
-
-  @override
-  String get settings_mediaStorage_provider_webdav => 'WebDAV';
-
-  @override
-  String get settings_mediaStorage_webdav_useSyncServer =>
-      'Utiliser mon serveur de synchronisation';
-
-  @override
-  String get settings_mediaStorage_connect_dropbox_hint =>
-      'Utilise votre connexion Dropbox de Synchronisation entre appareils. Les médias sont stockés dans le dossier d\'application Dropbox.';
-
-  @override
-  String get settings_mediaStorage_connect_gdrive_hint =>
-      'Connexion avec Google. Les médias sont stockés dans l\'espace Drive privé de cette application.';
-
-  @override
-  String get settings_mediaStorage_connect_icloud_hint =>
-      'Les médias sont stockés dans le conteneur iCloud de cette application et se synchronisent via votre identifiant Apple.';
-
-  @override
-  String settings_mediaStorage_connect_action(String provider) {
-    return 'Connecter $provider';
   }
 
   @override
@@ -37207,21 +37100,7 @@ class AppLocalizationsFr extends AppLocalizations {
   String get settings_setup_dismiss => 'Ignorer';
 
   @override
-  String get settings_photosMedia_sourcesHeader => 'D\'où viennent les photos';
-
-  @override
-  String get settings_photosMedia_storageHeader =>
-      'Où sont conservées les copies';
-
-  @override
-  String get settings_photosMedia_displayHeader => 'Affichage';
-
-  @override
   String get settings_photosMedia_guidedSetup => 'Configuration guidée';
-
-  @override
-  String get settings_photosMedia_photoSources_title =>
-      'Photothèque et sources';
 
   @override
   String get settings_photosMedia_photoSources_subtitle =>
@@ -54916,4 +54795,108 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get settings_backups_passwordProtection =>
       'Protection par mot de passe';
+
+  @override
+  String get settings_photos_cloudHeader => 'Copies dans le cloud';
+
+  @override
+  String settings_photos_copiesIn(String account) {
+    return 'Copies dans $account';
+  }
+
+  @override
+  String settings_photos_attached(String account) {
+    return 'Copies configurées dans $account';
+  }
+
+  @override
+  String get settings_photos_autoUpload =>
+      'Envoyer automatiquement les nouvelles photos';
+
+  @override
+  String get settings_photos_cellular => 'Utiliser les données mobiles';
+
+  @override
+  String get settings_photos_uploads => 'Envois';
+
+  @override
+  String get settings_photos_sourcesHeader => 'D\'où viennent les photos';
+
+  @override
+  String get settings_photos_library => 'Photothèque et fichiers';
+
+  @override
+  String get settings_photos_quality => 'Qualité d\'envoi';
+
+  @override
+  String get settings_photos_uploadAll => 'Envoyer tout ce qui est déjà joint';
+
+  @override
+  String get settings_photos_verify => 'Vérifier les copies';
+
+  @override
+  String get settings_photos_stopKeeping =>
+      'Ne plus gérer les copies sur cet appareil';
+
+  @override
+  String get settings_photos_stopKeepingBody =>
+      'Cet appareil cesse d\'envoyer et de récupérer des copies. Rien n\'est supprimé du compte.';
+
+  @override
+  String settings_photos_switchConsequence(String current, String choice) {
+    return 'Cet appareil cesse d\'utiliser les copies de $current et commence ou rejoint des copies dans $choice. Rien n\'est supprimé.';
+  }
+
+  @override
+  String settings_photos_status_copied(int copied, int total) {
+    return '$copied sur $total copiées';
+  }
+
+  @override
+  String settings_photos_status_uploading(int copied, int total, int count) {
+    return '$copied sur $total copiées, $count en cours d\'envoi';
+  }
+
+  @override
+  String settings_photos_status_uploadingOnly(int count) {
+    return '$count en cours d\'envoi';
+  }
+
+  @override
+  String get settings_photos_status_waitingConnection =>
+      'En attente d\'une connexion';
+
+  @override
+  String settings_photos_status_waitingRetry(int count) {
+    return '$count en attente d\'une nouvelle tentative';
+  }
+
+  @override
+  String get settings_photos_status_pausedUnreachable =>
+      'Envois en pause : le compte n\'a pas pu être vérifié';
+
+  @override
+  String get settings_photos_status_pausedDetached =>
+      'Envois en pause : cet appareil n\'est pas connecté à ces copies';
+
+  @override
+  String get settings_photos_status_pausedMismatch =>
+      'Envois en pause : choisissez de nouveau le compte';
+
+  @override
+  String get settings_photos_status_finishSetup =>
+      'Terminer la configuration de cet appareil';
+
+  @override
+  String settings_photos_status_unreachable(String account) {
+    return 'Impossible de joindre $account';
+  }
+
+  @override
+  String get settings_photos_suspended_detached =>
+      'Cet appareil n\'est plus connecté à ces copies. Choisissez de nouveau le compte dans Photos et vidéos.';
+
+  @override
+  String get settings_photos_suspended_mismatch =>
+      'Cet appareil et le compte ne s\'accordent plus sur les copies utilisées. Choisir de nouveau le compte adopte les copies qu\'il contient maintenant.';
 }

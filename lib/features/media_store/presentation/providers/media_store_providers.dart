@@ -4,6 +4,7 @@ import 'dart:io';
 import 'package:flutter/foundation.dart';
 import 'package:flutter/painting.dart';
 
+import 'package:flutter_riverpod/misc.dart' show ProviderOrFamily;
 import 'package:path/path.dart' as p;
 import 'package:path_provider/path_provider.dart';
 import 'package:shared_preferences/shared_preferences.dart';
@@ -414,13 +415,21 @@ final FutureProvider<bool> mediaStoreAttachedProvider = FutureProvider<bool>((
 /// no not-backed-up badges until the app restarts, and a disconnected one
 /// keeps showing them. Invalidating both together is the whole point of
 /// this helper: keep new call sites from having to remember the second.
-void invalidateMediaStoreAttachment(WidgetRef ref) {
+void invalidateMediaStoreAttachment(WidgetRef ref) =>
+    invalidateMediaStoreAttachmentWith(ref.invalidate);
+
+/// [invalidateMediaStoreAttachment] through any invalidate, such as a
+/// container's, for a caller whose widget may be gone by the time an attach
+/// finishes.
+void invalidateMediaStoreAttachmentWith(
+  void Function(ProviderOrFamily provider) invalidate,
+) {
   // The adapter first: the runtime is built from it, so invalidating the
   // runtime alone would rebuild it around the old store, and a diagnostics
   // report would keep probing a store this device just disconnected from.
-  ref.invalidate(attachedMediaObjectStoreProvider);
-  ref.invalidate(mediaStoreRuntimeProvider);
-  ref.invalidate(mediaStoreAttachedProvider);
+  invalidate(attachedMediaObjectStoreProvider);
+  invalidate(mediaStoreRuntimeProvider);
+  invalidate(mediaStoreAttachedProvider);
 }
 
 final mediaStoresRepositoryProvider = Provider<MediaStoresRepository>(
