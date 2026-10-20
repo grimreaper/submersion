@@ -178,8 +178,7 @@ final class FileGitObjectStore implements GitObjectStore {
   Future<GitStoredObject?> get(GitObjectId id) async {
     final index = await _ensureIndex();
     final file = _fileFor(id);
-    final entry = await _entryFor(index, file);
-    if (entry == null) return null;
+    if (await _entryFor(index, file) == null) return null;
     Uint8List? bytes;
     try {
       bytes = await file.readAsBytes();
