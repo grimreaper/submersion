@@ -54637,7 +54637,16 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String settings_backups_keepLast(int count) {
-    return 'الاحتفاظ بآخر $count نسخ احتياطية';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'الاحتفاظ بآخر $count نسخة احتياطية',
+      many: 'الاحتفاظ بآخر $count نسخة احتياطية',
+      few: 'الاحتفاظ بآخر $count نسخ احتياطية',
+      two: 'الاحتفاظ بآخر نسختين احتياطيتين',
+      one: 'الاحتفاظ بآخر نسخة احتياطية',
+    );
+    return '$_temp0';
   }
 
   @override

@@ -15909,7 +15909,7 @@
   "settings_backups_auto": "النسخ الاحتياطي تلقائيًا",
   "settings_backups_backUpNow": "النسخ الاحتياطي الآن",
   "settings_backups_restoreFile": "الاستعادة من ملف",
-  "settings_backups_keepLast": "الاحتفاظ بآخر {count} نسخ احتياطية",
+  "settings_backups_keepLast": "{count, plural, one{الاحتفاظ بآخر نسخة احتياطية} two{الاحتفاظ بآخر نسختين احتياطيتين} few{الاحتفاظ بآخر {count} نسخ احتياطية} many{الاحتفاظ بآخر {count} نسخة احتياطية} other{الاحتفاظ بآخر {count} نسخة احتياطية}}",
   "settings_backups_folder": "مجلد النسخ الاحتياطي على هذا الجهاز",
   "settings_backups_useDefault": "استخدام الافتراضي",
   "settings_backups_saveFile": "حفظ ملف نسخة احتياطية",

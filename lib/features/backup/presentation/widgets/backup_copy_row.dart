@@ -35,31 +35,34 @@ class BackupCopyRow extends ConsumerWidget {
         ),
       );
     }
-    final (icon, title, detail) = switch (target) {
+    // hasAccount: whether the copy names an account (Change) or not
+    // (Choose an account).
+    final (icon, title, detail, hasAccount) = switch (target) {
       CopyFollowsSync(group: final g?) => (
         accountKindIcon(g.kind),
         l10n.settings_backups_copyTo(g.label),
         l10n.settings_backups_copySameAsSync,
+        true,
       ),
       CopyToAccount(:final group, :final row) => (
         accountKindIcon(group.kind),
         l10n.settings_backups_copyTo(group.label),
         accountStateText(l10n, group.statusOf(row.id) ?? group.status),
+        true,
       ),
       CopyAccountGone() => (
         Icons.cloud_off_outlined,
         l10n.settings_backups_copyAccountGone,
         null,
+        false,
       ),
       CopyFollowsSync() || NoCopy() => (
         Icons.cloud_off_outlined,
         l10n.settings_backups_noCopy,
         null,
+        false,
       ),
     };
-    final hasAccount =
-        target is CopyToAccount ||
-        (target is CopyFollowsSync && target.group != null);
     return ListTile(
       key: const Key('backup-copy'),
       leading: Icon(icon),

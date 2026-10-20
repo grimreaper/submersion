@@ -48,6 +48,8 @@ import 'package:submersion/features/backup/domain/entities/restore_mode.dart';
 // backup_service.dart after the extraction that broke the backup_target cycle.
 export 'package:submersion/features/backup/data/services/backup_database_adapter.dart';
 
+part 'backup_service_cloud_copy.dart';
+
 /// A backups directory ready to write into, plus [release] to call when the
 /// caller is done -- which stops any security-scoped access that was armed to
 /// reach a custom Apple location. For the default/sandbox location the release
@@ -328,38 +330,6 @@ class BackupService {
 
     _log.info('Backup completed: ${record.filename} (${record.formattedSize})');
     return record;
-  }
-
-  /// Uploads [sourcePath] as the cloud copy [storedName]. Never throws: the
-  /// backup on this device already succeeded, so a failed copy only leaves
-  /// it local-only. The account is read before the upload: a switch while it
-  /// runs must not be recorded as this copy's account.
-  Future<({String? fileId, String? accountId})> _copyToCloud(
-    String sourcePath,
-    String storedName,
-  ) async {
-    final accountId = await _copyAccountIdOrNull();
-    try {
-      final fileId = await _uploadToCloud(sourcePath, storedName);
-      // Only a real file id means a cloud copy exists: the upload also gives
-      // up (returning null) when the backup folder is unreachable or sync
-      // encryption is locked on this device (issue #3089), and history that
-      // claims `both` with no id sends restore looking for a file that was
-      // never written.
-      if (fileId == null) {
-        _log.warning('Cloud upload skipped, backup is local-only');
-      } else {
-        _log.info('Backup uploaded to cloud: $fileId');
-      }
-      return (fileId: fileId, accountId: accountId);
-    } catch (e, stack) {
-      _log.error(
-        'Cloud upload failed, backup is local-only',
-        error: e,
-        stackTrace: stack,
-      );
-      return (fileId: null, accountId: accountId);
-    }
   }
 
   /// Export a backup to a user-specified file path.
@@ -1678,47 +1648,10 @@ class BackupService {
   // Private Helpers
   // ===========================================================================
 
-  /// Whether [record]'s cloud copy is in the account the copy goes to now,
-  /// so this provider may delete, download or adopt it. Reads the account
-  /// only for a record that noted one.
-  Future<bool> _cloudCopyHere(BackupRecord record) async =>
-      (await _cloudCopyCheck())(record);
-
-  /// [_cloudCopyHere] for many records, reading the accounts once.
-  Future<bool Function(BackupRecord)> _cloudCopyCheck() async {
-    if (_cloudProvider == null) return (_) => false;
-    final pinned = _pinnedCopyAccountId;
-    final sync = await _syncAccountIdOrNull();
-    return (record) => cloudCopyReachable(
-      record,
-      copyAccountId: pinned ?? sync,
-      followsSync: pinned == null,
-      syncAccountId: sync,
-    );
-  }
-
   /// The connected account the cloud copy goes to, and so the account the
   /// cloud folder this service lists is in: the one it is pinned to, else
   /// sync's.
   Future<String?> cloudCopyAccountId() => _copyAccountIdOrNull();
-
-  Future<String?> _copyAccountIdOrNull() async =>
-      _pinnedCopyAccountId ?? await _syncAccountIdOrNull();
-
-  /// The sync account, or null when it cannot be read: a missing name only
-  /// makes Settings > Data say "the cloud".
-  Future<String?> _syncAccountIdOrNull() async {
-    try {
-      return await _syncRepository.getSyncAccountId();
-    } catch (e, stack) {
-      _log.warning(
-        'Could not read the sync account for the backup record',
-        error: e,
-        stackTrace: stack,
-      );
-      return null;
-    }
-  }
 
   /// Names a new backup, tagging it with the device that wrote it.
   ///
