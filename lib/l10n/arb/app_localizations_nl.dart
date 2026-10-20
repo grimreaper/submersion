@@ -54389,12 +54389,24 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String settings_photos_status_uploading(int copied, int total, int count) {
-    return '$copied van $total gekopieerd, $count worden geüpload';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count worden geüpload',
+      one: '$count wordt geüpload',
+    );
+    return '$copied van $total gekopieerd, $_temp0';
   }
 
   @override
   String settings_photos_status_uploadingOnly(int count) {
-    return '$count worden geüpload';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count worden geüpload',
+      one: '$count wordt geüpload',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -54403,7 +54415,13 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String settings_photos_status_waitingRetry(int count) {
-    return '$count wachten op een nieuwe poging';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count wachten op een nieuwe poging',
+      one: '$count wacht op een nieuwe poging',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -54440,4 +54458,14 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get settings_photos_suspended_title => 'Uploads gepauzeerd';
+
+  @override
+  String settings_photos_separateConsequence(String current, String choice) {
+    return 'De kopieën van de bibliotheek staan in $current. Met $choice begin je daar aparte kopieën. Er wordt niets verwijderd.';
+  }
+
+  @override
+  String settings_photos_joinConsequence(String choice) {
+    return 'Dit apparaat begint kopieën in $choice of sluit zich erbij aan. Er wordt niets verwijderd.';
+  }
 }

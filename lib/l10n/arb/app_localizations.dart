@@ -86768,6 +86768,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Uploads paused'**
   String get settings_photos_suspended_title;
+
+  /// Account sheet consequence on the Photos page when this device sets up copies in a different account from the one the library's copies already live in. {current} and {choice} are account names.
+  ///
+  /// In en, this message translates to:
+  /// **'The library\'s copies are in {current}. Choosing {choice} starts separate copies there. Nothing is deleted.'**
+  String settings_photos_separateConsequence(String current, String choice);
+
+  /// Account sheet consequence on the Photos page when the copies in use predate stores recording their account, so it is unknown whether the chosen account holds them. {choice} is an account name.
+  ///
+  /// In en, this message translates to:
+  /// **'This device starts or joins copies in {choice}. Nothing is deleted.'**
+  String settings_photos_joinConsequence(String choice);
 }
 
 class _AppLocalizationsDelegate

@@ -16103,11 +16103,11 @@
   "settings_photos_stopKeeping": "إيقاف الاحتفاظ بالنسخ على هذا الجهاز",
   "settings_photos_stopKeepingBody": "يتوقف هذا الجهاز عن رفع النسخ وجلبها. لا يُحذف أي شيء من الحساب.",
   "settings_photos_switchConsequence": "يتوقف هذا الجهاز عن استخدام النسخ في {current} ويبدأ نسخًا في {choice} أو ينضم إليها. لا يُحذف أي شيء.",
-  "settings_photos_status_copied": "تم نسخ {copied} من {total}",
-  "settings_photos_status_uploading": "تم نسخ {copied} من {total}، و{count} قيد الرفع",
-  "settings_photos_status_uploadingOnly": "{count} قيد الرفع",
+  "settings_photos_status_copied": "تم نسخ {copied} من {total, plural, one{عنصر واحد} two{عنصرين} few{{total} عناصر} many{{total} عنصرًا} other{{total} عنصر}}",
+  "settings_photos_status_uploading": "تم نسخ {copied} من {total}، و{count, plural, one{عنصر واحد} two{عنصران} few{{count} عناصر} many{{count} عنصرًا} other{{count} عنصر}} قيد الرفع",
+  "settings_photos_status_uploadingOnly": "{count, plural, one{عنصر واحد} two{عنصران} few{{count} عناصر} many{{count} عنصرًا} other{{count} عنصر}} قيد الرفع",
   "settings_photos_status_waitingConnection": "في انتظار الاتصال",
-  "settings_photos_status_waitingRetry": "{count} في انتظار إعادة المحاولة",
+  "settings_photos_status_waitingRetry": "{count, plural, one{عنصر واحد} two{عنصران} few{{count} عناصر} many{{count} عنصرًا} other{{count} عنصر}} في انتظار إعادة المحاولة",
   "settings_photos_status_pausedUnreachable": "تم إيقاف الرفع مؤقتًا: تعذر التحقق من الحساب",
   "settings_photos_status_pausedDetached": "تم إيقاف الرفع مؤقتًا: هذا الجهاز غير متصل بهذه النسخ",
   "settings_photos_status_pausedMismatch": "تم إيقاف الرفع مؤقتًا: اختر الحساب مرة أخرى",
@@ -16116,5 +16116,7 @@
   "settings_photos_suspended_detached": "لم يعد هذا الجهاز متصلًا بهذه النسخ. اختر الحساب مرة أخرى في الصور ومقاطع الفيديو.",
   "settings_photos_suspended_mismatch": "لم يعد هذا الجهاز والحساب متفقين على النسخ المستخدمة. يؤدي اختيار الحساب مرة أخرى إلى اعتماد النسخ الموجودة فيه الآن.",
   "media_info_actionCopyNow": "النسخ الآن",
-  "settings_photos_suspended_title": "تم إيقاف الرفع مؤقتًا"
+  "settings_photos_suspended_title": "تم إيقاف الرفع مؤقتًا",
+  "settings_photos_separateConsequence": "نسخ المكتبة موجودة في {current}. اختيار {choice} يبدأ نسخًا منفصلة هناك. لا يُحذف أي شيء.",
+  "settings_photos_joinConsequence": "يبدأ هذا الجهاز نسخًا في {choice} أو ينضم إليها. لا يُحذف أي شيء."
 }

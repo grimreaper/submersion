@@ -54608,12 +54608,24 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String settings_photos_status_uploading(int copied, int total, int count) {
-    return '$copied von $total kopiert, $count werden hochgeladen';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count werden hochgeladen',
+      one: '$count wird hochgeladen',
+    );
+    return '$copied von $total kopiert, $_temp0';
   }
 
   @override
   String settings_photos_status_uploadingOnly(int count) {
-    return '$count werden hochgeladen';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count werden hochgeladen',
+      one: '$count wird hochgeladen',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -54622,7 +54634,13 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String settings_photos_status_waitingRetry(int count) {
-    return '$count warten auf einen neuen Versuch';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count warten auf einen neuen Versuch',
+      one: '$count wartet auf einen neuen Versuch',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -54659,4 +54677,14 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settings_photos_suspended_title => 'Uploads angehalten';
+
+  @override
+  String settings_photos_separateConsequence(String current, String choice) {
+    return 'Die Kopien der Bibliothek liegen in $current. Mit $choice beginnen dort separate Kopien. Es wird nichts gelöscht.';
+  }
+
+  @override
+  String settings_photos_joinConsequence(String choice) {
+    return 'Dieses Gerät beginnt Kopien in $choice oder schließt sich ihnen an. Es wird nichts gelöscht.';
+  }
 }

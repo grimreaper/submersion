@@ -6,12 +6,18 @@
 import 'package:flutter_test/flutter_test.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 
+import 'package:submersion/core/data/repositories/connected_accounts_repository.dart';
+import 'package:submersion/core/services/accounts/account_credentials_store.dart';
 import 'package:submersion/core/services/accounts/account_group.dart';
 import 'package:submersion/core/services/accounts/account_group_service.dart';
+import 'package:submersion/core/services/accounts/account_identity.dart';
 import 'package:submersion/core/services/accounts/account_kind.dart';
+import 'package:submersion/core/services/accounts/account_location.dart';
 import 'package:submersion/core/services/accounts/account_provider_adapter.dart';
 import 'package:submersion/core/services/accounts/account_provider_registry.dart';
+import 'package:submersion/core/services/accounts/adapters/s3_account_adapter.dart';
 import 'package:submersion/core/services/accounts/connected_account.dart';
+import 'package:submersion/core/services/cloud_storage/s3/s3_config.dart';
 import 'package:submersion/core/services/media_store/media_object_store.dart';
 import 'package:submersion/core/services/media_store/media_store_attach_state.dart';
 import 'package:submersion/core/services/media_store/media_store_credentials_store.dart';
@@ -78,6 +84,39 @@ class _Accounts extends Fake implements AccountGroupService {
     ensured.add((group.key, role));
     return mediaRow;
   }
+}
+
+/// A server account no row of which holds keys here.
+class _NoKeys extends Fake implements AccountGroupService {
+  @override
+  Future<ConnectedAccount> ensureRole(
+    AccountGroup group,
+    AccountRole role, {
+    String? libraryFolder,
+  }) async => throw StateError('not signed in');
+}
+
+/// Hands out [store] for any row that holds keys on this device, as the S3
+/// adapter does, without reaching a network.
+class _KeyedAdapter extends AccountProviderAdapter
+    implements MediaStoreCapable {
+  _KeyedAdapter(this.credentials, this.store);
+  final AccountCredentialsStore credentials;
+  final MediaObjectStore store;
+
+  @override
+  AccountKind get kind => AccountKind.s3;
+
+  @override
+  Future<AccountStatus> status(ConnectedAccount account) async =>
+      AccountStatus.signedIn;
+
+  @override
+  Future<void> disconnect(ConnectedAccount account) async {}
+
+  @override
+  Future<MediaObjectStore?> mediaObjectStore(ConnectedAccount account) async =>
+      await credentials.read(account.id) == null ? null : store;
 }
 
 void main() {
@@ -189,23 +228,77 @@ void main() {
     expect(await attachState.attachedStoreId(), isNull);
   });
 
-  // Review Focus 3: never a silent mix of two stores.
-  test(
-    'switching detaches first, and a failed attach stays detached',
-    () async {
-      final a = _row('a-row', AccountKind.dropbox, 'Dropbox');
-      final b = _row('b-row', AccountKind.dropbox, 'Dropbox 2');
-      final attach = attacher(AccountKind.dropbox, {'a-row': bucket});
-      await attach.attach(_group(a));
+  // Review Focus 3: never a silent mix of two stores, and never a detach
+  // for an account that could not have been attached anyway.
+  test('switching to an account with no keys here keeps the current '
+      'copies', () async {
+    final a = _row('a-row', AccountKind.dropbox, 'Dropbox');
+    final b = _row('b-row', AccountKind.dropbox, 'Dropbox 2');
+    final attach = attacher(AccountKind.dropbox, {'a-row': bucket});
+    final first = await attach.attach(_group(a));
 
-      await expectLater(
-        attach.switchTo(_group(b)),
-        throwsA(isA<MediaStoreException>()),
-      );
+    await expectLater(
+      attach.switchTo(_group(b)),
+      throwsA(
+        isA<MediaStoreException>().having(
+          (e) => e.kind,
+          'kind',
+          MediaStoreErrorKind.auth,
+        ),
+      ),
+    );
 
-      expect(await attachState.attachedStoreId(), isNull);
-    },
-  );
+    expect(await attachState.attachedStoreId(), first.storeId);
+    expect(await attachState.attachedAccountId(), 'a-row');
+  });
+
+  test('switching to a server this device holds no keys for keeps the '
+      'current copies', () async {
+    final a = _row('a-row', AccountKind.dropbox, 'Dropbox');
+    final attach = MediaStoreAccountAttach(
+      service: service,
+      accounts: _NoKeys(),
+      registry: AccountProviderRegistry([
+        _MediaAdapter(AccountKind.dropbox, {'a-row': bucket}),
+      ]),
+    );
+    final first = await attach.attach(_group(a));
+
+    await expectLater(
+      attach.switchTo(_group(_row('s3-row', AccountKind.s3, 'dives @ minio'))),
+      throwsA(
+        isA<MediaStoreException>().having(
+          (e) => e.kind,
+          'kind',
+          MediaStoreErrorKind.auth,
+        ),
+      ),
+    );
+
+    expect(await attachState.attachedStoreId(), first.storeId);
+  });
+
+  test('a switch whose marker check fails stays detached', () async {
+    final a = _row('a-row', AccountKind.dropbox, 'Dropbox');
+    final b = _row('b-row', AccountKind.dropbox, 'Dropbox 2');
+    final refusing = InMemoryMediaObjectStore();
+    final attach = attacher(AccountKind.dropbox, {
+      'a-row': bucket,
+      'b-row': refusing,
+    });
+    await attach.attach(_group(a));
+    refusing.failNextWith = const MediaStoreException(
+      'denied',
+      kind: MediaStoreErrorKind.auth,
+    );
+
+    await expectLater(
+      attach.switchTo(_group(b)),
+      throwsA(isA<MediaStoreException>()),
+    );
+
+    expect(await attachState.attachedStoreId(), isNull);
+  });
 
   test('switching attaches the new account\'s store', () async {
     final a = _row('a-row', AccountKind.dropbox, 'Dropbox');
@@ -221,5 +314,89 @@ void main() {
 
     expect(second.storeId, isNot(first.storeId));
     expect(await attachState.attachedAccountId(), 'b-row');
+  });
+
+  // Final review: a second device holding the server joins the copies in
+  // the folder the library records, not a new `submersion-media/` folder.
+  group('the account the copies live in', () {
+    late ConnectedAccountsRepository roster;
+    late AccountCredentialsStore keys;
+    late AccountGroupService accounts;
+
+    S3Config s3(String prefix) => S3Config(
+      endpoint: 'https://minio.home:9000',
+      bucket: 'dives',
+      prefix: prefix,
+      accessKeyId: 'AKIA1',
+      secretAccessKey: 'shh',
+    );
+
+    setUp(() {
+      roster = ConnectedAccountsRepository();
+      keys = AccountCredentialsStore(storage: InMemoryKeychain());
+      accounts = AccountGroupService(
+        accounts: roster,
+        credentials: keys,
+        registry: AccountProviderRegistry([
+          S3AccountAdapter(credentials: keys),
+        ]),
+      );
+    });
+
+    /// The server as this device sees it: keys for the sync folder, and the
+    /// photos row another device made (a custom folder) with none.
+    Future<(AccountGroup, ConnectedAccount)> server() async {
+      final sync = await accounts.saveOwnServer(s3: s3('submersion-sync/'));
+      final photos = s3('dive-photos/');
+      final media = await roster.ensure(
+        kind: AccountKind.s3,
+        naturalKey: s3NaturalKey(photos),
+        label: 'dives @ minio.home',
+        location: S3AccountLocation.fromConfig(photos),
+      );
+      final rows = [
+        (await roster.getById(sync.id))!,
+        (await roster.getById(media.id))!,
+      ];
+      final group = groupAccounts(
+        rows: rows,
+        statusById: {for (final r in rows) r.id: AccountStatus.signedIn},
+        localLocationById: const {},
+        usagesOf: (_) => const [],
+      ).single;
+      return (group, media);
+    }
+
+    MediaStoreAccountAttach real() => MediaStoreAccountAttach(
+      service: service,
+      accounts: accounts,
+      registry: AccountProviderRegistry([_KeyedAdapter(keys, bucket)]),
+    );
+
+    test(
+      'attaches through the recorded row, giving it the server keys',
+      () async {
+        final (group, media) = await server();
+
+        await real().attach(group, storeAccountId: media.id);
+
+        expect(await attachState.attachedAccountId(), media.id);
+        final written = await accounts.storedS3ForRow(media.id);
+        expect(written?.prefix, 'dive-photos/');
+        expect(written?.accessKeyId, 'AKIA1');
+      },
+    );
+
+    test('a recorded row on another account is ignored', () async {
+      final (group, _) = await server();
+
+      await real().attach(group, storeAccountId: 'elsewhere');
+
+      final attachedRow = await attachState.attachedAccountId();
+      expect(
+        (await accounts.storedS3ForRow(attachedRow!))?.prefix,
+        'submersion-media/',
+      );
+    });
   });
 }

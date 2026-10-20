@@ -49,6 +49,7 @@ final _drive = _group('gd-row', AccountKind.googledrive, 'Google Drive');
 /// Records attaches and switches instead of reaching a store.
 class _Attach extends Fake implements MediaStoreAccountAttach {
   final attached = <String>[];
+  final storeAccountIds = <String?>[];
   final switched = <String>[];
   Object? failure;
 
@@ -58,8 +59,12 @@ class _Attach extends Fake implements MediaStoreAccountAttach {
   );
 
   @override
-  Future<MediaStoreConnectResult> attach(AccountGroup group) async {
+  Future<MediaStoreConnectResult> attach(
+    AccountGroup group, {
+    String? storeAccountId,
+  }) async {
     attached.add(group.key);
+    storeAccountIds.add(storeAccountId);
     if (failure case final f?) throw f;
     return _result;
   }
@@ -203,6 +208,16 @@ void main() {
       expect(find.text('Copies in media @ minio'), findsOneWidget);
       expect(find.text('Change'), findsOneWidget);
     });
+
+    testWidgets('an attached device with no account name still offers '
+        'Change', (tester) async {
+      await pumpPage(
+        tester,
+        copies: (attached: true, store: null, group: null, label: null),
+      );
+      expect(find.text('Not set up'), findsNothing);
+      expect(find.text('Change'), findsOneWidget);
+    });
   });
 
   group('choosing where copies go', () {
@@ -216,15 +231,62 @@ void main() {
       await tester.pumpAndSettle();
     }
 
-    testWidgets('the account in use changes nothing', (tester) async {
+    // Choosing the account in use again is how a marker mismatch or an
+    // unreachable store is recovered, so it attaches again.
+    testWidgets('the account in use attaches again', (tester) async {
       await pumpPage(tester, copies: _copies(group: _dropbox));
       await open(tester);
 
       await tester.tap(inSheet('Dropbox'));
       await tester.pumpAndSettle();
 
-      expect(attach.attached, isEmpty);
+      expect(attach.attached, [_dropbox.key]);
+      expect(attach.storeAccountIds, ['db-row']);
       expect(attach.switched, isEmpty);
+    });
+
+    testWidgets('Set up joins the copies in the account they record', (
+      tester,
+    ) async {
+      await pumpPage(tester, copies: _copies(attached: false, group: _dropbox));
+      await open(tester);
+
+      await tester.tap(inSheet('Dropbox'));
+      await tester.pumpAndSettle();
+
+      expect(find.text('Continue'), findsNothing);
+      expect(attach.attached, [_dropbox.key]);
+      expect(attach.storeAccountIds, ['db-row']);
+    });
+
+    testWidgets('Set up in another account than the library copies explains '
+        'first', (tester) async {
+      await pumpPage(tester, copies: _copies(attached: false, group: _dropbox));
+      await open(tester);
+
+      await tester.tap(inSheet('Google Drive'));
+      await tester.pumpAndSettle();
+      expect(find.textContaining('starts separate copies'), findsOneWidget);
+      await tester.tap(find.text('Continue'));
+      await tester.pumpAndSettle();
+
+      expect(attach.attached, [_drive.key]);
+    });
+
+    testWidgets('a store with no recorded account names it once', (
+      tester,
+    ) async {
+      await pumpPage(tester, copies: _copies(label: 'Dropbox'));
+      await open(tester);
+
+      await tester.tap(inSheet('Dropbox'));
+      await tester.pumpAndSettle();
+
+      expect(
+        find.textContaining('starts or joins copies in Dropbox'),
+        findsOneWidget,
+      );
+      expect(find.textContaining('stops using the copies in'), findsNothing);
     });
 
     testWidgets('another account explains first, then switches', (

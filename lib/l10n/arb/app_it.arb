@@ -16103,8 +16103,8 @@
   "settings_photos_stopKeeping": "Smetti di gestire le copie su questo dispositivo",
   "settings_photos_stopKeepingBody": "Questo dispositivo smette di caricare e scaricare copie. Nell'account non viene eliminato nulla.",
   "settings_photos_switchConsequence": "Questo dispositivo smette di usare le copie in {current} e avvia o si unisce alle copie in {choice}. Non viene eliminato nulla.",
-  "settings_photos_status_copied": "{copied} di {total} copiate",
-  "settings_photos_status_uploading": "{copied} di {total} copiate, {count} in caricamento",
+  "settings_photos_status_copied": "{copied} di {total} {copied, plural, one{copiata} other{copiate}}",
+  "settings_photos_status_uploading": "{copied} di {total} {copied, plural, one{copiata} other{copiate}}, {count} in caricamento",
   "settings_photos_status_uploadingOnly": "{count} in caricamento",
   "settings_photos_status_waitingConnection": "In attesa di una connessione",
   "settings_photos_status_waitingRetry": "{count} in attesa di riprovare",
@@ -16116,5 +16116,7 @@
   "settings_photos_suspended_detached": "Questo dispositivo non è più collegato a queste copie. Scegli di nuovo l'account in Foto e video.",
   "settings_photos_suspended_mismatch": "Questo dispositivo e l'account non concordano più su quali copie sono in uso. Scegliere di nuovo l'account adotta le copie che contiene ora.",
   "media_info_actionCopyNow": "Copia ora",
-  "settings_photos_suspended_title": "Caricamenti in pausa"
+  "settings_photos_suspended_title": "Caricamenti in pausa",
+  "settings_photos_separateConsequence": "Le copie della libreria sono in {current}. Scegliere {choice} avvia lì copie separate. Non viene eliminato nulla.",
+  "settings_photos_joinConsequence": "Questo dispositivo avvia copie in {choice} o si unisce a quelle esistenti. Non viene eliminato nulla."
 }

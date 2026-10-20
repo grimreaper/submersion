@@ -51471,4 +51471,14 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settings_photos_suspended_title => '上传已暂停';
+
+  @override
+  String settings_photos_separateConsequence(String current, String choice) {
+    return '资料库的副本位于 $current。选择 $choice 会在那里开始另一套副本。不会删除任何内容。';
+  }
+
+  @override
+  String settings_photos_joinConsequence(String choice) {
+    return '此设备会在 $choice 中开始副本或加入现有副本。不会删除任何内容。';
+  }
 }

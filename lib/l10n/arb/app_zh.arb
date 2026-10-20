@@ -16116,5 +16116,7 @@
   "settings_photos_suspended_detached": "此设备已不再连接到这些副本。请在“照片和视频”中重新选择账户。",
   "settings_photos_suspended_mismatch": "此设备与账户对正在使用哪些副本已不一致。重新选择该账户将采用其中现有的副本。",
   "media_info_actionCopyNow": "立即复制",
-  "settings_photos_suspended_title": "上传已暂停"
+  "settings_photos_suspended_title": "上传已暂停",
+  "settings_photos_separateConsequence": "资料库的副本位于 {current}。选择 {choice} 会在那里开始另一套副本。不会删除任何内容。",
+  "settings_photos_joinConsequence": "此设备会在 {choice} 中开始副本或加入现有副本。不会删除任何内容。"
 }

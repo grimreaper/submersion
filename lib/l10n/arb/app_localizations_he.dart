@@ -53584,12 +53584,24 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String settings_photos_status_copied(int copied, int total) {
-    return '$copied מתוך $total הועתקו';
+    String _temp0 = intl.Intl.pluralLogic(
+      copied,
+      locale: localeName,
+      other: 'הועתקו',
+      one: 'הועתק',
+    );
+    return '$copied מתוך $total $_temp0';
   }
 
   @override
   String settings_photos_status_uploading(int copied, int total, int count) {
-    return '$copied מתוך $total הועתקו, $count בהעלאה';
+    String _temp0 = intl.Intl.pluralLogic(
+      copied,
+      locale: localeName,
+      other: 'הועתקו',
+      one: 'הועתק',
+    );
+    return '$copied מתוך $total $_temp0, $count בהעלאה';
   }
 
   @override
@@ -53602,7 +53614,13 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String settings_photos_status_waitingRetry(int count) {
-    return '$count ממתינים לניסיון חוזר';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count ממתינים לניסיון חוזר',
+      one: '$count ממתין לניסיון חוזר',
+    );
+    return '$_temp0';
   }
 
   @override
@@ -53638,4 +53656,14 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get settings_photos_suspended_title => 'ההעלאות מושהות';
+
+  @override
+  String settings_photos_separateConsequence(String current, String choice) {
+    return 'העותקים של הספרייה נמצאים ב-$current. בחירה ב-$choice מתחילה שם עותקים נפרדים. שום דבר לא נמחק.';
+  }
+
+  @override
+  String settings_photos_joinConsequence(String choice) {
+    return 'המכשיר הזה מתחיל עותקים ב-$choice או מצטרף אליהם. שום דבר לא נמחק.';
+  }
 }

@@ -55443,17 +55443,44 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String settings_photos_status_copied(int copied, int total) {
-    return 'تم نسخ $copied من $total';
+    String _temp0 = intl.Intl.pluralLogic(
+      total,
+      locale: localeName,
+      other: '$total عنصر',
+      many: '$total عنصرًا',
+      few: '$total عناصر',
+      two: 'عنصرين',
+      one: 'عنصر واحد',
+    );
+    return 'تم نسخ $copied من $_temp0';
   }
 
   @override
   String settings_photos_status_uploading(int copied, int total, int count) {
-    return 'تم نسخ $copied من $total، و$count قيد الرفع';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count عنصر',
+      many: '$count عنصرًا',
+      few: '$count عناصر',
+      two: 'عنصران',
+      one: 'عنصر واحد',
+    );
+    return 'تم نسخ $copied من $total، و$_temp0 قيد الرفع';
   }
 
   @override
   String settings_photos_status_uploadingOnly(int count) {
-    return '$count قيد الرفع';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count عنصر',
+      many: '$count عنصرًا',
+      few: '$count عناصر',
+      two: 'عنصران',
+      one: 'عنصر واحد',
+    );
+    return '$_temp0 قيد الرفع';
   }
 
   @override
@@ -55461,7 +55488,16 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String settings_photos_status_waitingRetry(int count) {
-    return '$count في انتظار إعادة المحاولة';
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count عنصر',
+      many: '$count عنصرًا',
+      few: '$count عناصر',
+      two: 'عنصران',
+      one: 'عنصر واحد',
+    );
+    return '$_temp0 في انتظار إعادة المحاولة';
   }
 
   @override
@@ -55497,4 +55533,14 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get settings_photos_suspended_title => 'تم إيقاف الرفع مؤقتًا';
+
+  @override
+  String settings_photos_separateConsequence(String current, String choice) {
+    return 'نسخ المكتبة موجودة في $current. اختيار $choice يبدأ نسخًا منفصلة هناك. لا يُحذف أي شيء.';
+  }
+
+  @override
+  String settings_photos_joinConsequence(String choice) {
+    return 'يبدأ هذا الجهاز نسخًا في $choice أو ينضم إليها. لا يُحذف أي شيء.';
+  }
 }

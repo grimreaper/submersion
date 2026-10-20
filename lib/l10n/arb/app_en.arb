@@ -32430,5 +32430,9 @@
   "media_info_actionCopyNow": "Copy now",
   "@media_info_actionCopyNow": {"description": "Media info panel: copy this item to the cloud now"},
   "settings_photos_suspended_title": "Uploads paused",
-  "@settings_photos_suspended_title": {"description": "Uploads page notice title: uploads are held"}
+  "@settings_photos_suspended_title": {"description": "Uploads page notice title: uploads are held"},
+  "settings_photos_separateConsequence": "The library's copies are in {current}. Choosing {choice} starts separate copies there. Nothing is deleted.",
+  "@settings_photos_separateConsequence": {"description": "Account sheet consequence on the Photos page when this device sets up copies in a different account from the one the library's copies already live in. {current} and {choice} are account names.", "placeholders": {"current": {"type": "String"}, "choice": {"type": "String"}}},
+  "settings_photos_joinConsequence": "This device starts or joins copies in {choice}. Nothing is deleted.",
+  "@settings_photos_joinConsequence": {"description": "Account sheet consequence on the Photos page when the copies in use predate stores recording their account, so it is unknown whether the chosen account holds them. {choice} is an account name.", "placeholders": {"choice": {"type": "String"}}}
 }

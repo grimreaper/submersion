@@ -16103,11 +16103,11 @@
   "settings_photos_stopKeeping": "הפסקת שמירת עותקים במכשיר הזה",
   "settings_photos_stopKeepingBody": "המכשיר הזה מפסיק להעלות ולהוריד עותקים. שום דבר בחשבון לא נמחק.",
   "settings_photos_switchConsequence": "המכשיר הזה מפסיק להשתמש בעותקים ב-{current} ומתחיל או מצטרף לעותקים ב-{choice}. שום דבר לא נמחק.",
-  "settings_photos_status_copied": "{copied} מתוך {total} הועתקו",
-  "settings_photos_status_uploading": "{copied} מתוך {total} הועתקו, {count} בהעלאה",
+  "settings_photos_status_copied": "{copied} מתוך {total} {copied, plural, one{הועתק} other{הועתקו}}",
+  "settings_photos_status_uploading": "{copied} מתוך {total} {copied, plural, one{הועתק} other{הועתקו}}, {count} בהעלאה",
   "settings_photos_status_uploadingOnly": "{count} בהעלאה",
   "settings_photos_status_waitingConnection": "ממתין לחיבור",
-  "settings_photos_status_waitingRetry": "{count} ממתינים לניסיון חוזר",
+  "settings_photos_status_waitingRetry": "{count, plural, one{{count} ממתין לניסיון חוזר} other{{count} ממתינים לניסיון חוזר}}",
   "settings_photos_status_pausedUnreachable": "ההעלאות מושהות: לא ניתן היה לבדוק את החשבון",
   "settings_photos_status_pausedDetached": "ההעלאות מושהות: המכשיר הזה אינו מחובר לעותקים האלה",
   "settings_photos_status_pausedMismatch": "ההעלאות מושהות: בחרו שוב את החשבון",
@@ -16116,5 +16116,7 @@
   "settings_photos_suspended_detached": "המכשיר הזה כבר אינו מחובר לעותקים האלה. בחרו שוב את החשבון בתמונות וסרטונים.",
   "settings_photos_suspended_mismatch": "המכשיר הזה והחשבון כבר אינם מסכימים אילו עותקים בשימוש. בחירה מחדש בחשבון מאמצת את העותקים שהוא מחזיק עכשיו.",
   "media_info_actionCopyNow": "העתקה עכשיו",
-  "settings_photos_suspended_title": "ההעלאות מושהות"
+  "settings_photos_suspended_title": "ההעלאות מושהות",
+  "settings_photos_separateConsequence": "העותקים של הספרייה נמצאים ב-{current}. בחירה ב-{choice} מתחילה שם עותקים נפרדים. שום דבר לא נמחק.",
+  "settings_photos_joinConsequence": "המכשיר הזה מתחיל עותקים ב-{choice} או מצטרף אליהם. שום דבר לא נמחק."
 }

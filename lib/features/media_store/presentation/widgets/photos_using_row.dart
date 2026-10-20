@@ -9,6 +9,7 @@ import 'package:submersion/features/media_store/presentation/providers/photos_co
 import 'package:submersion/features/settings/presentation/providers/account_group_providers.dart';
 import 'package:submersion/features/settings/presentation/widgets/accounts/account_group_tile.dart';
 import 'package:submersion/features/settings/presentation/widgets/accounts/account_sheet.dart';
+import 'package:submersion/l10n/arb/app_localizations.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 import 'package:submersion/shared/widgets/tile_subtitle_action.dart';
 
@@ -43,7 +44,7 @@ class _PhotosUsingRowState extends ConsumerState<PhotosUsingRow> {
     }
     final label = copies.label;
     final hasCopies =
-        label != null && (copies.attached || copies.store != null);
+        copies.attached || (label != null && copies.store != null);
     final group = copies.group;
     return ListTile(
       key: const Key('photos-using'),
@@ -61,9 +62,12 @@ class _PhotosUsingRowState extends ConsumerState<PhotosUsingRow> {
                   : Icons.cloud_off_outlined,
             ),
       title: Text(
-        hasCopies
+        !hasCopies
+            ? l10n.settings_sync_notSetUp
+            : label != null
             ? l10n.settings_photos_copiesIn(label)
-            : l10n.settings_sync_notSetUp,
+            // Attached through a store this device cannot name yet.
+            : l10n.settings_photos_cloudHeader,
       ),
       subtitle: TileSubtitleAction(
         actionKey: const Key('photos-using-change'),
@@ -82,28 +86,24 @@ class _PhotosUsingRowState extends ConsumerState<PhotosUsingRow> {
 
   Future<void> _choose(PhotosCopies copies) async {
     final l10n = context.l10n;
-    final currentLabel = copies.attached ? copies.label : null;
     final choice = await showAccountSheet(
       context,
       allowedKinds: photoAccountKinds,
       currentKey: copies.group?.key,
-      consequenceOf: (AccountGroup c) =>
-          currentLabel != null && c.key != copies.group?.key
-          ? l10n.settings_photos_switchConsequence(currentLabel, c.label)
-          : null,
+      consequenceOf: (AccountGroup c) => _consequence(l10n, copies, c),
     );
     if (choice == null || !mounted) return;
-    // The account the copies already use: nothing to do.
-    if (copies.attached && choice.key == copies.group?.key) return;
     setState(() => _busy = true);
     final messenger = ScaffoldMessenger.of(context);
     final container = ProviderScope.containerOf(context, listen: false);
     try {
       final attach = container.read(mediaStoreAccountAttachProvider);
-      if (copies.attached) {
+      // The account in use again attaches again: that is how a marker
+      // mismatch or a store this device could not reach is recovered.
+      if (copies.attached && choice.key != copies.group?.key) {
         await attach.switchTo(choice);
       } else {
-        await attach.attach(choice);
+        await attach.attach(choice, storeAccountId: copies.store?.accountId);
       }
       messenger.showSnackBar(
         SnackBar(content: Text(l10n.settings_photos_attached(choice.label))),
@@ -122,5 +122,32 @@ class _PhotosUsingRowState extends ConsumerState<PhotosUsingRow> {
       refreshAccountState(container.invalidate);
       if (mounted) setState(() => _busy = false);
     }
+  }
+
+  /// What choosing [c] does, said in the sheet before it happens; null when
+  /// it only joins the copies already in use.
+  static String? _consequence(
+    AppLocalizations l10n,
+    PhotosCopies copies,
+    AccountGroup c,
+  ) {
+    final label = copies.label;
+    final group = copies.group;
+    if (label == null || c.key == group?.key) return null;
+    if (copies.attached) {
+      // A store announced before stores recorded their account: the chosen
+      // account may be the one it lives in, so name it once.
+      if (group == null && c.label == label) {
+        return l10n.settings_photos_joinConsequence(c.label);
+      }
+      return l10n.settings_photos_switchConsequence(label, c.label);
+    }
+    // Not joined here yet: choosing another account than the one the
+    // library's copies record starts a second set.
+    final recorded = copies.store?.accountId;
+    if (recorded != null && !c.rows.any((r) => r.id == recorded)) {
+      return l10n.settings_photos_separateConsequence(label, c.label);
+    }
+    return null;
   }
 }

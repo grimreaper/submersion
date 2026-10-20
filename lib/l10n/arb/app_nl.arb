@@ -16104,10 +16104,10 @@
   "settings_photos_stopKeepingBody": "Dit apparaat stopt met het uploaden en ophalen van kopieën. Er wordt niets uit het account verwijderd.",
   "settings_photos_switchConsequence": "Dit apparaat stopt met de kopieën in {current} en begint of sluit aan bij kopieën in {choice}. Er wordt niets verwijderd.",
   "settings_photos_status_copied": "{copied} van {total} gekopieerd",
-  "settings_photos_status_uploading": "{copied} van {total} gekopieerd, {count} worden geüpload",
-  "settings_photos_status_uploadingOnly": "{count} worden geüpload",
+  "settings_photos_status_uploading": "{copied} van {total} gekopieerd, {count, plural, one{{count} wordt geüpload} other{{count} worden geüpload}}",
+  "settings_photos_status_uploadingOnly": "{count, plural, one{{count} wordt geüpload} other{{count} worden geüpload}}",
   "settings_photos_status_waitingConnection": "Wachten op een verbinding",
-  "settings_photos_status_waitingRetry": "{count} wachten op een nieuwe poging",
+  "settings_photos_status_waitingRetry": "{count, plural, one{{count} wacht op een nieuwe poging} other{{count} wachten op een nieuwe poging}}",
   "settings_photos_status_pausedUnreachable": "Uploads gepauzeerd: het account kon niet worden gecontroleerd",
   "settings_photos_status_pausedDetached": "Uploads gepauzeerd: dit apparaat is niet verbonden met deze kopieën",
   "settings_photos_status_pausedMismatch": "Uploads gepauzeerd: kies het account opnieuw",
@@ -16116,5 +16116,7 @@
   "settings_photos_suspended_detached": "Dit apparaat is niet meer verbonden met deze kopieën. Kies het account opnieuw in Foto's en video's.",
   "settings_photos_suspended_mismatch": "Dit apparaat en het account zijn het niet meer eens over welke kopieën in gebruik zijn. Als u het account opnieuw kiest, worden de kopieën overgenomen die het nu bevat.",
   "media_info_actionCopyNow": "Nu kopiëren",
-  "settings_photos_suspended_title": "Uploads gepauzeerd"
+  "settings_photos_suspended_title": "Uploads gepauzeerd",
+  "settings_photos_separateConsequence": "De kopieën van de bibliotheek staan in {current}. Met {choice} begin je daar aparte kopieën. Er wordt niets verwijderd.",
+  "settings_photos_joinConsequence": "Dit apparaat begint kopieën in {choice} of sluit zich erbij aan. Er wordt niets verwijderd."
 }

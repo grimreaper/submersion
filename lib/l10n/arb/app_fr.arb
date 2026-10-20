@@ -16103,8 +16103,8 @@
   "settings_photos_stopKeeping": "Ne plus gérer les copies sur cet appareil",
   "settings_photos_stopKeepingBody": "Cet appareil cesse d'envoyer et de récupérer des copies. Rien n'est supprimé du compte.",
   "settings_photos_switchConsequence": "Cet appareil cesse d'utiliser les copies de {current} et commence ou rejoint des copies dans {choice}. Rien n'est supprimé.",
-  "settings_photos_status_copied": "{copied} sur {total} copiées",
-  "settings_photos_status_uploading": "{copied} sur {total} copiées, {count} en cours d'envoi",
+  "settings_photos_status_copied": "{copied} sur {total} {copied, plural, one{copiée} other{copiées}}",
+  "settings_photos_status_uploading": "{copied} sur {total} {copied, plural, one{copiée} other{copiées}}, {count} en cours d'envoi",
   "settings_photos_status_uploadingOnly": "{count} en cours d'envoi",
   "settings_photos_status_waitingConnection": "En attente d'une connexion",
   "settings_photos_status_waitingRetry": "{count} en attente d'une nouvelle tentative",
@@ -16116,5 +16116,7 @@
   "settings_photos_suspended_detached": "Cet appareil n'est plus connecté à ces copies. Choisissez de nouveau le compte dans Photos et vidéos.",
   "settings_photos_suspended_mismatch": "Cet appareil et le compte ne s'accordent plus sur les copies utilisées. Choisir de nouveau le compte adopte les copies qu'il contient maintenant.",
   "media_info_actionCopyNow": "Copier maintenant",
-  "settings_photos_suspended_title": "Envois en pause"
+  "settings_photos_suspended_title": "Envois en pause",
+  "settings_photos_separateConsequence": "Les copies de la bibliothèque se trouvent dans {current}. Choisir {choice} y lance des copies distinctes. Rien n'est supprimé.",
+  "settings_photos_joinConsequence": "Cet appareil lance des copies dans {choice} ou les rejoint. Rien n'est supprimé."
 }

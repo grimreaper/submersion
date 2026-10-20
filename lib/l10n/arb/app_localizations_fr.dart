@@ -54839,12 +54839,24 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String settings_photos_status_copied(int copied, int total) {
-    return '$copied sur $total copiées';
+    String _temp0 = intl.Intl.pluralLogic(
+      copied,
+      locale: localeName,
+      other: 'copiées',
+      one: 'copiée',
+    );
+    return '$copied sur $total $_temp0';
   }
 
   @override
   String settings_photos_status_uploading(int copied, int total, int count) {
-    return '$copied sur $total copiées, $count en cours d\'envoi';
+    String _temp0 = intl.Intl.pluralLogic(
+      copied,
+      locale: localeName,
+      other: 'copiées',
+      one: 'copiée',
+    );
+    return '$copied sur $total $_temp0, $count en cours d\'envoi';
   }
 
   @override
@@ -54895,4 +54907,14 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get settings_photos_suspended_title => 'Envois en pause';
+
+  @override
+  String settings_photos_separateConsequence(String current, String choice) {
+    return 'Les copies de la bibliothèque se trouvent dans $current. Choisir $choice y lance des copies distinctes. Rien n\'est supprimé.';
+  }
+
+  @override
+  String settings_photos_joinConsequence(String choice) {
+    return 'Cet appareil lance des copies dans $choice ou les rejoint. Rien n\'est supprimé.';
+  }
 }

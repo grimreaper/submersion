@@ -54478,4 +54478,14 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get settings_photos_suspended_title => 'Feltöltések szüneteltetve';
+
+  @override
+  String settings_photos_separateConsequence(String current, String choice) {
+    return 'A könyvtár másolatai itt vannak: $current. A(z) $choice választásával ott külön másolatok indulnak. Semmi sem törlődik.';
+  }
+
+  @override
+  String settings_photos_joinConsequence(String choice) {
+    return 'Ez az eszköz másolatokat indít itt: $choice, vagy csatlakozik hozzájuk. Semmi sem törlődik.';
+  }
 }

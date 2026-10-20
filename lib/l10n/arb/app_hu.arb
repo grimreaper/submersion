@@ -16116,5 +16116,7 @@
   "settings_photos_suspended_detached": "Ez az eszköz már nem kapcsolódik ezekhez a másolatokhoz. Válassza ki újra a fiókot a Fotók és videók oldalon.",
   "settings_photos_suspended_mismatch": "Ez az eszköz és a fiók már nem egyezik abban, mely másolatok vannak használatban. A fiók újbóli kiválasztása átveszi a benne most lévő másolatokat.",
   "media_info_actionCopyNow": "Másolás most",
-  "settings_photos_suspended_title": "Feltöltések szüneteltetve"
+  "settings_photos_suspended_title": "Feltöltések szüneteltetve",
+  "settings_photos_separateConsequence": "A könyvtár másolatai itt vannak: {current}. A(z) {choice} választásával ott külön másolatok indulnak. Semmi sem törlődik.",
+  "settings_photos_joinConsequence": "Ez az eszköz másolatokat indít itt: {choice}, vagy csatlakozik hozzájuk. Semmi sem törlődik."
 }

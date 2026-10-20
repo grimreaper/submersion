@@ -53931,4 +53931,14 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get settings_photos_suspended_title => 'Uploads paused';
+
+  @override
+  String settings_photos_separateConsequence(String current, String choice) {
+    return 'The library\'s copies are in $current. Choosing $choice starts separate copies there. Nothing is deleted.';
+  }
+
+  @override
+  String settings_photos_joinConsequence(String choice) {
+    return 'This device starts or joins copies in $choice. Nothing is deleted.';
+  }
 }

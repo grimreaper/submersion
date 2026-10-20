@@ -16225,10 +16225,10 @@
   "settings_photos_stopKeepingBody": "Dieses Gerät lädt keine Kopien mehr hoch oder herunter. Im Konto wird nichts gelöscht.",
   "settings_photos_switchConsequence": "Dieses Gerät verwendet die Kopien in {current} nicht mehr und beginnt oder übernimmt Kopien in {choice}. Es wird nichts gelöscht.",
   "settings_photos_status_copied": "{copied} von {total} kopiert",
-  "settings_photos_status_uploading": "{copied} von {total} kopiert, {count} werden hochgeladen",
-  "settings_photos_status_uploadingOnly": "{count} werden hochgeladen",
+  "settings_photos_status_uploading": "{copied} von {total} kopiert, {count, plural, one{{count} wird hochgeladen} other{{count} werden hochgeladen}}",
+  "settings_photos_status_uploadingOnly": "{count, plural, one{{count} wird hochgeladen} other{{count} werden hochgeladen}}",
   "settings_photos_status_waitingConnection": "Warten auf eine Verbindung",
-  "settings_photos_status_waitingRetry": "{count} warten auf einen neuen Versuch",
+  "settings_photos_status_waitingRetry": "{count, plural, one{{count} wartet auf einen neuen Versuch} other{{count} warten auf einen neuen Versuch}}",
   "settings_photos_status_pausedUnreachable": "Uploads angehalten: Das Konto konnte nicht geprüft werden",
   "settings_photos_status_pausedDetached": "Uploads angehalten: Dieses Gerät ist nicht mit diesen Kopien verbunden",
   "settings_photos_status_pausedMismatch": "Uploads angehalten: Wählen Sie das Konto erneut",
@@ -16237,5 +16237,7 @@
   "settings_photos_suspended_detached": "Dieses Gerät ist nicht mehr mit diesen Kopien verbunden. Wählen Sie das Konto unter Fotos & Videos erneut.",
   "settings_photos_suspended_mismatch": "Dieses Gerät und das Konto sind sich nicht mehr einig, welche Kopien verwendet werden. Wenn Sie das Konto erneut wählen, werden die Kopien übernommen, die es jetzt enthält.",
   "media_info_actionCopyNow": "Jetzt kopieren",
-  "settings_photos_suspended_title": "Uploads angehalten"
+  "settings_photos_suspended_title": "Uploads angehalten",
+  "settings_photos_separateConsequence": "Die Kopien der Bibliothek liegen in {current}. Mit {choice} beginnen dort separate Kopien. Es wird nichts gelöscht.",
+  "settings_photos_joinConsequence": "Dieses Gerät beginnt Kopien in {choice} oder schließt sich ihnen an. Es wird nichts gelöscht."
 }
