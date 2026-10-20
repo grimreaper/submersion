@@ -146,7 +146,22 @@ void main() {
         expect(back.authorEmail, 'sync@submersion.invalid');
         expect(back.when, DateTime.utc(2026, 10, 18, 12));
         expect(back.message, 'Sync from Submersion 1234abcd');
+        expect(back.landedAt, DateTime.utc(2026, 10, 18, 12));
       }
+    });
+
+    test('a rebased commit lands at its committer time', () {
+      final tree = hashGitObject(GitObjectType.tree, encodeTree(const []));
+      final body = utf8.encode(
+        'tree ${tree.hex}\n'
+        'author A <a@example.test> 1600000000 +0200\n'
+        'committer C <c@example.test> 1700000000 -0500\n'
+        '\n'
+        'rebased\n',
+      );
+      final commit = GitCommit.decode(Uint8List.fromList(body));
+      expect(commit.when.millisecondsSinceEpoch, 1600000000 * 1000);
+      expect(commit.landedAt.millisecondsSinceEpoch, 1700000000 * 1000);
     });
   });
 

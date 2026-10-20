@@ -75,6 +75,8 @@ List<GitTreeEntry> decodeTree(Uint8List body) {
 }
 
 /// A commit whose author and committer are the same person and time, in UTC.
+/// A decoded one written by another tool may differ: [committedAt] keeps the
+/// committer's time.
 final class GitCommit {
   const GitCommit({
     required this.tree,
@@ -83,6 +85,7 @@ final class GitCommit {
     required this.authorEmail,
     required this.when,
     required this.message,
+    this.committedAt,
   });
 
   final GitObjectId tree;
@@ -93,6 +96,13 @@ final class GitCommit {
 
   /// The message without its trailing newline.
   final String message;
+
+  /// The committer's time, when decoded from a commit that has one.
+  final DateTime? committedAt;
+
+  /// When the commit was made on the branch. A rebase or cherry-pick keeps
+  /// the original author time, so this prefers the committer's.
+  DateTime get landedAt => committedAt ?? when;
 
   Uint8List encode() {
     final seconds = when.toUtc().millisecondsSinceEpoch ~/ 1000;
@@ -136,6 +146,7 @@ final class GitCommit {
     GitObjectId? tree;
     final parents = <GitObjectId>[];
     RegExpMatch? author;
+    RegExpMatch? committer;
     for (final line in headerText.split('\n')) {
       if (line.startsWith('tree ')) {
         tree = GitObjectId.fromHex(line.substring(5));
@@ -143,6 +154,8 @@ final class GitCommit {
         parents.add(GitObjectId.fromHex(line.substring(7)));
       } else if (line.startsWith('author ')) {
         author = _person.firstMatch(line.substring(7));
+      } else if (line.startsWith('committer ')) {
+        committer = _person.firstMatch(line.substring(10));
       }
     }
     if (tree == null) throw const FormatException('Commit has no tree');
@@ -157,6 +170,12 @@ final class GitCommit {
         isUtc: true,
       ),
       message: message,
+      committedAt: committer == null
+          ? null
+          : DateTime.fromMillisecondsSinceEpoch(
+              int.parse(committer.group(3)!) * 1000,
+              isUtc: true,
+            ),
     );
   }
 }

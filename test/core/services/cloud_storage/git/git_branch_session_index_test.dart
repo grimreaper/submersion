@@ -26,6 +26,7 @@ Future<String> _handCommit(
   Map<String, String> put = const {},
   Set<String> symlinks = const {},
   List<String> remove = const [],
+  Map<String, String> commitEnv = const {},
 }) async {
   final env = {'GIT_INDEX_FILE': joinPath(tempDirForTest('git_idx_'), 'index')};
   await runGit(repo, ['read-tree', 'refs/heads/$gitTestBranch'], env: env);
@@ -61,7 +62,7 @@ Future<String> _handCommit(
     tip,
     '-m',
     'by hand',
-  ]);
+  ], env: commitEnv);
   await runGit(repo, ['update-ref', 'refs/heads/$gitTestBranch', commit]);
   return commit;
 }
@@ -111,6 +112,17 @@ void main() {
       // What the index already knew is kept as it was.
       expect(snap.index.entries[_keep]!.size, 4);
       expect(snap.index.entries[_keep]!.modifiedMs, _keepMs);
+    }, skip: skip);
+
+    test('a file from a rebased commit takes the time it landed', () async {
+      final (server, repo) = await _branchWithKeep();
+      await _handCommit(
+        repo,
+        put: {_added: 'added!'},
+        commitEnv: {'GIT_AUTHOR_DATE': '1600000000 +0000'},
+      );
+      final snap = await gitTestSession(server.repoUrl('sync')).open();
+      expect(snap.index.entries[_added]!.modifiedMs, _handCommitMs);
     }, skip: skip);
 
     test('reading a hand-added file learns its size, and the next commit '

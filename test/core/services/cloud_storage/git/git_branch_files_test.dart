@@ -53,7 +53,9 @@ void main() {
           '{"version":1,"files":{'
           '"a":{"blob":"${'b' * 40}","size":"4","mtime":1},'
           '"b":{"blob":"${'b' * 40}","size":4,"mtime":1},'
-          '"c":{"blob":"not hex","size":4,"mtime":1}}}',
+          '"c":{"blob":"not hex","size":4,"mtime":1},'
+          '"d":{"blob":"${'b' * 40}","size":-1,"mtime":1},'
+          '"e":{"blob":"${'b' * 40}","size":4,"mtime":-1}}}',
         ),
       );
       expect(index.entries.keys, ['b']);

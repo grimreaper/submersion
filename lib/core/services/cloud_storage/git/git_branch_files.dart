@@ -130,6 +130,7 @@ final class GitIndex {
       final size = value['size'];
       final mtime = value['mtime'];
       if (blob is! String || size is! int || mtime is! int) continue;
+      if (size < 0 || mtime < 0) continue;
       final GitObjectId blobId;
       try {
         blobId = GitObjectId.fromHex(blob);

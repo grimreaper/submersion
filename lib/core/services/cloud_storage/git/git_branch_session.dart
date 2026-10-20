@@ -344,7 +344,7 @@ class GitBranchSession {
         store,
         commit.tree,
         read,
-        tipMs: commit.when.millisecondsSinceEpoch,
+        tipMs: commit.landedAt.millisecondsSinceEpoch,
       ),
       meta: GitBranchMeta.decode(metaBytes),
       isDefaultBranch: isDefault,
