@@ -31,6 +31,7 @@ import 'package:submersion/features/media/presentation/providers/media_providers
 import 'package:submersion/features/media/presentation/providers/media_resolver_providers.dart';
 import 'package:submersion/features/media/presentation/providers/media_tile_image_memo.dart';
 import 'package:submersion/features/media_store/data/media_backfill_service.dart';
+import 'package:submersion/features/media_store/data/media_store_account_attach.dart';
 import 'package:submersion/features/media_store/data/media_cache_store.dart';
 import 'package:submersion/features/media_store/data/media_delete_processor.dart';
 import 'package:submersion/features/media_store/data/media_deletion_coordinator.dart';
@@ -432,6 +433,15 @@ final mediaStoreServiceProvider = Provider<MediaStoreService>(
     credentials: ref.watch(mediaStoreCredentialsStoreProvider),
     attachState: ref.watch(mediaStoreAttachStateProvider),
     storesRepository: ref.watch(mediaStoresRepositoryProvider),
+  ),
+);
+
+/// Sets up and moves photo copies through an account (issue #3482).
+final mediaStoreAccountAttachProvider = Provider<MediaStoreAccountAttach>(
+  (ref) => MediaStoreAccountAttach(
+    service: ref.watch(mediaStoreServiceProvider),
+    accounts: ref.watch(accountGroupServiceProvider),
+    registry: ref.watch(accountProviderRegistryProvider),
   ),
 );
 

@@ -280,6 +280,7 @@ class MediaStoreService {
         storeId: ensured.marker.storeId,
         providerType: CloudProviderType.webdav.name,
         displayHint: config.displayLabel,
+        accountId: account.id,
       );
       return MediaStoreConnectResult(
         storeId: ensured.marker.storeId,
@@ -344,6 +345,7 @@ class MediaStoreService {
         storeId: ensured.marker.storeId,
         providerType: 's3',
         displayHint: '${config.bucket} @ ${config.displayHost}',
+        accountId: account.id,
       );
       return MediaStoreConnectResult(
         storeId: ensured.marker.storeId,
@@ -426,6 +428,41 @@ class MediaStoreService {
       storeId: ensured.marker.storeId,
       providerType: type.name,
       displayHint: displayHint,
+      accountId: account.id,
+    );
+    return MediaStoreConnectResult(
+      storeId: ensured.marker.storeId,
+      createdNewStore: ensured.created,
+    );
+  }
+
+  /// Attaches [store], built from the roster row [row], as the photo copies
+  /// (issue #3482): today's marker check adopts the store already in that
+  /// folder or starts one, and the attachment and the synced descriptor both
+  /// name [row], so a second device holding the account joins with nothing
+  /// to type. A null [store] means the account has no usable keys here.
+  Future<MediaStoreConnectResult> attachToAccountRow(
+    domain.ConnectedAccount row,
+    MediaObjectStore? store,
+  ) async {
+    final type = row.kind.cloudProviderType;
+    if (store == null || type == null) {
+      throw MediaStoreException(
+        '${row.label} is not signed in or cannot hold copies on this device',
+        kind: MediaStoreErrorKind.auth,
+      );
+    }
+    final ensured = await _ensureMarker(store);
+    await _attachState.setAttached(
+      ensured.marker.storeId,
+      providerType: type,
+      accountId: row.id,
+    );
+    await _storesRepository.upsertActive(
+      storeId: ensured.marker.storeId,
+      providerType: type.name,
+      displayHint: row.label,
+      accountId: row.id,
     );
     return MediaStoreConnectResult(
       storeId: ensured.marker.storeId,

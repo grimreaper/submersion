@@ -101,6 +101,12 @@ void main() {
     expect(await credentials.load(), isNotNull);
   });
 
+  test('connectS3 records the account the store lives on', () async {
+    await service.connectS3(config);
+    final account = (await accountsRepository.getAll()).single;
+    expect((await storesRepository.getActive())!.accountId, account.id);
+  });
+
   test('connectS3 against an existing store adopts its storeId', () async {
     final first = await service.connectS3(config);
     await service.disconnect();
