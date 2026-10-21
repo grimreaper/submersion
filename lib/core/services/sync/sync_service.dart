@@ -61,6 +61,8 @@ import 'package:submersion/l10n/arb/app_localizations.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 import 'package:uuid/uuid.dart';
 
+part 'sync_service_replace_join.dart';
+
 /// Sync operation result
 enum SyncResultStatus {
   success,
