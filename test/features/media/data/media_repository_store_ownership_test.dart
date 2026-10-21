@@ -162,6 +162,26 @@ void main() {
       expect(r.compressedSizeBytes, isNull);
     });
 
+    // Issue #3569 review: the decision is re-made inside the stamp's own
+    // transaction, so an upload that started before another device took
+    // the row over cannot undo the takeover.
+    test('a store that does not take over leaves another store\'s stamps '
+        'alone', () async {
+      final id = await add('moved.jpg', original: true, store: 'store-b');
+
+      await repo.stampRemoteThumbUploaded(
+        id,
+        uploadedAt: at,
+        storeId: 'store-a',
+        takesOver: false,
+      );
+
+      final r = await row(id);
+      expect(r.remoteStoreId, 'store-b');
+      expect(r.remoteUploadedAt, 1);
+      expect(r.remoteThumbUploadedAt, isNull);
+    });
+
     test('an unclaimed row keeps its stamps and takes the store', () async {
       final id = await add('legacy.jpg', thumb: true);
 

@@ -1954,6 +1954,7 @@ class MediaRepository {
     String mediaId, {
     required DateTime uploadedAt,
     String? storeId,
+    bool takesOver = true,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     // One transaction: a fact column and the clock that orders it must not
@@ -1962,7 +1963,8 @@ class MediaRepository {
     // record, so a later row edit exported it under that stale clock and a
     // peer's older fact beat it (media sync program spec 5.1).
     await _db.transaction(() async {
-      final base = await _storeColumns(mediaId, storeId);
+      final base = await _storeColumns(mediaId, storeId, takesOver: takesOver);
+      if (base == null) return;
       await (_db.update(_db.media)..where((t) => t.id.equals(mediaId))).write(
         base.copyWith(
           remoteUploadedAt: Value(uploadedAt.millisecondsSinceEpoch),
@@ -2875,19 +2877,36 @@ class MediaRepository {
   /// store, and when the row's stamps were made in another store, those
   /// stamps cleared, since they say nothing about this one. A null
   /// [storeId] leaves the store as it is. Read inside the stamp's
-  /// transaction.
-  Future<MediaCompanion> _storeColumns(String mediaId, String? storeId) async {
+  /// transaction, which is where the take-over decision is made (issue
+  /// #3569): null, write nothing, when another store holds the row's stamps
+  /// and this one does not [takesOver], so an upload that started before
+  /// another device took the row over cannot undo that.
+  Future<MediaCompanion?> _storeColumns(
+    String mediaId,
+    String? storeId, {
+    required bool takesOver,
+  }) async {
     if (storeId == null) return const MediaCompanion();
-    final owner = _db.media.remoteStoreId;
+    final m = _db.media;
     final current =
-        await (_db.selectOnly(_db.media)
-              ..addColumns([owner])
-              ..where(_db.media.id.equals(mediaId)))
-            .map((r) => r.read(owner))
+        await (_db.selectOnly(m)
+              ..addColumns([
+                m.remoteStoreId,
+                m.remoteUploadedAt,
+                m.remoteThumbUploadedAt,
+                m.remoteCompressedUploadedAt,
+              ])
+              ..where(m.id.equals(mediaId)))
             .getSingleOrNull();
-    if (current == null || current == storeId) {
+    final owner = current?.read(m.remoteStoreId);
+    if (owner == null || owner == storeId) {
       return MediaCompanion(remoteStoreId: Value(storeId));
     }
+    final stamped =
+        current!.read(m.remoteUploadedAt) != null ||
+        current.read(m.remoteThumbUploadedAt) != null ||
+        current.read(m.remoteCompressedUploadedAt) != null;
+    if (stamped && !takesOver) return null;
     return MediaCompanion(
       remoteStoreId: Value(storeId),
       remoteUploadedAt: const Value(null),
@@ -2956,6 +2975,7 @@ class MediaRepository {
     String mediaId, {
     required DateTime uploadedAt,
     String? storeId,
+    bool takesOver = true,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     // One transaction: a fact column and the clock that orders it must not
@@ -2964,7 +2984,8 @@ class MediaRepository {
     // record, so a later row edit exported it under that stale clock and a
     // peer's older fact beat it (media sync program spec 5.1).
     await _db.transaction(() async {
-      final base = await _storeColumns(mediaId, storeId);
+      final base = await _storeColumns(mediaId, storeId, takesOver: takesOver);
+      if (base == null) return;
       await (_db.update(_db.media)..where((t) => t.id.equals(mediaId))).write(
         base.copyWith(
           remoteThumbUploadedAt: Value(uploadedAt.millisecondsSinceEpoch),
@@ -2989,6 +3010,7 @@ class MediaRepository {
     required String level,
     required int sizeBytes,
     String? storeId,
+    bool takesOver = true,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     // One transaction: a fact column and the clock that orders it must not
@@ -2997,7 +3019,8 @@ class MediaRepository {
     // record, so a later row edit exported it under that stale clock and a
     // peer's older fact beat it (media sync program spec 5.1).
     await _db.transaction(() async {
-      final base = await _storeColumns(mediaId, storeId);
+      final base = await _storeColumns(mediaId, storeId, takesOver: takesOver);
+      if (base == null) return;
       await (_db.update(_db.media)..where((t) => t.id.equals(mediaId))).write(
         base.copyWith(
           remoteCompressedUploadedAt: Value(uploadedAt.millisecondsSinceEpoch),

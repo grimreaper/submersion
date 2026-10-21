@@ -71,6 +71,12 @@ class MediaUploadPipeline {
   /// is not, rows stamped in another store are left alone (issue #3569).
   /// Null takes over, as before.
   final Future<bool> Function()? _takesOver;
+
+  /// [_takesOver] asked now: again just before every stamp, since staging,
+  /// transcoding and the transfer can outlast another device moving the
+  /// library (issue #3569). The repository applies it inside the stamp's
+  /// transaction.
+  Future<bool> _takesOverNow() async => await _takesOver?.call() ?? true;
   final MediaTransferQueueRepository _queue;
   final MediaObjectStore _store;
   final MediaSourceResolverRegistry _registry;
@@ -125,7 +131,7 @@ class MediaUploadPipeline {
     // back and forth with the device on it (issue #3569).
     if (found != null &&
         stampedElsewhere(found, _storeId) &&
-        !(await _takesOver?.call() ?? true)) {
+        !await _takesOverNow()) {
       await _queue.markDone(entry.id);
       return UploadOutcome.deduplicated;
     }
@@ -205,6 +211,7 @@ class MediaUploadPipeline {
               item.id,
               uploadedAt: _now(),
               storeId: _storeId,
+              takesOver: await _takesOverNow(),
             );
           }
         } on Exception catch (e) {
@@ -258,6 +265,7 @@ class MediaUploadPipeline {
           uploadedAt: _now(),
           level: level.name,
           storeId: _storeId,
+          takesOver: await _takesOverNow(),
           // First-writer-wins: on the dedup path the stored object was written
           // by the first uploader and may differ from this device's local
           // rendition (renditions are not hash-verified and can vary by level),
@@ -328,6 +336,7 @@ class MediaUploadPipeline {
         item.id,
         uploadedAt: _now(),
         storeId: _storeId,
+        takesOver: await _takesOverNow(),
       );
       // Namespace switch (override compressed -> original): drop the now
       // unreferenced rendition object.
