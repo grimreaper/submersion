@@ -12,6 +12,7 @@ import 'package:submersion/features/media/domain/value_objects/verify_result.dar
 MediaItem item({
   String? contentHash,
   DateTime? remoteUploadedAt,
+  DateTime? remoteCompressedUploadedAt,
   String? remoteStoreId,
   MediaType mediaType = MediaType.photo,
 }) => MediaItem(
@@ -20,6 +21,7 @@ MediaItem item({
   sourceType: MediaSourceType.mediaStore,
   contentHash: contentHash,
   remoteUploadedAt: remoteUploadedAt,
+  remoteCompressedUploadedAt: remoteCompressedUploadedAt,
   remoteStoreId: remoteStoreId,
   takenAt: DateTime.utc(2026, 6, 1),
   createdAt: DateTime.utc(2026, 6, 1),
@@ -188,5 +190,21 @@ void main() {
     );
     expect(await resolver.verify(ownedBy('store-b')), VerifyResult.available);
     expect(await resolver.verify(ownedBy(null)), VerifyResult.available);
+  });
+
+  test('a row holding only another store\'s rendition is out of reach, '
+      'not missing', () async {
+    final resolver = MediaStoreSourceResolver(
+      remote: () =>
+          (mediaItem, {required bool thumbnail}) async => null,
+      storeId: () => 'store-b',
+    );
+    final renditionOnly = item(
+      contentHash: 'h',
+      remoteCompressedUploadedAt: DateTime.utc(2026),
+      remoteStoreId: 'store-a',
+    );
+
+    expect(await resolver.verify(renditionOnly), VerifyResult.fromOtherDevice);
   });
 }
