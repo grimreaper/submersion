@@ -10,6 +10,7 @@ import 'package:submersion/features/dive_log/data/repositories/series_id_chunks.
 import 'package:submersion/features/media_store/domain/media_transfer_hold.dart';
 import 'package:submersion/features/media_store/domain/media_transfer_summary.dart';
 
+part 'media_transfer_queue_cleanup.dart';
 part 'media_transfer_queue_resume.dart';
 
 /// Row type alias so callers do not depend on the Drift-generated name.
@@ -633,33 +634,6 @@ class MediaTransferQueueRepository {
         updatedAt: Value(DateTime.now().millisecondsSinceEpoch),
       ),
     );
-  }
-
-  /// Removes every queue entry, in any state or direction, and returns how
-  /// many. For a replaced library (issue #3482), whose rows all name media
-  /// that is gone: the caller has detached the store first, so no row is
-  /// transferring.
-  Future<int> clearAll() => _db.delete(_db.mediaTransferQueue).go();
-
-  Future<int> deleteDone() => (_db.delete(
-    _db.mediaTransferQueue,
-  )..where((t) => t.state.equals('done'))).go();
-
-  /// Whether an upload is transferring right now. The storage cleanup holds
-  /// its cloud deletes while one is (storage GC design, safety rules); a
-  /// pending row is not counted, since its hash already protects its objects
-  /// and a row stuck pending must not block the cleanup forever.
-  Future<bool> hasTransferringUploads() async {
-    final row =
-        await (_db.select(_db.mediaTransferQueue)
-              ..where(
-                (t) =>
-                    t.direction.equals('upload') &
-                    t.state.equals('transferring'),
-              )
-              ..limit(1))
-            .getSingleOrNull();
-    return row != null;
   }
 
   /// Removes a single queue entry.

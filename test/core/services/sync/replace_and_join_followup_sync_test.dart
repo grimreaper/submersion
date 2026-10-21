@@ -8,7 +8,6 @@ import 'package:submersion/core/data/repositories/connected_accounts_repository.
 import 'package:submersion/core/data/repositories/sync_repository.dart';
 import 'package:submersion/core/services/accounts/account_kind.dart';
 import 'package:submersion/core/services/database_service.dart';
-import 'package:submersion/core/services/sync/changeset_log/peer_cursor_store.dart';
 import 'package:submersion/core/services/sync/sync_data_serializer.dart';
 import 'package:submersion/core/services/sync/sync_service.dart';
 import 'package:submersion/features/dive_log/data/repositories/dive_repository_impl.dart';
@@ -53,12 +52,12 @@ void main() {
     final svc = serviceOn(cloud);
     await svc.applyReplaceJoin((await svc.prepareReplaceJoin()).prepared!);
 
-    // Not first contact: the Combine gate asks only with no cursor.
+    // Not first contact: the Combine gate (SyncNotifier.firstSyncMergeInfo)
+    // asks only while this account has no last sync time, and the
+    // established mark is a later, separate step that may be lost.
     expect(
-      await PeerCursorStore(
-        DatabaseService.instance.database,
-      ).allForProvider(cloud.providerId),
-      isNotEmpty,
+      await SyncRepository().getLastSyncTime(forProvider: cloud.providerId),
+      isNotNull,
     );
 
     expect((await svc.performSync()).status, isNot(SyncResultStatus.error));

@@ -8,6 +8,10 @@ enum ReplaceJoinOutcome {
   /// The account holds no library this device can read.
   noLibrary,
 
+  /// The library is being replaced from another device and its new copy has
+  /// not finished uploading; try again once it has.
+  stillUploading,
+
   /// A device published the library from a newer schema; this build must
   /// update first, or it would drop what it cannot read.
   newerSchema,
@@ -84,30 +88,56 @@ extension SyncServiceReplaceJoin on SyncService {
     if (provider == null) {
       throw StateError('Replace and join needs a sync account');
     }
-    final folderId = await provider.getOrCreateSyncFolder();
-    final deviceId = await _syncRepository.getDeviceId();
-    const needsPassphrase = ReplaceJoinResult(
-      ReplaceJoinOutcome.needsPassphrase,
+    const needsPassphrase = (
+      prepared: null,
+      refused: ReplaceJoinResult(ReplaceJoinOutcome.needsPassphrase),
     );
+    final folderId = await provider.getOrCreateSyncFolder();
     final LibraryEpochMarker? marker;
     try {
       marker = await readLibraryEpochMarker(provider);
     } on SyncEncryptionRequired {
-      return (prepared: null, refused: needsPassphrase);
+      return needsPassphrase;
     }
+    final files = await provider.listFiles(
+      folderId: folderId,
+      namePattern: ChangesetLogLayout.prefix,
+    );
+    // A retired device's log may linger; pull never merges from it, and
+    // neither does a rebuild (as the retirement fence does).
+    final retired = <String>{
+      for (final f in files)
+        if (ChangesetLogLayout.isRetiredMarker(f.name) &&
+            ChangesetLogLayout.deviceIdOf(f.name) != null)
+          ChangesetLogLayout.deviceIdOf(f.name)!,
+    };
     // The collector skips a manifest it cannot read, so a locked library
     // would look like no library at all: ask first.
-    if (await _peerLibraryIsLocked(provider, folderId, deviceId)) {
-      return (prepared: null, refused: needsPassphrase);
+    if (await _peerLibraryIsLocked(provider, files, retired)) {
+      return needsPassphrase;
     }
-    // This device's own manifest is left out: a library it published once
-    // (an earlier Combine) must not bring the replaced dives back.
-    final sources = await _collectEpochBaseSources(
-      provider,
-      folderId,
-      marker?.epochId,
-      excludeDeviceIds: {deviceId},
-    );
+    // This device's own log is part of the account's library: dives it
+    // published before are its peers' too, and leaving them out would split
+    // the fleet.
+    final ({
+      List<String> baseFilePaths,
+      List<int> baseExportedAt,
+      List<SyncPayload> changesets,
+      List<({String deviceId, int baseSeq, int appliedThrough})> cursors,
+      Set<String> newerSchemaPeerDeviceIds,
+      Map<String, String> newerSchemaPeerNames,
+    })
+    sources;
+    try {
+      sources = await _collectEpochBaseSources(
+        provider,
+        folderId,
+        marker?.epochId,
+        excludeDeviceIds: retired,
+      );
+    } on SyncEncryptionRequired {
+      return needsPassphrase;
+    }
     if (sources.newerSchemaPeerDeviceIds.isNotEmpty) {
       return (
         prepared: null,
@@ -121,9 +151,15 @@ extension SyncServiceReplaceJoin on SyncService {
       );
     }
     if (sources.baseFilePaths.isEmpty) {
+      // A marker with no readable base for its epoch is a replace that has
+      // not finished uploading, which adopt waits out too.
       return (
         prepared: null,
-        refused: const ReplaceJoinResult(ReplaceJoinOutcome.noLibrary),
+        refused: ReplaceJoinResult(
+          marker == null
+              ? ReplaceJoinOutcome.noLibrary
+              : ReplaceJoinOutcome.stillUploading,
+        ),
       );
     }
     return (
@@ -140,9 +176,12 @@ extension SyncServiceReplaceJoin on SyncService {
   }
 
   /// Replaces this device's library with [prepared] in one transaction:
-  /// the apply, this device's accounts the library lacks put back, and the
-  /// sync bookkeeping re-based on the library. An error before it commits
-  /// leaves the database as it was. Always disposes [prepared].
+  /// the apply, this device's accounts the library lacks put back and
+  /// marked to publish, and the sync bookkeeping re-based on the library
+  /// (cursors, the adopted watermark, the accepted epoch and this account's
+  /// last sync, so the Combine question is not asked again). An error before
+  /// it commits leaves the database as it was and is rethrown; nothing
+  /// after the commit throws. Always disposes [prepared].
   ///
   /// [afterApplyForTest] runs last inside the transaction; a throw there
   /// stands in for a crash mid-replace.
@@ -156,7 +195,7 @@ extension SyncServiceReplaceJoin on SyncService {
       throw StateError('Replace and join needs a sync account');
     }
     final db = DatabaseService.instance.database;
-    final keptAccounts = <String>[];
+    final marker = prepared.marker;
     try {
       final roster = await db.select(db.connectedAccounts).get();
       await _serializer.applyInDeferredFkTransaction(() async {
@@ -171,10 +210,12 @@ extension SyncServiceReplaceJoin on SyncService {
         final present = {
           for (final row in await db.select(db.connectedAccounts).get()) row.id,
         };
-        for (final row in roster) {
-          if (present.contains(row.id)) continue;
+        final kept = [
+          for (final row in roster)
+            if (!present.contains(row.id)) row,
+        ];
+        for (final row in kept) {
           await db.into(db.connectedAccounts).insert(row);
-          keptAccounts.add(row.id);
         }
         await _syncRepository.resetSyncState(clearDeletionLog: true);
         final cursorStore = PeerCursorStore(db);
@@ -192,48 +233,66 @@ extension SyncServiceReplaceJoin on SyncService {
           provider.providerId,
           await _syncRepository.maxRowHlc(),
         );
+        // Always written, null included: an epoch this device accepted in
+        // another library would otherwise be written back into this one.
+        await _syncRepository.setLastAcceptedEpochId(marker?.epochId);
+        await _syncRepository.updateLastSyncTime(
+          DateTime.now(),
+          providerId: provider.providerId,
+        );
+        // The clock reseeds from the library's newest row, so the kept
+        // accounts sort above the adopted watermark and publish even when
+        // the library's clocks ran ahead of this device's.
+        SyncClock.instance.reset();
+        final now = DateTime.now().millisecondsSinceEpoch;
+        for (final row in kept) {
+          await _syncRepository.markRecordPending(
+            entityType: 'connectedAccounts',
+            recordId: row.id,
+            localUpdatedAt: now,
+          );
+        }
         afterApplyForTest?.call();
       });
     } finally {
       await prepared.dispose();
     }
 
-    final now = DateTime.now().millisecondsSinceEpoch;
-    for (final id in keptAccounts) {
-      await _syncRepository.markRecordPending(
-        entityType: 'connectedAccounts',
-        recordId: id,
-        localUpdatedAt: now,
+    // Committed. The prefs mirrors follow the database; a failure here is
+    // logged, never reported as a failed replace.
+    try {
+      await _epochStore?.setLastAccepted(marker);
+      await _epochStore?.clearPendingReplace();
+    } catch (e, stackTrace) {
+      _log.error(
+        'Replace and join: could not update the epoch mirror',
+        error: e,
+        stackTrace: stackTrace,
       );
     }
-    final marker = prepared.marker;
-    if (marker != null) {
-      await _syncRepository.setLastAcceptedEpochId(marker.epochId);
-      await _epochStore?.setLastAccepted(marker);
-    }
-    SyncClock.instance.reset();
     await _flushAfterRun('replace and join');
     _log.info('Replaced this device\'s library with the account\'s');
     return const ReplaceJoinResult(ReplaceJoinOutcome.replaced);
   }
 
-  /// Whether another device's manifest in [folderId] is an envelope this
+  /// Whether a live device's manifest among [files] is an envelope this
   /// device cannot open. With the library key held, the provider decrypts
   /// on download and no envelope reaches here.
   Future<bool> _peerLibraryIsLocked(
     CloudStorageProvider provider,
-    String folderId,
-    String deviceId,
+    List<CloudFileInfo> files,
+    Set<String> retired,
   ) async {
-    final files = await provider.listFiles(
-      folderId: folderId,
-      namePattern: ChangesetLogLayout.prefix,
-    );
     for (final f in files) {
       final id = ChangesetLogLayout.deviceIdOf(f.name);
-      if (id == null || id == deviceId) continue;
+      if (id == null || retired.contains(id)) continue;
       if (f.name != ChangesetLogLayout.manifestName(id)) continue;
-      return SyncEnvelope.hasMagic(await provider.downloadFile(f.id));
+      try {
+        return SyncEnvelope.hasMagic(await provider.downloadFile(f.id));
+      } on SyncEncryptionRequired {
+        // Sealed under a key other than the one this device holds.
+        return true;
+      }
     }
     return false;
   }

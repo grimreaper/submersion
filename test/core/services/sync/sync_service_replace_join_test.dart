@@ -15,6 +15,8 @@ import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/accounts/account_kind.dart';
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/services/sync/changeset_log/changeset_log_layout.dart';
+import 'package:submersion/core/services/sync/changeset_log/peer_cursor_store.dart';
+import 'package:submersion/core/services/sync/changeset_log/retirement_marker.dart';
 import 'package:submersion/core/services/sync/crypto/sync_envelope.dart';
 import 'package:submersion/core/services/sync/sync_data_serializer.dart';
 import 'package:submersion/core/services/sync/sync_service.dart';
@@ -165,19 +167,39 @@ void main() {
     expect(await hasDive('mine-1'), isTrue);
   });
 
-  test('this device\'s own earlier upload does not bring its dives '
-      'back', () async {
+  // Review: leaving this device's own log out would drop, on this device
+  // alone, dives its peers already merged, splitting the fleet.
+  test('dives this device already published belong to the library', () async {
     final cloud = await libraryInAccount();
     await thisDevicesLibrary();
     final svc = serviceOn(cloud);
     // An earlier Combine published this device's dives to the account.
     await svc.performSync();
-    expect(await hasDive('mine-1'), isTrue);
 
     await svc.applyReplaceJoin((await svc.prepareReplaceJoin()).prepared!);
 
     expect(await hasDive('lib-1'), isTrue);
-    expect(await hasDive('mine-1'), isFalse);
+    expect(await hasDive('mine-1'), isTrue);
+  });
+
+  test('a retired device\'s lingering log is not applied', () async {
+    final cloud = await libraryInAccount();
+    await DiveRepository().createDive(
+      createTestDiveWithBottomTime(id: 'gone-1', diveNumber: 3),
+    );
+    await seedPeerLog(cloud, 'peer-old');
+    await cloud.uploadFile(
+      const RetirementMarker(deviceId: 'peer-old', retiredAt: 1).toBytes(),
+      ChangesetLogLayout.retiredMarkerName('peer-old'),
+      folderId: await cloud.getOrCreateSyncFolder(),
+    );
+    await thisDevicesLibrary();
+    final svc = serviceOn(cloud);
+
+    await svc.applyReplaceJoin((await svc.prepareReplaceJoin()).prepared!);
+
+    expect(await hasDive('lib-1'), isTrue);
+    expect(await hasDive('gone-1'), isFalse);
   });
 
   test('a failure inside the apply leaves the device as it was', () async {
@@ -198,5 +220,16 @@ void main() {
     expect(await hasDive('lib-1'), isFalse);
     expect(await rosterIds(), {'acct-mine'});
     expect((await SyncRepository().getPendingRecords()).length, pendingBefore);
+    expect(
+      await PeerCursorStore(
+        DatabaseService.instance.database,
+      ).allForProvider(cloud.providerId),
+      isEmpty,
+      reason: 'no cursor recorded for the library',
+    );
+    expect(
+      await SyncRepository().getLastSyncTime(forProvider: cloud.providerId),
+      isNull,
+    );
   });
 }

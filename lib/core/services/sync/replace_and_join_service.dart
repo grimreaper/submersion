@@ -40,8 +40,9 @@ abstract interface class ReplaceJoinSteps {
 /// is one transaction, so a failure there leaves this device's dives as
 /// they were; the photo store attachment, detached just before so no
 /// transfer runs against a library mid-replace, is put back. Everything
-/// else moves only after the swap committed. The pinned backup stays in
-/// History either way.
+/// else moves only after the swap committed, and a failure there is logged
+/// rather than reported, since the library is already replaced. The pinned
+/// backup stays in History either way.
 ///
 /// The caller confirms first, passes the localized [run] note, and reloads
 /// the app after a [ReplaceJoinOutcome.replaced] (phase 6).
@@ -63,30 +64,52 @@ class ReplaceAndJoinService {
     final step = await _steps.prepare();
     final prepared = step.prepared;
     if (prepared == null) return step.refused!;
-    try {
-      await _steps.takePinnedBackup(backupNote);
-    } catch (_) {
-      await prepared.dispose();
-      rethrow;
-    }
 
-    // The attach state alone, so it can be put back; the store's keys are
-    // cleared only once the swap has committed.
-    final attachment = await _attachState.snapshot();
-    await _attachState.clear();
+    MediaStoreAttachSnapshot? attachment;
     final ReplaceJoinResult result;
     try {
+      await _steps.takePinnedBackup(backupNote);
+      // The attach state alone, so it can be put back; the store's keys
+      // are cleared only once the swap has committed.
+      attachment = await _attachState.snapshot();
+      await _attachState.clear();
+      // Throws only before its commit: the library is unchanged then.
       result = await _steps.apply(prepared);
     } catch (e) {
+      await prepared.dispose();
+      if (attachment != null) {
+        try {
+          await _attachState.restore(attachment);
+        } catch (restoreError) {
+          _log.error(
+            'Replace and join: could not put the photo store back',
+            error: restoreError,
+          );
+        }
+      }
       _log.warning('Replace and join failed; this device is unchanged: $e');
-      await _attachState.restore(attachment);
       rethrow;
     }
 
-    await _steps.discardPhotoQueue();
-    await _steps.forgetPhotoStore();
-    await _steps.settleSyncState();
-    await _steps.realignActiveDiver();
+    // Committed: the library is replaced. Each remaining step is attempted
+    // on its own, so one failing does not skip the rest or report the
+    // replace as failed.
+    for (final (name, afterStep) in [
+      ('discard the photo queue', _steps.discardPhotoQueue),
+      ('forget the photo store', _steps.forgetPhotoStore),
+      ('settle sync state', _steps.settleSyncState),
+      ('realign the active diver', _steps.realignActiveDiver),
+    ]) {
+      try {
+        await afterStep();
+      } catch (e, stackTrace) {
+        _log.error(
+          'Replace and join: could not $name',
+          error: e,
+          stackTrace: stackTrace,
+        );
+      }
+    }
     _log.info('Replace and join finished');
     return result;
   }

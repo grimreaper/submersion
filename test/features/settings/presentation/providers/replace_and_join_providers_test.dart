@@ -8,6 +8,15 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/local_cache_database.dart';
+import 'package:submersion/core/services/media_store/media_store_attach_state.dart';
+import 'package:submersion/core/services/media_store/media_store_credentials_store.dart';
+import 'package:submersion/features/backup/data/services/backup_service.dart';
+import 'package:submersion/features/backup/domain/entities/backup_record.dart';
+import 'package:submersion/features/backup/presentation/providers/backup_providers.dart';
+import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
+import 'package:submersion/features/media_store/data/media_store_service.dart';
+import 'package:submersion/features/media_store/data/media_stores_repository.dart';
+import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
 import 'package:submersion/features/media_store/presentation/providers/media_store_providers.dart';
 import 'package:submersion/features/settings/presentation/providers/replace_and_join_providers.dart';
@@ -15,7 +24,50 @@ import 'package:submersion/features/settings/presentation/providers/settings_pro
     show sharedPreferencesProvider;
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 
+import '../../../../helpers/test_database.dart';
 import '../../../../support/fake_cloud_storage_provider.dart';
+import '../../../../support/fake_keychain_storage.dart';
+
+/// Records the backup and the pin instead of writing a database copy.
+class _Backups extends Fake implements BackupService {
+  String? note;
+  final pinned = <String>[];
+
+  @override
+  Future<BackupRecord> performBackup({
+    bool isAutomatic = false,
+    String? note,
+  }) async {
+    this.note = note;
+    return BackupRecord(
+      id: 'set-aside',
+      filename: 'set-aside.db',
+      timestamp: DateTime.utc(2026),
+      sizeBytes: 1,
+      location: BackupLocation.local,
+      note: note,
+    );
+  }
+
+  @override
+  Future<void> pinBackup(String id) async => pinned.add(id);
+}
+
+/// Counts full detaches.
+class _MediaStore extends MediaStoreService {
+  _MediaStore()
+    : super(
+        credentials: MediaStoreCredentialsStore(storage: InMemoryKeychain()),
+        attachState: MediaStoreAttachState(),
+        storesRepository: MediaStoresRepository(),
+        mediaRepository: MediaRepository(),
+      );
+
+  int disconnects = 0;
+
+  @override
+  Future<void> disconnect() async => disconnects++;
+}
 
 void main() {
   late SharedPreferences prefs;
@@ -23,6 +75,8 @@ void main() {
   late MediaTransferQueueRepository queue;
   late FakeCloudStorageProvider cloud;
   late ProductionReplaceJoinSteps steps;
+  late _Backups backups;
+  late _MediaStore mediaStore;
 
   setUp(() async {
     SharedPreferences.setMockInitialValues({});
@@ -32,11 +86,15 @@ void main() {
     );
     queue = MediaTransferQueueRepository(database: cacheDb);
     cloud = FakeCloudStorageProvider();
+    backups = _Backups();
+    mediaStore = _MediaStore();
     final container = ProviderContainer(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
         mediaTransferQueueRepositoryProvider.overrideWithValue(queue),
         cloudStorageProviderProvider.overrideWithValue(cloud),
+        backupServiceProvider.overrideWithValue(backups),
+        mediaStoreServiceProvider.overrideWithValue(mediaStore),
       ],
     );
     addTearDown(container.dispose);
@@ -76,4 +134,27 @@ void main() {
       expect(container.read(postRestoreSyncStoreProvider).pending, isFalse);
     },
   );
+
+  test('the set-aside backup carries the note and is pinned', () async {
+    await steps.takePinnedBackup('Before joining the library, 21 Oct');
+
+    expect(backups.note, 'Before joining the library, 21 Oct');
+    expect(backups.pinned, ['set-aside']);
+  });
+
+  test('the photo store is fully detached', () async {
+    await steps.forgetPhotoStore();
+
+    expect(mediaStore.disconnects, 1);
+  });
+
+  test('an active diver the new library lacks is let go', () async {
+    await setUpTestDatabase();
+    addTearDown(tearDownTestDatabase);
+    await prefs.setString(currentDiverIdKey, 'diver-from-before');
+
+    await steps.realignActiveDiver();
+
+    expect(prefs.getString(currentDiverIdKey), isNull);
+  });
 }

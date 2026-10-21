@@ -24,6 +24,7 @@ class _Steps implements ReplaceJoinSteps {
   ReplaceJoinResult? refuse;
   Object? applyFailure;
   Object? backupFailure;
+  Object? queueFailure;
   String? backupNote;
 
   @override
@@ -52,7 +53,10 @@ class _Steps implements ReplaceJoinSteps {
   }
 
   @override
-  Future<void> discardPhotoQueue() async => log.add('queue');
+  Future<void> discardPhotoQueue() async {
+    log.add('queue');
+    if (queueFailure case final f?) throw f;
+  }
 
   @override
   Future<void> forgetPhotoStore() async => log.add('forget store');
@@ -62,6 +66,15 @@ class _Steps implements ReplaceJoinSteps {
 
   @override
   Future<void> realignActiveDiver() async => log.add('realign diver');
+}
+
+/// An attachment that cannot be put back.
+class _StuckAttachState extends MediaStoreAttachState {
+  _StuckAttachState(SharedPreferences prefs) : super(prefs: prefs);
+
+  @override
+  Future<void> restore(MediaStoreAttachSnapshot snapshot) async =>
+      throw StateError('prefs unavailable');
 }
 
 void main() {
@@ -106,15 +119,18 @@ void main() {
     ReplaceJoinOutcome.newerSchema,
     ReplaceJoinOutcome.needsPassphrase,
   ]) {
-    test('a library it cannot read (${outcome.name}) changes nothing', () async {
-      steps.refuse = ReplaceJoinResult(outcome);
+    test(
+      'a library it cannot read (${outcome.name}) changes nothing',
+      () async {
+        steps.refuse = ReplaceJoinResult(outcome);
 
-      final result = await service().run(backupNote: 'Before joining');
+        final result = await service().run(backupNote: 'Before joining');
 
-      expect(result.outcome, outcome);
-      expect(steps.log, ['prepare'], reason: 'no backup, nothing touched');
-      expect(await attachState.attachedStoreId(), 'store-a');
-    });
+        expect(result.outcome, outcome);
+        expect(steps.log, ['prepare'], reason: 'no backup, nothing touched');
+        expect(await attachState.attachedStoreId(), 'store-a');
+      },
+    );
   }
 
   test('a failed backup stops before anything changes', () async {
@@ -142,7 +158,7 @@ void main() {
     expect(await attachState.attachedAccountId(), 'db-row');
   });
 
-  test('a sync asked for during the replace waits for it', () async {
+  test('the replace waits for a sync already running', () async {
     final gate = Completer<void>();
     final order = <String>[];
     final replacing = SyncCoordinator.run(() async {
@@ -159,5 +175,41 @@ void main() {
     gate.complete();
     await Future.wait([replacing, sync]);
     expect(order, ['replace started', 'replace done', 'second run']);
+  });
+
+  // Review: once the library is replaced, a failing later step must not
+  // put the old photo store back or report the replace as failed.
+  test('a step after the swap that fails is logged and the rest run', () async {
+    steps.queueFailure = StateError('queue busy');
+
+    final result = await service().run(backupNote: 'Before joining');
+
+    expect(result.outcome, ReplaceJoinOutcome.replaced);
+    expect(steps.log, [
+      'prepare',
+      'backup',
+      'apply',
+      'queue',
+      'forget store',
+      'settle sync',
+      'realign diver',
+    ]);
+    expect(await attachState.attachedStoreId(), isNull);
+  });
+
+  test('an attachment that cannot be put back does not hide why the '
+      'replace failed', () async {
+    final stuck = _StuckAttachState(await SharedPreferences.getInstance());
+    steps.applyFailure = StateError('interrupted');
+
+    await expectLater(
+      ReplaceAndJoinService(
+        steps: steps,
+        attachState: stuck,
+      ).run(backupNote: 'Before joining'),
+      throwsA(
+        isA<StateError>().having((e) => e.message, 'message', 'interrupted'),
+      ),
+    );
   });
 }
