@@ -635,6 +635,12 @@ class MediaTransferQueueRepository {
     );
   }
 
+  /// Removes every queue entry, in any state or direction, and returns how
+  /// many. For a replaced library (issue #3482), whose rows all name media
+  /// that is gone: the caller has detached the store first, so no row is
+  /// transferring.
+  Future<int> clearAll() => _db.delete(_db.mediaTransferQueue).go();
+
   Future<int> deleteDone() => (_db.delete(
     _db.mediaTransferQueue,
   )..where((t) => t.state.equals('done'))).go();
