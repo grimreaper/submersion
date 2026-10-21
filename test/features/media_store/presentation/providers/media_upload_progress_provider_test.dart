@@ -12,6 +12,7 @@ import 'package:submersion/core/services/media_store/media_store_attach_state.da
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media/domain/entities/media_item.dart';
 import 'package:submersion/features/media/domain/entities/media_source_type.dart';
+import 'package:submersion/features/media_store/data/media_stores_repository.dart';
 import 'package:submersion/features/media_store/domain/media_transfer_summary.dart';
 import 'package:submersion/features/media_store/presentation/providers/media_store_providers.dart';
 import 'package:submersion/features/media_store/presentation/providers/media_upload_progress_provider.dart';
@@ -100,4 +101,26 @@ void main() {
 
     expect((await read()).copied, 1);
   });
+
+  test(
+    'a device on a store that is not announced leaves out moved rows',
+    () async {
+      await attachState.setAttached(
+        'store-a',
+        providerType: CloudProviderType.dropbox,
+      );
+      await MediaStoresRepository().upsertActive(
+        storeId: 'store-b',
+        providerType: 'dropbox',
+        displayHint: 'Dropbox',
+      );
+      await photo('moved.jpg', storeId: 'store-b');
+      await photo('here.jpg', storeId: 'store-a');
+
+      final progress = await read();
+
+      expect(progress.total, 1);
+      expect(progress.copied, 1);
+    },
+  );
 }

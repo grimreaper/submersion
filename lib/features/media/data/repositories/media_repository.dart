@@ -2748,12 +2748,18 @@ class MediaRepository {
   /// orphaned rows are never uploaded (orphan-prevention spec section 4.1).
   ///
   /// With [storeId], stamps made in another store do not count as copied.
-  Future<List<String>> getBackfillCandidateIds({String? storeId}) async {
+  /// Unless [takesOver] (this device's store is the one the library
+  /// announces), rows stamped in another store are left alone entirely.
+  Future<List<String>> getBackfillCandidateIds({
+    String? storeId,
+    bool takesOver = true,
+  }) async {
     final id = _db.media.id;
     final query = _db.selectOnly(_db.media)
       ..addColumns([id])
       ..where(
         _uploadEligible(await _syncRepository.getDeviceId()) &
+            _inReach(storeId, takesOver: takesOver) &
             _uploadDone(storeId).not(),
       )
       ..orderBy([OrderingTerm.desc(_db.media.takenAt)]);
@@ -2766,8 +2772,11 @@ class MediaRepository {
   /// left to copy is exactly what a backfill would upload.
   Future<({int copied, int total})> countUploadProgress({
     String? storeId,
+    bool takesOver = true,
   }) async {
-    final eligible = _uploadEligible(await _syncRepository.getDeviceId());
+    final eligible =
+        _uploadEligible(await _syncRepository.getDeviceId()) &
+        _inReach(storeId, takesOver: takesOver);
     final done = _uploadDone(storeId);
     final total = countAll(filter: eligible);
     final copied = countAll(filter: eligible & done);
@@ -2846,6 +2855,20 @@ class MediaRepository {
     return stamped &
         (_db.media.remoteStoreId.isNull() |
             _db.media.remoteStoreId.equals(storeId));
+  }
+
+  /// The rows a device attached to [storeId] may upload (issue #3569): all
+  /// of them when it [takesOver], else none stamped in another store. The
+  /// same rule as stampedElsewhere.
+  Expression<bool> _inReach(String? storeId, {required bool takesOver}) {
+    if (storeId == null || takesOver) return const Constant(true);
+    final stampedElsewhere =
+        _db.media.remoteStoreId.isNotNull() &
+        _db.media.remoteStoreId.equals(storeId).not() &
+        (_db.media.remoteUploadedAt.isNotNull() |
+            _db.media.remoteThumbUploadedAt.isNotNull() |
+            _db.media.remoteCompressedUploadedAt.isNotNull());
+    return stampedElsewhere.not();
   }
 
   /// What a stamp for [storeId] writes besides itself (issue #3482): the

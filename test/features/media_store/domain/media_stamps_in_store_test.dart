@@ -59,4 +59,28 @@ void main() {
     expect(facts.tier, BackupTier.none);
     expect(facts.originalUploadedAt, isNull);
   });
+
+  // Issue #3569: only the library's announced store takes over rows stamped
+  // in another store, so two devices on different stores never trade them.
+  test(
+    'a row is stamped elsewhere only when another store holds its stamps',
+    () {
+      expect(stampedElsewhere(item(store: 'store-a'), 'store-b'), isTrue);
+      expect(stampedElsewhere(item(store: 'store-b'), 'store-b'), isFalse);
+      expect(stampedElsewhere(item(), 'store-b'), isFalse);
+      expect(stampedElsewhere(item(store: 'store-a'), null), isFalse);
+      final cleared = item(store: 'store-a').copyWith(
+        remoteUploadedAt: null,
+        remoteThumbUploadedAt: null,
+        remoteCompressedUploadedAt: null,
+      );
+      expect(stampedElsewhere(cleared, 'store-b'), isFalse);
+    },
+  );
+
+  test('only the announced store takes over', () {
+    expect(takesOverStores('store-b', 'store-b'), isTrue);
+    expect(takesOverStores('store-a', 'store-b'), isFalse);
+    expect(takesOverStores('store-a', null), isTrue);
+  });
 }

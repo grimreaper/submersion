@@ -42,9 +42,11 @@ class MediaUploadPipeline {
     MediaCompressor? imageCompressor,
     VideoTranscoder? videoTranscoder,
     String? storeId,
+    Future<bool> Function()? takesOver,
     DateTime Function()? now,
   }) : _mediaRepository = mediaRepository,
        _storeId = storeId,
+       _takesOver = takesOver,
        _queue = queue,
        _store = store,
        _registry = registry,
@@ -63,6 +65,12 @@ class MediaUploadPipeline {
   /// another store do not skip an upload, and every stamp names this one.
   /// Null in tests that predate per-store stamps.
   final String? _storeId;
+
+  /// Whether this pipeline's store is the one the library announces, asked
+  /// per item since another device can move the library meanwhile. When it
+  /// is not, rows stamped in another store are left alone (issue #3569).
+  /// Null takes over, as before.
+  final Future<bool> Function()? _takesOver;
   final MediaTransferQueueRepository _queue;
   final MediaObjectStore _store;
   final MediaSourceResolverRegistry _registry;
@@ -112,6 +120,15 @@ class MediaUploadPipeline {
   Future<UploadOutcome> process(MediaTransferQueueEntry entry) async {
     await _queue.markTransferring(entry.id);
     final found = await _mediaRepository.getMediaById(entry.mediaId);
+    // Another store holds this row's copy and the library announces that
+    // one, not ours: uploading here would erase its record and hand the row
+    // back and forth with the device on it (issue #3569).
+    if (found != null &&
+        stampedElsewhere(found, _storeId) &&
+        !(await _takesOver?.call() ?? true)) {
+      await _queue.markDone(entry.id);
+      return UploadOutcome.deduplicated;
+    }
     final item = found == null ? null : stampsInStore(found, _storeId);
     if (item == null || !_isEligible(item)) {
       await _queue.markDone(entry.id);

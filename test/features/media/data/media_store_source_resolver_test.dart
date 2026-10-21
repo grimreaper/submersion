@@ -178,9 +178,12 @@ void main() {
       remoteStoreId: store,
     );
 
+    // Issue #3569: another store's stamp is a question of reach, not proof
+    // the bytes are gone, so it must never read as notFound (which sets the
+    // sticky, synced missing flag on every device).
     expect(
       await resolver.verify(ownedBy('store-a')),
-      VerifyResult.notFound,
+      VerifyResult.fromOtherDevice,
       reason: 'a stamp made in another store says nothing about this one',
     );
     expect(await resolver.verify(ownedBy('store-b')), VerifyResult.available);

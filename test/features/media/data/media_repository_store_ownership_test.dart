@@ -100,6 +100,37 @@ void main() {
     });
   });
 
+  // Issue #3569: a device on a store the library no longer announces leaves
+  // rows stamped in another store alone, so the two never trade them.
+  group('a device on a store that is not announced', () {
+    test('neither counts nor uploads rows stamped elsewhere', () async {
+      await add('moved.jpg', original: true, store: 'store-b');
+      await add('here.jpg', original: true, store: 'store-a');
+      final waiting = await add('waiting.jpg');
+
+      final progress = await repo.countUploadProgress(
+        storeId: 'store-a',
+        takesOver: false,
+      );
+      final ids = await repo.getBackfillCandidateIds(
+        storeId: 'store-a',
+        takesOver: false,
+      );
+
+      expect(progress.total, 2, reason: 'here and waiting');
+      expect(progress.copied, 1);
+      expect(ids, [waiting]);
+    });
+
+    test('the announced store still takes them over', () async {
+      final moved = await add('moved.jpg', original: true, store: 'store-a');
+
+      final ids = await repo.getBackfillCandidateIds(storeId: 'store-b');
+
+      expect(ids, [moved]);
+    });
+  });
+
   group('stamping for a store', () {
     test('records the store with the stamp', () async {
       final id = await add('new.jpg');

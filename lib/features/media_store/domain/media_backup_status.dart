@@ -17,6 +17,26 @@ bool isThumbOnlyMedia(MediaItem item) =>
     item.sourceType == MediaSourceType.serviceConnector &&
     item.mediaType == MediaType.video;
 
+/// Whether [item]'s stamps were made in a store other than [storeId]
+/// (issue #3569): it names another store and still carries a stamp. With
+/// no store named, nothing is elsewhere.
+bool stampedElsewhere(MediaItem item, String? storeId) {
+  final owner = item.remoteStoreId;
+  return storeId != null &&
+      owner != null &&
+      owner != storeId &&
+      (item.remoteUploadedAt != null ||
+          item.remoteThumbUploadedAt != null ||
+          item.remoteCompressedUploadedAt != null);
+}
+
+/// Whether a device attached to [storeId] takes over rows stamped in
+/// another store (issue #3569): only when its store is the one the library
+/// announces, or none is announced. A device left on an older store leaves
+/// them alone, so two devices on different stores never trade a row.
+bool takesOverStores(String? storeId, String? announcedStoreId) =>
+    announcedStoreId == null || storeId == announcedStoreId;
+
 /// [item] as the store [storeId] sees it (issue #3482): stamps made in
 /// another store say nothing about this one, so they are dropped, with the
 /// rendition facts they describe. Stamps naming no store predate the column

@@ -12,6 +12,7 @@ import 'package:submersion/features/media/domain/entities/media_item.dart'
     as domain;
 import 'package:submersion/features/media/domain/entities/media_source_type.dart';
 import 'package:submersion/features/media_store/data/media_backfill_service.dart';
+import 'package:submersion/features/media_store/data/media_stores_repository.dart';
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
 
 import '../../helpers/test_database.dart';
@@ -221,4 +222,42 @@ void main() {
     expect(row.nextAttemptAt, isNull);
     expect(await queue.nextPending(DateTime.now()), isNotNull);
   });
+
+  // Issue #3569: on a store the library no longer announces, rows another
+  // device moved to the announced store are left alone.
+  test(
+    'a device on a store that is not announced leaves moved rows alone',
+    () async {
+      SharedPreferences.setMockInitialValues({});
+      final attachState = MediaStoreAttachState(
+        prefs: await SharedPreferences.getInstance(),
+      );
+      await attachState.setAttached(
+        'store-a',
+        providerType: CloudProviderType.dropbox,
+      );
+      final stores = MediaStoresRepository();
+      await stores.upsertActive(
+        storeId: 'store-b',
+        providerType: 'dropbox',
+        displayHint: 'Dropbox',
+      );
+      await mediaRow(
+        name: 'moved.jpg',
+        uploadedAt: DateTime(2026, 7),
+        storeId: 'store-b',
+      );
+      final fresh = await mediaRow(name: 'fresh.jpg');
+
+      final enqueued = await MediaBackfillService(
+        mediaRepository: mediaRepository,
+        queue: queue,
+        attachState: attachState,
+        stores: stores,
+      ).enqueueAll();
+
+      expect(enqueued, 1);
+      expect((await queue.allForTesting()).single.mediaId, fresh.id);
+    },
+  );
 }

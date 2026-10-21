@@ -44,6 +44,7 @@ import 'package:submersion/features/media_store/data/media_transfer_queue_reposi
 import 'package:submersion/features/media_store/data/orphan_delete_policy.dart';
 import 'package:submersion/features/media_store/data/media_upload_pipeline.dart';
 import 'package:submersion/features/media_store/data/platform_video_transcoder.dart';
+import 'package:submersion/features/media_store/domain/media_backup_status.dart';
 import 'package:submersion/features/media_store/domain/media_transfer_summary.dart';
 import 'package:submersion/features/media_store/domain/media_upload_quality.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
@@ -313,6 +314,7 @@ final mediaBackfillServiceProvider = Provider<MediaBackfillService>(
     mediaRepository: ref.watch(mediaRepositoryProvider),
     queue: ref.watch(mediaTransferQueueRepositoryProvider),
     attachState: ref.watch(mediaStoreAttachStateProvider),
+    stores: ref.watch(mediaStoresRepositoryProvider),
   ),
 );
 
@@ -566,6 +568,7 @@ final FutureProvider<MediaStoreRuntime?> mediaStoreRuntimeProvider =
       final mediaRepository = ref.watch(mediaRepositoryProvider);
       final policies = ref.watch(mediaStorePoliciesProvider);
       final network = NetworkStatusService();
+      final stores = ref.watch(mediaStoresRepositoryProvider);
       final pipeline = MediaUploadPipeline(
         mediaRepository: mediaRepository,
         queue: MediaTransferQueueRepository(),
@@ -575,6 +578,8 @@ final FutureProvider<MediaStoreRuntime?> mediaStoreRuntimeProvider =
         quality: ref.watch(mediaUploadQualityPolicyProvider),
         videoTranscoder: PlatformVideoTranscoder(),
         storeId: attachedId,
+        takesOver: () async =>
+            takesOverStores(attachedId, (await stores.getActive())?.id),
       );
       final deleteProcessor = MediaDeleteProcessor(
         queue: MediaTransferQueueRepository(),
