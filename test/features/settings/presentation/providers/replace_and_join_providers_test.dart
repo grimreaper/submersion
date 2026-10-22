@@ -8,6 +8,11 @@ import 'package:shared_preferences/shared_preferences.dart';
 
 import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/local_cache_database.dart';
+import 'package:submersion/core/data/repositories/sync_repository.dart';
+import 'package:submersion/core/services/database_service.dart';
+import 'package:submersion/core/services/sync/sync_data_serializer.dart';
+import 'package:submersion/core/services/sync/sync_service.dart';
+import 'package:submersion/features/dive_log/data/repositories/dive_repository_impl.dart';
 import 'package:submersion/core/services/media_store/media_store_attach_state.dart';
 import 'package:submersion/core/services/media_store/media_store_credentials_store.dart';
 import 'package:submersion/features/backup/data/services/backup_service.dart';
@@ -24,6 +29,8 @@ import 'package:submersion/features/settings/presentation/providers/settings_pro
     show sharedPreferencesProvider;
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 
+import '../../../../helpers/changeset_test_helpers.dart';
+import '../../../../helpers/mock_providers.dart';
 import '../../../../helpers/test_database.dart';
 import '../../../../support/fake_cloud_storage_provider.dart';
 import '../../../../support/fake_keychain_storage.dart';
@@ -157,4 +164,53 @@ void main() {
 
     expect(prefs.getString(currentDiverIdKey), isNull);
   });
+
+  // The provider end to end: the account's library replaces this device's,
+  // through the app's own sync service and the steps above.
+  test(
+    'the provider replaces the library through the app\'s services',
+    () async {
+      await setUpTestDatabase();
+      addTearDown(tearDownTestDatabase);
+      await DiveRepository().createDive(
+        createTestDiveWithBottomTime(id: 'lib-1', diveNumber: 1),
+      );
+      await seedPeerLog(cloud, 'peer-1');
+      await DiveRepository().createDive(
+        createTestDiveWithBottomTime(id: 'mine-1', diveNumber: 7),
+      );
+      final container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          mediaTransferQueueRepositoryProvider.overrideWithValue(queue),
+          cloudStorageProviderProvider.overrideWithValue(cloud),
+          backupServiceProvider.overrideWithValue(backups),
+          mediaStoreServiceProvider.overrideWithValue(mediaStore),
+          mediaStoreAttachStateProvider.overrideWithValue(
+            MediaStoreAttachState(prefs: prefs),
+          ),
+          syncServiceProvider.overrideWithValue(
+            SyncService(
+              syncRepository: SyncRepository(),
+              serializer: SyncDataSerializer(),
+              cloudProvider: cloud,
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+
+      final result = await container
+          .read(replaceAndJoinServiceProvider)
+          .run(backupNote: 'Before joining the library');
+
+      expect(result.outcome, ReplaceJoinOutcome.replaced);
+      final dives = await DatabaseService.instance.database
+          .customSelect('SELECT id FROM dives')
+          .get();
+      expect([for (final r in dives) r.read<String>('id')], ['lib-1']);
+      expect(backups.pinned, ['set-aside']);
+      expect(mediaStore.disconnects, 1);
+    },
+  );
 }
