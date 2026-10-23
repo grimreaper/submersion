@@ -11,13 +11,15 @@ final mediaUploadProgressProvider =
       final repository = ref.watch(mediaRepositoryProvider);
       ref.invalidateSelfWhen(repository.watchMediaChanges());
       ref.watch(mediaTransferSummaryProvider.select((s) => s.value?.total));
+      // A store the library no longer announces leaves out rows another
+      // device moved to the announced one (issue #3569). Watched before the
+      // first await, like every dependency here, so a tick during the wait
+      // cannot meet a build that is already gone.
+      final stores = ref.watch(mediaStoresRepositoryProvider);
+      ref.invalidateSelfWhen(stores.watchStoresChanges());
       // Counted for the attached store: copies in another store are not
       // copies here (issue #3482).
       final storeId = await ref.watch(mediaAttachedStoreIdProvider.future);
-      // A store the library no longer announces leaves out rows another
-      // device moved to the announced one (issue #3569).
-      final stores = ref.watch(mediaStoresRepositoryProvider);
-      ref.invalidateSelfWhen(stores.watchStoresChanges());
       final announced = (await stores.getActive())?.id;
       return repository.countUploadProgress(
         storeId: storeId,

@@ -173,13 +173,34 @@ void main() {
         id,
         uploadedAt: at,
         storeId: 'store-a',
-        takesOver: false,
+        takesOver: () async => false,
       );
 
       final r = await row(id);
       expect(r.remoteStoreId, 'store-b');
       expect(r.remoteUploadedAt, 1);
       expect(r.remoteThumbUploadedAt, isNull);
+    });
+
+    // Review: the decision is only asked for a row another store holds, so
+    // a stamp on any other row costs no announced-store read.
+    test('a row no other store holds never asks', () async {
+      final id = await add('fresh.jpg');
+      var asked = 0;
+
+      final applied = await repo.stampRemoteUploaded(
+        id,
+        uploadedAt: at,
+        storeId: 'store-a',
+        takesOver: () async {
+          asked++;
+          return false;
+        },
+      );
+
+      expect(applied, isTrue);
+      expect(asked, 0);
+      expect((await row(id)).remoteStoreId, 'store-a');
     });
 
     test('an unclaimed row keeps its stamps and takes the store', () async {

@@ -12,6 +12,7 @@ import 'package:path/path.dart' as p;
 import 'package:submersion/core/database/app_sql_functions.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/database/local_cache_database.dart';
+import 'package:submersion/core/services/media_store/media_object_store.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media/data/services/media_source_resolver_registry.dart';
 import 'package:submersion/features/media/domain/entities/media_item.dart';
@@ -48,6 +49,35 @@ class _FileResolver implements MediaSourceResolver {
 
   @override
   Future<VerifyResult> verify(MediaItem item) async => VerifyResult.available;
+}
+
+/// Lands another device's sync during the first transfer, as a takeover
+/// that arrives while this device's upload is in flight.
+class _SyncLandsDuringTransfer extends InMemoryMediaObjectStore {
+  _SyncLandsDuringTransfer(this._sync);
+  Future<void> Function()? _sync;
+
+  @override
+  Future<void> putFile(
+    String key,
+    File source, {
+    required String contentType,
+    TransferProgressCallback? onProgress,
+    String? resumeStateJson,
+    void Function(String resumeStateJson)? onResumeStateChanged,
+  }) async {
+    await super.putFile(
+      key,
+      source,
+      contentType: contentType,
+      onProgress: onProgress,
+      resumeStateJson: resumeStateJson,
+      onResumeStateChanged: onResumeStateChanged,
+    );
+    final sync = _sync;
+    _sync = null;
+    await sync?.call();
+  }
 }
 
 void main() {
@@ -113,13 +143,15 @@ void main() {
       mediaRepository: repo,
       queue: queue,
       store: store,
-      registry: MediaSourceResolverRegistry(const {}),
+      registry: MediaSourceResolverRegistry({
+        MediaSourceType.localFile: _FileResolver(File('unused')),
+      }),
       cache: MediaCacheStore(database: cacheDb, root: root),
       storeId: 'store-a',
       takesOver: () async => false,
     ).process((await queue.nextPending(DateTime.now()))!);
 
-    expect(outcome, UploadOutcome.deduplicated);
+    expect(outcome, UploadOutcome.leftToAnotherStore);
     expect(store.objects, isEmpty);
     final after = (await repo.getMediaById(created.id))!;
     expect(after.remoteStoreId, 'store-b');
@@ -153,22 +185,22 @@ void main() {
     await MediaUploadPipeline(
       mediaRepository: repo,
       queue: queue,
-      store: InMemoryMediaObjectStore(),
+      // While the bytes transfer, another device moves the library to
+      // store-b and its stamp syncs in.
+      store: _SyncLandsDuringTransfer(
+        () => repo.stampRemoteUploaded(
+          created.id,
+          uploadedAt: takenOverAt,
+          storeId: 'store-b',
+        ),
+      ),
       registry: MediaSourceResolverRegistry({
         MediaSourceType.localFile: _FileResolver(file),
       }),
       cache: MediaCacheStore(database: cacheDb, root: root),
       storeId: 'store-a',
-      // The first ask is just before a stamp: by then another device has
-      // moved the library to store-b and its stamp has synced in.
       takesOver: () async {
-        if (asked++ == 0) {
-          await repo.stampRemoteUploaded(
-            created.id,
-            uploadedAt: takenOverAt,
-            storeId: 'store-b',
-          );
-        }
+        asked++;
         return false;
       },
     ).process((await queue.nextPending(DateTime.now()))!);
@@ -222,30 +254,31 @@ void main() {
       final outcome = await MediaUploadPipeline(
         mediaRepository: repo,
         queue: queue,
-        store: InMemoryMediaObjectStore(),
+        // Mid-upload, another device moved the library to store-b and its
+        // rendition stamp synced in.
+        store: _SyncLandsDuringTransfer(
+          () => repo.stampRemoteCompressedUploaded(
+            created.id,
+            uploadedAt: takenOverAt,
+            level: 'small',
+            sizeBytes: 2,
+            storeId: 'store-b',
+          ),
+        ),
         registry: MediaSourceResolverRegistry({
           MediaSourceType.localFile: _FileResolver(file),
         }),
         cache: MediaCacheStore(database: cacheDb, root: root),
         storeId: 'store-a',
-        // Mid-upload, another device moved the library to store-b and its
-        // rendition stamp synced in.
         takesOver: () async {
-          if (asked++ == 0) {
-            await repo.stampRemoteCompressedUploaded(
-              created.id,
-              uploadedAt: takenOverAt,
-              level: 'small',
-              sizeBytes: 2,
-              storeId: 'store-b',
-            );
-          }
+          asked++;
           return false;
         },
       ).process((await queue.nextPending(DateTime.now()))!);
 
       final after = (await repo.getMediaById(created.id))!;
-      expect(outcome, UploadOutcome.deduplicated);
+      expect(asked, greaterThan(0), reason: 'asked before stamping');
+      expect(outcome, UploadOutcome.leftToAnotherStore);
       expect(after.remoteStoreId, 'store-b');
       expect(
         after.remoteCompressedUploadedAt?.millisecondsSinceEpoch,
@@ -254,4 +287,88 @@ void main() {
       expect(after.remoteUploadedAt, isNull);
     },
   );
+
+  // Review: asking which store the library announces is a database read,
+  // and a throw escaping process() would strand the row in 'transferring'.
+  test('a takeover check that throws fails the entry instead', () async {
+    final created = await repo.createMedia(
+      MediaItem(
+        id: '',
+        mediaType: MediaType.photo,
+        sourceType: MediaSourceType.localFile,
+        filePath: 'moved.jpg',
+        localPath: 'moved.jpg',
+        originalFilename: 'moved.jpg',
+        diveId: 'd1',
+        contentHash: 'h1',
+        takenAt: DateTime(2026),
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+      ),
+    );
+    await repo.stampRemoteUploaded(
+      created.id,
+      uploadedAt: DateTime.utc(2026),
+      storeId: 'store-b',
+    );
+    await queue.enqueueUpload(mediaId: created.id);
+
+    final outcome = await MediaUploadPipeline(
+      mediaRepository: repo,
+      queue: queue,
+      store: InMemoryMediaObjectStore(),
+      registry: MediaSourceResolverRegistry({
+        MediaSourceType.localFile: _FileResolver(File('unused')),
+      }),
+      cache: MediaCacheStore(database: cacheDb, root: root),
+      storeId: 'store-a',
+      takesOver: () async => throw StateError('database closed'),
+    ).process((await queue.nextPending(DateTime.now()))!);
+
+    expect(outcome, UploadOutcome.failed);
+  });
+
+  // Review: a video's transcode is kept only for a retry, and a row left to
+  // another store gets none, so the transcode goes with the entry.
+  test('a video left to another store drops its transcode', () async {
+    final created = await repo.createMedia(
+      MediaItem(
+        id: '',
+        mediaType: MediaType.video,
+        sourceType: MediaSourceType.localFile,
+        filePath: 'moved.mov',
+        localPath: 'moved.mov',
+        originalFilename: 'moved.mov',
+        diveId: 'd1',
+        contentHash: 'hv',
+        takenAt: DateTime(2026),
+        createdAt: DateTime(2026),
+        updatedAt: DateTime(2026),
+      ),
+    );
+    await repo.stampRemoteUploaded(
+      created.id,
+      uploadedAt: DateTime.utc(2026),
+      storeId: 'store-b',
+    );
+    await queue.enqueueUpload(mediaId: created.id);
+    final cache = MediaCacheStore(database: cacheDb, root: root);
+    final transcode = await cache.transcodeFile('hv', 'high');
+    await transcode.writeAsBytes([1, 2, 3]);
+
+    final outcome = await MediaUploadPipeline(
+      mediaRepository: repo,
+      queue: queue,
+      store: InMemoryMediaObjectStore(),
+      registry: MediaSourceResolverRegistry({
+        MediaSourceType.localFile: _FileResolver(transcode),
+      }),
+      cache: cache,
+      storeId: 'store-a',
+      takesOver: () async => false,
+    ).process((await queue.nextPending(DateTime.now()))!);
+
+    expect(outcome, UploadOutcome.leftToAnotherStore);
+    expect(transcode.existsSync(), isFalse);
+  });
 }

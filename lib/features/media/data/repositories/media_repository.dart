@@ -1952,12 +1952,13 @@ class MediaRepository {
   /// syncs, every device knows the bytes are fetchable.
   ///
   /// Returns whether it was written: false, with nothing written, when
-  /// another store holds the row's stamps and [takesOver] is false.
+  /// another store holds the row's stamps and [takesOver], asked inside
+  /// the transaction, answers false.
   Future<bool> stampRemoteUploaded(
     String mediaId, {
     required DateTime uploadedAt,
     String? storeId,
-    bool takesOver = true,
+    Future<bool> Function()? takesOver,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     // One transaction: a fact column and the clock that orders it must not
@@ -2872,11 +2873,17 @@ class MediaRepository {
     final stampedElsewhere =
         _db.media.remoteStoreId.isNotNull() &
         _db.media.remoteStoreId.equals(storeId).not() &
-        (_db.media.remoteUploadedAt.isNotNull() |
-            _db.media.remoteThumbUploadedAt.isNotNull() |
-            _db.media.remoteCompressedUploadedAt.isNotNull());
+        _anyStamp;
     return stampedElsewhere.not();
   }
+
+  /// Whether the row carries any upload stamp, in whichever store: the
+  /// stamp half of stampedElsewhere, shared by [_inReach] and
+  /// [_storeColumns] so the two cannot disagree.
+  Expression<bool> get _anyStamp =>
+      _db.media.remoteUploadedAt.isNotNull() |
+      _db.media.remoteThumbUploadedAt.isNotNull() |
+      _db.media.remoteCompressedUploadedAt.isNotNull();
 
   /// What a stamp for [storeId] writes besides itself (issue #3482): the
   /// store, and when the row's stamps were made in another store, those
@@ -2885,33 +2892,30 @@ class MediaRepository {
   /// transaction, which is where the take-over decision is made (issue
   /// #3569): null, write nothing, when another store holds the row's stamps
   /// and this one does not [takesOver], so an upload that started before
-  /// another device took the row over cannot undo that.
+  /// another device took the row over cannot undo that. [takesOver] is
+  /// asked here, inside the transaction and only for such a row, so the
+  /// answer cannot go stale before the write; null takes over.
   Future<MediaCompanion?> _storeColumns(
     String mediaId,
     String? storeId, {
-    required bool takesOver,
+    Future<bool> Function()? takesOver,
   }) async {
     if (storeId == null) return const MediaCompanion();
     final m = _db.media;
+    final stamped = _anyStamp;
     final current =
         await (_db.selectOnly(m)
-              ..addColumns([
-                m.remoteStoreId,
-                m.remoteUploadedAt,
-                m.remoteThumbUploadedAt,
-                m.remoteCompressedUploadedAt,
-              ])
+              ..addColumns([m.remoteStoreId, stamped])
               ..where(m.id.equals(mediaId)))
             .getSingleOrNull();
     final owner = current?.read(m.remoteStoreId);
     if (owner == null || owner == storeId) {
       return MediaCompanion(remoteStoreId: Value(storeId));
     }
-    final stamped =
-        current!.read(m.remoteUploadedAt) != null ||
-        current.read(m.remoteThumbUploadedAt) != null ||
-        current.read(m.remoteCompressedUploadedAt) != null;
-    if (stamped && !takesOver) return null;
+    if ((current!.read(stamped) ?? false) &&
+        !(await takesOver?.call() ?? true)) {
+      return null;
+    }
     return MediaCompanion(
       remoteStoreId: Value(storeId),
       remoteUploadedAt: const Value(null),
@@ -2978,12 +2982,13 @@ class MediaRepository {
   /// Confirms the thumbnail object exists in the media store.
   ///
   /// Returns whether it was written: false, with nothing written, when
-  /// another store holds the row's stamps and [takesOver] is false.
+  /// another store holds the row's stamps and [takesOver], asked inside
+  /// the transaction, answers false.
   Future<bool> stampRemoteThumbUploaded(
     String mediaId, {
     required DateTime uploadedAt,
     String? storeId,
-    bool takesOver = true,
+    Future<bool> Function()? takesOver,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     // One transaction: a fact column and the clock that orders it must not
@@ -3016,14 +3021,15 @@ class MediaRepository {
   /// level produced it (first-writer-wins) and its byte size.
   ///
   /// Returns whether it was written: false, with nothing written, when
-  /// another store holds the row's stamps and [takesOver] is false.
+  /// another store holds the row's stamps and [takesOver], asked inside
+  /// the transaction, answers false.
   Future<bool> stampRemoteCompressedUploaded(
     String mediaId, {
     required DateTime uploadedAt,
     required String level,
     required int sizeBytes,
     String? storeId,
-    bool takesOver = true,
+    Future<bool> Function()? takesOver,
   }) async {
     final now = DateTime.now().millisecondsSinceEpoch;
     // One transaction: a fact column and the clock that orders it must not
