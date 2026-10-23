@@ -47,7 +47,6 @@ import 'package:submersion/core/utils/share_anchor.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/core/router/pushed_route.dart';
 import 'package:submersion/features/buddies/domain/entities/buddy.dart';
-import 'package:submersion/features/buddies/domain/services/legacy_name_parser.dart';
 import 'package:submersion/features/buddies/presentation/providers/buddy_providers.dart';
 import 'package:submersion/features/buddies/presentation/widgets/legacy_buddy_text_section.dart';
 import 'package:submersion/features/courses/presentation/providers/course_providers.dart';
@@ -3324,14 +3323,14 @@ class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
                 dive.effectiveWaterType!.localizedName(context.l10n),
               ),
             // A placeholder such as "None" is no one, as on the Buddies card.
-            if (showLegacyText && LegacyNameParser.parse(dive.buddy).isNotEmpty)
+            if (showLegacyText && LegacyBuddyTextSection.hasBuddyText(dive))
               _buildDetailRow(
                 context,
                 context.l10n.diveLog_detail_label_buddy,
                 dive.buddy!.trim(),
               ),
             if (showLegacyText &&
-                LegacyNameParser.parse(dive.diveMaster).isNotEmpty)
+                LegacyBuddyTextSection.hasDiveMasterText(dive))
               _buildDetailRow(
                 context,
                 context.l10n.diveLog_detail_label_diveMaster,

@@ -93,6 +93,7 @@ Future<void> _pump(
   FakeLegacyBuddyConversionService? service,
   AppSettings? settings,
   bool linkedLoadFails = false,
+  Completer<List<BuddyWithRole>>? linkedLoad,
 }) async {
   final dive = Dive(
     id: 'd1',
@@ -115,8 +116,11 @@ Future<void> _pump(
           (ref) => _MockSettingsNotifier(settings ?? _buddiesOnly()),
         ),
         buddiesForDiveProvider(dive.id).overrideWith(
-          (ref) async =>
-              linkedLoadFails ? throw StateError('junction failed') : linked,
+          (ref) async => linkedLoad != null
+              ? linkedLoad.future
+              : linkedLoadFails
+              ? throw StateError('junction failed')
+              : linked,
         ),
         diveSightingsProvider(
           dive.id,
@@ -377,6 +381,36 @@ void main() {
             'text is shown only once the junction is known to be empty',
       );
       expect(find.text('Legacy Master'), findsNothing);
+    });
+
+    testWidgets('free-text rows wait for the linked-buddy load', (
+      tester,
+    ) async {
+      final linkedLoad = Completer<List<BuddyWithRole>>();
+      await _pump(
+        tester,
+        prefs,
+        textBuddy: 'Bob Brown',
+        textDiveMaster: 'Ana Ruiz',
+        linkedLoad: linkedLoad,
+        settings: _detailsOnly(),
+      );
+
+      expect(find.text(_en.diveLog_detail_section_details), findsOneWidget);
+      expect(
+        find.text('Bob Brown'),
+        findsNothing,
+        reason:
+            'the dive may have linked buddies, so the text waits until the '
+            'junction is known to be empty',
+      );
+      expect(find.text('Ana Ruiz'), findsNothing);
+
+      linkedLoad.complete(const <BuddyWithRole>[]);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Bob Brown'), findsOneWidget);
+      expect(find.text('Ana Ruiz'), findsOneWidget);
     });
 
     testWidgets('placeholder or blank free text shows no row', (tester) async {
