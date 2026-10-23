@@ -60,7 +60,7 @@ Widget _buildWidget({
       // AsyncLoading and then resolve it on demand, simulating the query
       // completing after the widget has already mounted.
       firstSyncCutoffDefaultProvider.overrideWith(
-        (ref) => cutoffCompleter.future,
+        (ref, _) => cutoffCompleter.future,
       ),
     ],
     child: MaterialApp(

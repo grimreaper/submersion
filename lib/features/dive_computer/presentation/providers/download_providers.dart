@@ -612,9 +612,10 @@ final computerDiveIdsProvider = FutureProvider.family<List<String>, String>((
   return repository.getDiveIdsForComputer(computerId);
 });
 
-/// Default first-sync cutoff: the newest dive in the active diver's log.
+/// Default first-sync cutoff: the newest dive in [diverId]'s log, the profile
+/// the download is expected to go to (issue #2050).
 ///
-/// Null when there is no active diver or the log is empty (no cutoff
+/// Null when there is no such diver or the log is empty (no cutoff
 /// prompt is shown then).
 ///
 /// `autoDispose`: this is only ever watched by `DcAdapterDownloadStep` while
@@ -632,11 +633,9 @@ final computerDiveIdsProvider = FutureProvider.family<List<String>, String>((
 // re-fetched every time the step mounts, so a stale value cannot render; a tick
 // would instead move the default under the user mid-download, since the
 // download itself writes the dives this reads.
-final firstSyncCutoffDefaultProvider = FutureProvider.autoDispose<DateTime?>((
-  ref,
-) async {
-  final diverId = ref.watch(currentDiverIdProvider);
-  if (diverId == null || diverId.isEmpty) return null;
-  final repository = ref.watch(diveRepositoryProvider);
-  return repository.getNewestDiveDateTime(diverId: diverId);
-});
+final firstSyncCutoffDefaultProvider = FutureProvider.autoDispose
+    .family<DateTime?, String?>((ref, diverId) async {
+      if (diverId == null || diverId.isEmpty) return null;
+      final repository = ref.watch(diveRepositoryProvider);
+      return repository.getNewestDiveDateTime(diverId: diverId);
+    });

@@ -596,7 +596,9 @@ class _DcAdapterDownloadStepState extends ConsumerState<DcAdapterDownloadStep> {
         !widget.adapter.forceFullDownload;
     DateTime? cutoffDefault;
     if (promptCouldApply) {
-      final cutoffAsync = ref.watch(firstSyncCutoffDefaultProvider);
+      final cutoffAsync = ref.watch(
+        firstSyncCutoffDefaultProvider(widget.adapter.provisionalTargetDiverId),
+      );
       if (cutoffAsync.isLoading) {
         return const Center(child: CircularProgressIndicator());
       }
