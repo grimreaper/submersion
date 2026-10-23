@@ -1429,6 +1429,37 @@ void main() {
       expect(find.byKey(const Key('import_summary_notices')), findsNothing);
     });
 
+    testWidgets('offers no transmitter action for dives in another profile '
+        '(issue #2050)', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final notifier = _makeNotifier();
+      notifier.state = notifier.state.copyWith(
+        importResult: const UnifiedImportResult(
+          importedCounts: {ImportEntityType.dives: 3},
+          consolidatedCount: 0,
+          skippedCount: 0,
+          diverOutcomes: [
+            DiverImportOutcome(
+              diverId: 'mitchell',
+              name: 'Mitchell',
+              isNew: false,
+              isActive: false,
+              diveIds: ['d1', 'd2', 'd3'],
+            ),
+          ],
+          notices: [
+            ImportNotice(kind: ImportNoticeKind.unknownTransmitter, count: 3),
+          ],
+        ),
+      );
+      await tester.pumpWidget(_buildWidget(notifier));
+      await tester.pump();
+
+      expect(find.text('Unassigned transmitters'), findsOneWidget);
+      expect(find.text('Assign transmitters'), findsNothing);
+    });
+
     testWidgets('explains unassigned transmitters with an action', (
       tester,
     ) async {
