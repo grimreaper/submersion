@@ -128,6 +128,27 @@ void main() {
       expect(preset?.name, 'al80');
     });
 
+    test(
+      'an unreadable settings row means no preset, not a failed import',
+      () async {
+        final container = ProviderContainer(
+          overrides: [
+            sharedPreferencesProvider.overrideWithValue(prefs),
+            settingsProvider.overrideWith((ref) => MockSettingsNotifier()),
+            diverSettingsRepositoryProvider.overrideWithValue(
+              _ThrowingSettingsRepository(),
+            ),
+          ],
+        );
+        addTearDown(container.dispose);
+        final probe = FutureProvider<TankPresetEntity?>(
+          (ref) => loadDefaultTankPresetForDownloads(ref, diverId: 'mitchell'),
+        );
+
+        expect(await container.read(probe.future), isNull);
+      },
+    );
+
     test('a diver with no saved settings gets the default (off)', () async {
       await addDiver('mitchell');
 
@@ -210,4 +231,10 @@ void main() {
       expect(volume, isNull);
     });
   });
+}
+
+class _ThrowingSettingsRepository extends DiverSettingsRepository {
+  @override
+  Future<AppSettings?> getSettingsForDiver(String diverId) async =>
+      throw StateError('database is locked');
 }

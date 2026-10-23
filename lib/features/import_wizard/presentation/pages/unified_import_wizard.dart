@@ -373,6 +373,8 @@ class _UnifiedImportWizardBodyState
   }
 
   Future<void> _startImport() async {
+    // Held while a change of profile re-checks the rows (issue #2050).
+    if (ref.read(importWizardNotifierProvider).isRetargeting) return;
     await _animateToPage(_importIndex);
     final diverId = await ref.read(validatedCurrentDiverIdProvider.future);
     if (!mounted) return;

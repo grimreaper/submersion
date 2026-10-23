@@ -50,13 +50,16 @@ final diveImportServiceProvider = Provider<DiveImportService>((ref) {
   );
 });
 
+const _loaderLog = LoggerService('DefaultTankPresetForDownloads');
+
 /// The default tank preset to fill downloaded cylinders with, or null when
 /// the diver has not opted in ("Also apply to imported dives" off) or the
 /// configured preset no longer exists.
 ///
 /// [diverId] names the diver the dives are imported for (issue #2050); null,
 /// empty or the active diver reads the live settings, and another diver reads
-/// their saved settings (the defaults when they have none).
+/// their saved settings (the defaults when they have none, and no preset when
+/// they cannot be read: a download must not fail over a cylinder default).
 @visibleForTesting
 Future<TankPresetEntity?> loadDefaultTankPresetForDownloads(
   Ref ref, {
@@ -66,12 +69,26 @@ Future<TankPresetEntity?> loadDefaultTankPresetForDownloads(
       diverId != null &&
       diverId.isNotEmpty &&
       diverId != ref.read(currentDiverIdProvider);
-  final settings = otherDiver
-      ? await ref
-                .read(diverSettingsRepositoryProvider)
-                .getSettingsForDiver(diverId) ??
-            const AppSettings()
-      : ref.read(settingsProvider);
+  final AppSettings settings;
+  if (otherDiver) {
+    try {
+      settings =
+          await ref
+              .read(diverSettingsRepositoryProvider)
+              .getSettingsForDiver(diverId) ??
+          const AppSettings();
+    } catch (e, stackTrace) {
+      _loaderLog.error(
+        'Could not read the settings of $diverId; importing without a '
+        'default tank',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      return null;
+    }
+  } else {
+    settings = ref.read(settingsProvider);
+  }
   if (!settings.applyDefaultTankToImports) return null;
   final resolver = DefaultTankPresetResolver(
     repository: ref.read(tankPresetRepositoryProvider),

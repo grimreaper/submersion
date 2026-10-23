@@ -134,4 +134,15 @@ void main() {
     expect(dropdown.onChanged, isNull);
     expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
+  testWidgets('a chosen profile that is gone falls back to the owner', (
+    tester,
+  ) async {
+    final changes = await pump(
+      tester,
+      const ImportTargetChoice(ownerDiverId: 'mitchell', chosenDiverId: 'ana'),
+    );
+    await tester.pump();
+
+    expect(changes, ['mitchell']);
+  });
 }

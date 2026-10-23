@@ -317,11 +317,29 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     final adapter = _adapter;
     if (adapter is! RetargetableImportAdapter) return;
     if (state.bundle?.targetChoice == null) return;
+    final previous = state.bundle!.targetChoice!.chosenDiverId;
+    final retargetable = adapter as RetargetableImportAdapter;
     final generation = ++_retargetGeneration;
     state = state.copyWith(isRetargeting: true);
     try {
-      await (adapter as RetargetableImportAdapter).setTargetDiver(diverId);
-      final bundle = await adapter.buildBundle();
+      await retargetable.setTargetDiver(diverId);
+      final ImportBundle bundle;
+      try {
+        bundle = await adapter.buildBundle();
+      } catch (e, stackTrace) {
+        // The review list still shows the previous profile's bundle, so the
+        // adapter goes back to it rather than writing elsewhere.
+        _log.error(
+          'Could not rebuild the import for profile $diverId; keeping '
+          '$previous',
+          error: e,
+          stackTrace: stackTrace,
+        );
+        if (generation == _retargetGeneration) {
+          await retargetable.setTargetDiver(previous);
+        }
+        return;
+      }
       var checkFailed = false;
       ImportBundle checked;
       try {
@@ -1082,6 +1100,9 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
   /// stores the result on success, or sets [ImportWizardState.error] on
   /// failure. Advances [currentStep] past the importing step on success.
   Future<void> performImport() async {
+    // A change of profile is re-checking the rows (issue #2050); importing
+    // now would apply the previous profile's choices.
+    if (state.isRetargeting) return;
     final bundle = state.bundle;
     if (bundle == null) {
       state = state.copyWith(

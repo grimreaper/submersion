@@ -35,7 +35,14 @@ class ComputerOwnerNotice extends ConsumerWidget {
     final names = {for (final p in profiles) p.id: p.name};
     final owner = names[choice.ownerDiverId];
     if (owner == null) return const SizedBox.shrink();
-    final chosen = names[choice.chosenDiverId] ?? owner;
+    final chosen = names[choice.chosenDiverId];
+    if (chosen == null && profiles.isNotEmpty && !busy) {
+      // The chosen profile is gone (deleted elsewhere): send the download
+      // back to the owner so what the notice says is where the dives go.
+      WidgetsBinding.instance.addPostFrameCallback(
+        (_) => onChanged(choice.ownerDiverId),
+      );
+    }
 
     final l10n = context.l10n;
     final theme = Theme.of(context);
@@ -56,7 +63,10 @@ class ComputerOwnerNotice extends ConsumerWidget {
               const SizedBox(width: 8),
               Expanded(
                 child: Text(
-                  l10n.universalImport_computerOwner_notice(owner, chosen),
+                  l10n.universalImport_computerOwner_notice(
+                    owner,
+                    chosen ?? owner,
+                  ),
                   style: theme.textTheme.bodyMedium,
                 ),
               ),

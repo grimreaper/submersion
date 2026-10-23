@@ -22,6 +22,8 @@ class _RetargetableAdapter
   String target = 'mitchell';
   final targets = <String>[];
   bool failDuplicateCheck = false;
+  String? failBuildFor;
+  var imports = 0;
 
   /// When set, each duplicate check waits on the next gate in turn.
   final gates = <Completer<void>>[];
@@ -34,7 +36,12 @@ class _RetargetableAdapter
   }
 
   @override
-  Future<ImportBundle> buildBundle() async => ImportBundle(
+  Future<ImportBundle> buildBundle() async {
+    if (target == failBuildFor) throw StateError('cannot build');
+    return _bundleFor(target);
+  }
+
+  ImportBundle _bundleFor(String target) => ImportBundle(
     source: const ImportSourceInfo(
       type: ImportSourceType.diveComputer,
       displayName: 'Perdix 2',
@@ -107,7 +114,14 @@ class _RetargetableAdapter
     bool retainSourceDiveNumbers = false,
     ImportProgressCallback? onProgress,
     ImportCancellationToken? cancelToken,
-  }) => throw UnimplementedError();
+  }) async {
+    imports++;
+    return const UnifiedImportResult(
+      importedCounts: {},
+      consolidatedCount: 0,
+      skippedCount: 0,
+    );
+  }
 }
 
 void main() {
@@ -240,5 +254,27 @@ void main() {
 
     notifier.setBundle(bundle);
     expect(notifier.state.duplicateCheckFailed, isFalse);
+  });
+  test('a failed rebuild keeps the previous profile and its bundle', () async {
+    adapter.failBuildFor = 'bill';
+
+    await notifier.changeTargetDiver('bill');
+
+    expect(adapter.target, 'mitchell');
+    expect(notifier.state.bundle?.targetChoice?.chosenDiverId, 'mitchell');
+    expect(notifier.state.isRetargeting, isFalse);
+  });
+
+  test('does not import while the download is re-checked', () async {
+    final gate = Completer<void>();
+    adapter.gates.add(gate);
+    final change = notifier.changeTargetDiver('bill');
+    await Future<void>.delayed(Duration.zero);
+
+    await notifier.performImport();
+
+    expect(adapter.imports, 0);
+    gate.complete();
+    await change;
   });
 }
