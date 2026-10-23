@@ -47,6 +47,7 @@ import 'package:submersion/core/utils/share_anchor.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/core/router/pushed_route.dart';
 import 'package:submersion/features/buddies/domain/entities/buddy.dart';
+import 'package:submersion/features/buddies/domain/services/legacy_name_parser.dart';
 import 'package:submersion/features/buddies/presentation/providers/buddy_providers.dart';
 import 'package:submersion/features/buddies/presentation/widgets/legacy_buddy_text_section.dart';
 import 'package:submersion/features/courses/presentation/providers/course_providers.dart';
@@ -3241,11 +3242,13 @@ class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
     // The legacy free-text buddy and dive master columns are only a fallback
     // while the dive_buddies junction is empty, the same rule as the Buddies
     // card, the dive list and the exports (#1864). Otherwise an imported
-    // name the diver has since replaced keeps showing here (#3581).
-    final hasLinkedBuddies = ref.watch(
+    // name the diver has since replaced keeps showing here (#3581). Hidden
+    // while the junction loads, so a stale name cannot flash in first; a
+    // failed load falls back to the text.
+    final showLegacyText = ref.watch(
       buddiesForDiveProvider(
         diveId,
-      ).select((a) => a.valueOrNull?.isNotEmpty ?? false),
+      ).select((a) => a.valueOrNull?.isEmpty ?? a.hasError),
     );
 
     return Card(
@@ -3320,21 +3323,19 @@ class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
                 context.l10n.diveLog_detail_label_waterType,
                 dive.effectiveWaterType!.localizedName(context.l10n),
               ),
-            if (!hasLinkedBuddies &&
-                dive.buddy != null &&
-                dive.buddy!.isNotEmpty)
+            // A placeholder such as "None" is no one, as on the Buddies card.
+            if (showLegacyText && LegacyNameParser.parse(dive.buddy).isNotEmpty)
               _buildDetailRow(
                 context,
                 context.l10n.diveLog_detail_label_buddy,
-                dive.buddy!,
+                dive.buddy!.trim(),
               ),
-            if (!hasLinkedBuddies &&
-                dive.diveMaster != null &&
-                dive.diveMaster!.isNotEmpty)
+            if (showLegacyText &&
+                LegacyNameParser.parse(dive.diveMaster).isNotEmpty)
               _buildDetailRow(
                 context,
                 context.l10n.diveLog_detail_label_diveMaster,
-                dive.diveMaster!,
+                dive.diveMaster!.trim(),
               ),
             _buildGasConsumptionRows(context, ref, dive, units),
             // Gradient factors (from dive computer)

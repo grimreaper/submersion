@@ -352,6 +352,20 @@ void main() {
       expect(find.text(_en.diveLog_detail_label_buddy), findsOneWidget);
       expect(find.text(_en.diveLog_detail_label_diveMaster), findsOneWidget);
     });
+
+    testWidgets('placeholder or blank free text shows no row', (tester) async {
+      await _pump(
+        tester,
+        prefs,
+        textBuddy: 'None',
+        textDiveMaster: '   ',
+        settings: _detailsOnly(),
+      );
+
+      expect(find.text('None'), findsNothing);
+      expect(find.text(_en.diveLog_detail_label_buddy), findsNothing);
+      expect(find.text(_en.diveLog_detail_label_diveMaster), findsNothing);
+    });
   });
 
   testWidgets("shows my roles and each buddy's roles, joined (#1221)", (
