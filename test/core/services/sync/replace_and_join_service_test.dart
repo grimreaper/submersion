@@ -25,6 +25,7 @@ class _Steps implements ReplaceJoinSteps {
   Object? applyFailure;
   Object? backupFailure;
   Object? queueFailure;
+  bool photosSettle = true;
   String? backupNote;
 
   @override
@@ -50,6 +51,12 @@ class _Steps implements ReplaceJoinSteps {
     await prepared.dispose();
     if (applyFailure case final f?) throw f;
     return const ReplaceJoinResult(ReplaceJoinOutcome.replaced);
+  }
+
+  @override
+  Future<bool> settlePhotoTransfers() async {
+    log.add('settle photos');
+    return photosSettle;
   }
 
   @override
@@ -104,6 +111,7 @@ void main() {
     expect(steps.log, [
       'prepare',
       'backup',
+      'settle photos',
       'apply',
       'queue',
       'forget store',
@@ -153,7 +161,7 @@ void main() {
       throwsStateError,
     );
 
-    expect(steps.log, ['prepare', 'backup', 'apply']);
+    expect(steps.log, ['prepare', 'backup', 'settle photos', 'apply']);
     expect(await attachState.attachedStoreId(), 'store-a');
     expect(await attachState.attachedAccountId(), 'db-row');
   });
@@ -188,6 +196,7 @@ void main() {
     expect(steps.log, [
       'prepare',
       'backup',
+      'settle photos',
       'apply',
       'queue',
       'forget store',
@@ -212,4 +221,20 @@ void main() {
       ),
     );
   });
+
+  // Copilot review: a transfer the worker handed off keeps running after
+  // the detach; the swap waits for it, and gives up for now if it does not
+  // finish.
+  test(
+    'a photo transfer that does not finish stops the replace for now',
+    () async {
+      steps.photosSettle = false;
+
+      final result = await service().run(backupNote: 'Before joining');
+
+      expect(result.outcome, ReplaceJoinOutcome.photosBusy);
+      expect(steps.log, ['prepare', 'backup', 'settle photos']);
+      expect(await attachState.attachedStoreId(), 'store-a');
+    },
+  );
 }

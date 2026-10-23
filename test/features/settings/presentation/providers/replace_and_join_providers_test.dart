@@ -1,6 +1,8 @@
 // Issue #3482 phase 5: the steps replace and join takes once the library
 // has been swapped, on the app's own stores.
 
+import 'dart:io';
+
 import 'package:drift/native.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -19,7 +21,10 @@ import 'package:submersion/features/backup/data/services/backup_service.dart';
 import 'package:submersion/features/backup/domain/entities/backup_record.dart';
 import 'package:submersion/features/backup/presentation/providers/backup_providers.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
+import 'package:submersion/features/media/data/resolvers/media_store_resolver.dart';
+import 'package:submersion/features/media_store/data/media_cache_store.dart';
 import 'package:submersion/features/media_store/data/media_store_service.dart';
+import 'package:submersion/features/media_store/data/media_store_worker.dart';
 import 'package:submersion/features/media_store/data/media_stores_repository.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
@@ -30,6 +35,7 @@ import 'package:submersion/features/settings/presentation/providers/settings_pro
 import 'package:submersion/features/settings/presentation/providers/sync_providers.dart';
 
 import '../../../../helpers/changeset_test_helpers.dart';
+import '../../../../helpers/in_memory_media_object_store.dart';
 import '../../../../helpers/mock_providers.dart';
 import '../../../../helpers/test_database.dart';
 import '../../../../support/fake_cloud_storage_provider.dart';
@@ -58,6 +64,14 @@ class _Backups extends Fake implements BackupService {
 
   @override
   Future<void> pinBackup(String id) async => pinned.add(id);
+}
+
+/// Records a worker-safe drop of queue rows.
+class _Worker extends Fake implements MediaStoreWorker {
+  final deleted = <int>[];
+
+  @override
+  Future<void> deleteEntries(List<int> ids) async => deleted.addAll(ids);
 }
 
 /// Counts full detaches.
@@ -213,4 +227,44 @@ void main() {
       expect(mediaStore.disconnects, 1);
     },
   );
+
+  // Copilot review: the queue goes through the old store's worker, which
+  // abandons each row's resumable session with the provider.
+  test('the photo queue is dropped through the worker when one runs', () async {
+    final a = await queue.enqueueUpload(mediaId: 'old-1');
+    final b = await queue.enqueueUpload(mediaId: 'old-2');
+    final worker = _Worker();
+    final root = await Directory.systemTemp.createTemp('replace_join_runtime');
+    addTearDown(() => root.delete(recursive: true));
+    final store = InMemoryMediaObjectStore();
+    final cache = MediaCacheStore(database: cacheDb, root: root);
+    final container = ProviderContainer(
+      overrides: [
+        sharedPreferencesProvider.overrideWithValue(prefs),
+        mediaTransferQueueRepositoryProvider.overrideWithValue(queue),
+        mediaStoreRuntimeProvider.overrideWith(
+          (ref) async => MediaStoreRuntime(
+            storeId: 'store-a',
+            store: store,
+            cache: cache,
+            resolver: MediaStoreResolver(store: store, cache: cache),
+            worker: worker,
+          ),
+        ),
+      ],
+    );
+    addTearDown(container.dispose);
+    await container.read(mediaStoreRuntimeProvider.future);
+    final withWorker = container.read(
+      Provider<ProductionReplaceJoinSteps>(ProductionReplaceJoinSteps.new),
+    );
+
+    await withWorker.discardPhotoQueue();
+
+    expect(worker.deleted.toSet(), {a, b});
+  });
+
+  test('transfers settle when nothing is claimed', () async {
+    expect(await steps.settlePhotoTransfers(), isTrue);
+  });
 }

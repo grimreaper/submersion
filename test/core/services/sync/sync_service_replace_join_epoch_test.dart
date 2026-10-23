@@ -25,6 +25,15 @@ import '../../../helpers/mock_providers.dart';
 import '../../../helpers/test_database.dart';
 import '../../../support/fake_cloud_storage_provider.dart';
 
+/// Refuses the accepted-epoch write, as a full prefs store would.
+class _StuckEpochStore extends LibraryEpochStore {
+  _StuckEpochStore(super.prefs);
+
+  @override
+  Future<void> setLastAccepted(LibraryEpochMarker? marker) async =>
+      throw StateError('prefs unavailable');
+}
+
 void main() {
   late LibraryEpochStore epochStore;
 
@@ -202,4 +211,31 @@ void main() {
       expect(step.refused!.outcome, ReplaceJoinOutcome.needsPassphrase);
     });
   });
+
+  // Copilot review: the two mirror writes are independent; a failed first
+  // one must not leave the pending replace to run on the next launch.
+  test(
+    'a failed accepted-epoch write still clears the pending replace',
+    () async {
+      final cloud = FakeCloudStorageProvider();
+      await libraryDive();
+      await seedPeerLog(cloud, 'peer-1');
+      await thisDevicesAccount();
+      final stuck = _StuckEpochStore(await SharedPreferences.getInstance());
+      await stuck.setPendingReplace(epoch('Y'));
+      final svc = SyncService(
+        syncRepository: SyncRepository(),
+        serializer: SyncDataSerializer(),
+        cloudProvider: cloud,
+        epochStore: stuck,
+      );
+
+      final result = await svc.applyReplaceJoin(
+        (await svc.prepareReplaceJoin()).prepared!,
+      );
+
+      expect(result.outcome, ReplaceJoinOutcome.replaced);
+      expect(stuck.pendingReplace, isNull);
+    },
+  );
 }

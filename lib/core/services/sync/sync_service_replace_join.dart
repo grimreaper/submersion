@@ -18,6 +18,10 @@ enum ReplaceJoinOutcome {
 
   /// The library is encrypted and this device holds no key for it yet.
   needsPassphrase,
+
+  /// A photo transfer was still finishing; nothing changed. Try again in a
+  /// moment.
+  photosBusy,
 }
 
 class ReplaceJoinResult {
@@ -162,6 +166,24 @@ extension SyncServiceReplaceJoin on SyncService {
         ),
       );
     }
+    // The collector skips a device whose copy has not fully arrived, which
+    // a merge can wait out but a replace must not apply: refuse until every
+    // device's copy is complete.
+    if (await _libraryIncomplete(
+      provider,
+      files,
+      retired,
+      marker?.epochId,
+      sources.cursors,
+    )) {
+      for (final path in sources.baseFilePaths) {
+        await _baseSink.deleteQuietly(path);
+      }
+      return (
+        prepared: null,
+        refused: const ReplaceJoinResult(ReplaceJoinOutcome.stillUploading),
+      );
+    }
     return (
       prepared: ReplaceJoinPrepared._(
         _baseSink,
@@ -258,21 +280,59 @@ extension SyncServiceReplaceJoin on SyncService {
       await prepared.dispose();
     }
 
-    // Committed. The prefs mirrors follow the database; a failure here is
-    // logged, never reported as a failed replace.
-    try {
-      await _epochStore?.setLastAccepted(marker);
-      await _epochStore?.clearPendingReplace();
-    } catch (e, stackTrace) {
-      _log.error(
-        'Replace and join: could not update the epoch mirror',
-        error: e,
-        stackTrace: stackTrace,
-      );
+    // Committed. The prefs mirrors follow the database, each on its own: a
+    // stale pending replace left by a failed first write would run the old
+    // replace on the next launch. A failure is logged, never reported as a
+    // failed replace.
+    for (final (name, write) in [
+      ('accepted epoch', () async => _epochStore?.setLastAccepted(marker)),
+      ('pending replace', () async => _epochStore?.clearPendingReplace()),
+    ]) {
+      try {
+        await write();
+      } catch (e, stackTrace) {
+        _log.error(
+          'Replace and join: could not update the $name mirror',
+          error: e,
+          stackTrace: stackTrace,
+        );
+      }
     }
     await _flushAfterRun('replace and join');
     _log.info('Replaced this device\'s library with the account\'s');
     return const ReplaceJoinResult(ReplaceJoinOutcome.replaced);
+  }
+
+  /// Whether a live device of [epochId] has published a base the collector
+  /// could not assemble (no cursor for it), or changesets past the first
+  /// gap it found (a cursor short of the manifest's head). Pull waits out
+  /// both; a replace must not apply a library they leave short. A device
+  /// with no base yet publishes changesets only, which pull applies on its
+  /// own, so it does not count.
+  Future<bool> _libraryIncomplete(
+    CloudStorageProvider provider,
+    List<CloudFileInfo> files,
+    Set<String> retired,
+    String? epochId,
+    List<({String deviceId, int baseSeq, int appliedThrough})> cursors,
+  ) async {
+    final applied = {for (final c in cursors) c.deviceId: c.appliedThrough};
+    for (final f in files) {
+      final id = ChangesetLogLayout.deviceIdOf(f.name);
+      if (id == null || retired.contains(id)) continue;
+      if (f.name != ChangesetLogLayout.manifestName(id)) continue;
+      final SyncManifest manifest;
+      try {
+        manifest = SyncManifest.fromBytes(await provider.downloadFile(f.id));
+      } catch (_) {
+        // Unreadable: skipped by pull and the collector alike.
+        continue;
+      }
+      if (manifest.epochId != epochId || manifest.baseSeq == null) continue;
+      final through = applied[id];
+      if (through == null || through < manifest.headSeq) return true;
+    }
+    return false;
   }
 
   /// Whether a live device's manifest among [files] is an envelope this

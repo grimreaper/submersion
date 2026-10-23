@@ -202,6 +202,41 @@ void main() {
     expect(await hasDive('gone-1'), isFalse);
   });
 
+  // Copilot review: a replace is destructive, so a library one of whose
+  // devices has not finished uploading its copy waits rather than applying
+  // what has arrived.
+  test('a library missing part of a device\'s copy waits', () async {
+    final cloud = await libraryInAccount();
+    await DiveRepository().createDive(
+      createTestDiveWithBottomTime(id: 'lib-2', diveNumber: 2),
+    );
+    await seedPeerLog(cloud, 'peer-2');
+    final folder = await cloud.getOrCreateSyncFolder();
+    final parts =
+        (await cloud.listFiles(
+          folderId: folder,
+          namePattern: ChangesetLogLayout.prefix,
+        )).where(
+          (f) => f.name.startsWith(
+            ChangesetLogLayout.basePartName(
+              'peer-2',
+              1,
+              0,
+            ).replaceAll(RegExp(r'\.p\d+$'), ''),
+          ),
+        );
+    expect(parts, isNotEmpty);
+    for (final f in parts) {
+      await cloud.deleteFile(f.id);
+    }
+    await thisDevicesLibrary();
+
+    final step = await serviceOn(cloud).prepareReplaceJoin();
+
+    expect(step.refused?.outcome, ReplaceJoinOutcome.stillUploading);
+    expect(await hasDive('mine-1'), isTrue);
+  });
+
   test('a failure inside the apply leaves the device as it was', () async {
     final cloud = await libraryInAccount();
     await thisDevicesLibrary();

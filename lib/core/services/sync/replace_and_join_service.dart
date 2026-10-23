@@ -14,6 +14,10 @@ abstract interface class ReplaceJoinSteps {
   /// Saves this device's library as a pinned History entry with [note].
   Future<void> takePinnedBackup(String note);
 
+  /// Waits for photo transfers already running to finish, now that no new
+  /// one can start; false when one is still running at the deadline.
+  Future<bool> settlePhotoTransfers();
+
   /// Replaces the library with [prepared] in one transaction.
   Future<ReplaceJoinResult> apply(ReplaceJoinPrepared prepared);
 
@@ -73,20 +77,18 @@ class ReplaceAndJoinService {
       // are cleared only once the swap has committed.
       attachment = await _attachState.snapshot();
       await _attachState.clear();
+      // The detach stops new transfers; one already running keeps going
+      // (the worker hands it off), so it is waited out before the swap.
+      if (!await _steps.settlePhotoTransfers()) {
+        await prepared.dispose();
+        await _restore(attachment);
+        return const ReplaceJoinResult(ReplaceJoinOutcome.photosBusy);
+      }
       // Throws only before its commit: the library is unchanged then.
       result = await _steps.apply(prepared);
     } catch (e) {
       await prepared.dispose();
-      if (attachment != null) {
-        try {
-          await _attachState.restore(attachment);
-        } catch (restoreError) {
-          _log.error(
-            'Replace and join: could not put the photo store back',
-            error: restoreError,
-          );
-        }
-      }
+      if (attachment != null) await _restore(attachment);
       _log.warning('Replace and join failed; this device is unchanged: $e');
       rethrow;
     }
@@ -112,5 +114,18 @@ class ReplaceAndJoinService {
     }
     _log.info('Replace and join finished');
     return result;
+  }
+
+  /// Puts the photo store attachment back; a failure is logged so it never
+  /// hides why the replace stopped.
+  Future<void> _restore(MediaStoreAttachSnapshot attachment) async {
+    try {
+      await _attachState.restore(attachment);
+    } catch (restoreError) {
+      _log.error(
+        'Replace and join: could not put the photo store back',
+        error: restoreError,
+      );
+    }
   }
 }

@@ -43,4 +43,29 @@ void main() {
   test('an empty queue clears nothing', () async {
     expect(await repo.clearAll(), 0);
   });
+
+  // Copilot review: a transfer the worker handed off keeps running after its
+  // drain moved on, so a replace waits for every claim to settle first.
+  test('claims are waited out, and a claim that stays reports false', () async {
+    await repo.enqueueUpload(mediaId: 'moving');
+    final claimed = (await repo.claimNextPending(DateTime.now()))!;
+
+    expect(
+      await repo.waitForClaimsToSettle(const Duration(milliseconds: 50)),
+      isFalse,
+    );
+
+    repo.releaseSettled(claimed.id);
+    expect(
+      await repo.waitForClaimsToSettle(const Duration(milliseconds: 50)),
+      isTrue,
+    );
+  });
+
+  test('every row id is listed, for a worker-safe drop', () async {
+    final a = await repo.enqueueUpload(mediaId: 'a');
+    final b = await repo.enqueueUpload(mediaId: 'b');
+
+    expect((await repo.allIds()).toSet(), {a, b});
+  });
 }

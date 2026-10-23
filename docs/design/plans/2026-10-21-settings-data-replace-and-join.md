@@ -8,7 +8,7 @@
 - The engine reuses the cloud-wins path the sync engine already has for a retired device (`SyncService._rejoinAfterRetirement`): collect the account's library bases, then apply them to the live database in one deferred-FK transaction that upserts every library row and deletes every local synced row the library lacks. It lives in a new part file, `sync_service_replace_join.dart`, as an extension on `SyncService`, so it reaches the private collectors and apply without growing the 5,768-line service.
 - Everything the replace changes in the database happens in that one transaction: the apply, the device's own roster rows put back, the sync-state reset, the peer cursors and the adopted-base watermark. A crash or error before it commits leaves the database exactly as it was, by SQLite's own rollback.
 - An orchestrator, `ReplaceAndJoinService`, runs the steps around the engine in the spec's order and makes each non-database side effect either reversible (the media attachment is snapshotted and put back on failure) or done only after the commit (the upload queue, established-provider and epoch prefs, the active diver).
-- `SyncNotifier.replaceAndJoin(backupNote:)` runs the orchestrator under the one-at-a-time `SyncCoordinator` and returns a typed outcome. Phase 6 adds the typed-word dialog, the full-screen page and the reload.
+- `replaceAndJoinServiceProvider` (its own file, since the sync providers may not import the backup providers) builds the orchestrator; `ReplaceAndJoinService.run(backupNote:)` runs it under the one-at-a-time `SyncCoordinator` and returns a typed outcome. There is no `SyncNotifier.replaceAndJoin`. Phase 6 adds the typed-word dialog, the full-screen page and the reload.
 
 **Tech Stack:** Flutter, Riverpod 3, Drift, the changeset-log sync engine (`SyncService`, `SyncDataSerializer.applyInDeferredFkTransaction`, `PeerCursorStore`, publish-state store, `LibraryEpochStore`), `BackupService`, `MediaStoreAttachState`, `MediaTransferQueueRepository`, `flutter_test` with the fake cloud provider in `test/helpers/sync_test_helpers.dart`.
 
@@ -101,12 +101,12 @@ Calls the plan makes where the spec leaves a choice or the code forces one. Each
 
 **Files:**
 - Create: `lib/core/services/sync/replace_and_join_service.dart`
-- Modify: `lib/features/settings/presentation/providers/sync_providers.dart` (provider and `SyncNotifier.replaceAndJoin`)
+- Create: `lib/features/settings/presentation/providers/replace_and_join_providers.dart` (`ProductionReplaceJoinSteps` and `replaceAndJoinServiceProvider`)
 - Test: `test/core/services/sync/replace_and_join_service_test.dart`
 
 **Interfaces:**
 - Consumes: Task 1's snapshot/restore and `clearAll`; Task 2's `prepareReplaceJoin` and `applyReplaceJoin`; `BackupService.performBackup(note:)` and `pinBackup(id)`; `MediaStoreService.disconnect()`; `EstablishedProviderStore`; `realignActiveDiverAfterDataReplace(prefs)`.
-- Produces: `ReplaceAndJoinService.run({required String backupNote}) → Future<ReplaceJoinResult>`; `SyncNotifier.replaceAndJoin({required String backupNote}) → Future<ReplaceJoinResult>`.
+- Produces: `ReplaceAndJoinService.run({required String backupNote}) → Future<ReplaceJoinResult>`, read through `replaceAndJoinServiceProvider`.
 
 - [ ] **Step 1:** Tests with fakes for backup, media and the engine:
   - Order on success: prepare, pinned backup with the note, snapshot and detach, apply, then queue cleared, provider marked established, post-restore flag cleared, active diver realigned.

@@ -29,13 +29,31 @@ class ProductionReplaceJoinSteps implements ReplaceJoinSteps {
     await backups.pinBackup(record.id);
   }
 
+  /// How long a running photo transfer is given to finish before the
+  /// replace gives up for now.
+  static const settleTimeout = Duration(seconds: 60);
+
+  @override
+  Future<bool> settlePhotoTransfers() => _ref
+      .read(mediaTransferQueueRepositoryProvider)
+      .waitForClaimsToSettle(settleTimeout);
+
   @override
   Future<ReplaceJoinResult> apply(ReplaceJoinPrepared prepared) =>
       _sync.applyReplaceJoin(prepared);
 
+  /// Through the old store's worker when it is still built, which abandons
+  /// each row's resumable upload session with the provider; a plain clear
+  /// otherwise.
   @override
   Future<void> discardPhotoQueue() async {
-    await _ref.read(mediaTransferQueueRepositoryProvider).clearAll();
+    final queue = _ref.read(mediaTransferQueueRepositoryProvider);
+    final worker = _ref.read(mediaStoreRuntimeProvider).value?.worker;
+    if (worker == null) {
+      await queue.clearAll();
+      return;
+    }
+    await worker.deleteEntries(await queue.allIds());
   }
 
   @override
