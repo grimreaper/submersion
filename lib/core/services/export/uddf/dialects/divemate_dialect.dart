@@ -18,10 +18,14 @@ import 'package:submersion/core/services/export/uddf/uddf_dialect.dart';
 ///    writes it, rather than being a direct child of `<site>`.
 class DiveMateDialect extends UddfDialect {
   @override
-  bool isMatch(XmlDocument doc) => doc.findAllElements('generator').any((gen) {
-    final name = gen.findElements('name').firstOrNull?.innerText ?? '';
-    return name.trim().toLowerCase() == 'divemate';
-  });
+  // <generator> is a direct child of the root, so only the root's children
+  // are searched rather than every waypoint in the file. A contains match
+  // keeps a versioned name ("DiveMate 5.1") working, as MacDive's does.
+  bool isMatch(XmlDocument doc) =>
+      doc.rootElement.findElements('generator').any((gen) {
+        final name = gen.findElements('name').firstOrNull?.innerText ?? '';
+        return name.toLowerCase().contains('divemate');
+      });
 
   @override
   String normalizeXml(String rawContent) {

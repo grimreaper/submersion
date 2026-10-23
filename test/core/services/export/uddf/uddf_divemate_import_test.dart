@@ -127,10 +127,28 @@ void main() {
     });
 
     test('removes every element whose whole text is "null"', () {
-      final nulls = normalized.descendants.whereType<XmlElement>().where(
-        (e) => e.childElements.isEmpty && e.innerText.trim() == 'null',
+      for (final tag in ['serialnumber', 'phone', 'email']) {
+        expect(normalized.findAllElements(tag), isEmpty, reason: tag);
+      }
+      // The dive without notes keeps its empty <notes>, minus the <para>.
+      expect(normalized.findAllElements('notes'), hasLength(2));
+      expect(normalized.findAllElements('para'), hasLength(1));
+    });
+
+    test('keeps the elements around a removed value', () {
+      expect(
+        normalized.findAllElements('tank').single.innerText,
+        contains('12er Faber'),
       );
-      expect(nulls, isEmpty);
+      expect(normalized.findAllElements('contact'), hasLength(1));
+    });
+
+    test('matches a versioned generator name', () {
+      final versioned = _diveMateUddf.replaceFirst(
+        '<name>DiveMate</name>',
+        '<name>DiveMate 5.1</name>',
+      );
+      expect(dialect.isMatch(XmlDocument.parse(versioned)), isTrue);
     });
 
     test('keeps text that only contains the word', () {

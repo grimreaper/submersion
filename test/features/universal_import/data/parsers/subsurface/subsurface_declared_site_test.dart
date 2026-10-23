@@ -168,7 +168,7 @@ void main() {
       expect(
         {
           for (final d in dives)
-            d['diveNumber']: nameById[(d['site'] as Map)['uddfId']],
+            d['diveNumber']: nameById[(d['site'] as Map?)?['uddfId']],
         },
         {1: 'Panoramabad Pappelsee', 2: 'Attersee'},
       );
