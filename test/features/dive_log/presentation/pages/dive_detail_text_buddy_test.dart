@@ -48,6 +48,19 @@ AppSettings _buddiesOnly() => AppSettings(
       .toList(),
 );
 
+/// Only the Details section visible, so its legacy Buddy and Dive Master
+/// rows are the only place the free text can appear (#3581).
+AppSettings _detailsOnly() => AppSettings(
+  diveDetailSections: DiveDetailSectionId.values
+      .map(
+        (id) => DiveDetailSectionConfig(
+          id: id,
+          visible: id == DiveDetailSectionId.details,
+        ),
+      )
+      .toList(),
+);
+
 /// The generated English strings, read so a wording change cannot break
 /// these tests or silently turn a "findsNothing" into an always-green check.
 final AppLocalizations _en = lookupAppLocalizations(const Locale('en'));
@@ -78,6 +91,7 @@ Future<void> _pump(
   List<DiveRole> roles = const [],
   List<BuddyWithRole> linked = const [],
   FakeLegacyBuddyConversionService? service,
+  AppSettings? settings,
 }) async {
   final dive = Dive(
     id: 'd1',
@@ -97,7 +111,7 @@ Future<void> _pump(
           dive.id,
         ).overrideWith((ref) async => <DiveDataSource>[]),
         settingsProvider.overrideWith(
-          (ref) => _MockSettingsNotifier(_buddiesOnly()),
+          (ref) => _MockSettingsNotifier(settings ?? _buddiesOnly()),
         ),
         buddiesForDiveProvider(dive.id).overrideWith((ref) async => linked),
         diveSightingsProvider(
@@ -293,6 +307,50 @@ void main() {
 
       expect(service.planForCalls, 1);
       expect(find.text(_en.buddies_linkText_sheetTitle), findsOneWidget);
+    });
+  });
+
+  group('Details card with free-text buddy and dive master (#3581)', () {
+    testWidgets('linked buddy records hide the stale free-text rows', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        prefs,
+        textBuddy: 'Legacy Text',
+        textDiveMaster: 'Legacy Master',
+        linked: [_linkedBuddy()],
+        settings: _detailsOnly(),
+      );
+
+      expect(find.text(_en.diveLog_detail_section_details), findsOneWidget);
+      expect(
+        find.text('Legacy Text'),
+        findsNothing,
+        reason:
+            'the dive_buddies junction is authoritative once it holds anyone, '
+            'so the Details card must not disagree with the Buddies card',
+      );
+      expect(find.text('Legacy Master'), findsNothing);
+      expect(find.text(_en.diveLog_detail_label_buddy), findsNothing);
+      expect(find.text(_en.diveLog_detail_label_diveMaster), findsNothing);
+    });
+
+    testWidgets('free-text rows still show when no buddy is linked', (
+      tester,
+    ) async {
+      await _pump(
+        tester,
+        prefs,
+        textBuddy: 'Bob Brown',
+        textDiveMaster: 'Ana Ruiz',
+        settings: _detailsOnly(),
+      );
+
+      expect(find.text('Bob Brown'), findsOneWidget);
+      expect(find.text('Ana Ruiz'), findsOneWidget);
+      expect(find.text(_en.diveLog_detail_label_buddy), findsOneWidget);
+      expect(find.text(_en.diveLog_detail_label_diveMaster), findsOneWidget);
     });
   });
 

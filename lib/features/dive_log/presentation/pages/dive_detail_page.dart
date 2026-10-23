@@ -3238,6 +3238,15 @@ class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
     String? activeComputerId,
   }) {
     final surfaceIntervalAsync = ref.watch(surfaceIntervalProvider(diveId));
+    // The legacy free-text buddy and dive master columns are only a fallback
+    // while the dive_buddies junction is empty, the same rule as the Buddies
+    // card, the dive list and the exports (#1864). Otherwise an imported
+    // name the diver has since replaced keeps showing here (#3581).
+    final hasLinkedBuddies = ref.watch(
+      buddiesForDiveProvider(
+        diveId,
+      ).select((a) => a.valueOrNull?.isNotEmpty ?? false),
+    );
 
     return Card(
       child: Padding(
@@ -3311,13 +3320,17 @@ class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
                 context.l10n.diveLog_detail_label_waterType,
                 dive.effectiveWaterType!.localizedName(context.l10n),
               ),
-            if (dive.buddy != null && dive.buddy!.isNotEmpty)
+            if (!hasLinkedBuddies &&
+                dive.buddy != null &&
+                dive.buddy!.isNotEmpty)
               _buildDetailRow(
                 context,
                 context.l10n.diveLog_detail_label_buddy,
                 dive.buddy!,
               ),
-            if (dive.diveMaster != null && dive.diveMaster!.isNotEmpty)
+            if (!hasLinkedBuddies &&
+                dive.diveMaster != null &&
+                dive.diveMaster!.isNotEmpty)
               _buildDetailRow(
                 context,
                 context.l10n.diveLog_detail_label_diveMaster,
