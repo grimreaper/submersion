@@ -3242,8 +3242,10 @@ class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
     // while the dive_buddies junction is empty, the same rule as the Buddies
     // card, the dive list and the exports (#1864). Otherwise an imported
     // name the diver has since replaced keeps showing here (#3581). Shown
-    // only once the junction is known to be empty, so neither a load in
-    // flight nor a failed one can bring a stale name back.
+    // only once the junction has been read as empty, so neither the first
+    // load nor a failed one can bring a stale name back. A refresh keeps the
+    // last answer until the new one arrives, as the Buddies card does, so
+    // the rows do not flicker on every unrelated change to the dive.
     final showLegacyText = ref.watch(
       buddiesForDiveProvider(
         diveId,
