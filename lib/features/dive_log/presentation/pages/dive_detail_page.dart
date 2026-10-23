@@ -3242,13 +3242,13 @@ class _DiveDetailPageState extends ConsumerState<DiveDetailPage> {
     // The legacy free-text buddy and dive master columns are only a fallback
     // while the dive_buddies junction is empty, the same rule as the Buddies
     // card, the dive list and the exports (#1864). Otherwise an imported
-    // name the diver has since replaced keeps showing here (#3581). Hidden
-    // while the junction loads, so a stale name cannot flash in first; a
-    // failed load falls back to the text.
+    // name the diver has since replaced keeps showing here (#3581). Shown
+    // only once the junction is known to be empty, so neither a load in
+    // flight nor a failed one can bring a stale name back.
     final showLegacyText = ref.watch(
       buddiesForDiveProvider(
         diveId,
-      ).select((a) => a.valueOrNull?.isEmpty ?? a.hasError),
+      ).select((a) => a.valueOrNull?.isEmpty ?? false),
     );
 
     return Card(
