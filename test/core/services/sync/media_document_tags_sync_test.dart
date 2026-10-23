@@ -168,6 +168,32 @@ void main() {
         expect((await links(db)).map((l) => l.$1), ['local']);
       });
 
+      test(
+        'a peer copy of a pair settles on the lower id everywhere',
+        () async {
+          await link('m-local', 'i1', 't1');
+
+          await serializer.upsertRecord(entity, peerLink('a-peer', 't1'));
+          expect((await links(db)).map((l) => l.$1), ['a-peer']);
+
+          // The batch path reaches the same survivor.
+          await serializer.upsertRecords(entity, [peerLink('0-peer', 't1')]);
+          expect((await links(db)).map((l) => l.$1), ['0-peer']);
+        },
+      );
+
+      test('a link to a tag not offered in the scope is refused', () async {
+        await db.customStatement(
+          "INSERT INTO tags (id, name, created_at, updated_at) "
+          "VALUES ('dive-only', 'Night', 1, 1)",
+        );
+
+        await serializer.upsertRecord(entity, peerLink('l1', 'dive-only'));
+        await serializer.upsertRecords(entity, [peerLink('l2', 'dive-only')]);
+
+        expect(await links(db), isEmpty);
+      });
+
       test("applying a peer's link never marks the item pending", () async {
         await serializer.upsertRecord(entity, peerLink('l1', 't1'));
 

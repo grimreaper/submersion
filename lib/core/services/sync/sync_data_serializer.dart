@@ -4725,10 +4725,18 @@ class SyncDataSerializer {
   }
 
   /// Applies one incoming `equipment_tags` row (v219, issue #1942), the
-  /// equipment twin of [_applySiteTagRecord]: the (equipment, tag) unique
-  /// index makes a peer's copy of a pair this device holds under another id
-  /// a no-op instead of a throw.
+  /// equipment twin of [_applySiteTagRecord]: a link to a tag not offered on
+  /// equipment is refused, and a peer's copy of a pair this device holds
+  /// under another id is reconciled to the lower id, so a later tombstone
+  /// for either id removes the link on every device (#1970 review).
   Future<void> _applyEquipmentTagRecord(EquipmentTag record) async {
+    if (!await _reconcileScopedTagLink(equipmentTagScopeTable, (
+      parent: record.equipmentId,
+      child: record.tagId,
+      id: record.id,
+    ))) {
+      return;
+    }
     await _db
         .into(_db.equipmentTags)
         .insert(
@@ -4742,6 +4750,13 @@ class SyncDataSerializer {
   /// Applies one incoming `media_tags` row (v309, issue #1970), the media
   /// twin of [_applyEquipmentTagRecord].
   Future<void> _applyMediaTagRecord(MediaTag record) async {
+    if (!await _reconcileScopedTagLink(mediaTagScopeTable, (
+      parent: record.mediaId,
+      child: record.tagId,
+      id: record.id,
+    ))) {
+      return;
+    }
     await _db
         .into(_db.mediaTags)
         .insert(
@@ -4753,6 +4768,13 @@ class SyncDataSerializer {
   /// Applies one incoming `document_tags` row (v309, issue #1970), the
   /// document twin of [_applyEquipmentTagRecord].
   Future<void> _applyDocumentTagRecord(DocumentTag record) async {
+    if (!await _reconcileScopedTagLink(documentTagScopeTable, (
+      parent: record.documentId,
+      child: record.tagId,
+      id: record.id,
+    ))) {
+      return;
+    }
     await _db
         .into(_db.documentTags)
         .insert(
@@ -4761,6 +4783,47 @@ class SyncDataSerializer {
             target: const [],
           ),
         );
+  }
+
+  /// Readies one incoming tag link of [junction] for insertion: false when
+  /// its tag is not offered in that scope (the link is refused), otherwise
+  /// any local copy of the same pair under a higher id is dropped first, as
+  /// [_applySiteTagRecord] does.
+  Future<bool> _reconcileScopedTagLink(
+    TagScopeTable junction,
+    JunctionPair pair,
+  ) async {
+    if ((await _tagsOutsideScope(junction)).contains(pair.child)) return false;
+    await _reconcileJunctionIds(
+      junction.junctionTable,
+      parentColumn: junction.parentColumn,
+      childColumn: 'tag_id',
+      pairs: [pair],
+    );
+    return true;
+  }
+
+  /// [rows] of [junction] ready for a batch insert: links to tags not
+  /// offered in that scope dropped, one row per pair (the lowest id), and
+  /// any local copy of a pair under a higher id deleted, as the `siteTags`
+  /// batch does.
+  Future<List<T>> _reconcileScopedTagLinks<T>(
+    TagScopeTable junction,
+    List<T> rows,
+    JunctionPair Function(T row) pairOf,
+  ) async {
+    final offScope = await _tagsOutsideScope(junction);
+    final kept = _lowestIdPerPair(
+      rows.where((row) => !offScope.contains(pairOf(row).child)).toList(),
+      pairOf,
+    );
+    await _reconcileJunctionIds(
+      junction.junctionTable,
+      parentColumn: junction.parentColumn,
+      childColumn: 'tag_id',
+      pairs: [for (final row in kept) pairOf(row)],
+    );
+    return kept;
   }
 
   /// Applies one incoming `equipment_shares` row (v234, issue #2046). The
@@ -6783,12 +6846,15 @@ class SyncDataSerializer {
         );
         return;
       case 'equipmentTags':
+        final equipmentTagsRows = await _reconcileScopedTagLinks(
+          equipmentTagScopeTable,
+          records.map((r) => EquipmentTag.fromJson(_withTagAlias(r))).toList(),
+          (row) => (parent: row.equipmentId, child: row.tagId, id: row.id),
+        );
         await _db.batch(
           (b) => b.insertAll(
             _db.equipmentTags,
-            records
-                .map((r) => EquipmentTag.fromJson(_withTagAlias(r)))
-                .toList(),
+            equipmentTagsRows,
             onConflict: DoNothing<$EquipmentTagsTable, EquipmentTag>(
               target: const [],
             ),
@@ -6796,19 +6862,29 @@ class SyncDataSerializer {
         );
         return;
       case 'mediaTags':
+        final mediaTagsRows = await _reconcileScopedTagLinks(
+          mediaTagScopeTable,
+          records.map((r) => MediaTag.fromJson(_withTagAlias(r))).toList(),
+          (row) => (parent: row.mediaId, child: row.tagId, id: row.id),
+        );
         await _db.batch(
           (b) => b.insertAll(
             _db.mediaTags,
-            records.map((r) => MediaTag.fromJson(_withTagAlias(r))).toList(),
+            mediaTagsRows,
             onConflict: DoNothing<$MediaTagsTable, MediaTag>(target: const []),
           ),
         );
         return;
       case 'documentTags':
+        final documentTagsRows = await _reconcileScopedTagLinks(
+          documentTagScopeTable,
+          records.map((r) => DocumentTag.fromJson(_withTagAlias(r))).toList(),
+          (row) => (parent: row.documentId, child: row.tagId, id: row.id),
+        );
         await _db.batch(
           (b) => b.insertAll(
             _db.documentTags,
-            records.map((r) => DocumentTag.fromJson(_withTagAlias(r))).toList(),
+            documentTagsRows,
             onConflict: DoNothing<$DocumentTagsTable, DocumentTag>(
               target: const [],
             ),
