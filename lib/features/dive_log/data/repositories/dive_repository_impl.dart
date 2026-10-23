@@ -6006,7 +6006,8 @@ class DiveRepository {
   /// [getMergedProfile], and [getDiveForAnalysis] return the same list by
   /// construction (the parity test locks this in). Every source is kept,
   /// except the demoted originals a saved edit superseded
-  /// ([dropSupersededSeries]).
+  /// ([dropSupersededSeries]). [profileSpanSecondsSql] drops the same series,
+  /// hidden revisions too, so a change here goes there as well.
   Future<List<domain.DiveProfilePoint>> _mergedSeriesPoints(
     String diveId,
   ) async {
