@@ -181,4 +181,77 @@ void main() {
       takenOverAt.millisecondsSinceEpoch,
     );
   });
+
+  // Copilot review: a stamp the takeover refuses must also stop the
+  // namespace-switch cleanup after it, or the stale upload erases the
+  // announced store's own rendition stamp.
+  test(
+    'a refused stamp leaves the announced store\'s rendition alone',
+    () async {
+      final file = File(p.join(root.path, 'switch.jpg'))
+        ..writeAsBytesSync([5, 6, 7, 8]);
+      final created = await repo.createMedia(
+        MediaItem(
+          id: '',
+          mediaType: MediaType.photo,
+          sourceType: MediaSourceType.localFile,
+          filePath: file.path,
+          localPath: file.path,
+          originalFilename: 'switch.jpg',
+          diveId: 'd1',
+          takenAt: DateTime(2026),
+          createdAt: DateTime(2026),
+          updatedAt: DateTime(2026),
+        ),
+      );
+      // This device's store held a rendition; it now re-uploads the original.
+      await repo.stampRemoteCompressedUploaded(
+        created.id,
+        uploadedAt: DateTime.utc(2026),
+        level: 'high',
+        sizeBytes: 3,
+        storeId: 'store-a',
+      );
+      await queue.enqueueReupload(
+        mediaId: created.id,
+        overrideLevel: 'original',
+      );
+      final takenOverAt = DateTime.utc(2026, 6, 6);
+      var asked = 0;
+
+      final outcome = await MediaUploadPipeline(
+        mediaRepository: repo,
+        queue: queue,
+        store: InMemoryMediaObjectStore(),
+        registry: MediaSourceResolverRegistry({
+          MediaSourceType.localFile: _FileResolver(file),
+        }),
+        cache: MediaCacheStore(database: cacheDb, root: root),
+        storeId: 'store-a',
+        // Mid-upload, another device moved the library to store-b and its
+        // rendition stamp synced in.
+        takesOver: () async {
+          if (asked++ == 0) {
+            await repo.stampRemoteCompressedUploaded(
+              created.id,
+              uploadedAt: takenOverAt,
+              level: 'small',
+              sizeBytes: 2,
+              storeId: 'store-b',
+            );
+          }
+          return false;
+        },
+      ).process((await queue.nextPending(DateTime.now()))!);
+
+      final after = (await repo.getMediaById(created.id))!;
+      expect(outcome, UploadOutcome.deduplicated);
+      expect(after.remoteStoreId, 'store-b');
+      expect(
+        after.remoteCompressedUploadedAt?.millisecondsSinceEpoch,
+        takenOverAt.millisecondsSinceEpoch,
+      );
+      expect(after.remoteUploadedAt, isNull);
+    },
+  );
 }

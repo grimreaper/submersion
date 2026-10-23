@@ -1950,7 +1950,10 @@ class MediaRepository {
 
   /// Confirms the original object exists in the media store. Once this
   /// syncs, every device knows the bytes are fetchable.
-  Future<void> stampRemoteUploaded(
+  ///
+  /// Returns whether it was written: false, with nothing written, when
+  /// another store holds the row's stamps and [takesOver] is false.
+  Future<bool> stampRemoteUploaded(
     String mediaId, {
     required DateTime uploadedAt,
     String? storeId,
@@ -1962,9 +1965,9 @@ class MediaRepository {
     // the new value under the PREVIOUS group clock and with no pending
     // record, so a later row edit exported it under that stale clock and a
     // peer's older fact beat it (media sync program spec 5.1).
-    await _db.transaction(() async {
+    final applied = await _db.transaction(() async {
       final base = await _storeColumns(mediaId, storeId, takesOver: takesOver);
-      if (base == null) return;
+      if (base == null) return false;
       await (_db.update(_db.media)..where((t) => t.id.equals(mediaId))).write(
         base.copyWith(
           remoteUploadedAt: Value(uploadedAt.millisecondsSinceEpoch),
@@ -1977,8 +1980,10 @@ class MediaRepository {
         localUpdatedAt: now,
         group: SyncFactGroups.mediaUpload,
       );
+      return true;
     });
-    SyncEventBus.notifyLocalChange();
+    if (applied) SyncEventBus.notifyLocalChange();
+    return applied;
   }
 
   /// A media row is linked to the logbook when it references a dive, a site
@@ -2971,7 +2976,10 @@ class MediaRepository {
   }
 
   /// Confirms the thumbnail object exists in the media store.
-  Future<void> stampRemoteThumbUploaded(
+  ///
+  /// Returns whether it was written: false, with nothing written, when
+  /// another store holds the row's stamps and [takesOver] is false.
+  Future<bool> stampRemoteThumbUploaded(
     String mediaId, {
     required DateTime uploadedAt,
     String? storeId,
@@ -2983,9 +2991,9 @@ class MediaRepository {
     // the new value under the PREVIOUS group clock and with no pending
     // record, so a later row edit exported it under that stale clock and a
     // peer's older fact beat it (media sync program spec 5.1).
-    await _db.transaction(() async {
+    final applied = await _db.transaction(() async {
       final base = await _storeColumns(mediaId, storeId, takesOver: takesOver);
-      if (base == null) return;
+      if (base == null) return false;
       await (_db.update(_db.media)..where((t) => t.id.equals(mediaId))).write(
         base.copyWith(
           remoteThumbUploadedAt: Value(uploadedAt.millisecondsSinceEpoch),
@@ -2998,13 +3006,18 @@ class MediaRepository {
         localUpdatedAt: now,
         group: SyncFactGroups.mediaUpload,
       );
+      return true;
     });
-    SyncEventBus.notifyLocalChange();
+    if (applied) SyncEventBus.notifyLocalChange();
+    return applied;
   }
 
   /// Confirms a compressed rendition exists in the store, recording which
   /// level produced it (first-writer-wins) and its byte size.
-  Future<void> stampRemoteCompressedUploaded(
+  ///
+  /// Returns whether it was written: false, with nothing written, when
+  /// another store holds the row's stamps and [takesOver] is false.
+  Future<bool> stampRemoteCompressedUploaded(
     String mediaId, {
     required DateTime uploadedAt,
     required String level,
@@ -3018,9 +3031,9 @@ class MediaRepository {
     // the new value under the PREVIOUS group clock and with no pending
     // record, so a later row edit exported it under that stale clock and a
     // peer's older fact beat it (media sync program spec 5.1).
-    await _db.transaction(() async {
+    final applied = await _db.transaction(() async {
       final base = await _storeColumns(mediaId, storeId, takesOver: takesOver);
-      if (base == null) return;
+      if (base == null) return false;
       await (_db.update(_db.media)..where((t) => t.id.equals(mediaId))).write(
         base.copyWith(
           remoteCompressedUploadedAt: Value(uploadedAt.millisecondsSinceEpoch),
@@ -3035,8 +3048,10 @@ class MediaRepository {
         localUpdatedAt: now,
         group: SyncFactGroups.mediaUpload,
       );
+      return true;
     });
-    SyncEventBus.notifyLocalChange();
+    if (applied) SyncEventBus.notifyLocalChange();
+    return applied;
   }
 
   /// Clears the original-upload stamp (used when a re-upload override

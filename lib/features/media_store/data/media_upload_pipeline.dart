@@ -198,6 +198,10 @@ class MediaUploadPipeline {
       // Thumb first (spec section 9 step 5): tiny, so remote devices get
       // something renderable while the original uploads. Best-effort - a
       // thumb failure must never block the original.
+      // Set when a stamp is refused: another device took the row over for
+      // the store the library announces while this upload ran, so nothing
+      // more is written for it, cleanup included (issue #3569).
+      var takenOver = false;
       if (item.remoteThumbUploadedAt == null) {
         File? thumb;
         try {
@@ -207,7 +211,7 @@ class MediaUploadPipeline {
             if (await _store.head(thumbKey) == null) {
               await _store.putFile(thumbKey, thumb, contentType: 'image/jpeg');
             }
-            await _mediaRepository.stampRemoteThumbUploaded(
+            takenOver = !await _mediaRepository.stampRemoteThumbUploaded(
               item.id,
               uploadedAt: _now(),
               storeId: _storeId,
@@ -221,6 +225,11 @@ class MediaUploadPipeline {
             await thumb.delete();
           }
         }
+      }
+
+      if (takenOver) {
+        await _queue.markDone(entry.id);
+        return UploadOutcome.deduplicated;
       }
 
       if (_isThumbOnly(item)) {
@@ -260,7 +269,7 @@ class MediaUploadPipeline {
             contentType: StoreKeys.contentTypeFor(rendition.ext),
           );
         }
-        await _mediaRepository.stampRemoteCompressedUploaded(
+        final applied = await _mediaRepository.stampRemoteCompressedUploaded(
           item.id,
           uploadedAt: _now(),
           level: level.name,
@@ -275,6 +284,13 @@ class MediaUploadPipeline {
           // level).
           sizeBytes: existingRendition?.sizeBytes ?? rendition.sizeBytes,
         );
+        if (!applied) {
+          if (item.mediaType != MediaType.video) {
+            await _cleanupRendition(rendition.file);
+          }
+          await _queue.markDone(entry.id);
+          return UploadOutcome.deduplicated;
+        }
         if (item.mediaType != MediaType.video) {
           // Photos re-compress cheaply, so drop the temp rendition now.
           await _cleanupRendition(rendition.file);
@@ -332,12 +348,15 @@ class MediaUploadPipeline {
         );
       }
 
-      await _mediaRepository.stampRemoteUploaded(
+      if (!await _mediaRepository.stampRemoteUploaded(
         item.id,
         uploadedAt: _now(),
         storeId: _storeId,
         takesOver: await _takesOverNow(),
-      );
+      )) {
+        await _queue.markDone(entry.id);
+        return UploadOutcome.deduplicated;
+      }
       // Namespace switch (override compressed -> original): drop the now
       // unreferenced rendition object.
       if (hadCompressed) {
