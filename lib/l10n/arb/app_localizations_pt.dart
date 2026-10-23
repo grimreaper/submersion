@@ -54908,4 +54908,69 @@ class AppLocalizationsPt extends AppLocalizations {
   String documents_detail_showWithTag(String tagName) {
     return 'Mostrar documentos com a etiqueta $tagName';
   }
+
+  @override
+  String tags_bulk_adding(int total) {
+    return 'adicionando a todos os $total';
+  }
+
+  @override
+  String tags_bulk_applied(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Etiquetas atualizadas em $count itens',
+      one: 'Etiquetas atualizadas em $count item',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_confirmTitle => 'Aplicar alterações?';
+
+  @override
+  String tags_bulk_failed(String error) {
+    return 'Não foi possível atualizar as etiquetas: $error';
+  }
+
+  @override
+  String tags_bulk_onAll(int count) {
+    return 'em todos os $count';
+  }
+
+  @override
+  String tags_bulk_onSome(int count, int total) {
+    return 'em $count de $total';
+  }
+
+  @override
+  String get tags_bulk_removing => 'removendo de todos';
+
+  @override
+  String get tags_bulk_tagsLabel => 'Etiquetas';
+
+  @override
+  String tags_bulk_title(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Editar etiquetas de $count itens',
+      one: 'Editar etiquetas de $count item',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_undo => 'Desfazer';
+
+  @override
+  String get tags_bulk_undoFailed =>
+      'Não foi possível desfazer a alteração das etiquetas.';
+
+  @override
+  String get settings_conflict_field_appliesToMedia => 'Disponível em mídia';
+
+  @override
+  String get settings_conflict_field_appliesToDocuments =>
+      'Disponível em documentos';
 }

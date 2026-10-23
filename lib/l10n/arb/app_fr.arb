@@ -16173,5 +16173,18 @@
   "media_bulkTags_confirmRemoving": "{count, plural, =1{Retrait de {count} média} other{Retrait des {count} médias}}",
   "media_bulkTags_empty": "Aucune étiquette de média pour l'instant",
   "documents_field_tags": "Étiquettes",
-  "documents_detail_showWithTag": "Afficher les documents avec l'étiquette {tagName}"
+  "documents_detail_showWithTag": "Afficher les documents avec l'étiquette {tagName}",
+  "tags_bulk_adding": "ajout à tous les {total}",
+  "tags_bulk_applied": "{count, plural, =1{Étiquettes mises à jour sur {count} élément} other{Étiquettes mises à jour sur {count} éléments}}",
+  "tags_bulk_confirmTitle": "Appliquer les modifications ?",
+  "tags_bulk_failed": "Impossible de mettre à jour les étiquettes : {error}",
+  "tags_bulk_onAll": "sur tous les {count}",
+  "tags_bulk_onSome": "sur {count} sur {total}",
+  "tags_bulk_removing": "retrait de tous",
+  "tags_bulk_tagsLabel": "Étiquettes",
+  "tags_bulk_title": "{count, plural, =1{Modifier les étiquettes de {count} élément} other{Modifier les étiquettes de {count} éléments}}",
+  "tags_bulk_undo": "Annuler",
+  "tags_bulk_undoFailed": "Impossible d'annuler la modification des étiquettes.",
+  "settings_conflict_field_appliesToMedia": "Proposé pour les médias",
+  "settings_conflict_field_appliesToDocuments": "Proposé pour les documents"
 }

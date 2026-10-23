@@ -55037,4 +55037,70 @@ class AppLocalizationsFr extends AppLocalizations {
   String documents_detail_showWithTag(String tagName) {
     return 'Afficher les documents avec l\'étiquette $tagName';
   }
+
+  @override
+  String tags_bulk_adding(int total) {
+    return 'ajout à tous les $total';
+  }
+
+  @override
+  String tags_bulk_applied(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Étiquettes mises à jour sur $count éléments',
+      one: 'Étiquettes mises à jour sur $count élément',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_confirmTitle => 'Appliquer les modifications ?';
+
+  @override
+  String tags_bulk_failed(String error) {
+    return 'Impossible de mettre à jour les étiquettes : $error';
+  }
+
+  @override
+  String tags_bulk_onAll(int count) {
+    return 'sur tous les $count';
+  }
+
+  @override
+  String tags_bulk_onSome(int count, int total) {
+    return 'sur $count sur $total';
+  }
+
+  @override
+  String get tags_bulk_removing => 'retrait de tous';
+
+  @override
+  String get tags_bulk_tagsLabel => 'Étiquettes';
+
+  @override
+  String tags_bulk_title(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Modifier les étiquettes de $count éléments',
+      one: 'Modifier les étiquettes de $count élément',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_undo => 'Annuler';
+
+  @override
+  String get tags_bulk_undoFailed =>
+      'Impossible d\'annuler la modification des étiquettes.';
+
+  @override
+  String get settings_conflict_field_appliesToMedia =>
+      'Proposé pour les médias';
+
+  @override
+  String get settings_conflict_field_appliesToDocuments =>
+      'Proposé pour les documents';
 }

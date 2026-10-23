@@ -54049,4 +54049,68 @@ class AppLocalizationsEn extends AppLocalizations {
   String documents_detail_showWithTag(String tagName) {
     return 'Show documents tagged $tagName';
   }
+
+  @override
+  String tags_bulk_adding(int total) {
+    return 'adding to all $total';
+  }
+
+  @override
+  String tags_bulk_applied(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Updated tags on $count items',
+      one: 'Updated tags on 1 item',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_confirmTitle => 'Apply changes?';
+
+  @override
+  String tags_bulk_failed(String error) {
+    return 'Could not update tags: $error';
+  }
+
+  @override
+  String tags_bulk_onAll(int count) {
+    return 'on all $count';
+  }
+
+  @override
+  String tags_bulk_onSome(int count, int total) {
+    return 'on $count of $total';
+  }
+
+  @override
+  String get tags_bulk_removing => 'removing from all';
+
+  @override
+  String get tags_bulk_tagsLabel => 'Tags';
+
+  @override
+  String tags_bulk_title(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Edit tags on $count items',
+      one: 'Edit tags on 1 item',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_undo => 'Undo';
+
+  @override
+  String get tags_bulk_undoFailed => 'Couldn\'t undo the tag change.';
+
+  @override
+  String get settings_conflict_field_appliesToMedia => 'Offered on media';
+
+  @override
+  String get settings_conflict_field_appliesToDocuments =>
+      'Offered on documents';
 }

@@ -87070,6 +87070,84 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Show documents tagged {tagName}'**
   String documents_detail_showWithTag(String tagName);
+
+  /// No description provided for @tags_bulk_adding.
+  ///
+  /// In en, this message translates to:
+  /// **'adding to all {total}'**
+  String tags_bulk_adding(int total);
+
+  /// No description provided for @tags_bulk_applied.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Updated tags on 1 item} other{Updated tags on {count} items}}'**
+  String tags_bulk_applied(int count);
+
+  /// No description provided for @tags_bulk_confirmTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Apply changes?'**
+  String get tags_bulk_confirmTitle;
+
+  /// No description provided for @tags_bulk_failed.
+  ///
+  /// In en, this message translates to:
+  /// **'Could not update tags: {error}'**
+  String tags_bulk_failed(String error);
+
+  /// No description provided for @tags_bulk_onAll.
+  ///
+  /// In en, this message translates to:
+  /// **'on all {count}'**
+  String tags_bulk_onAll(int count);
+
+  /// No description provided for @tags_bulk_onSome.
+  ///
+  /// In en, this message translates to:
+  /// **'on {count} of {total}'**
+  String tags_bulk_onSome(int count, int total);
+
+  /// No description provided for @tags_bulk_removing.
+  ///
+  /// In en, this message translates to:
+  /// **'removing from all'**
+  String get tags_bulk_removing;
+
+  /// No description provided for @tags_bulk_tagsLabel.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags'**
+  String get tags_bulk_tagsLabel;
+
+  /// No description provided for @tags_bulk_title.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Edit tags on 1 item} other{Edit tags on {count} items}}'**
+  String tags_bulk_title(int count);
+
+  /// No description provided for @tags_bulk_undo.
+  ///
+  /// In en, this message translates to:
+  /// **'Undo'**
+  String get tags_bulk_undo;
+
+  /// No description provided for @tags_bulk_undoFailed.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t undo the tag change.'**
+  String get tags_bulk_undoFailed;
+
+  /// No description provided for @settings_conflict_field_appliesToMedia.
+  ///
+  /// In en, this message translates to:
+  /// **'Offered on media'**
+  String get settings_conflict_field_appliesToMedia;
+
+  /// No description provided for @settings_conflict_field_appliesToDocuments.
+  ///
+  /// In en, this message translates to:
+  /// **'Offered on documents'**
+  String get settings_conflict_field_appliesToDocuments;
 }
 
 class _AppLocalizationsDelegate

@@ -53772,4 +53772,67 @@ class AppLocalizationsHe extends AppLocalizations {
   String documents_detail_showWithTag(String tagName) {
     return 'הצג מסמכים עם התגית $tagName';
   }
+
+  @override
+  String tags_bulk_adding(int total) {
+    return 'מוסיף לכל $total';
+  }
+
+  @override
+  String tags_bulk_applied(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'התגיות של $count פריטים עודכנו',
+      one: 'התגיות של פריט אחד עודכנו',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_confirmTitle => 'להחיל שינויים?';
+
+  @override
+  String tags_bulk_failed(String error) {
+    return 'לא ניתן לעדכן את התגיות: $error';
+  }
+
+  @override
+  String tags_bulk_onAll(int count) {
+    return 'בכל $count';
+  }
+
+  @override
+  String tags_bulk_onSome(int count, int total) {
+    return 'ב-$count מתוך $total';
+  }
+
+  @override
+  String get tags_bulk_removing => 'מסיר מהכול';
+
+  @override
+  String get tags_bulk_tagsLabel => 'תגיות';
+
+  @override
+  String tags_bulk_title(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'עריכת תגיות של $count פריטים',
+      one: 'עריכת תגיות של פריט אחד',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_undo => 'ביטול';
+
+  @override
+  String get tags_bulk_undoFailed => 'לא ניתן לבטל את שינוי התגיות.';
+
+  @override
+  String get settings_conflict_field_appliesToMedia => 'זמין במדיה';
+
+  @override
+  String get settings_conflict_field_appliesToDocuments => 'זמין במסמכים';
 }

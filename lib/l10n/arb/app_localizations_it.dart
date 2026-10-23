@@ -54922,4 +54922,70 @@ class AppLocalizationsIt extends AppLocalizations {
   String documents_detail_showWithTag(String tagName) {
     return 'Mostra i documenti con il tag $tagName';
   }
+
+  @override
+  String tags_bulk_adding(int total) {
+    return 'aggiunta a tutte le $total';
+  }
+
+  @override
+  String tags_bulk_applied(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Tag aggiornati su $count elementi',
+      one: 'Tag aggiornati su 1 elemento',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_confirmTitle => 'Applicare le modifiche?';
+
+  @override
+  String tags_bulk_failed(String error) {
+    return 'Impossibile aggiornare i tag: $error';
+  }
+
+  @override
+  String tags_bulk_onAll(int count) {
+    return 'su tutte le $count';
+  }
+
+  @override
+  String tags_bulk_onSome(int count, int total) {
+    return 'su $count di $total';
+  }
+
+  @override
+  String get tags_bulk_removing => 'rimozione da tutte';
+
+  @override
+  String get tags_bulk_tagsLabel => 'Tag';
+
+  @override
+  String tags_bulk_title(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Modifica tag di $count elementi',
+      one: 'Modifica tag di 1 elemento',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_undo => 'Annulla';
+
+  @override
+  String get tags_bulk_undoFailed =>
+      'Impossibile annullare la modifica dei tag.';
+
+  @override
+  String get settings_conflict_field_appliesToMedia =>
+      'Disponibile per i media';
+
+  @override
+  String get settings_conflict_field_appliesToDocuments =>
+      'Disponibile per i documenti';
 }

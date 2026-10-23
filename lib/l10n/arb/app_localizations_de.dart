@@ -54801,4 +54801,69 @@ class AppLocalizationsDe extends AppLocalizations {
   String documents_detail_showWithTag(String tagName) {
     return 'Mit $tagName getaggte Dokumente anzeigen';
   }
+
+  @override
+  String tags_bulk_adding(int total) {
+    return 'wird zu allen $total hinzugefügt';
+  }
+
+  @override
+  String tags_bulk_applied(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Tags von $count Teilen aktualisiert',
+      one: 'Tags von 1 Teil aktualisiert',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_confirmTitle => 'Änderungen anwenden?';
+
+  @override
+  String tags_bulk_failed(String error) {
+    return 'Tags konnten nicht aktualisiert werden: $error';
+  }
+
+  @override
+  String tags_bulk_onAll(int count) {
+    return 'an allen $count';
+  }
+
+  @override
+  String tags_bulk_onSome(int count, int total) {
+    return 'an $count von $total';
+  }
+
+  @override
+  String get tags_bulk_removing => 'wird von allen entfernt';
+
+  @override
+  String get tags_bulk_tagsLabel => 'Tags';
+
+  @override
+  String tags_bulk_title(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Tags von $count Teilen bearbeiten',
+      one: 'Tags von 1 Teil bearbeiten',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_undo => 'Rückgängig';
+
+  @override
+  String get tags_bulk_undoFailed =>
+      'Die Tag-Änderung konnte nicht rückgängig gemacht werden.';
+
+  @override
+  String get settings_conflict_field_appliesToMedia => 'Für Medien angeboten';
+
+  @override
+  String get settings_conflict_field_appliesToDocuments =>
+      'Für Dokumente angeboten';
 }

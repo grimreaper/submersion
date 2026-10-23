@@ -16173,5 +16173,18 @@
   "media_bulkTags_confirmRemoving": "{count, plural, =1{Rimozione da 1 elemento multimediale} other{Rimozione da tutti i {count} elementi multimediali}}",
   "media_bulkTags_empty": "Ancora nessun tag per i media",
   "documents_field_tags": "Tag",
-  "documents_detail_showWithTag": "Mostra i documenti con il tag {tagName}"
+  "documents_detail_showWithTag": "Mostra i documenti con il tag {tagName}",
+  "tags_bulk_adding": "aggiunta a tutte le {total}",
+  "tags_bulk_applied": "{count, plural, =1{Tag aggiornati su 1 elemento} other{Tag aggiornati su {count} elementi}}",
+  "tags_bulk_confirmTitle": "Applicare le modifiche?",
+  "tags_bulk_failed": "Impossibile aggiornare i tag: {error}",
+  "tags_bulk_onAll": "su tutte le {count}",
+  "tags_bulk_onSome": "su {count} di {total}",
+  "tags_bulk_removing": "rimozione da tutte",
+  "tags_bulk_tagsLabel": "Tag",
+  "tags_bulk_title": "{count, plural, =1{Modifica tag di 1 elemento} other{Modifica tag di {count} elementi}}",
+  "tags_bulk_undo": "Annulla",
+  "tags_bulk_undoFailed": "Impossibile annullare la modifica dei tag.",
+  "settings_conflict_field_appliesToMedia": "Disponibile per i media",
+  "settings_conflict_field_appliesToDocuments": "Disponibile per i documenti"
 }

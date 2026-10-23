@@ -16173,5 +16173,18 @@
   "media_bulkTags_confirmRemoving": "{count, plural, =1{Verwijderen van 1 media-item} other{Verwijderen van alle {count} media-items}}",
   "media_bulkTags_empty": "Nog geen mediatags",
   "documents_field_tags": "Tags",
-  "documents_detail_showWithTag": "Documenten met tag {tagName} tonen"
+  "documents_detail_showWithTag": "Documenten met tag {tagName} tonen",
+  "tags_bulk_adding": "toevoegen aan alle {total}",
+  "tags_bulk_applied": "{count, plural, =1{Tags van 1 item bijgewerkt} other{Tags van {count} items bijgewerkt}}",
+  "tags_bulk_confirmTitle": "Wijzigingen toepassen?",
+  "tags_bulk_failed": "Kan tags niet bijwerken: {error}",
+  "tags_bulk_onAll": "op alle {count}",
+  "tags_bulk_onSome": "op {count} van {total}",
+  "tags_bulk_removing": "verwijderen van alle",
+  "tags_bulk_tagsLabel": "Tags",
+  "tags_bulk_title": "{count, plural, =1{Tags van 1 item bewerken} other{Tags van {count} items bewerken}}",
+  "tags_bulk_undo": "Ongedaan maken",
+  "tags_bulk_undoFailed": "Kan de tagwijziging niet ongedaan maken.",
+  "settings_conflict_field_appliesToMedia": "Beschikbaar bij media",
+  "settings_conflict_field_appliesToDocuments": "Beschikbaar bij documenten"
 }

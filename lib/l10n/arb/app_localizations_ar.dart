@@ -55631,4 +55631,73 @@ class AppLocalizationsAr extends AppLocalizations {
   String documents_detail_showWithTag(String tagName) {
     return 'عرض المستندات الموسومة بـ $tagName';
   }
+
+  @override
+  String tags_bulk_adding(int total) {
+    return 'إضافة إلى كل الـ $total';
+  }
+
+  @override
+  String tags_bulk_applied(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'تم تحديث الوسوم على $count عنصر',
+      many: 'تم تحديث الوسوم على $count عنصرًا',
+      few: 'تم تحديث الوسوم على $count عناصر',
+      two: 'تم تحديث الوسوم على عنصرين',
+      one: 'تم تحديث الوسوم على عنصر واحد',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_confirmTitle => 'تطبيق التغييرات؟';
+
+  @override
+  String tags_bulk_failed(String error) {
+    return 'تعذر تحديث الوسوم: $error';
+  }
+
+  @override
+  String tags_bulk_onAll(int count) {
+    return 'في كل الـ $count';
+  }
+
+  @override
+  String tags_bulk_onSome(int count, int total) {
+    return 'في $count من $total';
+  }
+
+  @override
+  String get tags_bulk_removing => 'إزالة من الكل';
+
+  @override
+  String get tags_bulk_tagsLabel => 'الوسوم';
+
+  @override
+  String tags_bulk_title(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'تعديل الوسوم على $count عنصر',
+      many: 'تعديل الوسوم على $count عنصرًا',
+      few: 'تعديل الوسوم على $count عناصر',
+      two: 'تعديل الوسوم على عنصرين',
+      one: 'تعديل الوسوم على عنصر واحد',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_undo => 'تراجع';
+
+  @override
+  String get tags_bulk_undoFailed => 'تعذر التراجع عن تغيير الوسوم.';
+
+  @override
+  String get settings_conflict_field_appliesToMedia => 'متاح للوسائط';
+
+  @override
+  String get settings_conflict_field_appliesToDocuments => 'متاح للمستندات';
 }

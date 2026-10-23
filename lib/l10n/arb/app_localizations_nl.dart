@@ -54580,4 +54580,68 @@ class AppLocalizationsNl extends AppLocalizations {
   String documents_detail_showWithTag(String tagName) {
     return 'Documenten met tag $tagName tonen';
   }
+
+  @override
+  String tags_bulk_adding(int total) {
+    return 'toevoegen aan alle $total';
+  }
+
+  @override
+  String tags_bulk_applied(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Tags van $count items bijgewerkt',
+      one: 'Tags van 1 item bijgewerkt',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_confirmTitle => 'Wijzigingen toepassen?';
+
+  @override
+  String tags_bulk_failed(String error) {
+    return 'Kan tags niet bijwerken: $error';
+  }
+
+  @override
+  String tags_bulk_onAll(int count) {
+    return 'op alle $count';
+  }
+
+  @override
+  String tags_bulk_onSome(int count, int total) {
+    return 'op $count van $total';
+  }
+
+  @override
+  String get tags_bulk_removing => 'verwijderen van alle';
+
+  @override
+  String get tags_bulk_tagsLabel => 'Tags';
+
+  @override
+  String tags_bulk_title(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Tags van $count items bewerken',
+      one: 'Tags van 1 item bewerken',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_undo => 'Ongedaan maken';
+
+  @override
+  String get tags_bulk_undoFailed => 'Kan de tagwijziging niet ongedaan maken.';
+
+  @override
+  String get settings_conflict_field_appliesToMedia => 'Beschikbaar bij media';
+
+  @override
+  String get settings_conflict_field_appliesToDocuments =>
+      'Beschikbaar bij documenten';
 }

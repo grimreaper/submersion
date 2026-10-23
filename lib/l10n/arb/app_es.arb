@@ -16173,5 +16173,18 @@
   "media_bulkTags_confirmRemoving": "{count, plural, =1{Quitando de 1 elemento multimedia} other{Quitando de los {count} elementos multimedia}}",
   "media_bulkTags_empty": "Aún no hay etiquetas de multimedia",
   "documents_field_tags": "Etiquetas",
-  "documents_detail_showWithTag": "Mostrar documentos con la etiqueta {tagName}"
+  "documents_detail_showWithTag": "Mostrar documentos con la etiqueta {tagName}",
+  "tags_bulk_adding": "añadiendo a todos ({total})",
+  "tags_bulk_applied": "{count, plural, =1{Etiquetas actualizadas en 1 elemento} other{Etiquetas actualizadas en {count} elementos}}",
+  "tags_bulk_confirmTitle": "¿Aplicar cambios?",
+  "tags_bulk_failed": "No se pudieron actualizar las etiquetas: {error}",
+  "tags_bulk_onAll": "en todos los {count}",
+  "tags_bulk_onSome": "en {count} de {total}",
+  "tags_bulk_removing": "quitando de todos",
+  "tags_bulk_tagsLabel": "Etiquetas",
+  "tags_bulk_title": "{count, plural, =1{Editar etiquetas de 1 elemento} other{Editar etiquetas de {count} elementos}}",
+  "tags_bulk_undo": "Deshacer",
+  "tags_bulk_undoFailed": "No se pudo deshacer el cambio de etiquetas.",
+  "settings_conflict_field_appliesToMedia": "Disponible en multimedia",
+  "settings_conflict_field_appliesToDocuments": "Disponible en documentos"
 }

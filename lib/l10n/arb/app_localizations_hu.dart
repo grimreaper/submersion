@@ -54604,4 +54604,69 @@ class AppLocalizationsHu extends AppLocalizations {
   String documents_detail_showWithTag(String tagName) {
     return '$tagName címkéjű dokumentumok megjelenítése';
   }
+
+  @override
+  String tags_bulk_adding(int total) {
+    return 'hozzáadás mind a $total felszereléshez';
+  }
+
+  @override
+  String tags_bulk_applied(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count elem címkéi frissítve',
+      one: '1 elem címkéi frissítve',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_confirmTitle => 'Alkalmazza a módosításokat?';
+
+  @override
+  String tags_bulk_failed(String error) {
+    return 'Nem sikerült frissíteni a címkéket: $error';
+  }
+
+  @override
+  String tags_bulk_onAll(int count) {
+    return 'mind a $count felszerelésen';
+  }
+
+  @override
+  String tags_bulk_onSome(int count, int total) {
+    return '$count/$total felszerelésen';
+  }
+
+  @override
+  String get tags_bulk_removing => 'eltávolítás az összesről';
+
+  @override
+  String get tags_bulk_tagsLabel => 'Címkék';
+
+  @override
+  String tags_bulk_title(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count elem címkéinek szerkesztése',
+      one: '1 elem címkéinek szerkesztése',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_undo => 'Visszavonás';
+
+  @override
+  String get tags_bulk_undoFailed =>
+      'A címkék módosítását nem sikerült visszavonni.';
+
+  @override
+  String get settings_conflict_field_appliesToMedia => 'Médiánál elérhető';
+
+  @override
+  String get settings_conflict_field_appliesToDocuments =>
+      'Dokumentumoknál elérhető';
 }

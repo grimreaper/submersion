@@ -16173,5 +16173,18 @@
   "media_bulkTags_confirmRemoving": "{count, plural, =1{הסרה מפריט מדיה אחד} other{הסרה מכל {count} פריטי המדיה}}",
   "media_bulkTags_empty": "אין תגיות מדיה עדיין",
   "documents_field_tags": "תגיות",
-  "documents_detail_showWithTag": "הצג מסמכים עם התגית {tagName}"
+  "documents_detail_showWithTag": "הצג מסמכים עם התגית {tagName}",
+  "tags_bulk_adding": "מוסיף לכל {total}",
+  "tags_bulk_applied": "{count, plural, =1{התגיות של פריט אחד עודכנו} other{התגיות של {count} פריטים עודכנו}}",
+  "tags_bulk_confirmTitle": "להחיל שינויים?",
+  "tags_bulk_failed": "לא ניתן לעדכן את התגיות: {error}",
+  "tags_bulk_onAll": "בכל {count}",
+  "tags_bulk_onSome": "ב-{count} מתוך {total}",
+  "tags_bulk_removing": "מסיר מהכול",
+  "tags_bulk_tagsLabel": "תגיות",
+  "tags_bulk_title": "{count, plural, =1{עריכת תגיות של פריט אחד} other{עריכת תגיות של {count} פריטים}}",
+  "tags_bulk_undo": "ביטול",
+  "tags_bulk_undoFailed": "לא ניתן לבטל את שינוי התגיות.",
+  "settings_conflict_field_appliesToMedia": "זמין במדיה",
+  "settings_conflict_field_appliesToDocuments": "זמין במסמכים"
 }

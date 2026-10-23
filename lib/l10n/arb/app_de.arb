@@ -16294,5 +16294,18 @@
   "media_bulkTags_confirmRemoving": "{count, plural, =1{Wird von 1 Medium entfernt} other{Wird von allen {count} Medien entfernt}}",
   "media_bulkTags_empty": "Noch keine Medien-Tags",
   "documents_field_tags": "Tags",
-  "documents_detail_showWithTag": "Mit {tagName} getaggte Dokumente anzeigen"
+  "documents_detail_showWithTag": "Mit {tagName} getaggte Dokumente anzeigen",
+  "tags_bulk_adding": "wird zu allen {total} hinzugefügt",
+  "tags_bulk_applied": "{count, plural, =1{Tags von 1 Teil aktualisiert} other{Tags von {count} Teilen aktualisiert}}",
+  "tags_bulk_confirmTitle": "Änderungen anwenden?",
+  "tags_bulk_failed": "Tags konnten nicht aktualisiert werden: {error}",
+  "tags_bulk_onAll": "an allen {count}",
+  "tags_bulk_onSome": "an {count} von {total}",
+  "tags_bulk_removing": "wird von allen entfernt",
+  "tags_bulk_tagsLabel": "Tags",
+  "tags_bulk_title": "{count, plural, =1{Tags von 1 Teil bearbeiten} other{Tags von {count} Teilen bearbeiten}}",
+  "tags_bulk_undo": "Rückgängig",
+  "tags_bulk_undoFailed": "Die Tag-Änderung konnte nicht rückgängig gemacht werden.",
+  "settings_conflict_field_appliesToMedia": "Für Medien angeboten",
+  "settings_conflict_field_appliesToDocuments": "Für Dokumente angeboten"
 }

@@ -16173,5 +16173,18 @@
   "media_bulkTags_confirmRemoving": "{count, plural, =1{Eltávolítás 1 médiaelemről} other{Eltávolítás mind a(z) {count} médiaelemről}}",
   "media_bulkTags_empty": "Még nincsenek médiacímkék",
   "documents_field_tags": "Címkék",
-  "documents_detail_showWithTag": "{tagName} címkéjű dokumentumok megjelenítése"
+  "documents_detail_showWithTag": "{tagName} címkéjű dokumentumok megjelenítése",
+  "tags_bulk_adding": "hozzáadás mind a {total} felszereléshez",
+  "tags_bulk_applied": "{count, plural, =1{1 elem címkéi frissítve} other{{count} elem címkéi frissítve}}",
+  "tags_bulk_confirmTitle": "Alkalmazza a módosításokat?",
+  "tags_bulk_failed": "Nem sikerült frissíteni a címkéket: {error}",
+  "tags_bulk_onAll": "mind a {count} felszerelésen",
+  "tags_bulk_onSome": "{count}/{total} felszerelésen",
+  "tags_bulk_removing": "eltávolítás az összesről",
+  "tags_bulk_tagsLabel": "Címkék",
+  "tags_bulk_title": "{count, plural, =1{1 elem címkéinek szerkesztése} other{{count} elem címkéinek szerkesztése}}",
+  "tags_bulk_undo": "Visszavonás",
+  "tags_bulk_undoFailed": "A címkék módosítását nem sikerült visszavonni.",
+  "settings_conflict_field_appliesToMedia": "Médiánál elérhető",
+  "settings_conflict_field_appliesToDocuments": "Dokumentumoknál elérhető"
 }

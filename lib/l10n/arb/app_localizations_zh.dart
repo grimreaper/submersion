@@ -51569,4 +51569,67 @@ class AppLocalizationsZh extends AppLocalizations {
   String documents_detail_showWithTag(String tagName) {
     return '显示带有标签 $tagName 的文档';
   }
+
+  @override
+  String tags_bulk_adding(int total) {
+    return '添加到全部 $total 件';
+  }
+
+  @override
+  String tags_bulk_applied(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '已更新 $count 件物品的标签',
+      one: '已更新 1 件物品的标签',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_confirmTitle => '应用更改？';
+
+  @override
+  String tags_bulk_failed(String error) {
+    return '无法更新标签：$error';
+  }
+
+  @override
+  String tags_bulk_onAll(int count) {
+    return '全部 $count 件装备';
+  }
+
+  @override
+  String tags_bulk_onSome(int count, int total) {
+    return '$count/$total 件装备';
+  }
+
+  @override
+  String get tags_bulk_removing => '从全部移除';
+
+  @override
+  String get tags_bulk_tagsLabel => '标签';
+
+  @override
+  String tags_bulk_title(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '编辑 $count 件物品的标签',
+      one: '编辑 1 件物品的标签',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_undo => '撤消';
+
+  @override
+  String get tags_bulk_undoFailed => '无法撤消标签更改。';
+
+  @override
+  String get settings_conflict_field_appliesToMedia => '可用于媒体';
+
+  @override
+  String get settings_conflict_field_appliesToDocuments => '可用于文档';
 }

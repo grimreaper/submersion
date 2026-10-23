@@ -16173,5 +16173,18 @@
   "media_bulkTags_confirmRemoving": "{count, plural, one{إزالة من عنصر وسائط واحد} two{إزالة من عنصري الوسائط} few{إزالة من كل العناصر الـ {count}} many{إزالة من كل العناصر الـ {count}} other{إزالة من كل العناصر الـ {count}}}",
   "media_bulkTags_empty": "لا توجد وسوم للوسائط بعد",
   "documents_field_tags": "الوسوم",
-  "documents_detail_showWithTag": "عرض المستندات الموسومة بـ {tagName}"
+  "documents_detail_showWithTag": "عرض المستندات الموسومة بـ {tagName}",
+  "tags_bulk_adding": "إضافة إلى كل الـ {total}",
+  "tags_bulk_applied": "{count, plural, one{تم تحديث الوسوم على عنصر واحد} two{تم تحديث الوسوم على عنصرين} few{تم تحديث الوسوم على {count} عناصر} many{تم تحديث الوسوم على {count} عنصرًا} other{تم تحديث الوسوم على {count} عنصر}}",
+  "tags_bulk_confirmTitle": "تطبيق التغييرات؟",
+  "tags_bulk_failed": "تعذر تحديث الوسوم: {error}",
+  "tags_bulk_onAll": "في كل الـ {count}",
+  "tags_bulk_onSome": "في {count} من {total}",
+  "tags_bulk_removing": "إزالة من الكل",
+  "tags_bulk_tagsLabel": "الوسوم",
+  "tags_bulk_title": "{count, plural, one{تعديل الوسوم على عنصر واحد} two{تعديل الوسوم على عنصرين} few{تعديل الوسوم على {count} عناصر} many{تعديل الوسوم على {count} عنصرًا} other{تعديل الوسوم على {count} عنصر}}",
+  "tags_bulk_undo": "تراجع",
+  "tags_bulk_undoFailed": "تعذر التراجع عن تغيير الوسوم.",
+  "settings_conflict_field_appliesToMedia": "متاح للوسائط",
+  "settings_conflict_field_appliesToDocuments": "متاح للمستندات"
 }
