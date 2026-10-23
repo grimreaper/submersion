@@ -116,4 +116,26 @@ void main() {
     expect(await tagIdsOf(saved.id), isEmpty);
     expect(await tombstones(db, 'documentTags'), 2);
   });
+
+  test('an undone owner delete brings the tags back', () async {
+    final saved = await repo.save(
+      newDoc(owner: const DocumentOwner(DocumentOwnerKind.trip, 't1')),
+      [
+        page(0, [1]),
+      ],
+      tagIds: ['travel', 'club'],
+    );
+    final snapshot = await repo.captureForOwners(DocumentOwnerKind.trip, [
+      't1',
+    ]);
+    await db.transaction(
+      () => repo.deleteForOwner(DocumentOwnerKind.trip, 't1'),
+    );
+    // A tag deleted between the delete and the undo is left out.
+    await db.customStatement("DELETE FROM tags WHERE id = 'club'");
+
+    await repo.restoreSnapshot(snapshot);
+
+    expect(await tagIdsOf(saved.id), ['travel']);
+  });
 }

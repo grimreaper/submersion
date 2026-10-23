@@ -2,6 +2,7 @@ import 'package:flutter/material.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/core/text/text_sort.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/features/certification_agencies/presentation/providers/certification_catalog_providers.dart';
 import 'package:submersion/features/documents/data/repositories/document_repository.dart';
@@ -204,20 +205,21 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
     ].any((v) => v != null && v.toLowerCase().contains(q));
   }
 
-  /// Every tag some document carries, by name, plus any still selected, so
-  /// a filter on a tag that has since gone stays clearable.
+  /// Every tag one of [entries] carries, by name, plus any still selected,
+  /// so a filter on a tag that has since gone stays clearable. Read from the
+  /// listed documents, not every link: those include other divers'.
   List<Tag> _filterTags(
+    List<DocumentListEntry> entries,
     Map<String, List<Tag>> tagsByDocument,
     List<Tag> allTags,
   ) {
     final byId = <String, Tag>{
-      for (final tags in tagsByDocument.values)
-        for (final t in tags) t.id: t,
+      for (final e in entries)
+        for (final t in tagsByDocument[e.document.id] ?? const <Tag>[]) t.id: t,
       for (final t in allTags)
         if (_tagIds.contains(t.id)) t.id: t,
     };
-    return byId.values.toList()
-      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
+    return sortedByText(byId.values, (t) => t.name);
   }
 
   @override
@@ -242,7 +244,7 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
         final shown = entries
             .where((e) => _matches(e, units, tagsByDocument))
             .toList();
-        final filterTags = _filterTags(tagsByDocument, allTags);
+        final filterTags = _filterTags(entries, tagsByDocument, allTags);
         final listed = _expiringOnly
             ? [
                 for (final (e, _) in DocumentsExpiringStrip.due(

@@ -12,8 +12,9 @@ import 'package:submersion/features/tags/data/repositories/tag_link_repository.d
 /// an edit made to an item between Apply and Undo survives both, and a stale
 /// whole-item snapshot can never beat a peer's newer edit (#1769).
 class BulkTagService {
-  BulkTagService(this._repository, {required String itemTable})
-    : _itemTable = itemTable;
+  BulkTagService(TagLinkRepository repository, {required String itemTable})
+    : _repository = repository,
+      _itemTable = itemTable;
 
   final TagLinkRepository _repository;
 

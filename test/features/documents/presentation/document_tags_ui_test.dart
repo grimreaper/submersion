@@ -4,6 +4,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 
 import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/documents/data/repositories/document_repository.dart';
 import 'package:submersion/features/documents/domain/entities/document.dart';
@@ -164,6 +165,20 @@ void main() {
     t,
   ) async {
     await t.runAsync(() async {
+      final db = DatabaseService.instance.database;
+      await db.customStatement(
+        'INSERT INTO divers (id, name, created_at, updated_at) '
+        "VALUES ('d2', 'Ben', 0, 0)",
+      );
+      await db.customStatement(
+        'INSERT INTO tags (id, diver_id, name, created_at, updated_at, '
+        "applies_to_documents) VALUES ('other', 'd2', 'Other', 0, 0, 1)",
+      );
+      await db.customStatement(
+        'INSERT INTO documents (id, diver_id, type, created_at, updated_at) '
+        "VALUES ('d2-doc', 'd2', 'other', 0, 0)",
+      );
+      await links.addTags(['d2-doc'], ['other']);
       await save('DAN', tagIds: ['travel']);
       await save('Club card', tagIds: ['club']);
       await save('Logbook scan');
@@ -172,6 +187,11 @@ void main() {
 
     // Tile chips, plus one filter chip per tag in use.
     expect(find.text('Travel'), findsNWidgets(2));
+    expect(
+      find.byKey(const ValueKey('documents-filter-tag-other')),
+      findsNothing,
+      reason: "another diver's document tag is not offered",
+    );
     expect(find.byKey(const ValueKey('documents-filter-tag-club')), findsOne);
 
     await t.tap(find.byKey(const ValueKey('documents-filter-tag-travel')));

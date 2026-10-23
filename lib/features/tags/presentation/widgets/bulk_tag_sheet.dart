@@ -15,14 +15,13 @@ import 'package:submersion/shared/selection/bulk_action.dart';
 
 /// The words a bulk tag edit uses that name what is being tagged.
 typedef BulkTagSheetLabels = ({
-  String Function(int count) title,
   String Function(int count) confirmAdding,
   String Function(int count) confirmRemoving,
   String empty,
 });
 
-/// Edits the tags of the [scope] items in [itemIds] (issue #1970), as the
-/// equipment bulk tag editor does for gear (#1942).
+/// Edits the tags of the [scope] items in [itemIds] (issues #1942, #1970)
+/// through [service].
 ///
 /// Opens [BulkTagSheet]. Once the diver confirms, the tags go on and come
 /// off every item in one transaction, and a SnackBar offers Undo. Returns
@@ -32,9 +31,10 @@ Future<BulkActionOutcome> showBulkTagSheet(
   BuildContext context,
   WidgetRef ref, {
   required TagScope scope,
-  required String itemTable,
+  required BulkTagService service,
   required List<String> itemIds,
   required BulkTagSheetLabels labels,
+  String keyPrefix = 'bulkTags',
 }) async {
   if (itemIds.isEmpty) return BulkActionOutcome.cancelled;
   // Captured before the sheet opens: Undo can run after the view that
@@ -42,10 +42,6 @@ Future<BulkActionOutcome> showBulkTagSheet(
   final messenger = ScaffoldMessenger.of(context);
   final l10n = context.l10n;
   final errorColor = Theme.of(context).colorScheme.error;
-  final service = BulkTagService(
-    ref.read(tagLinkRepositoryProvider(scope)),
-    itemTable: itemTable,
-  );
 
   final delta = await showModalBottomSheet<MembershipDelta>(
     context: context,
@@ -59,14 +55,13 @@ Future<BulkActionOutcome> showBulkTagSheet(
         scope: scope,
         itemIds: itemIds,
         labels: labels,
+        keyPrefix: keyPrefix,
         scrollController: scrollController,
       ),
     ),
   );
   if (delta == null || delta.isEmpty) return BulkActionOutcome.cancelled;
 
-  // The undo, applied and failure wording names no kind of item, so it is
-  // shared with the equipment editor.
   try {
     final prior = await service.apply(
       itemIds: itemIds,
@@ -75,7 +70,7 @@ Future<BulkActionOutcome> showBulkTagSheet(
     );
     messenger.showSnackBar(
       SnackBar(
-        content: Text(l10n.equipment_bulkTags_applied(itemIds.length)),
+        content: Text(l10n.tags_bulk_applied(itemIds.length)),
         duration: const Duration(seconds: 5),
         // A SnackBar with an action defaults to persist: true, which stops
         // the auto-dismiss. Force the 5 s dismiss and add a close icon, so
@@ -83,7 +78,7 @@ Future<BulkActionOutcome> showBulkTagSheet(
         persist: false,
         showCloseIcon: true,
         action: SnackBarAction(
-          label: l10n.equipment_bulkTags_undo,
+          label: l10n.tags_bulk_undo,
           // A failed restore says so: the banner that offered Undo is
           // already gone, so silence would read as success.
           onPressed: () async {
@@ -97,7 +92,7 @@ Future<BulkActionOutcome> showBulkTagSheet(
               );
               messenger.showSnackBar(
                 SnackBar(
-                  content: Text(l10n.equipment_bulkTags_undoFailed),
+                  content: Text(l10n.tags_bulk_undoFailed),
                   backgroundColor: errorColor,
                 ),
               );
@@ -113,7 +108,7 @@ Future<BulkActionOutcome> showBulkTagSheet(
     ).error('Failed to edit tags', error: e, stackTrace: stackTrace);
     messenger.showSnackBar(
       SnackBar(
-        content: Text(l10n.equipment_bulkTags_failed('$e')),
+        content: Text(l10n.tags_bulk_failed('$e')),
         backgroundColor: errorColor,
       ),
     );
@@ -134,11 +129,15 @@ class BulkTagSheet extends ConsumerStatefulWidget {
     required this.itemIds,
     required this.labels,
     required this.scrollController,
+    this.keyPrefix = 'bulkTags',
   });
 
   final TagScope scope;
   final List<String> itemIds;
   final BulkTagSheetLabels labels;
+
+  /// Prefix of the buttons' keys (`<prefix>_apply` and so on), for tests.
+  final String keyPrefix;
 
   /// Supplied by the enclosing [DraggableScrollableSheet].
   final ScrollController scrollController;
@@ -214,7 +213,7 @@ class _BulkTagSheetState extends ConsumerState<BulkTagSheet> {
       // the Browse action in the button row can restage `picked` too.
       builder: (ctx) => StatefulBuilder(
         builder: (ctx, setDialogState) => AlertDialog(
-          title: Text(l10n.equipment_bulkTags_tagsLabel),
+          title: Text(l10n.tags_bulk_tagsLabel),
           content: TagInputWidget(
             selectedTags: picked,
             onTagsChanged: (tags) => setDialogState(() => picked = tags),
@@ -254,16 +253,12 @@ class _BulkTagSheetState extends ConsumerState<BulkTagSheet> {
     final l10n = context.l10n;
     final total = widget.itemIds.length;
     final sections = summarizeBulkMembership([
-      (
-        title: l10n.equipment_bulkTags_tagsLabel,
-        delta: _delta,
-        members: _members,
-      ),
+      (title: l10n.tags_bulk_tagsLabel, delta: _delta, members: _members),
     ]);
     final confirmed = await showDialog<bool>(
       context: context,
       builder: (ctx) => AlertDialog(
-        title: Text(l10n.equipment_bulkTags_confirmTitle),
+        title: Text(l10n.tags_bulk_confirmTitle),
         content: SingleChildScrollView(
           child: BulkChangeSummary(
             sections: sections,
@@ -277,7 +272,7 @@ class _BulkTagSheetState extends ConsumerState<BulkTagSheet> {
             child: Text(l10n.common_action_cancel),
           ),
           FilledButton(
-            key: const ValueKey('bulkTags_confirm'),
+            key: ValueKey('${widget.keyPrefix}_confirm'),
             onPressed: () => Navigator.pop(ctx, true),
             child: Text(l10n.common_action_apply),
           ),
@@ -314,13 +309,13 @@ class _BulkTagSheetState extends ConsumerState<BulkTagSheet> {
                 controller: widget.scrollController,
                 children: [
                   BulkMembershipEditor(
-                    title: widget.labels.title(total),
+                    title: l10n.tags_bulk_title(total),
                     total: total,
                     labels: BulkMembershipLabels(
-                      onAll: l10n.equipment_bulkTags_onAll,
-                      onSome: l10n.equipment_bulkTags_onSome,
-                      adding: l10n.equipment_bulkTags_adding,
-                      removing: l10n.equipment_bulkTags_removing,
+                      onAll: l10n.tags_bulk_onAll,
+                      onSome: l10n.tags_bulk_onSome,
+                      adding: l10n.tags_bulk_adding,
+                      removing: l10n.tags_bulk_removing,
                       empty: widget.labels.empty,
                       add: l10n.common_action_add,
                     ),
@@ -345,13 +340,13 @@ class _BulkTagSheetState extends ConsumerState<BulkTagSheet> {
                   mainAxisAlignment: MainAxisAlignment.end,
                   children: [
                     TextButton(
-                      key: const ValueKey('bulkTags_cancel'),
+                      key: ValueKey('${widget.keyPrefix}_cancel'),
                       onPressed: () => Navigator.of(context).pop(),
                       child: Text(l10n.common_action_cancel),
                     ),
                     const SizedBox(width: 8),
                     FilledButton(
-                      key: const ValueKey('bulkTags_apply'),
+                      key: ValueKey('${widget.keyPrefix}_apply'),
                       onPressed: _delta.isEmpty ? null : _confirm,
                       child: Text(l10n.common_action_apply),
                     ),

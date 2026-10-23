@@ -10469,10 +10469,14 @@ class SyncDataSerializer {
   /// pending mark, never by re-stamping the photo.
   Future<List<Map<String, dynamic>>> _exportMediaTags(String? hlcSince) async {
     if (hlcSince != null) {
-      final modified = await (_db.select(
-        _db.media,
-      )..where((t) => t.hlc.isBiggerThanValue(hlcSince))).get();
-      final ids = modified.map((e) => e.id).toSet();
+      // Ids only: a media row can carry a signature's image bytes.
+      final ids =
+          await (_db.selectOnly(_db.media)
+                ..addColumns([_db.media.id])
+                ..where(_db.media.hlc.isBiggerThanValue(hlcSince)))
+              .map((r) => r.read(_db.media.id)!)
+              .get()
+              .then((ids) => ids.toSet());
       if (ids.isEmpty) return [];
 
       return _childRowsOf(
@@ -10492,10 +10496,13 @@ class SyncDataSerializer {
     String? hlcSince,
   ) async {
     if (hlcSince != null) {
-      final modified = await (_db.select(
-        _db.documents,
-      )..where((t) => t.hlc.isBiggerThanValue(hlcSince))).get();
-      final ids = modified.map((e) => e.id).toSet();
+      final ids =
+          await (_db.selectOnly(_db.documents)
+                ..addColumns([_db.documents.id])
+                ..where(_db.documents.hlc.isBiggerThanValue(hlcSince)))
+              .map((r) => r.read(_db.documents.id)!)
+              .get()
+              .then((ids) => ids.toSet());
       if (ids.isEmpty) return [];
 
       return _childRowsOf(

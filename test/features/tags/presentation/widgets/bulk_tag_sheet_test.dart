@@ -3,6 +3,7 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/features/tags/data/repositories/tag_link_repository.dart';
+import 'package:submersion/features/tags/data/services/bulk_tag_service.dart';
 import 'package:submersion/features/tags/domain/entities/tag.dart';
 import 'package:submersion/features/tags/presentation/widgets/bulk_tag_sheet.dart';
 import 'package:submersion/shared/selection/bulk_action.dart';
@@ -55,10 +56,9 @@ void main() {
                 context,
                 ref,
                 scope: TagScope.media,
-                itemTable: 'media',
+                service: BulkTagService(links, itemTable: 'media'),
                 itemIds: const ['m1', 'm2'],
                 labels: (
-                  title: (n) => 'Edit tags on $n items',
                   confirmAdding: (n) => 'Adding to all $n media items',
                   confirmRemoving: (n) => 'Removing from all $n media items',
                   empty: 'No media tags yet',
