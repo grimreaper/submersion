@@ -1,6 +1,5 @@
-import 'package:drift/drift.dart';
-
 import 'package:submersion/core/database/database.dart';
+import 'package:submersion/core/database/existing_row_ids.dart';
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/services/sync/sync_event_bus.dart';
 import 'package:submersion/features/tags/data/repositories/tag_link_repository.dart';
@@ -69,8 +68,11 @@ class BulkTagService {
   Future<void> undo(Map<String, List<String>> prior) async {
     if (prior.isEmpty) return;
     await _db.transaction(() async {
-      final liveItems = await _existing(_itemTable, prior.keys);
-      final liveTags = await _existing('tags', {
+      final itemTable = _db.allTables.firstWhere(
+        (t) => t.actualTableName == _itemTable,
+      );
+      final liveItems = await existingRowIds(_db, itemTable, prior.keys);
+      final liveTags = await existingRowIds(_db, _db.tags, {
         for (final tags in prior.values) ...tags,
       });
       for (final entry in prior.entries) {
@@ -82,23 +84,5 @@ class BulkTagService {
       }
     });
     SyncEventBus.notifyLocalChange();
-  }
-
-  /// Which of [ids] still exist in [table].
-  Future<Set<String>> _existing(String table, Iterable<String> ids) async {
-    final all = ids.toSet().toList();
-    final found = <String>{};
-    for (var i = 0; i < all.length; i += 900) {
-      final chunk = all.sublist(i, i + 900 < all.length ? i + 900 : all.length);
-      final rows = await _db
-          .customSelect(
-            'SELECT id FROM $table '
-            'WHERE id IN (${List.filled(chunk.length, '?').join(', ')})',
-            variables: [for (final id in chunk) Variable.withString(id)],
-          )
-          .get();
-      found.addAll(rows.map((r) => r.read<String>('id')));
-    }
-    return found;
   }
 }

@@ -215,4 +215,14 @@ void main() {
     expect(find.text('Club card'), findsNothing);
     expect(find.text('Logbook scan'), findsNothing);
   });
+
+  testWidgets(
+    'a filter on a tag that no longer exists does not hide the list',
+    (t) async {
+      await t.runAsync(() => save('DAN', tagIds: ['travel']));
+      await pump(t, '/documents?tag=gone');
+
+      expect(find.text('DAN'), findsOneWidget);
+    },
+  );
 }

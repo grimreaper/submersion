@@ -5,6 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:image_picker/image_picker.dart';
 
 import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/core/services/logger_service.dart';
 import 'package:submersion/core/utils/unit_formatter.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/documents/data/services/document_page_capture.dart';
@@ -149,8 +150,13 @@ class _DocumentEditPageState extends ConsumerState<DocumentEditPage> {
           .read(tagLinkRepositoryProvider(TagScope.documents))
           .getTagsFor(id);
       _tagsLoaded = true;
-    } catch (_) {
+    } catch (e, stackTrace) {
       // The field stays disabled and the save leaves the tags as stored.
+      LoggerService.forClass(DocumentEditPage).warning(
+        'Could not read the tags of document $id',
+        error: e,
+        stackTrace: stackTrace,
+      );
     }
   }
 

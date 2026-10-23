@@ -6,6 +6,7 @@ import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/services/sync/sync_event_bus.dart';
 import 'package:submersion/core/text/text_sort.dart';
+import 'package:submersion/features/dive_log/data/repositories/series_id_chunks.dart';
 import 'package:submersion/features/tags/data/mappers/tag_row_mapper.dart';
 import 'package:submersion/features/tags/domain/entities/tag.dart' as domain;
 
@@ -30,10 +31,6 @@ class TagLinkRepository {
   AppDatabase get _db => DatabaseService.instance.database;
   final SyncRepository _syncRepository = SyncRepository();
   final _uuid = const Uuid();
-
-  /// Ids bound per `IN (...)` list: under SQLite's 999-variable floor, with
-  /// room for the one tag id [removeTags] binds beside them.
-  static const int _idChunk = 900;
 
   String get _junction => scope.table.junctionTable;
   String get _item => scope.table.parentColumn;
@@ -273,12 +270,6 @@ class TagLinkRepository {
     for (final id in ids) Variable.withString(id),
   ];
 
-  static Iterable<List<String>> _chunks(List<String> ids) sync* {
-    for (var i = 0; i < ids.length; i += _idChunk) {
-      yield ids.sublist(
-        i,
-        i + _idChunk < ids.length ? i + _idChunk : ids.length,
-      );
-    }
-  }
+  static Iterable<List<String>> _chunks(List<String> ids) =>
+      seriesIdChunks(ids);
 }

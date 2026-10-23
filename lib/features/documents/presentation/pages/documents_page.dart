@@ -161,6 +161,9 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
   /// Tags the list is filtered to, any of them matching (issue #1970).
   late Set<String> _tagIds = {?widget.initialTagId};
 
+  /// [_tagIds] less any tag that no longer exists, set on each build.
+  Set<String> _activeTagIds = const {};
+
   @override
   void didUpdateWidget(DocumentsListContent oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -191,7 +194,8 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
     if (_type != null && d.type != _type) return false;
     if (_personalOnly && !d.owner.isPersonal) return false;
     final tags = tagsByDocument[d.id] ?? const <Tag>[];
-    if (_tagIds.isNotEmpty && !tags.any((t) => _tagIds.contains(t.id))) {
+    final tagIds = _activeTagIds;
+    if (tagIds.isNotEmpty && !tags.any((t) => tagIds.contains(t.id))) {
       return false;
     }
     final q = _query.trim().toLowerCase();
@@ -230,7 +234,16 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
     final tagsByDocument =
         ref.watch(tagsByItemProvider(TagScope.documents)).value ??
         const <String, List<Tag>>{};
-    final allTags = ref.watch(tagsProvider).value ?? const <Tag>[];
+    final allTagsValue = ref.watch(tagsProvider).value;
+    final allTags = allTagsValue ?? const <Tag>[];
+    // A selected tag that no longer exists (deleted, merged, or a stale
+    // link) could not be shown as a chip to clear, so it stops filtering.
+    _activeTagIds = allTagsValue == null
+        ? _tagIds
+        : {
+            for (final t in allTags)
+              if (_tagIds.contains(t.id)) t.id,
+          };
     final body = all.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text(l10n.documents_error_load('$e'))),
