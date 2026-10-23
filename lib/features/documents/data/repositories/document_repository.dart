@@ -16,6 +16,9 @@ import 'package:submersion/features/documents/domain/document_ids.dart';
 import 'package:submersion/features/documents/domain/entities/document.dart';
 import 'package:submersion/features/documents/domain/entities/document_page.dart';
 import 'package:submersion/core/services/notification_service.dart';
+import 'package:submersion/features/tags/data/repositories/tag_link_repository.dart';
+import 'package:submersion/features/tags/domain/entities/tag.dart'
+    show TagScope;
 
 /// A document as the global list shows it.
 class DocumentListEntry {
@@ -94,6 +97,7 @@ class DocumentRepository {
   AppDatabase get _db => DatabaseService.instance.database;
   final SyncRepository _syncRepository = SyncRepository();
   final _uuid = const Uuid();
+  final _tagLinks = TagLinkRepository(TagScope.documents);
   final _log = LoggerService.forClass(DocumentRepository);
 
   static const _docEntity = 'documents';
@@ -330,10 +334,12 @@ class DocumentRepository {
   /// Saves [document] and makes [pages] its exact page list, in order: new
   /// pages (empty id) are inserted, kept pages updated only when changed,
   /// missing ones deleted and tombstoned. A page with no bytes keeps its
-  /// stored content. One transaction.
+  /// stored content. [tagIds], when given, become the document's exact tag
+  /// set (issue #1970); null leaves its tags alone. One transaction.
   Future<Document> save(
     Document document,
     List<DocumentPage> pages, {
+    List<String>? tagIds,
     bool notify = true,
   }) async {
     final now = DateTime.now();
@@ -360,6 +366,9 @@ class DocumentRepository {
           localUpdatedAt: nowMs,
         );
         await _replacePages(id, pages, nowMs);
+        if (tagIds != null) {
+          await _tagLinks.replaceTags(id, tagIds, notify: false);
+        }
       });
       if (notify) SyncEventBus.notifyLocalChange();
       return doc;
@@ -515,6 +524,8 @@ class DocumentRepository {
       await (_db.delete(
         _db.documentPages,
       )..where((t) => t.documentId.isIn(chunk))).go();
+      // The cascade would remove the tag links too, but writes no tombstone.
+      await _tagLinks.deleteLinksFor(chunk);
       await (_db.delete(_db.documents)..where((t) => t.id.isIn(chunk))).go();
     }
     await _syncRepository.logDeletions(

@@ -28408,7 +28408,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get tags_manage_narrowDialog_title => '从现有项目中移除此标签？';
 
   @override
-  String get tags_manage_scopeRequired => '请至少选择一项：潜水、潜水点或装备';
+  String get tags_manage_scopeRequired => '请至少选择一项：潜水、潜水点、装备、媒体或文档';
 
   @override
   String get tags_manage_scope_dives => '潜水';
@@ -28479,27 +28479,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String tags_manage_deleteMessage_divesAndSites(
-    String tagName,
-    int diveCount,
-    int siteCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount 次潜水',
-      one: '1 次潜水',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount 个潜水点',
-      one: '1 个潜水点',
-    );
-    return '「$tagName」将从 $_temp0和 $_temp1 中移除。此操作无法撤销。';
-  }
-
-  @override
   String tags_manage_deleteMessage_equipment(String tagName, int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -28511,78 +28490,8 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String tags_manage_deleteMessage_divesAndEquipment(
-    String tagName,
-    int diveCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount 次潜水',
-      one: '1 次潜水',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount 件装备',
-      one: '1 件装备',
-    );
-    return '「$tagName」将从 $_temp0和 $_temp1 中移除。此操作无法撤销。';
-  }
-
-  @override
-  String tags_manage_deleteMessage_sitesAndEquipment(
-    String tagName,
-    int siteCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount 个潜水点',
-      one: '1 个潜水点',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount 件装备',
-      one: '1 件装备',
-    );
-    return '「$tagName」将从 $_temp0和 $_temp1 中移除。此操作无法撤销。';
-  }
-
-  @override
-  String tags_manage_deleteMessage_all(
-    String tagName,
-    int diveCount,
-    int siteCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount 次潜水',
-      one: '1 次潜水',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount 个潜水点',
-      one: '1 个潜水点',
-    );
-    String _temp2 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount 件装备',
-      one: '1 件装备',
-    );
-    return '「$tagName」将从 $_temp0、$_temp1和 $_temp2 中移除。此操作无法撤销。';
-  }
-
-  @override
   String tags_manage_deleteMessage_unused(String tagName) {
-    return '「$tagName」未用于任何潜水、潜水点或装备。此操作无法撤销。';
+    return '「$tagName」未在任何地方使用。此操作无法撤销。';
   }
 
   @override
@@ -28614,26 +28523,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String tags_manage_bulkDeleteMessage_divesAndSites(
-    int diveCount,
-    int siteCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount 次潜水',
-      one: '1 次潜水',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount 个潜水点',
-      one: '1 个潜水点',
-    );
-    return '这些标签将从总共 $_temp0和 $_temp1 中移除。此操作无法撤销。';
-  }
-
-  @override
   String tags_manage_bulkDeleteMessage_equipment(int equipmentCount) {
     String _temp0 = intl.Intl.pluralLogic(
       equipmentCount,
@@ -28645,75 +28534,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String tags_manage_bulkDeleteMessage_divesAndEquipment(
-    int diveCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount 次潜水',
-      one: '1 次潜水',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount 件装备',
-      one: '1 件装备',
-    );
-    return '这些标签将从总共 $_temp0和 $_temp1 中移除。此操作无法撤销。';
-  }
-
-  @override
-  String tags_manage_bulkDeleteMessage_sitesAndEquipment(
-    int siteCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount 个潜水点',
-      one: '1 个潜水点',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount 件装备',
-      one: '1 件装备',
-    );
-    return '这些标签将从总共 $_temp0和 $_temp1 中移除。此操作无法撤销。';
-  }
-
-  @override
-  String tags_manage_bulkDeleteMessage_all(
-    int diveCount,
-    int siteCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount 次潜水',
-      one: '1 次潜水',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount 个潜水点',
-      one: '1 个潜水点',
-    );
-    String _temp2 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount 件装备',
-      one: '1 件装备',
-    );
-    return '这些标签将从总共 $_temp0、$_temp1和 $_temp2 中移除。此操作无法撤销。';
-  }
-
-  @override
-  String get tags_manage_bulkDeleteMessage_unused =>
-      '这些标签未用于任何潜水、潜水点或装备。此操作无法撤销。';
+  String get tags_manage_bulkDeleteMessage_unused => '这些标签未在任何地方使用。此操作无法撤销。';
 
   @override
   String tags_manage_mergeTitle(int count) {
@@ -28750,23 +28571,6 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String tags_manage_mergeAffected_divesAndSites(int diveCount, int siteCount) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount 次潜水',
-      one: '1 次潜水',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount 个潜水点',
-      one: '1 个潜水点',
-    );
-    return '这将影响总共 $_temp0和 $_temp1。';
-  }
-
-  @override
   String tags_manage_mergeAffected_equipment(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -28778,74 +28582,7 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String tags_manage_mergeAffected_divesAndEquipment(
-    int diveCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount 次潜水',
-      one: '1 次潜水',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount 件装备',
-      one: '1 件装备',
-    );
-    return '这将影响总共 $_temp0和 $_temp1。';
-  }
-
-  @override
-  String tags_manage_mergeAffected_sitesAndEquipment(
-    int siteCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount 个潜水点',
-      one: '1 个潜水点',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount 件装备',
-      one: '1 件装备',
-    );
-    return '这将影响总共 $_temp0和 $_temp1。';
-  }
-
-  @override
-  String tags_manage_mergeAffected_all(
-    int diveCount,
-    int siteCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount 次潜水',
-      one: '1 次潜水',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount 个潜水点',
-      one: '1 个潜水点',
-    );
-    String _temp2 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount 件装备',
-      one: '1 件装备',
-    );
-    return '这将影响总共 $_temp0、$_temp1和 $_temp2。';
-  }
-
-  @override
-  String get tags_manage_mergeAffected_unused => '这些标签未用于任何潜水、潜水点或装备。';
+  String get tags_manage_mergeAffected_unused => '这些标签未在任何地方使用。';
 
   @override
   String get tags_manage_mergeAction => '合并';
@@ -51644,4 +51381,142 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settings_conflict_field_remoteStoreId => '上传至';
+
+  @override
+  String get tags_manage_scope_media => '媒体';
+
+  @override
+  String get tags_manage_scope_documents => '文档';
+
+  @override
+  String get tags_manage_useForMedia => '用于媒体';
+
+  @override
+  String get tags_manage_useForDocuments => '用于文档';
+
+  @override
+  String tags_manage_mediaCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 个媒体项',
+      one: '1 个媒体项',
+      zero: '0 个媒体项',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String tags_manage_documentCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 份文档',
+      one: '1 份文档',
+      zero: '0 份文档',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String tags_manage_narrowDialog_media(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '此标签用于 $count 个媒体项。关闭“用于媒体”将从这些媒体项中移除它。',
+      one: '此标签用于 1 个媒体项。关闭“用于媒体”将从该媒体项中移除它。',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String tags_manage_narrowDialog_documents(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '此标签用于 $count 份文档。关闭“用于文档”将从这些文档中移除它。',
+      one: '此标签用于 1 份文档。关闭“用于文档”将从该文档中移除它。',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String tags_manage_deleteMessage_media(String tagName, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 个媒体项',
+      one: '1 个媒体项',
+    );
+    return '「$tagName」将从 $_temp0 中移除。此操作无法撤销。';
+  }
+
+  @override
+  String tags_manage_deleteMessage_documents(String tagName, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 份文档',
+      one: '1 份文档',
+    );
+    return '「$tagName」将从 $_temp0 中移除。此操作无法撤销。';
+  }
+
+  @override
+  String tags_manage_bulkDeleteMessage_media(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 个媒体项',
+      one: '1 个媒体项',
+    );
+    return '这些标签将从总共 $_temp0 中移除。此操作无法撤销。';
+  }
+
+  @override
+  String tags_manage_bulkDeleteMessage_documents(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 份文档',
+      one: '1 份文档',
+    );
+    return '这些标签将从总共 $_temp0 中移除。此操作无法撤销。';
+  }
+
+  @override
+  String tags_manage_mergeAffected_media(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 个媒体项',
+      one: '1 个媒体项',
+    );
+    return '这将影响总共 $_temp0。';
+  }
+
+  @override
+  String tags_manage_mergeAffected_documents(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 份文档',
+      one: '1 份文档',
+    );
+    return '这将影响总共 $_temp0。';
+  }
+
+  @override
+  String tags_manage_deleteMessage_several(String tagName) {
+    return '「$tagName」将从以下项目中移除：';
+  }
+
+  @override
+  String get tags_manage_bulkDeleteMessage_several => '这些标签将从以下项目中移除：';
+
+  @override
+  String get tags_manage_mergeAffected_several => '这将影响：';
+
+  @override
+  String get tags_manage_cannotUndo => '此操作无法撤销。';
 }
