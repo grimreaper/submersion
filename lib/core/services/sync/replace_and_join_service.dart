@@ -86,10 +86,14 @@ class ReplaceAndJoinService {
       }
       // Throws only before its commit: the library is unchanged then.
       result = await _steps.apply(prepared);
-    } catch (e) {
+    } catch (e, stackTrace) {
       await prepared.dispose();
       if (attachment != null) await _restore(attachment);
-      _log.warning('Replace and join failed; this device is unchanged: $e');
+      _log.warning(
+        'Replace and join failed; this device is unchanged',
+        error: e,
+        stackTrace: stackTrace,
+      );
       rethrow;
     }
 
@@ -121,10 +125,11 @@ class ReplaceAndJoinService {
   Future<void> _restore(MediaStoreAttachSnapshot attachment) async {
     try {
       await _attachState.restore(attachment);
-    } catch (restoreError) {
+    } catch (restoreError, stackTrace) {
       _log.error(
         'Replace and join: could not put the photo store back',
         error: restoreError,
+        stackTrace: stackTrace,
       );
     }
   }

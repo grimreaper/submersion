@@ -116,10 +116,10 @@ extension SyncServiceReplaceJoin on SyncService {
           ChangesetLogLayout.deviceIdOf(f.name)!,
     };
     // The collector skips a manifest it cannot read, so a locked library
-    // would look like no library at all: ask first.
-    if (await _peerLibraryIsLocked(provider, files, retired)) {
-      return needsPassphrase;
-    }
+    // would look like no library at all: ask first. The manifests read here
+    // also tell, after the collect, whether every device's copy arrived.
+    final live = await _readLiveManifests(provider, files, retired);
+    if (live.locked) return needsPassphrase;
     // This device's own log is part of the account's library: dives it
     // published before are its peers' too, and leaving them out would split
     // the fleet.
@@ -166,35 +166,25 @@ extension SyncServiceReplaceJoin on SyncService {
         ),
       );
     }
+    final prepared = ReplaceJoinPrepared._(
+      _baseSink,
+      marker: marker,
+      baseFilePaths: sources.baseFilePaths,
+      baseExportedAt: sources.baseExportedAt,
+      changesets: sources.changesets,
+      cursors: sources.cursors,
+    );
     // The collector skips a device whose copy has not fully arrived, which
     // a merge can wait out but a replace must not apply: refuse until every
     // device's copy is complete.
-    if (await _libraryIncomplete(
-      provider,
-      files,
-      retired,
-      marker?.epochId,
-      sources.cursors,
-    )) {
-      for (final path in sources.baseFilePaths) {
-        await _baseSink.deleteQuietly(path);
-      }
+    if (_libraryIncomplete(live.manifests, marker?.epochId, sources.cursors)) {
+      await prepared.dispose();
       return (
         prepared: null,
         refused: const ReplaceJoinResult(ReplaceJoinOutcome.stillUploading),
       );
     }
-    return (
-      prepared: ReplaceJoinPrepared._(
-        _baseSink,
-        marker: marker,
-        baseFilePaths: sources.baseFilePaths,
-        baseExportedAt: sources.baseExportedAt,
-        changesets: sources.changesets,
-        cursors: sources.cursors,
-      ),
-      refused: null,
-    );
+    return (prepared: prepared, refused: null);
   }
 
   /// Replaces this device's library with [prepared] in one transaction:
@@ -308,26 +298,16 @@ extension SyncServiceReplaceJoin on SyncService {
   /// gap it found (a cursor short of the manifest's head). Pull waits out
   /// both; a replace must not apply a library they leave short. A device
   /// with no base yet publishes changesets only, which pull applies on its
-  /// own, so it does not count.
-  Future<bool> _libraryIncomplete(
-    CloudStorageProvider provider,
-    List<CloudFileInfo> files,
-    Set<String> retired,
+  /// own, so it does not count. [manifests] were read before the collect,
+  /// so a device that published more since is measured against what it
+  /// had then, which the collector's copy covers.
+  bool _libraryIncomplete(
+    Map<String, SyncManifest> manifests,
     String? epochId,
     List<({String deviceId, int baseSeq, int appliedThrough})> cursors,
-  ) async {
+  ) {
     final applied = {for (final c in cursors) c.deviceId: c.appliedThrough};
-    for (final f in files) {
-      final id = ChangesetLogLayout.deviceIdOf(f.name);
-      if (id == null || retired.contains(id)) continue;
-      if (f.name != ChangesetLogLayout.manifestName(id)) continue;
-      final SyncManifest manifest;
-      try {
-        manifest = SyncManifest.fromBytes(await provider.downloadFile(f.id));
-      } catch (_) {
-        // Unreadable: skipped by pull and the collector alike.
-        continue;
-      }
+    for (final MapEntry(key: id, value: manifest) in manifests.entries) {
       if (manifest.epochId != epochId || manifest.baseSeq == null) continue;
       final through = applied[id];
       if (through == null || through < manifest.headSeq) return true;
@@ -335,25 +315,39 @@ extension SyncServiceReplaceJoin on SyncService {
     return false;
   }
 
-  /// Whether a live device's manifest among [files] is an envelope this
-  /// device cannot open. With the library key held, the provider decrypts
-  /// on download and no envelope reaches here.
-  Future<bool> _peerLibraryIsLocked(
+  /// Every live device's manifest among [files], read once, and whether any
+  /// is an envelope this device cannot open. With the library key held, the
+  /// provider decrypts on download and no envelope reaches here. A download
+  /// that fails is rethrown, so a passing network error is never read as a
+  /// device with nothing to check; a manifest that downloads but does not
+  /// parse is left out, as pull and the collector skip it.
+  Future<({bool locked, Map<String, SyncManifest> manifests})>
+  _readLiveManifests(
     CloudStorageProvider provider,
     List<CloudFileInfo> files,
     Set<String> retired,
   ) async {
+    final manifests = <String, SyncManifest>{};
     for (final f in files) {
       final id = ChangesetLogLayout.deviceIdOf(f.name);
       if (id == null || retired.contains(id)) continue;
       if (f.name != ChangesetLogLayout.manifestName(id)) continue;
+      final Uint8List bytes;
       try {
-        return SyncEnvelope.hasMagic(await provider.downloadFile(f.id));
+        bytes = await provider.downloadFile(f.id);
       } on SyncEncryptionRequired {
         // Sealed under a key other than the one this device holds.
-        return true;
+        return (locked: true, manifests: const <String, SyncManifest>{});
+      }
+      if (SyncEnvelope.hasMagic(bytes)) {
+        return (locked: true, manifests: const <String, SyncManifest>{});
+      }
+      try {
+        manifests[id] = SyncManifest.fromBytes(bytes);
+      } catch (_) {
+        // Unreadable: skipped by pull and the collector alike.
       }
     }
-    return false;
+    return (locked: false, manifests: manifests);
   }
 }

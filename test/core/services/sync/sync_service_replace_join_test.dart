@@ -167,6 +167,50 @@ void main() {
     expect(await hasDive('mine-1'), isTrue);
   });
 
+  // Review: a readable manifest listed first must not hide a sealed one
+  // after it; the collector would skip the sealed device and the replace
+  // would drop every dive only it published.
+  test('a sealed manifest behind a readable one still asks for the '
+      'passphrase', () async {
+    final cloud = await libraryInAccount();
+    final folder = await cloud.getOrCreateSyncFolder();
+    final name = ChangesetLogLayout.manifestName('peer-2');
+    await cloud.uploadFile(
+      await SyncEnvelope.seal(
+        plaintext: Uint8List.fromList(utf8.encode('{}')),
+        dataKey: SecretKey(List<int>.generate(32, (i) => i)),
+        libraryKeyId: '8f14e45f-ceea-467f-ab37-a10a8d5f4c11',
+        filename: name,
+      ),
+      name,
+      folderId: folder,
+    );
+    await thisDevicesLibrary();
+
+    final step = await serviceOn(cloud).prepareReplaceJoin();
+
+    expect(step.refused?.outcome, ReplaceJoinOutcome.needsPassphrase);
+    expect(await hasDive('mine-1'), isTrue);
+  });
+
+  // Review: the completeness check reuses the manifests the locked check
+  // read, rather than downloading each one a third time.
+  test('each device\'s manifest is read twice at most', () async {
+    final cloud = await libraryInAccount();
+    await thisDevicesLibrary();
+    cloud.resetDownloadLog();
+
+    final step = await serviceOn(cloud).prepareReplaceJoin();
+    await step.prepared!.dispose();
+
+    final manifest = ChangesetLogLayout.manifestName('peer-1');
+    expect(
+      cloud.downloadedNames.where((n) => n == manifest).length,
+      2,
+      reason: 'once to check it, once by the collector',
+    );
+  });
+
   // Review: leaving this device's own log out would drop, on this device
   // alone, dives its peers already merged, splitting the fleet.
   test('dives this device already published belong to the library', () async {
