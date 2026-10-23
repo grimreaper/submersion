@@ -33806,6 +33806,14 @@ class AppLocalizationsZh extends AppLocalizations {
   String get universalImport_title_importOptions => '导入选项';
 
   @override
+  String universalImport_computerOwner_notice(String owner, String chosen) {
+    return '这台电脑属于 $owner。潜水记录将添加到 $chosen 的日志中。';
+  }
+
+  @override
+  String get universalImport_computerOwner_profileLabel => '潜水员档案';
+
+  @override
   String get universalImport_label_options => '选项';
 
   @override

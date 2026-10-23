@@ -10070,6 +10070,8 @@
   "universalImport_label_autoTagThisImport": "وسم هذا الاستيراد تلقائيا",
   "universalImport_label_autoTagThisImportSubtitle": "يبدأ من تفضيلك المحفوظ في إعدادات الوسوم. تغييره هنا يؤثر فقط على هذا الاستيراد.",
   "universalImport_title_importOptions": "خيارات الاستيراد",
+  "universalImport_computerOwner_notice": "هذا الكمبيوتر يخص {owner}. ستُضاف الغطسات إلى سجل {chosen}.",
+  "universalImport_computerOwner_profileLabel": "ملف الغواص",
   "universalImport_title_noDivesImported": "لم يتم استيراد أي غطسة",
   "universalImport_title_successConsolidated": "تم الدمج بنجاح",
   "universalImport_title_successImported": "تم الاستيراد بنجاح",

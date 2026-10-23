@@ -10070,6 +10070,8 @@
   "universalImport_label_autoTagThisImport": "תיוג אוטומטי של ייבוא זה",
   "universalImport_label_autoTagThisImportSubtitle": "מתחיל מההעדפה השמורה שלך בהגדרות התגיות. שינוי כאן משפיע רק על ייבוא זה.",
   "universalImport_title_importOptions": "אפשרויות ייבוא",
+  "universalImport_computerOwner_notice": "המחשב הזה שייך ל-{owner}. הצלילות יתווספו ליומן של {chosen}.",
+  "universalImport_computerOwner_profileLabel": "פרופיל",
   "universalImport_title_noDivesImported": "לא יובאו צלילות",
   "universalImport_title_successConsolidated": "אוחדו בהצלחה",
   "universalImport_title_successImported": "יובאו בהצלחה",

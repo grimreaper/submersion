@@ -21550,6 +21550,24 @@
   "@universalImport_title_importOptions": {
     "description": "Title for the import options bottom sheet"
   },
+  "universalImport_computerOwner_notice": "This computer belongs to {owner}. Dives will be added to {chosen}'s log.",
+  "@universalImport_computerOwner_notice": {
+    "description": "Review step notice for a dive computer download when the computer belongs to another profile: names the owner and the profile the dives will be added to",
+    "placeholders": {
+      "owner": {
+        "type": "String",
+        "example": "Mitchell"
+      },
+      "chosen": {
+        "type": "String",
+        "example": "Bill"
+      }
+    }
+  },
+  "universalImport_computerOwner_profileLabel": "Profile",
+  "@universalImport_computerOwner_profileLabel": {
+    "description": "Label of the profile picker beside the computer owner notice on the review step"
+  },
   "universalImport_label_options": "Options",
   "@universalImport_label_options": {
     "description": "Label for the import options button"

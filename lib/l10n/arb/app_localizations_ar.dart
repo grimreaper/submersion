@@ -36346,6 +36346,14 @@ class AppLocalizationsAr extends AppLocalizations {
   String get universalImport_title_importOptions => 'خيارات الاستيراد';
 
   @override
+  String universalImport_computerOwner_notice(String owner, String chosen) {
+    return 'هذا الكمبيوتر يخص $owner. ستُضاف الغطسات إلى سجل $chosen.';
+  }
+
+  @override
+  String get universalImport_computerOwner_profileLabel => 'ملف الغواص';
+
+  @override
   String get universalImport_label_options => 'خيارات';
 
   @override

@@ -35675,6 +35675,14 @@ class AppLocalizationsHu extends AppLocalizations {
   String get universalImport_title_importOptions => 'Importálási beállítások';
 
   @override
+  String universalImport_computerOwner_notice(String owner, String chosen) {
+    return 'Ez a komputer $owner tulajdona. A merülések $chosen naplójába kerülnek.';
+  }
+
+  @override
+  String get universalImport_computerOwner_profileLabel => 'Profil';
+
+  @override
   String get universalImport_label_options => 'Beállítások';
 
   @override

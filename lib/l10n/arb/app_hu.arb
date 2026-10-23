@@ -10070,6 +10070,8 @@
   "universalImport_label_autoTagThisImport": "Ennek az importnak az automatikus címkézése",
   "universalImport_label_autoTagThisImportSubtitle": "A Címkék beállításokban mentett beállításból indul. Az itt végzett módosítás csak ezt az importot érinti.",
   "universalImport_title_importOptions": "Importálási beállítások",
+  "universalImport_computerOwner_notice": "Ez a komputer {owner} tulajdona. A merülések {chosen} naplójába kerülnek.",
+  "universalImport_computerOwner_profileLabel": "Profil",
   "universalImport_title_noDivesImported": "Nem lett merülés importálva",
   "universalImport_title_successConsolidated": "Sikeresen összevonva",
   "universalImport_title_successImported": "Sikeresen importálva",

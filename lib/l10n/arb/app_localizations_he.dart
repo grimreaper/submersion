@@ -34992,6 +34992,14 @@ class AppLocalizationsHe extends AppLocalizations {
   String get universalImport_title_importOptions => 'אפשרויות ייבוא';
 
   @override
+  String universalImport_computerOwner_notice(String owner, String chosen) {
+    return 'המחשב הזה שייך ל-$owner. הצלילות יתווספו ליומן של $chosen.';
+  }
+
+  @override
+  String get universalImport_computerOwner_profileLabel => 'פרופיל';
+
+  @override
   String get universalImport_label_options => 'אפשרויות';
 
   @override

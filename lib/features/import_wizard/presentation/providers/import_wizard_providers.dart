@@ -288,6 +288,36 @@ class ImportWizardNotifier extends StateNotifier<ImportWizardState> {
     _diverId = diverId;
   }
 
+  /// Send this import to another profile from the review step (issue #2050).
+  ///
+  /// Duplicate matches and planned-dive fills depend on whose dives the
+  /// download is compared with, so the bundle is rebuilt and re-checked for
+  /// [diverId] and its per-row choices start over. A failed check falls back
+  /// to the unchecked bundle, as entering the review step does. Import tags
+  /// are kept. Does nothing unless the adapter can be retargeted and the
+  /// bundle offers a choice.
+  Future<void> changeTargetDiver(String diverId) async {
+    final adapter = _adapter;
+    if (adapter is! RetargetableImportAdapter) return;
+    if (state.bundle?.targetChoice == null) return;
+    await (adapter as RetargetableImportAdapter).setTargetDiver(diverId);
+    final bundle = await adapter.buildBundle();
+    ImportBundle checked;
+    try {
+      checked = await adapter.checkDuplicates(bundle);
+    } catch (e, stackTrace) {
+      _log.error(
+        'Duplicate detection failed after changing profile; continuing '
+        'without it',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      checked = bundle;
+    }
+    if (!mounted) return;
+    setBundle(checked);
+  }
+
   /// Request cancellation of the running import. Cooperative — the adapter
   /// finishes the current work item (e.g. the current dive's transaction)
   /// before exiting the loop with a partial result.

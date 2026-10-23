@@ -56522,6 +56522,18 @@ abstract class AppLocalizations {
   /// **'Import Options'**
   String get universalImport_title_importOptions;
 
+  /// Review step notice for a dive computer download when the computer belongs to another profile: names the owner and the profile the dives will be added to
+  ///
+  /// In en, this message translates to:
+  /// **'This computer belongs to {owner}. Dives will be added to {chosen}\'s log.'**
+  String universalImport_computerOwner_notice(String owner, String chosen);
+
+  /// Label of the profile picker beside the computer owner notice on the review step
+  ///
+  /// In en, this message translates to:
+  /// **'Profile'**
+  String get universalImport_computerOwner_profileLabel;
+
   /// Label for the import options button
   ///
   /// In en, this message translates to:

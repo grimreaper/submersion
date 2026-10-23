@@ -35978,6 +35978,14 @@ class AppLocalizationsFr extends AppLocalizations {
   String get universalImport_title_importOptions => 'Options d\'importation';
 
   @override
+  String universalImport_computerOwner_notice(String owner, String chosen) {
+    return 'Cet ordinateur appartient à $owner. Les plongées seront ajoutées au carnet de $chosen.';
+  }
+
+  @override
+  String get universalImport_computerOwner_profileLabel => 'Profil';
+
+  @override
   String get universalImport_label_options => 'Options';
 
   @override

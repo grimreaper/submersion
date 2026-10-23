@@ -10070,6 +10070,8 @@
   "universalImport_label_autoTagThisImport": "Etiquetar esta importación automáticamente",
   "universalImport_label_autoTagThisImportSubtitle": "Comienza con tu preferencia guardada en la configuración de Etiquetas. Cambiarla aquí solo afecta a esta importación.",
   "universalImport_title_importOptions": "Opciones de Importación",
+  "universalImport_computerOwner_notice": "Este ordenador pertenece a {owner}. Las inmersiones se añadirán al registro de {chosen}.",
+  "universalImport_computerOwner_profileLabel": "Perfil",
   "universalImport_title_noDivesImported": "No se Importaron Inmersiones",
   "universalImport_title_successConsolidated": "Consolidación Exitosa",
   "universalImport_title_successImported": "Importación Exitosa",

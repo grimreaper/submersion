@@ -35799,6 +35799,14 @@ class AppLocalizationsDe extends AppLocalizations {
   String get universalImport_title_importOptions => 'Importoptionen';
 
   @override
+  String universalImport_computerOwner_notice(String owner, String chosen) {
+    return 'Dieser Computer gehört $owner. Die Tauchgänge werden dem Logbuch von $chosen hinzugefügt.';
+  }
+
+  @override
+  String get universalImport_computerOwner_profileLabel => 'Profil';
+
+  @override
   String get universalImport_label_options => 'Optionen';
 
   @override

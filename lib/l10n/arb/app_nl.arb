@@ -10070,6 +10070,8 @@
   "universalImport_label_autoTagThisImport": "Deze import automatisch taggen",
   "universalImport_label_autoTagThisImportSubtitle": "Begint met je opgeslagen voorkeur in de Tags-instellingen. Dit hier wijzigen geldt alleen voor deze import.",
   "universalImport_title_importOptions": "Importopties",
+  "universalImport_computerOwner_notice": "Deze computer is van {owner}. De duiken worden toegevoegd aan het logboek van {chosen}.",
+  "universalImport_computerOwner_profileLabel": "Profiel",
   "universalImport_title_noDivesImported": "Geen duiken geïmporteerd",
   "universalImport_title_successConsolidated": "Succesvol geconsolideerd",
   "universalImport_title_successImported": "Succesvol geïmporteerd",

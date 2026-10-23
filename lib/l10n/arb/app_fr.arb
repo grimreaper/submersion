@@ -10070,6 +10070,8 @@
   "universalImport_label_autoTagThisImport": "Étiqueter automatiquement cet import",
   "universalImport_label_autoTagThisImportSubtitle": "Démarre avec votre préférence enregistrée dans les paramètres Étiquettes. La modifier ici n'affecte que cet import.",
   "universalImport_title_importOptions": "Options d'importation",
+  "universalImport_computerOwner_notice": "Cet ordinateur appartient à {owner}. Les plongées seront ajoutées au carnet de {chosen}.",
+  "universalImport_computerOwner_profileLabel": "Profil",
   "universalImport_title_noDivesImported": "Aucune plongée importée",
   "universalImport_title_successConsolidated": "Consolidation réussie",
   "universalImport_title_successImported": "Importation réussie",

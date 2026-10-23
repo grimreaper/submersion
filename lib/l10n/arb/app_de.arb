@@ -10202,6 +10202,8 @@
   "universalImport_label_autoTagThisImport": "Diesen Import automatisch taggen",
   "universalImport_label_autoTagThisImportSubtitle": "Startet mit deiner gespeicherten Einstellung unter Tags. Eine Änderung hier gilt nur für diesen Import.",
   "universalImport_title_importOptions": "Importoptionen",
+  "universalImport_computerOwner_notice": "Dieser Computer gehört {owner}. Die Tauchgänge werden dem Logbuch von {chosen} hinzugefügt.",
+  "universalImport_computerOwner_profileLabel": "Profil",
   "universalImport_title_noDivesImported": "Keine Tauchgänge importiert",
   "universalImport_title_successConsolidated": "Erfolgreich konsolidiert",
   "universalImport_title_successImported": "Erfolgreich importiert",

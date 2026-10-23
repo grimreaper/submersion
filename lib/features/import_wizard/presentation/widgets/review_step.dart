@@ -5,6 +5,7 @@ import 'package:submersion/features/dive_log/presentation/providers/dive_provide
 import 'package:submersion/features/import_wizard/domain/models/duplicate_action.dart';
 import 'package:submersion/features/import_wizard/domain/models/import_bundle.dart';
 import 'package:submersion/features/import_wizard/presentation/providers/import_wizard_providers.dart';
+import 'package:submersion/features/import_wizard/presentation/widgets/computer_owner_notice.dart';
 import 'package:submersion/features/import_wizard/presentation/widgets/entity_review_list.dart';
 import 'package:submersion/features/import_wizard/presentation/widgets/import_source_card.dart';
 import 'package:submersion/features/import_wizard/presentation/widgets/planned_dive_picker_sheet.dart';
@@ -46,7 +47,16 @@ class ReviewStep extends ConsumerWidget {
     final counts = _AggregateCounts.compute(state);
 
     // Compute projected dive numbers for the review list.
-    final nextDiveNumber = ref.watch(nextDiveNumberProvider).whenData((v) => v);
+    // A download sent to another profile (issue #2050) continues that
+    // profile's numbering.
+    final chosenDiverId = bundle.targetChoice?.chosenDiverId;
+    final nextDiveNumber = ref
+        .watch(
+          chosenDiverId == null
+              ? nextDiveNumberProvider
+              : nextDiveNumberForDiverProvider(chosenDiverId),
+        )
+        .whenData((v) => v);
     final projectedDiveNumbers = computeProjectedDiveNumbers(
       bundle: bundle,
       nextDiveNumber: nextDiveNumber.value,
@@ -277,6 +287,12 @@ class _MultiTypeLayoutState extends State<_MultiTypeLayout> {
             if (constraints.maxHeight >=
                 MediaQuery.textScalerOf(context).scale(_minHeightForSourceCard))
               ImportSourceCard(source: widget.bundle.source),
+            // Not behind the height guard: it says where the dives go.
+            if (widget.bundle.targetChoice case final choice?)
+              ComputerOwnerNotice(
+                choice: choice,
+                onChanged: widget.notifier.changeTargetDiver,
+              ),
             Builder(
               builder: (context) {
                 final tabController = DefaultTabController.of(context);
@@ -487,7 +503,13 @@ class _EntityTab extends ConsumerWidget {
         type == ImportEntityType.dives &&
         availableActions.contains(DuplicateAction.fillPlanned);
     final plannedDives = offersFill
-        ? ref.watch(plannedFillCandidatesProvider(notifier.diverId)).value ??
+        ? ref
+                  .watch(
+                    plannedFillCandidatesProvider(
+                      bundle.targetChoice?.chosenDiverId ?? notifier.diverId,
+                    ),
+                  )
+                  .value ??
               const <Dive>[]
         : const <Dive>[];
     final units = UnitFormatter(ref.watch(settingsProvider));

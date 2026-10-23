@@ -10070,6 +10070,8 @@
   "universalImport_label_autoTagThisImport": "Marcar esta importação automaticamente",
   "universalImport_label_autoTagThisImportSubtitle": "Começa com a sua preferência guardada nas configurações de Etiquetas. Alterá-la aqui afeta apenas esta importação.",
   "universalImport_title_importOptions": "Opções de Importação",
+  "universalImport_computerOwner_notice": "Este computador pertence a {owner}. Os mergulhos serão adicionados ao registro de {chosen}.",
+  "universalImport_computerOwner_profileLabel": "Perfil",
   "universalImport_title_noDivesImported": "Nenhum Mergulho Importado",
   "universalImport_title_successConsolidated": "Consolidados com Sucesso",
   "universalImport_title_successImported": "Importados com Sucesso",

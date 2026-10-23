@@ -35269,6 +35269,14 @@ class AppLocalizationsEn extends AppLocalizations {
   String get universalImport_title_importOptions => 'Import Options';
 
   @override
+  String universalImport_computerOwner_notice(String owner, String chosen) {
+    return 'This computer belongs to $owner. Dives will be added to $chosen\'s log.';
+  }
+
+  @override
+  String get universalImport_computerOwner_profileLabel => 'Profile';
+
+  @override
   String get universalImport_label_options => 'Options';
 
   @override

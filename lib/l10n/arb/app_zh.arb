@@ -10070,6 +10070,8 @@
   "universalImport_label_autoTagThisImport": "自动为此次导入打标签",
   "universalImport_label_autoTagThisImportSubtitle": "从你在标签设置中保存的偏好开始。在此处更改仅影响此次导入。",
   "universalImport_title_importOptions": "导入选项",
+  "universalImport_computerOwner_notice": "这台电脑属于 {owner}。潜水记录将添加到 {chosen} 的日志中。",
+  "universalImport_computerOwner_profileLabel": "潜水员档案",
   "universalImport_title_noDivesImported": "未导入潜水",
   "universalImport_title_successConsolidated": "合并成功",
   "universalImport_title_successImported": "导入成功",
