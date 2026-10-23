@@ -9384,6 +9384,7 @@
   "universalImport_divers_newLabel": "חדש: {name}",
   "universalImport_summary_byProfileTitle": "לפי פרופיל",
   "universalImport_summary_newProfile": "פרופיל חדש",
+  "universalImport_summary_unnamedProfile": "פרופיל ללא שם",
   "universalImport_summary_switchToSee": "עבור אל {name} כדי לראות צלילות אלה",
   "universalImport_summary_noticesTitle": "הערות ייבוא",
   "universalImport_summary_noticeNoTankPressureTitle": "לחץ המכל לא נרשם",

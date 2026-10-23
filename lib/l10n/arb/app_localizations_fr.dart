@@ -32977,6 +32977,9 @@ class AppLocalizationsFr extends AppLocalizations {
   String get universalImport_summary_newProfile => 'Nouveau profil';
 
   @override
+  String get universalImport_summary_unnamedProfile => 'Profil sans nom';
+
+  @override
   String universalImport_summary_switchToSee(String name) {
     return 'Passez à $name pour voir ces plongées';
   }

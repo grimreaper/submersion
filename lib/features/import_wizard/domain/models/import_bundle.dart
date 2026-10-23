@@ -243,6 +243,16 @@ class ImportBundle {
     this.targetChoice,
   });
 
+  /// A copy with the given fields replaced. Rewrites of a bundle go through
+  /// this so a field added later, such as [targetChoice], is never dropped.
+  ImportBundle copyWith({Map<ImportEntityType, EntityGroup>? groups}) =>
+      ImportBundle(
+        source: source,
+        groups: groups ?? this.groups,
+        nextDiveNumberByTarget: nextDiveNumberByTarget,
+        targetChoice: targetChoice,
+      );
+
   /// Returns the [ImportEntityType]s that have at least one group in this bundle.
   List<ImportEntityType> get availableTypes => List.unmodifiable(groups.keys);
 

@@ -9284,6 +9284,7 @@
   "universalImport_divers_newLabel": "Új: {name}",
   "universalImport_summary_byProfileTitle": "Profilonként",
   "universalImport_summary_newProfile": "Új profil",
+  "universalImport_summary_unnamedProfile": "Névtelen profil",
   "universalImport_summary_switchToSee": "Válts {name} profiljára a merülések megtekintéséhez",
   "universalImport_summary_noticesTitle": "Importálási megjegyzések",
   "universalImport_summary_noticeNoTankPressureTitle": "A palack nyomása nincs rögzítve",

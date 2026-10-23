@@ -98,7 +98,7 @@ class DiveComputerAdapter
     bool forceFullDownload = false,
     PlannedDiveFillService? fillService,
     DiveComputerConnectionRepository? connectionRepository,
-    bool followComputerOwner = true,
+    Future<bool> Function()? followComputerOwner,
     DiverNameLookup? diverName,
   }) : _importService = importService,
        _connectionRepository = connectionRepository,
@@ -143,8 +143,10 @@ class DiveComputerAdapter
   final String _activeDiverId;
 
   /// Whether a computer owned by another profile defaults to that profile
-  /// (issue #2050); the diver's "Add downloads to the computer's owner".
-  final bool _followComputerOwner;
+  /// (issue #2050); the diver's "Add downloads to the computer's owner",
+  /// read from [_ref]'s settings when not given. Read when the target is
+  /// resolved, so a wizard opened before settings load still honours it.
+  final Future<bool> Function()? _followComputerOwner;
 
   /// Looks up a profile's name; read from [_ref] when not given.
   final DiverNameLookup? _diverName;
@@ -153,29 +155,17 @@ class DiveComputerAdapter
   String? _chosenDiverId;
 
   /// The computer's owner when it is another existing profile; see
-  /// [_resolveTarget].
+  /// [DiveComputerAdapterTarget.resolveTarget].
   String? _ownerDiverId;
 
-  /// The profile that started the download.
-  String get activeDiverId => _activeDiverId;
-
-  /// The profile this download's dives are written to (issue #2050).
-  String get targetDiverId => _chosenDiverId ?? _activeDiverId;
-
-  /// Where the download is expected to go before the computer is fully known,
-  /// for the first-sync cutoff: a known computer's owner when downloads follow
-  /// the owner, otherwise the active profile.
-  String get provisionalTargetDiverId {
-    final owner = _knownComputer?.diverId?.trim() ?? '';
-    final followsOwner =
-        _followComputerOwner && owner.isNotEmpty && _activeDiverId.isNotEmpty;
-    return followsOwner ? owner : _activeDiverId;
-  }
+  /// Profile names already looked up, standing in when a later lookup fails.
+  final Map<String, String> _diverNames = {};
 
   /// Send this download to [diverId]. The computer's owner does not change.
   @override
   Future<void> setTargetDiver(String diverId) async {
     _chosenDiverId = diverId;
+    await _lookUpDiverName(diverId);
   }
 
   final DiveComputer? _knownComputer;
@@ -630,7 +620,7 @@ class DiveComputerAdapter
     // (contained segments, cross-computer consolidation) on that id. A
     // failure here is left for performImport to report.
     await _retryPendingComputerSave();
-    await _resolveTarget();
+    await resolveTarget();
 
     final items = _downloadedDives.map(_diveToEntityItem).toList();
 
@@ -736,8 +726,7 @@ class DiveComputerAdapter
       }
     }
 
-    return ImportBundle(
-      source: bundle.source,
+    return bundle.copyWith(
       groups: {
         ...bundle.groups,
         ImportEntityType.dives: EntityGroup(
@@ -747,7 +736,6 @@ class DiveComputerAdapter
           autoSkipIndices: diveGroup.autoSkipIndices,
         ),
       },
-      targetChoice: bundle.targetChoice,
     );
   }
 

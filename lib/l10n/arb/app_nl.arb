@@ -9384,6 +9384,7 @@
   "universalImport_divers_newLabel": "Nieuw: {name}",
   "universalImport_summary_byProfileTitle": "Per profiel",
   "universalImport_summary_newProfile": "Nieuw profiel",
+  "universalImport_summary_unnamedProfile": "Naamloos profiel",
   "universalImport_summary_switchToSee": "Schakel over naar {name} om deze duiken te zien",
   "universalImport_summary_noticesTitle": "Importnotities",
   "universalImport_summary_noticeNoTankPressureTitle": "Flesdruk niet vastgelegd",

@@ -9280,6 +9280,7 @@
   "universalImport_divers_newLabel": "Nuovo: {name}",
   "universalImport_summary_byProfileTitle": "Per profilo",
   "universalImport_summary_newProfile": "Nuovo profilo",
+  "universalImport_summary_unnamedProfile": "Profilo senza nome",
   "universalImport_summary_switchToSee": "Passa a {name} per vedere queste immersioni",
   "universalImport_summary_noticesTitle": "Note sull'importazione",
   "universalImport_summary_noticeNoTankPressureTitle": "Pressione della bombola non registrata",

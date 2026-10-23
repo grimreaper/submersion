@@ -9516,6 +9516,7 @@
   "universalImport_divers_newLabel": "Neu: {name}",
   "universalImport_summary_byProfileTitle": "Nach Profil",
   "universalImport_summary_newProfile": "Neues Profil",
+  "universalImport_summary_unnamedProfile": "Unbenanntes Profil",
   "universalImport_summary_switchToSee": "Wechseln Sie zu {name}, um diese Tauchgänge zu sehen",
   "universalImport_summary_noticesTitle": "Hinweise zum Import",
   "universalImport_summary_noticeNoTankPressureTitle": "Flaschendruck nicht aufgezeichnet",

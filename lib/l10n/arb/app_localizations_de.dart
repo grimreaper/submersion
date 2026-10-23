@@ -32811,6 +32811,9 @@ class AppLocalizationsDe extends AppLocalizations {
   String get universalImport_summary_newProfile => 'Neues Profil';
 
   @override
+  String get universalImport_summary_unnamedProfile => 'Unbenanntes Profil';
+
+  @override
   String universalImport_summary_switchToSee(String name) {
     return 'Wechseln Sie zu $name, um diese Tauchgänge zu sehen';
   }

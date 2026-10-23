@@ -32701,6 +32701,9 @@ class AppLocalizationsHu extends AppLocalizations {
   String get universalImport_summary_newProfile => 'Új profil';
 
   @override
+  String get universalImport_summary_unnamedProfile => 'Névtelen profil';
+
+  @override
   String universalImport_summary_switchToSee(String name) {
     return 'Válts $name profiljára a merülések megtekintéséhez';
   }

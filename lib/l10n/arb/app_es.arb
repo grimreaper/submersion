@@ -9384,6 +9384,7 @@
   "universalImport_divers_newLabel": "Nuevo: {name}",
   "universalImport_summary_byProfileTitle": "Por perfil",
   "universalImport_summary_newProfile": "Perfil nuevo",
+  "universalImport_summary_unnamedProfile": "Perfil sin nombre",
   "universalImport_summary_switchToSee": "Cambia a {name} para ver estas inmersiones",
   "universalImport_summary_noticesTitle": "Notas de la importación",
   "universalImport_summary_noticeNoTankPressureTitle": "Presión de la botella no registrada",

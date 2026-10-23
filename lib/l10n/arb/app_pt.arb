@@ -9384,6 +9384,7 @@
   "universalImport_divers_newLabel": "Novo: {name}",
   "universalImport_summary_byProfileTitle": "Por perfil",
   "universalImport_summary_newProfile": "Novo perfil",
+  "universalImport_summary_unnamedProfile": "Perfil sem nome",
   "universalImport_summary_switchToSee": "Mude para {name} para ver estes mergulhos",
   "universalImport_summary_noticesTitle": "Notas da importação",
   "universalImport_summary_noticeNoTankPressureTitle": "Pressão do cilindro não registada",

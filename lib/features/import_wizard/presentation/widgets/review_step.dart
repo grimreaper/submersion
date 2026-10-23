@@ -292,6 +292,7 @@ class _MultiTypeLayoutState extends State<_MultiTypeLayout> {
               ComputerOwnerNotice(
                 choice: choice,
                 onChanged: widget.notifier.changeTargetDiver,
+                busy: widget.state.isRetargeting,
               ),
             Builder(
               builder: (context) {
@@ -382,6 +383,7 @@ class _MultiTypeLayoutState extends State<_MultiTypeLayout> {
                 onBack: widget.onBack,
                 hasPendingReviews: widget.state.hasPendingReviews,
                 totalPending: widget.state.totalPending,
+                busy: widget.state.isRetargeting,
                 onReviewPending: () => _revealPending(ctx),
               ),
             ),
@@ -628,6 +630,10 @@ class _BottomBar extends StatelessWidget {
   final int totalPending;
   final VoidCallback onReviewPending;
 
+  /// The rows are being re-checked (issue #2050): importing now would apply
+  /// the previous profile's choices, so the button waits.
+  final bool busy;
+
   const _BottomBar({
     required this.counts,
     required this.onImport,
@@ -635,6 +641,7 @@ class _BottomBar extends StatelessWidget {
     required this.hasPendingReviews,
     required this.totalPending,
     required this.onReviewPending,
+    this.busy = false,
   });
 
   @override
@@ -721,7 +728,7 @@ class _BottomBar extends StatelessWidget {
                   ),
                 ),
                 FilledButton(
-                  onPressed: (hasPendingReviews || counts.writing == 0)
+                  onPressed: (busy || hasPendingReviews || counts.writing == 0)
                       ? null
                       : onImport,
                   child: Text(l10n.universalImport_action_importSelected),

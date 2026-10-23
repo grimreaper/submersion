@@ -9384,6 +9384,7 @@
   "universalImport_divers_newLabel": "جديد: {name}",
   "universalImport_summary_byProfileTitle": "حسب ملف الغواص",
   "universalImport_summary_newProfile": "ملف غواص جديد",
+  "universalImport_summary_unnamedProfile": "ملف غواص بلا اسم",
   "universalImport_summary_switchToSee": "انتقل إلى {name} لرؤية هذه الغطسات",
   "universalImport_summary_noticesTitle": "ملاحظات الاستيراد",
   "universalImport_summary_noticeNoTankPressureTitle": "لم يتم تسجيل ضغط الأسطوانة",

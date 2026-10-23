@@ -33329,6 +33329,9 @@ class AppLocalizationsAr extends AppLocalizations {
   String get universalImport_summary_newProfile => 'ملف غواص جديد';
 
   @override
+  String get universalImport_summary_unnamedProfile => 'ملف غواص بلا اسم';
+
+  @override
   String universalImport_summary_switchToSee(String name) {
     return 'انتقل إلى $name لرؤية هذه الغطسات';
   }

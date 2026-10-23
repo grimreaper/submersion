@@ -51971,6 +51971,12 @@ abstract class AppLocalizations {
   /// **'New profile'**
   String get universalImport_summary_newProfile;
 
+  /// Name shown in the import summary's By profile section for a profile whose name could not be read
+  ///
+  /// In en, this message translates to:
+  /// **'Unnamed profile'**
+  String get universalImport_summary_unnamedProfile;
+
   /// Import summary hint on a profile that is not the active one
   ///
   /// In en, this message translates to:

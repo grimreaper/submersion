@@ -32873,6 +32873,9 @@ class AppLocalizationsPt extends AppLocalizations {
   String get universalImport_summary_newProfile => 'Novo perfil';
 
   @override
+  String get universalImport_summary_unnamedProfile => 'Perfil sem nome';
+
+  @override
   String universalImport_summary_switchToSee(String name) {
     return 'Mude para $name para ver estes mergulhos';
   }

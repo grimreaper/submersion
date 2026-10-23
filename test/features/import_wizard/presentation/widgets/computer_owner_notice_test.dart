@@ -24,6 +24,7 @@ void main() {
     WidgetTester tester,
     ImportTargetChoice choice, {
     List<Diver>? divers,
+    bool busy = false,
   }) async {
     final changes = <String>[];
     await tester.pumpWidget(
@@ -36,12 +37,17 @@ void main() {
           localizationsDelegates: AppLocalizations.localizationsDelegates,
           supportedLocales: AppLocalizations.supportedLocales,
           home: Scaffold(
-            body: ComputerOwnerNotice(choice: choice, onChanged: changes.add),
+            body: ComputerOwnerNotice(
+              choice: choice,
+              onChanged: changes.add,
+              busy: busy,
+            ),
           ),
         ),
       ),
     );
-    await tester.pumpAndSettle();
+    await tester.pump();
+    await tester.pump();
     return changes;
   }
 
@@ -112,5 +118,20 @@ void main() {
 
     expect(find.byType(DropdownButton<String>), findsNothing);
     expect(find.textContaining('belongs to'), findsNothing);
+  });
+  testWidgets('holds the picker while the download is re-checked', (
+    tester,
+  ) async {
+    await pump(
+      tester,
+      const ImportTargetChoice(ownerDiverId: 'mitchell', chosenDiverId: 'bill'),
+      busy: true,
+    );
+
+    final dropdown = tester.widget<DropdownButton<String>>(
+      find.byType(DropdownButton<String>),
+    );
+    expect(dropdown.onChanged, isNull);
+    expect(find.byType(CircularProgressIndicator), findsOneWidget);
   });
 }

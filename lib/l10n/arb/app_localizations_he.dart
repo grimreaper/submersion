@@ -32071,6 +32071,9 @@ class AppLocalizationsHe extends AppLocalizations {
   String get universalImport_summary_newProfile => 'פרופיל חדש';
 
   @override
+  String get universalImport_summary_unnamedProfile => 'פרופיל ללא שם';
+
+  @override
   String universalImport_summary_switchToSee(String name) {
     return 'עבור אל $name כדי לראות צלילות אלה';
   }

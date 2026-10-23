@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/features/dive_import/domain/services/dive_matcher.dart';
 import 'package:submersion/features/import_wizard/domain/adapters/import_source_adapter.dart';
@@ -20,6 +22,10 @@ class _RetargetableAdapter
   String target = 'mitchell';
   final targets = <String>[];
   bool failDuplicateCheck = false;
+
+  /// When set, each duplicate check waits on the next gate in turn.
+  final gates = <Completer<void>>[];
+  var _checks = 0;
 
   @override
   Future<void> setTargetDiver(String diverId) async {
@@ -49,8 +55,10 @@ class _RetargetableAdapter
 
   @override
   Future<ImportBundle> checkDuplicates(ImportBundle bundle) async {
+    final checking = bundle.targetChoice?.chosenDiverId;
+    if (gates.isNotEmpty) await gates[_checks++].future;
     if (failDuplicateCheck) throw StateError('database is locked');
-    if (target != 'mitchell') return bundle;
+    if (checking != 'mitchell') return bundle;
     final dives = bundle.groups[ImportEntityType.dives]!;
     return ImportBundle(
       source: bundle.source,
@@ -86,6 +94,7 @@ class _RetargetableAdapter
   Set<DuplicateAction> get supportedDuplicateActions => const {
     DuplicateAction.skip,
     DuplicateAction.importAsNew,
+    DuplicateAction.fillPlanned,
   };
   @override
   Set<DuplicateAction> duplicateActionsFor(ImportEntityType type) =>
@@ -156,5 +165,80 @@ void main() {
     await notifier.changeTargetDiver('bill');
 
     expect(adapter.targets, isEmpty);
+  });
+  test('a planned-fill edit keeps the choice', () {
+    notifier.setPlannedFillTarget(0, 'planned-1');
+
+    expect(notifier.state.bundle?.targetChoice?.chosenDiverId, 'mitchell');
+  });
+
+  test(
+    'a choice made over edited rows resets them for the new profile',
+    () async {
+      notifier.setDuplicateAction(
+        ImportEntityType.dives,
+        0,
+        DuplicateAction.importAsNew,
+      );
+
+      await notifier.changeTargetDiver('bill');
+
+      expect(notifier.state.duplicateActions[ImportEntityType.dives], isNull);
+      expect(notifier.state.selections[ImportEntityType.dives], {0, 1});
+    },
+  );
+
+  test('reports that it is re-checking until the new bundle lands', () async {
+    final gate = Completer<void>();
+    adapter.gates.add(gate);
+
+    final change = notifier.changeTargetDiver('bill');
+    await Future<void>.delayed(Duration.zero);
+    expect(notifier.state.isRetargeting, isTrue);
+
+    gate.complete();
+    await change;
+    expect(notifier.state.isRetargeting, isFalse);
+  });
+
+  test('only the latest of overlapping changes lands', () async {
+    final first = Completer<void>();
+    final second = Completer<void>();
+    adapter.gates.addAll([first, second]);
+
+    final toBill = notifier.changeTargetDiver('bill');
+    await Future<void>.delayed(Duration.zero);
+    final backToMitchell = notifier.changeTargetDiver('mitchell');
+    await Future<void>.delayed(Duration.zero);
+    second.complete();
+    await backToMitchell;
+    first.complete();
+    await toBill;
+
+    expect(adapter.target, 'mitchell');
+    expect(notifier.state.bundle?.targetChoice?.chosenDiverId, 'mitchell');
+    expect(notifier.state.isRetargeting, isFalse);
+  });
+
+  test(
+    'a failed re-check is reported, and a later success clears it',
+    () async {
+      adapter.failDuplicateCheck = true;
+      await notifier.changeTargetDiver('bill');
+      expect(notifier.state.duplicateCheckFailed, isTrue);
+
+      adapter.failDuplicateCheck = false;
+      await notifier.changeTargetDiver('mitchell');
+      expect(notifier.state.duplicateCheckFailed, isFalse);
+    },
+  );
+
+  test('setBundle records whether the duplicate check ran', () {
+    final bundle = notifier.state.bundle!;
+    notifier.setBundle(bundle, duplicateCheckFailed: true);
+    expect(notifier.state.duplicateCheckFailed, isTrue);
+
+    notifier.setBundle(bundle);
+    expect(notifier.state.duplicateCheckFailed, isFalse);
   });
 }

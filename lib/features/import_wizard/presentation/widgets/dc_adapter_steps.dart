@@ -307,6 +307,11 @@ class _DcAdapterDownloadStepState extends ConsumerState<DcAdapterDownloadStep> {
   bool _captured = false;
   bool _computerResolved = false;
 
+  /// Whether the adapter has worked out which profile the download goes to,
+  /// for the first-sync cutoff default (issue #2050).
+  bool _targetResolved = false;
+  Future<void>? _targetResolution;
+
   /// The device handed to the download, when the step built it from the
   /// saved computer rather than taking a discovery selection. Completion
   /// bookkeeping (saving the computer, recording its connection and clock
@@ -596,8 +601,16 @@ class _DcAdapterDownloadStepState extends ConsumerState<DcAdapterDownloadStep> {
         !widget.adapter.forceFullDownload;
     DateTime? cutoffDefault;
     if (promptCouldApply) {
+      // The default comes from the log the download will go to, which
+      // may be the computer owner's (issue #2050); work that out first.
+      if (!_targetResolved && widget.adapter.mayBelongToAnotherProfile) {
+        _targetResolution ??= widget.adapter.resolveTarget().whenComplete(() {
+          if (mounted) setState(() => _targetResolved = true);
+        });
+        return const Center(child: CircularProgressIndicator());
+      }
       final cutoffAsync = ref.watch(
-        firstSyncCutoffDefaultProvider(widget.adapter.provisionalTargetDiverId),
+        firstSyncCutoffDefaultProvider(widget.adapter.targetDiverId),
       );
       if (cutoffAsync.isLoading) {
         return const Center(child: CircularProgressIndicator());

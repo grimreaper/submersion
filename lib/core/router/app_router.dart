@@ -2221,11 +2221,6 @@ class _DiveComputerDiscoveryWizardRoute extends ConsumerWidget {
         diveRepository: diveRepo,
         consolidationService: consolidationService,
         diverId: diverId,
-        // Issue #2050: a computer that belongs to another profile defaults
-        // to that profile unless the diver turned this off.
-        followComputerOwner: ref
-            .read(settingsProvider)
-            .downloadsFollowComputerOwner,
         ref: ref,
       ),
     );
@@ -2308,9 +2303,6 @@ class _DiveComputerDownloadWizardRouteState
           diveRepository: ref.read(diveRepositoryProvider),
           consolidationService: ref.read(diveConsolidationServiceProvider),
           diverId: ref.read(currentDiverIdProvider) ?? '',
-          followComputerOwner: ref
-              .read(settingsProvider)
-              .downloadsFollowComputerOwner,
           // This device's transport and address for it (issue #3106).
           knownComputer: computerForDownload(
             computer,

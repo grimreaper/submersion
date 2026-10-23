@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 
+import 'package:submersion/features/divers/domain/entities/diver.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/import_wizard/domain/models/import_target_choice.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
@@ -16,12 +17,17 @@ class ComputerOwnerNotice extends ConsumerWidget {
     super.key,
     required this.choice,
     required this.onChanged,
+    this.busy = false,
   });
 
   final ImportTargetChoice choice;
 
   /// Called with the id of the profile picked for this download.
   final ValueChanged<String> onChanged;
+
+  /// The download is being re-checked for a newly picked profile: the picker
+  /// is held and shows progress until the new choice lands.
+  final bool busy;
 
   @override
   Widget build(BuildContext context, WidgetRef ref) {
@@ -57,42 +63,60 @@ class ComputerOwnerNotice extends ConsumerWidget {
             ],
           ),
           const SizedBox(height: 8),
-          ConstrainedBox(
-            constraints: const BoxConstraints(maxWidth: 360),
-            child: InputDecorator(
-              decoration: InputDecoration(
-                labelText: l10n.universalImport_computerOwner_profileLabel,
-                border: const OutlineInputBorder(),
-                isDense: true,
-              ),
-              child: DropdownButtonHideUnderline(
-                child: DropdownButton<String>(
-                  key: const Key('computer_owner_profile'),
-                  value: names.containsKey(choice.chosenDiverId)
-                      ? choice.chosenDiverId
-                      : choice.ownerDiverId,
-                  isExpanded: true,
-                  isDense: true,
-                  items: [
-                    for (final profile in profiles)
-                      DropdownMenuItem(
-                        value: profile.id,
-                        child: Text(
-                          profile.name,
-                          overflow: TextOverflow.ellipsis,
-                        ),
-                      ),
-                  ],
-                  onChanged: (id) {
-                    if (id != null && id != choice.chosenDiverId) {
-                      onChanged(id);
-                    }
-                  },
+          Row(
+            children: [
+              Flexible(
+                child: ConstrainedBox(
+                  constraints: const BoxConstraints(maxWidth: 360),
+                  child: _picker(context, profiles),
                 ),
               ),
-            ),
+              if (busy) ...[
+                const SizedBox(width: 12),
+                const SizedBox.square(
+                  dimension: 20,
+                  child: CircularProgressIndicator(strokeWidth: 2),
+                ),
+              ],
+            ],
           ),
         ],
+      ),
+    );
+  }
+
+  Widget _picker(BuildContext context, List<Diver> profiles) {
+    final l10n = context.l10n;
+    final ids = {for (final p in profiles) p.id};
+    return InputDecorator(
+      decoration: InputDecoration(
+        labelText: l10n.universalImport_computerOwner_profileLabel,
+        border: const OutlineInputBorder(),
+        isDense: true,
+      ),
+      child: DropdownButtonHideUnderline(
+        child: DropdownButton<String>(
+          key: const Key('computer_owner_profile'),
+          value: ids.contains(choice.chosenDiverId)
+              ? choice.chosenDiverId
+              : choice.ownerDiverId,
+          isExpanded: true,
+          isDense: true,
+          items: [
+            for (final profile in profiles)
+              DropdownMenuItem(
+                value: profile.id,
+                child: Text(profile.name, overflow: TextOverflow.ellipsis),
+              ),
+          ],
+          onChanged: busy
+              ? null
+              : (id) {
+                  if (id != null && id != choice.chosenDiverId) {
+                    onChanged(id);
+                  }
+                },
+        ),
       ),
     );
   }

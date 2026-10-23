@@ -31004,6 +31004,9 @@ class AppLocalizationsZh extends AppLocalizations {
   String get universalImport_summary_newProfile => '新潜水员档案';
 
   @override
+  String get universalImport_summary_unnamedProfile => '未命名的潜水员档案';
+
+  @override
   String universalImport_summary_switchToSee(String name) {
     return '切换到 $name 以查看这些潜水';
   }

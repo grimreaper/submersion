@@ -12,7 +12,43 @@ typedef DiverNameLookup = Future<String?> Function(String diverId);
 /// profile, the bundle carries an [ImportTargetChoice] and the import goes to
 /// the chosen profile: the owner by default, or the active profile when the
 /// diver turned "Add downloads to the computer's owner" off.
-extension _DiveComputerAdapterTarget on DiveComputerAdapter {
+extension DiveComputerAdapterTarget on DiveComputerAdapter {
+  /// The profile that started the download.
+  String get activeDiverId => _activeDiverId;
+
+  /// The profile this download's dives are written to.
+  String get targetDiverId => _chosenDiverId ?? _activeDiverId;
+
+  /// Whether the computer known so far names an owner other than the active
+  /// profile, so [resolveTarget] has a profile to look up. When false the
+  /// download goes to the active profile without waiting on a lookup.
+  bool get mayBelongToAnotherProfile {
+    final owner = computer?.diverId?.trim() ?? '';
+    return owner.isNotEmpty &&
+        _activeDiverId.isNotEmpty &&
+        owner != _activeDiverId;
+  }
+
+  /// Works out the computer's owner from the computer known so far, and the
+  /// starting choice when the diver has not made one.
+  ///
+  /// Called before the download for the first-sync cutoff, and again by
+  /// [buildBundle]: a computer that turned out to be another unit has another
+  /// owner, and a choice made for the old one is dropped.
+  Future<void> resolveTarget() async {
+    final candidate = computer?.diverId?.trim() ?? '';
+    final owner =
+        mayBelongToAnotherProfile && await _lookUpDiverName(candidate) != null
+        ? candidate
+        : null;
+    if (owner != _ownerDiverId) _chosenDiverId = null;
+    _ownerDiverId = owner;
+    if (owner == null) return;
+    _chosenDiverId ??= await _followsOwner() ? owner : _activeDiverId;
+  }
+}
+
+extension _DiveComputerAdapterTargetSupport on DiveComputerAdapter {
   /// Runs [find] for the active profile and, when that misses, across every
   /// profile. The active profile's record wins, so a computer the old
   /// behaviour registered under two profiles keeps using this profile's copy.
@@ -25,21 +61,19 @@ extension _DiveComputerAdapterTarget on DiveComputerAdapter {
     return find(null);
   }
 
-  /// Works out the computer's owner once the computer is known, and the
-  /// starting choice when the diver has not made one.
-  Future<void> _resolveTarget() async {
-    _ownerDiverId = null;
-    final owner = computer?.diverId?.trim() ?? '';
-    final isOtherProfile =
-        owner.isNotEmpty &&
-        _activeDiverId.isNotEmpty &&
-        owner != _activeDiverId;
-    if (!isOtherProfile || await _lookUpDiverName(owner) == null) {
-      _chosenDiverId = null;
-      return;
+  /// The diver's "Add downloads to the computer's owner", waiting for the
+  /// settings to load so a saved "off" is not read as the default.
+  Future<bool> _followsOwner() async {
+    final given = _followComputerOwner;
+    if (given != null) return given();
+    final ref = _ref;
+    if (ref == null) return true;
+    try {
+      await ref.read(settingsProvider.notifier).settingsLoaded;
+    } catch (_) {
+      // Logged where the load started; the defaults are the fallback.
     }
-    _ownerDiverId = owner;
-    _chosenDiverId ??= _followComputerOwner ? owner : _activeDiverId;
+    return ref.read(settingsProvider).downloadsFollowComputerOwner;
   }
 
   /// The bundle's choice, or null when the download simply goes to the
@@ -73,24 +107,39 @@ extension _DiveComputerAdapterTarget on DiveComputerAdapter {
     ];
   }
 
-  /// The name of [diverId], or null when it is missing or cannot be read.
+  /// The name of [diverId], or null when there is no such profile.
+  ///
+  /// A name found is remembered in [_diverNames], and a failed lookup falls
+  /// back to it: a passing database error must not read as the profile
+  /// having been deleted, which would silently send the download elsewhere.
   Future<String?> _lookUpDiverName(String diverId) async {
     try {
       final lookup = _diverName;
-      if (lookup != null) return await lookup(diverId);
       final ref = _ref;
-      if (ref == null) return null;
-      final diver = await ref
-          .read(diverRepositoryProvider)
-          .getDiverById(diverId);
-      return diver?.name;
+      final String? name;
+      if (lookup != null) {
+        name = await lookup(diverId);
+      } else if (ref != null) {
+        final diver = await ref
+            .read(diverRepositoryProvider)
+            .getDiverById(diverId);
+        name = diver?.name;
+      } else {
+        name = null;
+      }
+      if (name == null) {
+        _diverNames.remove(diverId);
+      } else {
+        _diverNames[diverId] = name;
+      }
+      return name;
     } catch (e, stackTrace) {
       DiveComputerAdapter._log.error(
         'Could not look up profile $diverId',
         error: e,
         stackTrace: stackTrace,
       );
-      return null;
+      return _diverNames[diverId];
     }
   }
 }

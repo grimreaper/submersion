@@ -18969,6 +18969,10 @@
   "universalImport_divers_newLabel": "New: {name}",
   "universalImport_summary_byProfileTitle": "By profile",
   "universalImport_summary_newProfile": "New profile",
+  "universalImport_summary_unnamedProfile": "Unnamed profile",
+  "@universalImport_summary_unnamedProfile": {
+    "description": "Name shown in the import summary's By profile section for a profile whose name could not be read"
+  },
   "universalImport_summary_switchToSee": "Switch to {name} to see these dives",
   "@universalImport_divers_intro": {"description": "Explains the import wizard Divers step for a logbook holding several divers", "placeholders": {"count": {"type": "num"}}},
   "@universalImport_divers_diveCount": {"description": "Dive count of one diver row in the Divers step", "placeholders": {"count": {"type": "num"}}},

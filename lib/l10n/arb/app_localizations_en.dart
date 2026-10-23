@@ -32330,6 +32330,9 @@ class AppLocalizationsEn extends AppLocalizations {
   String get universalImport_summary_newProfile => 'New profile';
 
   @override
+  String get universalImport_summary_unnamedProfile => 'Unnamed profile';
+
+  @override
   String universalImport_summary_switchToSee(String name) {
     return 'Switch to $name to see these dives';
   }

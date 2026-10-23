@@ -161,4 +161,16 @@ void main() {
     expect(find.textContaining("added to Bill's log"), findsOneWidget);
     expect(find.text('#7'), findsOneWidget);
   });
+  testWidgets('holds Import while the download is re-checked', (tester) async {
+    final container = await pump(tester, 'mitchell');
+    final notifier = container.read(importWizardNotifierProvider.notifier);
+
+    notifier.debugSetState(notifier.state.copyWith(isRetargeting: true));
+    await tester.pump();
+
+    final import = tester.widget<FilledButton>(
+      find.widgetWithText(FilledButton, 'Import Selected'),
+    );
+    expect(import.onPressed, isNull);
+  });
 }

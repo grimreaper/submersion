@@ -65,7 +65,9 @@ void main() {
     DiveComputer? known,
     String active = 'bill',
     bool follow = true,
+    Future<bool> Function()? readFollow,
     Map<String, String> names = const {'bill': 'Bill', 'mitchell': 'Mitchell'},
+    DiverNameLookup? diverName,
   }) => DiveComputerAdapter(
     importService: importService,
     computerRepository: computers,
@@ -73,8 +75,8 @@ void main() {
     consolidationService: consolidation,
     diverId: active,
     knownComputer: known,
-    followComputerOwner: follow,
-    diverName: (id) async => names[id],
+    followComputerOwner: readFollow ?? () async => follow,
+    diverName: diverName ?? (id) async => names[id],
   );
 
   Future<ImportBundle> bundleFor(DiveComputerAdapter a) async {
@@ -227,13 +229,73 @@ void main() {
       },
     );
 
-    test('provisionalTargetDiverId follows the known owner when on', () {
-      expect(adapter(known: _computer()).provisionalTargetDiverId, 'mitchell');
-      expect(
-        adapter(known: _computer(), follow: false).provisionalTargetDiverId,
-        'bill',
+    test(
+      'reads the switch when the target is resolved, not when built',
+      () async {
+        var on = true;
+        final a = adapter(known: _computer(), readFollow: () async => on);
+        on = false;
+
+        expect((await bundleFor(a)).targetChoice?.chosenDiverId, 'bill');
+      },
+    );
+
+    test('resolveTarget before the download follows an owner found by '
+        'address', () async {
+      when(
+        computers.findByBluetoothAddress('AA', diverId: 'bill'),
+      ).thenAnswer((_) async => null);
+      when(
+        computers.findByBluetoothAddress('AA', diverId: null),
+      ).thenAnswer((_) async => _computer());
+      final a = adapter();
+      await a.resolveKnownComputer(_device);
+
+      await a.resolveTarget();
+
+      expect(a.targetDiverId, 'mitchell');
+    });
+
+    test(
+      'resolveTarget keeps the active profile for a deleted owner',
+      () async {
+        final a = adapter(known: _computer(), names: const {'bill': 'Bill'});
+
+        await a.resolveTarget();
+
+        expect(a.targetDiverId, 'bill');
+      },
+    );
+
+    test('a computer that turns out to be another unit drops the old '
+        'choice', () async {
+      when(
+        computers.findByBluetoothAddress('AA', diverId: 'bill'),
+      ).thenAnswer((_) async => null);
+      when(
+        computers.findByBluetoothAddress('AA', diverId: null),
+      ).thenAnswer((_) async => _computer());
+      when(
+        computers.findByHardwareIdentity(
+          manufacturer: anyNamed('manufacturer'),
+          model: anyNamed('model'),
+          serialNumber: anyNamed('serialNumber'),
+          diverId: argThat(equals('bill'), named: 'diverId'),
+        ),
+      ).thenAnswer(
+        (_) async => _computer(id: 'B', diverId: 'bill', serial: 'SN-2'),
       );
-      expect(adapter().provisionalTargetDiverId, 'bill');
+      final a = adapter();
+      await a.resolveKnownComputer(_device);
+      await a.resolveTarget();
+      expect(a.targetDiverId, 'mitchell');
+
+      await a.ensureComputer(device: _device, serialNumber: 'SN-2');
+      final bundle = await bundleFor(a);
+
+      expect(a.computer?.id, 'B');
+      expect(bundle.targetChoice, isNull);
+      expect(a.targetDiverId, 'bill');
     });
   });
 
@@ -331,6 +393,21 @@ void main() {
       );
 
       expect(result.diverOutcomes, isEmpty);
+    });
+
+    test('keeps a name seen earlier when the lookup fails at import', () async {
+      var calls = 0;
+      final result = await importOne(
+        adapter(
+          known: _computer(),
+          diverName: (id) async {
+            if (++calls > 1) throw StateError('database is locked');
+            return id == 'mitchell' ? 'Mitchell' : 'Bill';
+          },
+        ),
+      );
+
+      expect(result.diverOutcomes.single.name, 'Mitchell');
     });
 
     test("carries no outcomes for the active profile's own computer", () async {
