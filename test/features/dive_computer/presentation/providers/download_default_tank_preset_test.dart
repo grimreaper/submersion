@@ -5,6 +5,7 @@ import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/features/dive_computer/domain/entities/downloaded_dive.dart';
 import 'package:submersion/features/dive_computer/presentation/providers/download_providers.dart';
+import 'package:submersion/features/settings/data/repositories/diver_settings_repository.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/tank_presets/domain/entities/tank_preset_entity.dart';
 
@@ -77,6 +78,61 @@ void main() {
     );
 
     expect(preset, isNull);
+  });
+
+  group('for a diver other than the active one (issue #2050)', () {
+    Future<TankPresetEntity?> loadFor(String diverId) async {
+      final container = ProviderContainer(
+        overrides: [
+          sharedPreferencesProvider.overrideWithValue(prefs),
+          settingsProvider.overrideWith(
+            (ref) => MockSettingsNotifier(
+              const AppSettings(applyDefaultTankToImports: false),
+            ),
+          ),
+        ],
+      );
+      addTearDown(container.dispose);
+      final probe = FutureProvider<TankPresetEntity?>(
+        (ref) => loadDefaultTankPresetForDownloads(ref, diverId: diverId),
+      );
+      return container.read(probe.future);
+    }
+
+    Future<void> addDiver(String id) async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await db
+          .into(db.divers)
+          .insert(
+            DiversCompanion.insert(
+              id: id,
+              name: id,
+              createdAt: now,
+              updatedAt: now,
+            ),
+          );
+    }
+
+    test("uses that diver's preset, not the active diver's", () async {
+      await addDiver('mitchell');
+      await DiverSettingsRepository().createSettingsForDiver(
+        'mitchell',
+        settings: const AppSettings(
+          applyDefaultTankToImports: true,
+          defaultTankPreset: 'al80',
+        ),
+      );
+
+      final preset = await loadFor('mitchell');
+
+      expect(preset?.name, 'al80');
+    });
+
+    test('a diver with no saved settings gets the default (off)', () async {
+      await addDiver('mitchell');
+
+      expect(await loadFor('mitchell'), isNull);
+    });
   });
 
   group('end to end through diveImportServiceProvider', () {

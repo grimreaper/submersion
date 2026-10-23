@@ -43,17 +43,35 @@ final diveImportServiceProvider = Provider<DiveImportService>((ref) {
     gpsTrackMatchService: ref.watch(gpsTrackMatchServiceProvider),
     // Read at import time, not provider build time, so a toggle flipped in
     // Settings applies to the very next download (issue #386).
-    defaultTankPresetForImports: () => loadDefaultTankPresetForDownloads(ref),
-    transmitterMatcherForImports: () => loadTransmitterMatcher(ref),
+    defaultTankPresetForImports: (diverId) =>
+        loadDefaultTankPresetForDownloads(ref, diverId: diverId),
+    transmitterMatcherForImports: (diverId) =>
+        loadTransmitterMatcher(ref, diverId: diverId),
   );
 });
 
 /// The default tank preset to fill downloaded cylinders with, or null when
 /// the diver has not opted in ("Also apply to imported dives" off) or the
 /// configured preset no longer exists.
+///
+/// [diverId] names the diver the dives are imported for (issue #2050); null,
+/// empty or the active diver reads the live settings, and another diver reads
+/// their saved settings (the defaults when they have none).
 @visibleForTesting
-Future<TankPresetEntity?> loadDefaultTankPresetForDownloads(Ref ref) async {
-  final settings = ref.read(settingsProvider);
+Future<TankPresetEntity?> loadDefaultTankPresetForDownloads(
+  Ref ref, {
+  String? diverId,
+}) async {
+  final otherDiver =
+      diverId != null &&
+      diverId.isNotEmpty &&
+      diverId != ref.read(currentDiverIdProvider);
+  final settings = otherDiver
+      ? await ref
+                .read(diverSettingsRepositoryProvider)
+                .getSettingsForDiver(diverId) ??
+            const AppSettings()
+      : ref.read(settingsProvider);
   if (!settings.applyDefaultTankToImports) return null;
   final resolver = DefaultTankPresetResolver(
     repository: ref.read(tankPresetRepositoryProvider),
