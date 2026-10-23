@@ -22752,6 +22752,10 @@ class AppLocalizationsAr extends AppLocalizations {
   String get settings_conflict_field_autoTagImports => 'وسم الغوصات المستوردة';
 
   @override
+  String get settings_conflict_field_downloadsFollowComputerOwner =>
+      'إضافة التنزيلات إلى مالك الكمبيوتر';
+
+  @override
   String get settings_conflict_field_avgSpeed => 'متوسط السرعة';
 
   @override
@@ -30267,6 +30271,14 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get settings_autoTagImports_subtitle =>
       'يبدأ كل استيراد جديد بوسم يحمل اسم المصدر والتاريخ. يمكن تغيير ذلك لعملية استيراد واحدة في خيارات تلك العملية.';
+
+  @override
+  String get settings_downloadsFollowOwner_title =>
+      'إضافة التنزيلات إلى مالك الكمبيوتر';
+
+  @override
+  String get settings_downloadsFollowOwner_subtitle =>
+      'عندما يخص كمبيوتر الغوص ملف غواص آخر، تذهب غطساته إلى سجل ذلك الملف. يمكنك تغيير ذلك في شاشة المراجعة.';
 
   @override
   String get tags_manage_searchHint => 'البحث في الوسوم...';

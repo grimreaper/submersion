@@ -22471,6 +22471,10 @@ class AppLocalizationsIt extends AppLocalizations {
       'Etichetta le immersioni importate';
 
   @override
+  String get settings_conflict_field_downloadsFollowComputerOwner =>
+      'Aggiungi i download al proprietario del computer';
+
+  @override
   String get settings_conflict_field_avgSpeed => 'Velocità media';
 
   @override
@@ -30061,6 +30065,14 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get settings_autoTagImports_subtitle =>
       'Ogni nuova importazione inizia con un tag che indica l\'origine e la data. Puoi modificarlo per una singola importazione nelle opzioni di quell\'importazione.';
+
+  @override
+  String get settings_downloadsFollowOwner_title =>
+      'Aggiungi i download al proprietario del computer';
+
+  @override
+  String get settings_downloadsFollowOwner_subtitle =>
+      'Se un computer subacqueo appartiene a un altro profilo, le sue immersioni vanno nel registro di quel profilo. Puoi cambiarlo nella schermata di revisione.';
 
   @override
   String get tags_manage_searchHint => 'Cerca tag...';

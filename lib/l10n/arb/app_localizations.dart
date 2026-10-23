@@ -35748,6 +35748,12 @@ abstract class AppLocalizations {
   /// **'Tag imported dives'**
   String get settings_conflict_field_autoTagImports;
 
+  /// Label for the downloads-follow-computer-owner setting in a sync conflict
+  ///
+  /// In en, this message translates to:
+  /// **'Add downloads to the computer\'s owner'**
+  String get settings_conflict_field_downloadsFollowComputerOwner;
+
   /// No description provided for @settings_conflict_field_avgSpeed.
   ///
   /// In en, this message translates to:
@@ -48174,6 +48180,18 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Every new import starts with a tag naming the source and date. You can change this for a single import in that import\'s options.'**
   String get settings_autoTagImports_subtitle;
+
+  /// Switch title, in Import options on Settings > Data, for adding a dive computer download to the profile that owns the computer
+  ///
+  /// In en, this message translates to:
+  /// **'Add downloads to the computer\'s owner'**
+  String get settings_downloadsFollowOwner_title;
+
+  /// Switch subtitle, in Import options on Settings > Data, explaining that a download from another profile's dive computer goes to that profile
+  ///
+  /// In en, this message translates to:
+  /// **'When a dive computer belongs to another profile, its dives go to that profile\'s log. You can change it on the review screen.'**
+  String get settings_downloadsFollowOwner_subtitle;
 
   /// No description provided for @tags_manage_searchHint.
   ///

@@ -22468,6 +22468,10 @@ class AppLocalizationsPt extends AppLocalizations {
       'Etiquetar mergulhos importados';
 
   @override
+  String get settings_conflict_field_downloadsFollowComputerOwner =>
+      'Adicionar downloads ao dono do computador';
+
+  @override
   String get settings_conflict_field_avgSpeed => 'Velocidade média';
 
   @override
@@ -30042,6 +30046,14 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get settings_autoTagImports_subtitle =>
       'Cada nova importação começa com uma etiqueta que indica a origem e a data. Pode alterar isto para uma única importação nas opções dessa importação.';
+
+  @override
+  String get settings_downloadsFollowOwner_title =>
+      'Adicionar downloads ao dono do computador';
+
+  @override
+  String get settings_downloadsFollowOwner_subtitle =>
+      'Quando um computador de mergulho pertence a outro perfil, os mergulhos dele vão para o registro desse perfil. Você pode mudar isso na tela de revisão.';
 
   @override
   String get tags_manage_searchHint => 'Buscar etiquetas...';

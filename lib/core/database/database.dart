@@ -286,7 +286,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// The current schema version as a static constant so that pre-open checks
   /// (e.g. version-mismatch guard) can reference it without an instance.
-  static const int currentSchemaVersion = 308;
+  static const int currentSchemaVersion = 309;
 
   /// The oldest schema whose reader can apply this build's sync payloads
   /// without loss or misinterpretation (the compatibility floor).
@@ -1378,6 +1378,9 @@ class AppDatabase extends _$AppDatabase {
     // rebuild for dive_plans; raises the compatibility floor to 308 for
     // the whole v305-v308 nullability change. Renumbered from 306.
     308,
+    // v309: diver_settings.downloads_follow_computer_owner (issue #2050).
+    // Additive, on by default; the floor does not move.
+    309,
   ];
 
   /// Returns the number of migration steps that will execute when upgrading

@@ -22532,6 +22532,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Étiqueter les plongées importées';
 
   @override
+  String get settings_conflict_field_downloadsFollowComputerOwner =>
+      'Ajouter les téléchargements au propriétaire de l\'ordinateur';
+
+  @override
   String get settings_conflict_field_avgSpeed => 'Vitesse moyenne';
 
   @override
@@ -30148,6 +30152,14 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get settings_autoTagImports_subtitle =>
       'Chaque nouvel import commence avec une étiquette indiquant la source et la date. Vous pouvez modifier cela pour un import donné dans ses options.';
+
+  @override
+  String get settings_downloadsFollowOwner_title =>
+      'Ajouter les téléchargements au propriétaire de l\'ordinateur';
+
+  @override
+  String get settings_downloadsFollowOwner_subtitle =>
+      'Si un ordinateur de plongée appartient à un autre profil, ses plongées vont dans le carnet de ce profil. Vous pouvez le modifier sur l\'écran de vérification.';
 
   @override
   String get tags_manage_searchHint => 'Rechercher des étiquettes...';

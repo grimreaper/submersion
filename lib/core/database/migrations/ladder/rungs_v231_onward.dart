@@ -545,5 +545,10 @@ extension RungsFromV231 on AppDatabase {
       await _assertDivePlanReserveAndGfNullable();
     }
     if (from < 308) await reportProgress();
+
+    // v309: diver_settings.downloads_follow_computer_owner (issue #2050).
+    // Column only, on by default; re-asserted in beforeOpen.
+    if (from < 309) await _assertDownloadOwnerColumn();
+    if (from < 309) await reportProgress();
   }
 }

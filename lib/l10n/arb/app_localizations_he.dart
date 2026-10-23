@@ -21956,6 +21956,10 @@ class AppLocalizationsHe extends AppLocalizations {
   String get settings_conflict_field_autoTagImports => 'תיוג צלילות מיובאות';
 
   @override
+  String get settings_conflict_field_downloadsFollowComputerOwner =>
+      'הוספת הורדות לבעלים של המחשב';
+
+  @override
   String get settings_conflict_field_avgSpeed => 'מהירות ממוצעת';
 
   @override
@@ -29290,6 +29294,14 @@ class AppLocalizationsHe extends AppLocalizations {
   @override
   String get settings_autoTagImports_subtitle =>
       'כל ייבוא חדש מתחיל עם תגית הנושאת את שם המקור והתאריך. אפשר לשנות זאת לייבוא בודד באפשרויות אותו ייבוא.';
+
+  @override
+  String get settings_downloadsFollowOwner_title =>
+      'הוספת הורדות לבעלים של המחשב';
+
+  @override
+  String get settings_downloadsFollowOwner_subtitle =>
+      'כשמחשב צלילה שייך לפרופיל אחר, הצלילות שלו נכנסות ליומן של אותו פרופיל. אפשר לשנות זאת במסך הסקירה.';
 
   @override
   String get tags_manage_searchHint => 'חיפוש תגיות...';
