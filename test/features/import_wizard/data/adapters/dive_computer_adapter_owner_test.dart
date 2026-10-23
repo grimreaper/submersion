@@ -1,14 +1,21 @@
+import 'package:flutter/widgets.dart';
+import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:mockito/mockito.dart';
 import 'package:submersion/features/dive_computer/data/services/dive_import_service.dart';
 import 'package:submersion/features/dive_computer/domain/entities/device_model.dart';
 import 'package:submersion/features/dive_computer/domain/entities/downloaded_dive.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_computer.dart';
+import 'package:submersion/features/divers/data/repositories/diver_repository.dart';
+import 'package:submersion/features/divers/domain/entities/diver.dart';
+import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/import_wizard/data/adapters/dive_computer_adapter.dart';
 import 'package:submersion/features/import_wizard/domain/models/import_bundle.dart';
 import 'package:submersion/features/import_wizard/domain/models/import_target_choice.dart';
 import 'package:submersion/features/import_wizard/domain/models/unified_import_result.dart';
+import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 
+import '../../../../helpers/mock_providers.dart';
 import 'dive_computer_adapter_test.mocks.dart';
 
 // Issue #2050: a download follows the dive computer's owner. Bill is the
@@ -35,6 +42,23 @@ DownloadedDive _dive() => DownloadedDive(
   maxDepth: 18,
   profile: const [],
 );
+
+class _Profiles extends DiverRepository {
+  @override
+  Future<Diver?> getDiverById(String id) async => id == 'mitchell'
+      ? Diver(
+          id: id,
+          name: 'Mitchell',
+          createdAt: DateTime(2026, 1, 1),
+          updatedAt: DateTime(2026, 1, 1),
+        )
+      : null;
+}
+
+class _FailingLoadSettings extends MockSettingsNotifier {
+  @override
+  Future<void> get settingsLoaded async => throw StateError('closed');
+}
 
 final _device = DiscoveredDevice(
   id: 'AA',
@@ -429,4 +453,78 @@ void main() {
       expect(result.diverOutcomes, isEmpty);
     });
   });
+  group('through the app providers', () {
+    Future<WidgetRef> refWith(
+      WidgetTester tester,
+      MockSettingsNotifier settings,
+    ) async {
+      late WidgetRef captured;
+      await tester.pumpWidget(
+        ProviderScope(
+          overrides: [
+            settingsProvider.overrideWith((ref) => settings),
+            diverRepositoryProvider.overrideWithValue(_Profiles()),
+          ],
+          child: Consumer(
+            builder: (context, ref, _) {
+              captured = ref;
+              return const SizedBox.shrink();
+            },
+          ),
+        ),
+      );
+      return captured;
+    }
+
+    DiveComputerAdapter withRef(WidgetRef ref) => DiveComputerAdapter(
+      importService: importService,
+      computerRepository: computers,
+      diveRepository: dives,
+      consolidationService: consolidation,
+      diverId: 'bill',
+      knownComputer: _computer(),
+      ref: ref,
+    );
+
+    testWidgets('reads the profile and a saved "off"', (tester) async {
+      final ref = await refWith(
+        tester,
+        MockSettingsNotifier(
+          const AppSettings(downloadsFollowComputerOwner: false),
+        ),
+      );
+
+      final bundle = await bundleFor(withRef(ref));
+
+      expect(bundle.targetChoice?.ownerDiverId, 'mitchell');
+      expect(bundle.targetChoice?.chosenDiverId, 'bill');
+    });
+
+    testWidgets('a failed settings load uses the settings it holds', (
+      tester,
+    ) async {
+      final ref = await refWith(tester, _FailingLoadSettings());
+
+      final bundle = await bundleFor(withRef(ref));
+
+      expect(bundle.targetChoice?.chosenDiverId, 'mitchell');
+    });
+  });
+
+  test(
+    'with neither a reader nor the app providers it follows the owner',
+    () async {
+      final a = DiveComputerAdapter(
+        importService: importService,
+        computerRepository: computers,
+        diveRepository: dives,
+        consolidationService: consolidation,
+        diverId: 'bill',
+        knownComputer: _computer(),
+        diverName: (id) async => id == 'mitchell' ? 'Mitchell' : null,
+      );
+
+      expect((await bundleFor(a)).targetChoice?.chosenDiverId, 'mitchell');
+    },
+  );
 }

@@ -1,6 +1,7 @@
 import 'package:flutter/material.dart';
 import 'package:flutter_riverpod/flutter_riverpod.dart';
 import 'package:flutter_test/flutter_test.dart';
+import 'package:submersion/features/dive_log/domain/entities/dive.dart';
 import 'package:submersion/features/dive_log/presentation/providers/dive_providers.dart';
 import 'package:submersion/features/divers/domain/entities/diver.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
@@ -22,6 +23,9 @@ import 'package:submersion/shared/widgets/wizard/wizard_step_def.dart';
 // the dives in the chosen profile's log.
 
 class _Adapter implements ImportSourceAdapter, RetargetableImportAdapter {
+  _Adapter({this.offersFill = false});
+
+  final bool offersFill;
   String target = 'mitchell';
 
   @override
@@ -44,9 +48,10 @@ class _Adapter implements ImportSourceAdapter, RetargetableImportAdapter {
   @override
   List<WizardStepDef> get acquisitionSteps => const [];
   @override
-  Set<DuplicateAction> get supportedDuplicateActions => const {
+  Set<DuplicateAction> get supportedDuplicateActions => {
     DuplicateAction.skip,
     DuplicateAction.importAsNew,
+    if (offersFill) DuplicateAction.fillPlanned,
   };
   @override
   Set<DuplicateAction> duplicateActionsFor(ImportEntityType type) =>
@@ -85,11 +90,16 @@ Diver _diver(String id, String name) => Diver(
 );
 
 void main() {
-  Future<ProviderContainer> pump(WidgetTester tester, String? chosen) async {
+  Future<ProviderContainer> pump(
+    WidgetTester tester,
+    String? chosen, {
+    bool offersFill = false,
+    List<String?>? plannedFor,
+  }) async {
     tester.view.physicalSize = const Size(1000, 900);
     tester.view.devicePixelRatio = 1;
     addTearDown(tester.view.reset);
-    final adapter = _Adapter();
+    final adapter = _Adapter(offersFill: offersFill);
     final container = ProviderContainer(
       overrides: [
         importWizardNotifierProvider.overrideWith(
@@ -102,6 +112,10 @@ void main() {
           ],
         ),
         nextDiveNumberProvider.overrideWith((ref) async => 7),
+        plannedFillCandidatesProvider.overrideWith((ref, diverId) async {
+          plannedFor?.add(diverId);
+          return const <Dive>[];
+        }),
         nextDiveNumberForDiverProvider.overrideWith(
           (ref, diverId) async => diverId == 'mitchell' ? 120 : 7,
         ),
@@ -172,5 +186,15 @@ void main() {
       find.widgetWithText(FilledButton, 'Import Selected'),
     );
     expect(import.onPressed, isNull);
+  });
+  testWidgets("offers the chosen profile's planned dives to fill", (
+    tester,
+  ) async {
+    final plannedFor = <String?>[];
+
+    await pump(tester, 'mitchell', offersFill: true, plannedFor: plannedFor);
+
+    expect(plannedFor, isNotEmpty);
+    expect(plannedFor.toSet(), {'mitchell'});
   });
 }
