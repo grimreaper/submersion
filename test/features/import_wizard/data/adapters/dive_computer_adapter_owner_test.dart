@@ -190,6 +190,17 @@ void main() {
       expect(a.targetDiverId, 'bill');
     });
 
+    test('a failed lookup is not read as a deleted owner', () async {
+      final a = adapter(
+        known: _computer(),
+        diverName: (id) async => throw StateError('database is locked'),
+      );
+
+      await a.resolveTarget();
+
+      expect(a.targetDiverId, 'mitchell');
+    });
+
     test('a deleted owner shows no choice', () async {
       final a = adapter(known: _computer(), names: const {'bill': 'Bill'});
 

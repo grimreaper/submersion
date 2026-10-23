@@ -2115,6 +2115,37 @@ void main() {
       );
     });
 
+    testWidgets('offers no View Dives when every dive went to another '
+        'profile (issue #2050)', (tester) async {
+      await tester.binding.setSurfaceSize(const Size(800, 1200));
+      addTearDown(() => tester.binding.setSurfaceSize(null));
+      final notifier = _makeNotifier();
+      notifier.state = notifier.state.copyWith(
+        importResult: const UnifiedImportResult(
+          importedCounts: {ImportEntityType.dives: 2},
+          consolidatedCount: 0,
+          skippedCount: 0,
+          diverOutcomes: [
+            DiverImportOutcome(
+              diverId: 'mitchell',
+              name: 'Mitchell',
+              isNew: false,
+              isActive: false,
+              diveIds: ['d1', 'd2'],
+            ),
+          ],
+        ),
+      );
+      await tester.pumpWidget(_buildWidget(notifier));
+      await tester.pump();
+
+      expect(
+        find.text('Switch to Mitchell to see these dives'),
+        findsOneWidget,
+      );
+      expect(find.text('View Dives'), findsNothing);
+    });
+
     testWidgets('one active profile adds no section', (tester) async {
       final notifier = _makeNotifier();
       notifier.state = notifier.state.copyWith(

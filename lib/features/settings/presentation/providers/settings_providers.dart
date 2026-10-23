@@ -2830,7 +2830,16 @@ class SettingsNotifier extends StateNotifier<AppSettings> {
     await _saveSettings();
   }
 
+  /// Waits for [settingsLoaded] first, as [setAutoTagImports] does: a switch
+  /// flipped before the diver's row lands would otherwise be overwritten by
+  /// that load (issue #2050).
   Future<void> setDownloadsFollowComputerOwner(bool value) async {
+    try {
+      await settingsLoaded;
+    } catch (_) {
+      // Already logged by the constructor; the defaults are the fallback.
+    }
+    if (!mounted) return;
     state = state.copyWith(downloadsFollowComputerOwner: value);
     await _saveSettings();
   }

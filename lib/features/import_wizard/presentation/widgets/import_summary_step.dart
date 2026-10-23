@@ -375,7 +375,10 @@ class _SuccessView extends StatelessWidget {
                   onPressed: onDone,
                   child: Text(l10n.universalImport_action_done),
                 ),
-                if (hasActivity) ...[
+                // "View Dives" opens the active profile's list, which holds
+                // none of these dives when they all went elsewhere (#2050);
+                // the By profile section says where to find them instead.
+                if (hasActivity && divesInActiveProfile) ...[
                   const SizedBox(width: 16),
                   FilledButton(
                     onPressed: onViewDives,

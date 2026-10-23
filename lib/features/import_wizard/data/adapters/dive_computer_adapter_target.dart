@@ -37,8 +37,11 @@ extension DiveComputerAdapterTarget on DiveComputerAdapter {
   /// owner, and a choice made for the old one is dropped.
   Future<void> resolveTarget() async {
     final candidate = computer?.diverId?.trim() ?? '';
+    // Only a confirmed missing profile falls back to the active one; a
+    // lookup that failed keeps the owner rather than filing the download in
+    // the wrong log.
     final owner =
-        mayBelongToAnotherProfile && await _lookUpDiverName(candidate) != null
+        mayBelongToAnotherProfile && !(await _lookUpDiver(candidate)).missing
         ? candidate
         : null;
     if (owner != _ownerDiverId) _chosenDiverId = null;
@@ -107,12 +110,18 @@ extension _DiveComputerAdapterTargetSupport on DiveComputerAdapter {
     ];
   }
 
-  /// The name of [diverId], or null when there is no such profile.
+  /// The name of [diverId], or null when it is missing or unknown.
+  Future<String?> _lookUpDiverName(String diverId) async =>
+      (await _lookUpDiver(diverId)).name;
+
+  /// Looks up [diverId]: its name, and whether the profile is confirmed
+  /// missing.
   ///
-  /// A name found is remembered in [_diverNames], and a failed lookup falls
-  /// back to it: a passing database error must not read as the profile
-  /// having been deleted, which would silently send the download elsewhere.
-  Future<String?> _lookUpDiverName(String diverId) async {
+  /// A name found is remembered in [_diverNames]. A lookup that fails is not
+  /// a missing profile: it reports the name remembered from earlier, if any,
+  /// and `missing: false`, so a passing database error never reads as the
+  /// profile having been deleted and silently sends the download elsewhere.
+  Future<({String? name, bool missing})> _lookUpDiver(String diverId) async {
     try {
       final lookup = _diverName;
       final ref = _ref;
@@ -132,14 +141,14 @@ extension _DiveComputerAdapterTargetSupport on DiveComputerAdapter {
       } else {
         _diverNames[diverId] = name;
       }
-      return name;
+      return (name: name, missing: name == null);
     } catch (e, stackTrace) {
       DiveComputerAdapter._log.error(
         'Could not look up profile $diverId',
         error: e,
         stackTrace: stackTrace,
       );
-      return _diverNames[diverId];
+      return (name: _diverNames[diverId], missing: false);
     }
   }
 }
