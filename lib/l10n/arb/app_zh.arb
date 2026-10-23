@@ -16163,5 +16163,15 @@
   "tags_manage_deleteMessage_several": "「{tagName}」将从以下项目中移除：",
   "tags_manage_bulkDeleteMessage_several": "这些标签将从以下项目中移除：",
   "tags_manage_mergeAffected_several": "这将影响：",
-  "tags_manage_cannotUndo": "此操作无法撤销。"
+  "tags_manage_cannotUndo": "此操作无法撤销。",
+  "tags_action_edit": "编辑标签",
+  "media_info_tags": "标签",
+  "media_info_noTags": "暂无标签",
+  "media_info_showWithTag": "显示带有标签 {tagName} 的媒体",
+  "media_library_filter_tags": "标签",
+  "media_bulkTags_confirmAdding": "{count, plural, =1{添加到 1 个媒体项} other{添加到全部 {count} 个媒体项}}",
+  "media_bulkTags_confirmRemoving": "{count, plural, =1{从 1 个媒体项移除} other{从全部 {count} 个媒体项移除}}",
+  "media_bulkTags_empty": "暂无媒体标签",
+  "documents_field_tags": "标签",
+  "documents_detail_showWithTag": "显示带有标签 {tagName} 的文档"
 }

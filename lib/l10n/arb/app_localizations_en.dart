@@ -53999,4 +53999,54 @@ class AppLocalizationsEn extends AppLocalizations {
 
   @override
   String get tags_manage_cannotUndo => 'This cannot be undone.';
+
+  @override
+  String get tags_action_edit => 'Edit tags';
+
+  @override
+  String get media_info_tags => 'Tags';
+
+  @override
+  String get media_info_noTags => 'No tags yet';
+
+  @override
+  String media_info_showWithTag(String tagName) {
+    return 'Show media tagged $tagName';
+  }
+
+  @override
+  String get media_library_filter_tags => 'Tags';
+
+  @override
+  String media_bulkTags_confirmAdding(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Adding to all $count media items',
+      one: 'Adding to 1 media item',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String media_bulkTags_confirmRemoving(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Removing from all $count media items',
+      one: 'Removing from 1 media item',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_bulkTags_empty => 'No media tags yet';
+
+  @override
+  String get documents_field_tags => 'Tags';
+
+  @override
+  String documents_detail_showWithTag(String tagName) {
+    return 'Show documents tagged $tagName';
+  }
 }

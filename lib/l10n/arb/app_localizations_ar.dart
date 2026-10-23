@@ -55575,4 +55575,60 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get tags_manage_cannotUndo => 'لا يمكن التراجع عن هذا الإجراء.';
+
+  @override
+  String get tags_action_edit => 'تعديل الوسوم';
+
+  @override
+  String get media_info_tags => 'الوسوم';
+
+  @override
+  String get media_info_noTags => 'لا توجد وسوم بعد';
+
+  @override
+  String media_info_showWithTag(String tagName) {
+    return 'عرض الوسائط الموسومة بـ $tagName';
+  }
+
+  @override
+  String get media_library_filter_tags => 'الوسوم';
+
+  @override
+  String media_bulkTags_confirmAdding(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'إضافة إلى كل العناصر الـ $count',
+      many: 'إضافة إلى كل العناصر الـ $count',
+      few: 'إضافة إلى كل العناصر الـ $count',
+      two: 'إضافة إلى عنصري الوسائط',
+      one: 'إضافة إلى عنصر وسائط واحد',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String media_bulkTags_confirmRemoving(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'إزالة من كل العناصر الـ $count',
+      many: 'إزالة من كل العناصر الـ $count',
+      few: 'إزالة من كل العناصر الـ $count',
+      two: 'إزالة من عنصري الوسائط',
+      one: 'إزالة من عنصر وسائط واحد',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_bulkTags_empty => 'لا توجد وسوم للوسائط بعد';
+
+  @override
+  String get documents_field_tags => 'الوسوم';
+
+  @override
+  String documents_detail_showWithTag(String tagName) {
+    return 'عرض المستندات الموسومة بـ $tagName';
+  }
 }

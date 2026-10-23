@@ -54554,4 +54554,54 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get tags_manage_cannotUndo => 'Ez nem vonható vissza.';
+
+  @override
+  String get tags_action_edit => 'Címkék szerkesztése';
+
+  @override
+  String get media_info_tags => 'Címkék';
+
+  @override
+  String get media_info_noTags => 'Még nincsenek címkék';
+
+  @override
+  String media_info_showWithTag(String tagName) {
+    return '$tagName címkéjű média megjelenítése';
+  }
+
+  @override
+  String get media_library_filter_tags => 'Címkék';
+
+  @override
+  String media_bulkTags_confirmAdding(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Hozzáadás mind a(z) $count médiaelemhez',
+      one: 'Hozzáadás 1 médiaelemhez',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String media_bulkTags_confirmRemoving(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Eltávolítás mind a(z) $count médiaelemről',
+      one: 'Eltávolítás 1 médiaelemről',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_bulkTags_empty => 'Még nincsenek médiacímkék';
+
+  @override
+  String get documents_field_tags => 'Címkék';
+
+  @override
+  String documents_detail_showWithTag(String tagName) {
+    return '$tagName címkéjű dokumentumok megjelenítése';
+  }
 }

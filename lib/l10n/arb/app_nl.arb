@@ -16163,5 +16163,15 @@
   "tags_manage_deleteMessage_several": "\"{tagName}\" wordt verwijderd van:",
   "tags_manage_bulkDeleteMessage_several": "Deze tags worden verwijderd van:",
   "tags_manage_mergeAffected_several": "Dit heeft betrekking op:",
-  "tags_manage_cannotUndo": "Dit kan niet ongedaan worden gemaakt."
+  "tags_manage_cannotUndo": "Dit kan niet ongedaan worden gemaakt.",
+  "tags_action_edit": "Tags bewerken",
+  "media_info_tags": "Tags",
+  "media_info_noTags": "Nog geen tags",
+  "media_info_showWithTag": "Media met tag {tagName} tonen",
+  "media_library_filter_tags": "Tags",
+  "media_bulkTags_confirmAdding": "{count, plural, =1{Toevoegen aan 1 media-item} other{Toevoegen aan alle {count} media-items}}",
+  "media_bulkTags_confirmRemoving": "{count, plural, =1{Verwijderen van 1 media-item} other{Verwijderen van alle {count} media-items}}",
+  "media_bulkTags_empty": "Nog geen mediatags",
+  "documents_field_tags": "Tags",
+  "documents_detail_showWithTag": "Documenten met tag {tagName} tonen"
 }

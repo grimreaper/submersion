@@ -16,6 +16,9 @@ import 'package:submersion/features/documents/presentation/widgets/document_owne
 import 'package:submersion/features/documents/presentation/widgets/document_owner_picker_sheet.dart';
 import 'package:submersion/features/documents/presentation/widgets/document_page_strip.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
+import 'package:submersion/features/tags/domain/entities/tag.dart';
+import 'package:submersion/features/tags/presentation/providers/tag_link_providers.dart';
+import 'package:submersion/features/tags/presentation/widgets/scoped_tags_field.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 import 'package:submersion/shared/utils/byte_format.dart';
 import 'package:submersion/shared/widgets/app_bar_text_action.dart';
@@ -71,6 +74,12 @@ class _DocumentEditPageState extends ConsumerState<DocumentEditPage> {
   int _lead = Document.defaultReminderLeadDays;
   bool _isPrimary = false;
   List<DocumentPage> _pages = const [];
+  List<Tag> _tags = const [];
+
+  /// False while an existing document's tags are unread, or when reading
+  /// them failed: saving then leaves the stored tags alone rather than
+  /// replacing them with a set built without them (issue #1970).
+  bool _tagsLoaded = false;
   bool _loading = true;
   bool _saving = false;
   bool _hasChanges = false;
@@ -99,6 +108,7 @@ class _DocumentEditPageState extends ConsumerState<DocumentEditPage> {
   Future<void> _load() async {
     final id = widget.documentId;
     if (id == null) {
+      _tagsLoaded = true;
       // A diver's first insurance is the one the emergency card and the
       // home chip use; a later one leaves the existing primary alone.
       final diverId = await ref.read(validatedCurrentDiverIdProvider.future);
@@ -127,9 +137,21 @@ class _DocumentEditPageState extends ConsumerState<DocumentEditPage> {
         _lead = doc.effectiveReminderLeadDays;
         _isPrimary = doc.isPrimary;
         _pages = pages;
+        await _loadTags(id);
       }
     }
     if (mounted) setState(() => _loading = false);
+  }
+
+  Future<void> _loadTags(String id) async {
+    try {
+      _tags = await ref
+          .read(tagLinkRepositoryProvider(TagScope.documents))
+          .getTagsFor(id);
+      _tagsLoaded = true;
+    } catch (_) {
+      // The field stays disabled and the save leaves the tags as stored.
+    }
   }
 
   /// A card document is made from its certification and stays a card: its
@@ -288,7 +310,13 @@ class _DocumentEditPageState extends ConsumerState<DocumentEditPage> {
         createdAt: _original?.createdAt ?? now,
         updatedAt: now,
       );
-      final saved = await ref.read(documentMutationsProvider).save(doc, _pages);
+      final saved = await ref
+          .read(documentMutationsProvider)
+          .save(
+            doc,
+            _pages,
+            tagIds: _tagsLoaded ? [for (final t in _tags) t.id] : null,
+          );
       if (!mounted) return;
       _hasChanges = false;
       messenger.showSnackBar(SnackBar(content: Text(l10n.documents_saved)));
@@ -392,6 +420,15 @@ class _DocumentEditPageState extends ConsumerState<DocumentEditPage> {
                   decoration: InputDecoration(
                     labelText: l10n.documents_field_notes,
                   ),
+                ),
+                const SizedBox(height: 16),
+                ScopedTagsField(
+                  scope: TagScope.documents,
+                  label: l10n.documents_field_tags,
+                  browseKey: const ValueKey('document_edit_tags_browse'),
+                  selectedTags: _tags,
+                  enabled: _tagsLoaded,
+                  onTagsChanged: (tags) => _change(() => _tags = tags),
                 ),
               ],
             ),

@@ -11,9 +11,13 @@ import 'package:submersion/features/documents/presentation/helpers/document_expo
 import 'package:submersion/features/documents/presentation/pages/document_detail_page.dart';
 import 'package:submersion/features/documents/presentation/pages/document_edit_page.dart';
 import 'package:submersion/features/documents/presentation/providers/document_providers.dart';
+import 'package:submersion/features/documents/presentation/widgets/document_tag_filter_row.dart';
 import 'package:submersion/features/documents/presentation/widgets/document_tile.dart';
 import 'package:submersion/features/documents/presentation/widgets/documents_expiring_strip.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
+import 'package:submersion/features/tags/domain/entities/tag.dart';
+import 'package:submersion/features/tags/presentation/providers/tag_link_providers.dart';
+import 'package:submersion/features/tags/presentation/providers/tag_providers.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 import 'package:submersion/shared/widgets/master_detail/master_detail_scaffold.dart';
 import 'package:submersion/shared/widgets/master_detail/responsive_breakpoints.dart';
@@ -25,11 +29,15 @@ class DocumentsPage extends ConsumerWidget {
   final bool initialExpiringOnly;
   final bool initialPersonalOnly;
 
+  /// Shows only the documents carrying this tag (a detail page's tag chip).
+  final String? initialTagId;
+
   const DocumentsPage({
     super.key,
     this.initialType,
     this.initialExpiringOnly = false,
     this.initialPersonalOnly = false,
+    this.initialTagId,
   });
 
   @override
@@ -70,6 +78,7 @@ class DocumentsPage extends ConsumerWidget {
       initialType: initialType,
       initialExpiringOnly: initialExpiringOnly,
       initialPersonalOnly: initialPersonalOnly,
+      initialTagId: initialTagId,
       selectedId: selectedId,
       onOpen: (id) =>
           onSelected != null ? onSelected(id) : context.push('/documents/$id'),
@@ -121,6 +130,7 @@ class DocumentsListContent extends ConsumerStatefulWidget {
   final DocumentType? initialType;
   final bool initialExpiringOnly;
   final bool initialPersonalOnly;
+  final String? initialTagId;
   final String? selectedId;
   final ValueChanged<String> onOpen;
   final Widget? floatingActionButton;
@@ -132,6 +142,7 @@ class DocumentsListContent extends ConsumerStatefulWidget {
     this.initialType,
     this.initialExpiringOnly = false,
     this.initialPersonalOnly = false,
+    this.initialTagId,
     this.selectedId,
     this.floatingActionButton,
   });
@@ -145,6 +156,9 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
   late DocumentType? _type = widget.initialType;
   late bool _personalOnly = widget.initialPersonalOnly;
   late bool _expiringOnly = widget.initialExpiringOnly;
+
+  /// Tags the list is filtered to, any of them matching (issue #1970).
+  late Set<String> _tagIds = {?widget.initialTagId};
 
   @override
   void didUpdateWidget(DocumentsListContent oldWidget) {
@@ -160,14 +174,25 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
     if (oldWidget.initialExpiringOnly != widget.initialExpiringOnly) {
       _expiringOnly = widget.initialExpiringOnly;
     }
+    if (oldWidget.initialTagId != widget.initialTagId) {
+      _tagIds = {?widget.initialTagId};
+    }
   }
 
   String _query = '';
 
-  bool _matches(DocumentListEntry e, UnitFormatter units) {
+  bool _matches(
+    DocumentListEntry e,
+    UnitFormatter units,
+    Map<String, List<Tag>> tagsByDocument,
+  ) {
     final d = e.document;
     if (_type != null && d.type != _type) return false;
     if (_personalOnly && !d.owner.isPersonal) return false;
+    final tags = tagsByDocument[d.id] ?? const <Tag>[];
+    if (_tagIds.isNotEmpty && !tags.any((t) => _tagIds.contains(t.id))) {
+      return false;
+    }
     final q = _query.trim().toLowerCase();
     if (q.isEmpty) return true;
     return [
@@ -175,7 +200,24 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
       d.issuer,
       d.referenceNumber,
       e.ownerText(units),
+      for (final t in tags) t.name,
     ].any((v) => v != null && v.toLowerCase().contains(q));
+  }
+
+  /// Every tag some document carries, by name, plus any still selected, so
+  /// a filter on a tag that has since gone stays clearable.
+  List<Tag> _filterTags(
+    Map<String, List<Tag>> tagsByDocument,
+    List<Tag> allTags,
+  ) {
+    final byId = <String, Tag>{
+      for (final tags in tagsByDocument.values)
+        for (final t in tags) t.id: t,
+      for (final t in allTags)
+        if (_tagIds.contains(t.id)) t.id: t,
+    };
+    return byId.values.toList()
+      ..sort((a, b) => a.name.toLowerCase().compareTo(b.name.toLowerCase()));
   }
 
   @override
@@ -183,6 +225,10 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
     final l10n = context.l10n;
     final all = ref.watch(allDocumentsProvider);
     final units = UnitFormatter(ref.watch(settingsProvider));
+    final tagsByDocument =
+        ref.watch(tagsByItemProvider(TagScope.documents)).value ??
+        const <String, List<Tag>>{};
+    final allTags = ref.watch(tagsProvider).value ?? const <Tag>[];
     final body = all.when(
       loading: () => const Center(child: CircularProgressIndicator()),
       error: (e, _) => Center(child: Text(l10n.documents_error_load('$e'))),
@@ -193,7 +239,10 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
             withCertificationOwnerTitle(e, l10n, catalog: catalog),
         ];
         final presentTypes = {for (final e in entries) e.document.type};
-        final shown = entries.where((e) => _matches(e, units)).toList();
+        final shown = entries
+            .where((e) => _matches(e, units, tagsByDocument))
+            .toList();
+        final filterTags = _filterTags(tagsByDocument, allTags);
         final listed = _expiringOnly
             ? [
                 for (final (e, _) in DocumentsExpiringStrip.due(
@@ -247,6 +296,14 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
                   ),
                 ),
               ),
+            if (filterTags.isNotEmpty)
+              SliverToBoxAdapter(
+                child: DocumentTagFilterRow(
+                  tags: filterTags,
+                  selectedIds: _tagIds,
+                  onChanged: (ids) => setState(() => _tagIds = ids),
+                ),
+              ),
             // Filters that came from the route (the profile hub, the home
             // chip) are shown, so the diver sees why the list is short and
             // can clear them.
@@ -289,7 +346,7 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
               )
             else
               for (final kind in DocumentOwnerKind.values)
-                ..._group(context, kind, units, [
+                ..._group(context, kind, units, tagsByDocument, [
                   for (final e in listed)
                     if (e.document.owner.kind == kind) e,
                 ]),
@@ -365,6 +422,7 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
     BuildContext context,
     DocumentOwnerKind kind,
     UnitFormatter units,
+    Map<String, List<Tag>> tagsByDocument,
     List<DocumentListEntry> entries,
   ) {
     if (entries.isEmpty) return const [];
@@ -386,6 +444,7 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
             document: e.document,
             ownerLabel: e.ownerText(units),
             selected: e.document.id == widget.selectedId,
+            tags: tagsByDocument[e.document.id] ?? const [],
             onTap: () => widget.onOpen(e.document.id),
           );
         },

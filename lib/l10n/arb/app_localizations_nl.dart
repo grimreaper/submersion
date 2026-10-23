@@ -54530,4 +54530,54 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get tags_manage_cannotUndo => 'Dit kan niet ongedaan worden gemaakt.';
+
+  @override
+  String get tags_action_edit => 'Tags bewerken';
+
+  @override
+  String get media_info_tags => 'Tags';
+
+  @override
+  String get media_info_noTags => 'Nog geen tags';
+
+  @override
+  String media_info_showWithTag(String tagName) {
+    return 'Media met tag $tagName tonen';
+  }
+
+  @override
+  String get media_library_filter_tags => 'Tags';
+
+  @override
+  String media_bulkTags_confirmAdding(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Toevoegen aan alle $count media-items',
+      one: 'Toevoegen aan 1 media-item',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String media_bulkTags_confirmRemoving(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Verwijderen van alle $count media-items',
+      one: 'Verwijderen van 1 media-item',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_bulkTags_empty => 'Nog geen mediatags';
+
+  @override
+  String get documents_field_tags => 'Tags';
+
+  @override
+  String documents_detail_showWithTag(String tagName) {
+    return 'Documenten met tag $tagName tonen';
+  }
 }

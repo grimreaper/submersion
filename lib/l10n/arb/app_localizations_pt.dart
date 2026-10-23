@@ -54858,4 +54858,54 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get tags_manage_cannotUndo => 'Esta ação não pode ser desfeita.';
+
+  @override
+  String get tags_action_edit => 'Editar etiquetas';
+
+  @override
+  String get media_info_tags => 'Etiquetas';
+
+  @override
+  String get media_info_noTags => 'Ainda sem etiquetas';
+
+  @override
+  String media_info_showWithTag(String tagName) {
+    return 'Mostrar mídia com a etiqueta $tagName';
+  }
+
+  @override
+  String get media_library_filter_tags => 'Etiquetas';
+
+  @override
+  String media_bulkTags_confirmAdding(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Adicionando a todos os $count itens de mídia',
+      one: 'Adicionando a $count item de mídia',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String media_bulkTags_confirmRemoving(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Removendo de todos os $count itens de mídia',
+      one: 'Removendo de $count item de mídia',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_bulkTags_empty => 'Ainda sem etiquetas de mídia';
+
+  @override
+  String get documents_field_tags => 'Etiquetas';
+
+  @override
+  String documents_detail_showWithTag(String tagName) {
+    return 'Mostrar documentos com a etiqueta $tagName';
+  }
 }

@@ -16163,5 +16163,15 @@
   "tags_manage_deleteMessage_several": "سيتم إزالة \"{tagName}\" من:",
   "tags_manage_bulkDeleteMessage_several": "سيتم إزالة هذه الوسوم من:",
   "tags_manage_mergeAffected_several": "سيؤثر هذا على:",
-  "tags_manage_cannotUndo": "لا يمكن التراجع عن هذا الإجراء."
+  "tags_manage_cannotUndo": "لا يمكن التراجع عن هذا الإجراء.",
+  "tags_action_edit": "تعديل الوسوم",
+  "media_info_tags": "الوسوم",
+  "media_info_noTags": "لا توجد وسوم بعد",
+  "media_info_showWithTag": "عرض الوسائط الموسومة بـ {tagName}",
+  "media_library_filter_tags": "الوسوم",
+  "media_bulkTags_confirmAdding": "{count, plural, one{إضافة إلى عنصر وسائط واحد} two{إضافة إلى عنصري الوسائط} few{إضافة إلى كل العناصر الـ {count}} many{إضافة إلى كل العناصر الـ {count}} other{إضافة إلى كل العناصر الـ {count}}}",
+  "media_bulkTags_confirmRemoving": "{count, plural, one{إزالة من عنصر وسائط واحد} two{إزالة من عنصري الوسائط} few{إزالة من كل العناصر الـ {count}} many{إزالة من كل العناصر الـ {count}} other{إزالة من كل العناصر الـ {count}}}",
+  "media_bulkTags_empty": "لا توجد وسوم للوسائط بعد",
+  "documents_field_tags": "الوسوم",
+  "documents_detail_showWithTag": "عرض المستندات الموسومة بـ {tagName}"
 }

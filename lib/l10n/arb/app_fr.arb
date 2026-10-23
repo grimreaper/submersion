@@ -16163,5 +16163,15 @@
   "tags_manage_deleteMessage_several": "\"{tagName}\" sera retirée de :",
   "tags_manage_bulkDeleteMessage_several": "Ces étiquettes seront retirées de :",
   "tags_manage_mergeAffected_several": "Cela affectera :",
-  "tags_manage_cannotUndo": "Cette action est irréversible."
+  "tags_manage_cannotUndo": "Cette action est irréversible.",
+  "tags_action_edit": "Modifier les étiquettes",
+  "media_info_tags": "Étiquettes",
+  "media_info_noTags": "Aucune étiquette pour l'instant",
+  "media_info_showWithTag": "Afficher les médias avec l'étiquette {tagName}",
+  "media_library_filter_tags": "Étiquettes",
+  "media_bulkTags_confirmAdding": "{count, plural, =1{Ajout à {count} média} other{Ajout aux {count} médias}}",
+  "media_bulkTags_confirmRemoving": "{count, plural, =1{Retrait de {count} média} other{Retrait des {count} médias}}",
+  "media_bulkTags_empty": "Aucune étiquette de média pour l'instant",
+  "documents_field_tags": "Étiquettes",
+  "documents_detail_showWithTag": "Afficher les documents avec l'étiquette {tagName}"
 }

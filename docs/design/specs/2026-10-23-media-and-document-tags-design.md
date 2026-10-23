@@ -109,12 +109,11 @@ the tag alias, record ids, table map, tombstones, merge order after the
 parent and `tags`, `entityHasUpdatedAt: false`, parent refs, conflict
 references, hlc targets).
 
-- `documentTags` is a parent-gated child, exactly like `equipmentTags`:
-  documents are ordinary `updatedAt` entities.
-- `mediaTags` follows its sibling `mediaSpecies`: media rows sync on their
-  own clock (`clockGuardedEntities`), so the links do too. The builder may
-  switch it to parent-gated if the media parent's clock cannot drive the
-  gated export; either way the guard tests must cover it.
+- Both are parent-gated children, exactly like `equipmentTags`: the export
+  carries the links of items whose clock moved, and a link marked pending
+  travels on its own (`_withPendingChildren`). That pending-children path is
+  what fixed the problem that moved `mediaSpecies` onto its own clock
+  (#1638), so the tag family stays uniform.
 - The tag fold, scope union, duplicate-tag repair and older-peer overlay are
   registry driven and need tests, not code.
 
@@ -149,8 +148,10 @@ references, hlc targets).
 - Scope checkboxes "Use for media" and "Use for documents", usage counts, and
   narrowing confirmations come from the registry.
 - Delete and merge confirmations: a single affected scope keeps its whole
-  message; two or more use a header ("Delete "Wreck"? It will be removed
-  from:") followed by one count line per affected scope.
+  message; two or more use a heading (`"Wreck" will be removed from:`)
+  followed by one count line per affected scope. The "unused" variants say
+  "not used anywhere", and the scope-required error names all five scopes
+  (`tag_scope_required_strings_test` pins that).
 
 ## Testing
 

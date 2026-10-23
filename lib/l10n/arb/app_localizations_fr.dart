@@ -54986,4 +54986,55 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get tags_manage_cannotUndo => 'Cette action est irréversible.';
+
+  @override
+  String get tags_action_edit => 'Modifier les étiquettes';
+
+  @override
+  String get media_info_tags => 'Étiquettes';
+
+  @override
+  String get media_info_noTags => 'Aucune étiquette pour l\'instant';
+
+  @override
+  String media_info_showWithTag(String tagName) {
+    return 'Afficher les médias avec l\'étiquette $tagName';
+  }
+
+  @override
+  String get media_library_filter_tags => 'Étiquettes';
+
+  @override
+  String media_bulkTags_confirmAdding(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Ajout aux $count médias',
+      one: 'Ajout à $count média',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String media_bulkTags_confirmRemoving(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Retrait des $count médias',
+      one: 'Retrait de $count média',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_bulkTags_empty =>
+      'Aucune étiquette de média pour l\'instant';
+
+  @override
+  String get documents_field_tags => 'Étiquettes';
+
+  @override
+  String documents_detail_showWithTag(String tagName) {
+    return 'Afficher les documents avec l\'étiquette $tagName';
+  }
 }

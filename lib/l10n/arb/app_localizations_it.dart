@@ -54872,4 +54872,54 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get tags_manage_cannotUndo =>
       'Questa azione non può essere annullata.';
+
+  @override
+  String get tags_action_edit => 'Modifica tag';
+
+  @override
+  String get media_info_tags => 'Tag';
+
+  @override
+  String get media_info_noTags => 'Ancora nessun tag';
+
+  @override
+  String media_info_showWithTag(String tagName) {
+    return 'Mostra i media con il tag $tagName';
+  }
+
+  @override
+  String get media_library_filter_tags => 'Tag';
+
+  @override
+  String media_bulkTags_confirmAdding(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Aggiunta a tutti i $count elementi multimediali',
+      one: 'Aggiunta a 1 elemento multimediale',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String media_bulkTags_confirmRemoving(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'Rimozione da tutti i $count elementi multimediali',
+      one: 'Rimozione da 1 elemento multimediale',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_bulkTags_empty => 'Ancora nessun tag per i media';
+
+  @override
+  String get documents_field_tags => 'Tag';
+
+  @override
+  String documents_detail_showWithTag(String tagName) {
+    return 'Mostra i documenti con il tag $tagName';
+  }
 }

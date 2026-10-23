@@ -51519,4 +51519,54 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get tags_manage_cannotUndo => '此操作无法撤销。';
+
+  @override
+  String get tags_action_edit => '编辑标签';
+
+  @override
+  String get media_info_tags => '标签';
+
+  @override
+  String get media_info_noTags => '暂无标签';
+
+  @override
+  String media_info_showWithTag(String tagName) {
+    return '显示带有标签 $tagName 的媒体';
+  }
+
+  @override
+  String get media_library_filter_tags => '标签';
+
+  @override
+  String media_bulkTags_confirmAdding(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '添加到全部 $count 个媒体项',
+      one: '添加到 1 个媒体项',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String media_bulkTags_confirmRemoving(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '从全部 $count 个媒体项移除',
+      one: '从 1 个媒体项移除',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_bulkTags_empty => '暂无媒体标签';
+
+  @override
+  String get documents_field_tags => '标签';
+
+  @override
+  String documents_detail_showWithTag(String tagName) {
+    return '显示带有标签 $tagName 的文档';
+  }
 }

@@ -16163,5 +16163,15 @@
   "tags_manage_deleteMessage_several": "A(z) \"{tagName}\" eltávolításra kerül innen:",
   "tags_manage_bulkDeleteMessage_several": "Ezek a címkék eltávolításra kerülnek innen:",
   "tags_manage_mergeAffected_several": "Ez a következőket érinti:",
-  "tags_manage_cannotUndo": "Ez nem vonható vissza."
+  "tags_manage_cannotUndo": "Ez nem vonható vissza.",
+  "tags_action_edit": "Címkék szerkesztése",
+  "media_info_tags": "Címkék",
+  "media_info_noTags": "Még nincsenek címkék",
+  "media_info_showWithTag": "{tagName} címkéjű média megjelenítése",
+  "media_library_filter_tags": "Címkék",
+  "media_bulkTags_confirmAdding": "{count, plural, =1{Hozzáadás 1 médiaelemhez} other{Hozzáadás mind a(z) {count} médiaelemhez}}",
+  "media_bulkTags_confirmRemoving": "{count, plural, =1{Eltávolítás 1 médiaelemről} other{Eltávolítás mind a(z) {count} médiaelemről}}",
+  "media_bulkTags_empty": "Még nincsenek médiacímkék",
+  "documents_field_tags": "Címkék",
+  "documents_detail_showWithTag": "{tagName} címkéjű dokumentumok megjelenítése"
 }

@@ -87010,6 +87010,66 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'This cannot be undone.'**
   String get tags_manage_cannotUndo;
+
+  /// No description provided for @tags_action_edit.
+  ///
+  /// In en, this message translates to:
+  /// **'Edit tags'**
+  String get tags_action_edit;
+
+  /// No description provided for @media_info_tags.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags'**
+  String get media_info_tags;
+
+  /// No description provided for @media_info_noTags.
+  ///
+  /// In en, this message translates to:
+  /// **'No tags yet'**
+  String get media_info_noTags;
+
+  /// No description provided for @media_info_showWithTag.
+  ///
+  /// In en, this message translates to:
+  /// **'Show media tagged {tagName}'**
+  String media_info_showWithTag(String tagName);
+
+  /// No description provided for @media_library_filter_tags.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags'**
+  String get media_library_filter_tags;
+
+  /// No description provided for @media_bulkTags_confirmAdding.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Adding to 1 media item} other{Adding to all {count} media items}}'**
+  String media_bulkTags_confirmAdding(int count);
+
+  /// No description provided for @media_bulkTags_confirmRemoving.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{Removing from 1 media item} other{Removing from all {count} media items}}'**
+  String media_bulkTags_confirmRemoving(int count);
+
+  /// No description provided for @media_bulkTags_empty.
+  ///
+  /// In en, this message translates to:
+  /// **'No media tags yet'**
+  String get media_bulkTags_empty;
+
+  /// No description provided for @documents_field_tags.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags'**
+  String get documents_field_tags;
+
+  /// No description provided for @documents_detail_showWithTag.
+  ///
+  /// In en, this message translates to:
+  /// **'Show documents tagged {tagName}'**
+  String documents_detail_showWithTag(String tagName);
 }
 
 class _AppLocalizationsDelegate

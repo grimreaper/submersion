@@ -53722,4 +53722,54 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get tags_manage_cannotUndo => 'לא ניתן לבטל פעולה זו.';
+
+  @override
+  String get tags_action_edit => 'עריכת תגיות';
+
+  @override
+  String get media_info_tags => 'תגיות';
+
+  @override
+  String get media_info_noTags => 'אין תגיות עדיין';
+
+  @override
+  String media_info_showWithTag(String tagName) {
+    return 'הצג מדיה עם התגית $tagName';
+  }
+
+  @override
+  String get media_library_filter_tags => 'תגיות';
+
+  @override
+  String media_bulkTags_confirmAdding(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'הוספה לכל $count פריטי המדיה',
+      one: 'הוספה לפריט מדיה אחד',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String media_bulkTags_confirmRemoving(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'הסרה מכל $count פריטי המדיה',
+      one: 'הסרה מפריט מדיה אחד',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_bulkTags_empty => 'אין תגיות מדיה עדיין';
+
+  @override
+  String get documents_field_tags => 'תגיות';
+
+  @override
+  String documents_detail_showWithTag(String tagName) {
+    return 'הצג מסמכים עם התגית $tagName';
+  }
 }
