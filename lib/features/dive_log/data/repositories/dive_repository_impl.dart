@@ -5693,11 +5693,10 @@ class DiveRepository {
   /// runs a bounded number of times. Aggregates that scan the whole dive
   /// table use [effectiveRuntimeSecondsSql] instead, which resolves the same
   /// chain but short-circuits past the profile scan.
-  static const _diveTimesSelect =
+  static final _diveTimesSelect =
       'SELECT d.id, d.dive_date_time, d.entry_time, d.exit_time, '
       'd.runtime, d.bottom_time, '
-      '(SELECT MAX(s.end_timestamp) - MIN(s.start_timestamp) '
-      'FROM dive_profile_series s WHERE s.dive_id = d.id) AS profile_span '
+      "${profileSpanSecondsSql('d')} AS profile_span "
       'FROM dives d';
 
   domain.DiveTimes _mapDiveTimesRow(QueryRow row) {
