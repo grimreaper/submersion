@@ -50,6 +50,12 @@ String timestampRuntimeSecondsSql(String alias) =>
 /// one on the computer of the dive's first source in shown order (primary
 /// first, then oldest).
 ///
+/// One case stays apart: a series whose packed blob fails to decode is
+/// skipped by the Dart read but still counted here, because SQL reads only
+/// the summary columns and cannot tell a corrupt blob. Every table this
+/// reads is one `watchInsightsChanges` already watches, or, for the history
+/// table, is only written alongside a `dive_profile_series` row.
+///
 /// Mirrors `Dive.calculateRuntimeFromProfile`, which returns null unless the
 /// span is positive; `NULLIF(..., 0)` is what carries that rule into SQL.
 String profileSpanSecondsSql(String alias) =>
