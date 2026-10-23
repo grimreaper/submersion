@@ -51,7 +51,7 @@ tagging on media is a fixed catalog of animals, not a free vocabulary.
 | Tags on the entities | No. `MediaItem` and `Document` stay tag-free; tags are read through providers and written through junction repositories, so a partial-entity save can never wipe them |
 | Media filter match | Any of the selected tags, ANDed with the other library filters |
 | Smart albums | Free: the album is a saved `MediaLibraryFilter`, which gains `tagIds` |
-| Media edit UI | A Tags sheet from the viewer toolbar, saving each toggle at once like the species sheet |
+| Media edit UI | A Tags card in the viewer's info panel opening a Tags sheet that saves each change at once, like the species sheet |
 | Media bulk edit | "Edit tags" in the library selection bar, the shared tri-state `BulkMembershipEditor`, confirm summary, Undo |
 | Document edit UI | A Tags field on the edit page after Notes, saved in the document's own transaction |
 | Document list | Up to 3 chips per tile, a tag filter chip row (any of), search matches tag names |
@@ -121,11 +121,13 @@ references, hlc targets).
 
 ### Media
 
-- Viewer toolbar: a Tags button opens `MediaTagSheet`: a chip per
-  media-scoped tag (plus any already on the item), toggled on and saved at
-  once, and `TagInputWidget(scope: TagScope.media)` to create or browse.
-- Info panel: a Tags row of colored chips when the item has any. Tapping one
-  opens the media library filtered to that tag.
+- Info panel: a Tags card, shown even with no tags, with the item's chips
+  (tapping one closes the sheet and opens the library filtered to it) and
+  Edit tags, which opens `MediaTagSheet`: the scoped tag input and Browse,
+  each change saved at once like species tags.
+- No viewer toolbar button: at a 400 px phone width the toolbar's four
+  actions fit with no menu, and a fifth would push Adjust color into the
+  overflow (#3520). The info card is the way in on every width.
 - Library filter sheet: a Tags chip group (multi-select). Active filter chips
   show each selected tag. `MediaLibraryFilter` gains `tagIds` with JSON,
   equality and `hasActiveFilters`; an unknown tag id in a saved album is
