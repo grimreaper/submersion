@@ -16307,5 +16307,6 @@
   "tags_bulk_undo": "Rückgängig",
   "tags_bulk_undoFailed": "Die Tag-Änderung konnte nicht rückgängig gemacht werden.",
   "settings_conflict_field_appliesToMedia": "Für Medien angeboten",
-  "settings_conflict_field_appliesToDocuments": "Für Dokumente angeboten"
+  "settings_conflict_field_appliesToDocuments": "Für Dokumente angeboten",
+  "documents_export_manifest_tags": "Tags"
 }

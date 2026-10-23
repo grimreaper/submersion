@@ -81,4 +81,46 @@ void main() {
     expect(ar.tags_manage_documentCount(3), '3 مستندات');
     expect(ar.tags_manage_documentCount(11), '11 مستندًا');
   });
+
+  test('the shared bulk tag strings name no kind of item (#1970 review)', () {
+    // Shared by the media and equipment bulk editors, so none may say
+    // "equipment" in any locale.
+    const equipmentWord = {
+      'ar': 'معد',
+      'de': 'ausrüst',
+      'en': 'equipment',
+      'es': 'equipo',
+      'fr': 'équipement',
+      'he': 'ציוד',
+      'hu': 'felszerel',
+      'it': 'attrezzatur',
+      'nl': 'uitrust',
+      'pt': 'equipament',
+      'zh': '装备',
+    };
+    for (final MapEntry(key: code, value: word) in equipmentWord.entries) {
+      final l = lookupAppLocalizations(Locale(code));
+      final strings = [
+        l.tags_bulk_title(3),
+        l.tags_bulk_onAll(3),
+        l.tags_bulk_onSome(1, 3),
+        l.tags_bulk_adding(3),
+        l.tags_bulk_removing,
+        l.tags_bulk_applied(3),
+        l.tags_bulk_tagsLabel,
+        l.tags_bulk_confirmTitle,
+        l.tags_bulk_undo,
+        l.tags_bulk_undoFailed,
+        l.tags_bulk_failed('x'),
+      ];
+      expect(
+        [
+          for (final s in strings)
+            if (s.toLowerCase().contains(word)) s,
+        ],
+        isEmpty,
+        reason: code,
+      );
+    }
+  });
 }

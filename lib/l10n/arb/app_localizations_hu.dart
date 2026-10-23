@@ -54607,7 +54607,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String tags_bulk_adding(int total) {
-    return 'hozzáadás mind a $total felszereléshez';
+    return 'hozzáadás mind a $total elemhez';
   }
 
   @override
@@ -54631,12 +54631,12 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String tags_bulk_onAll(int count) {
-    return 'mind a $count felszerelésen';
+    return 'mind a $count elemen';
   }
 
   @override
   String tags_bulk_onSome(int count, int total) {
-    return '$count/$total felszerelésen';
+    return '$count/$total elemen';
   }
 
   @override
@@ -54669,4 +54669,7 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get settings_conflict_field_appliesToDocuments =>
       'Dokumentumoknál elérhető';
+
+  @override
+  String get documents_export_manifest_tags => 'Címkék';
 }

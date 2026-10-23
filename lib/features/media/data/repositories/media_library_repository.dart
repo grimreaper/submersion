@@ -118,14 +118,24 @@ class MediaLibraryRepository {
     if (tagIds.isNotEmpty) {
       // Any of the tags (issue #1970). EXISTS for the same reason as the
       // species facet: a photo carrying two of them must come back once.
+      // A tag that no longer exists (a saved album outliving it) has no
+      // links, so it is ignored among others; when none of the selected
+      // tags exists the facet is dropped rather than matching nothing.
       final mt = _db.mediaTags;
+      final t = _db.tags;
+      final anySelectedTagExists = existsQuery(
+        _db.selectOnly(t)
+          ..addColumns([t.id])
+          ..where(t.id.isIn(tagIds)),
+      );
       where =
           where &
-          existsQuery(
-            _db.selectOnly(mt)
-              ..addColumns([mt.id])
-              ..where(mt.mediaId.equalsExp(m.id) & mt.tagId.isIn(tagIds)),
-          );
+          (anySelectedTagExists.not() |
+              existsQuery(
+                _db.selectOnly(mt)
+                  ..addColumns([mt.id])
+                  ..where(mt.mediaId.equalsExp(m.id) & mt.tagId.isIn(tagIds)),
+              ));
     }
     // taken_at is stored as wall-clock-as-UTC millis, so a bound picked in
     // local time has to be normalised the same way before it can be

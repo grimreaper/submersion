@@ -16186,5 +16186,6 @@
   "tags_bulk_undo": "Desfazer",
   "tags_bulk_undoFailed": "Não foi possível desfazer a alteração das etiquetas.",
   "settings_conflict_field_appliesToMedia": "Disponível em mídia",
-  "settings_conflict_field_appliesToDocuments": "Disponível em documentos"
+  "settings_conflict_field_appliesToDocuments": "Disponível em documentos",
+  "documents_export_manifest_tags": "Etiquetas"
 }

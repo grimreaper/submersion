@@ -16186,5 +16186,6 @@
   "tags_bulk_undo": "Deshacer",
   "tags_bulk_undoFailed": "No se pudo deshacer el cambio de etiquetas.",
   "settings_conflict_field_appliesToMedia": "Disponible en multimedia",
-  "settings_conflict_field_appliesToDocuments": "Disponible en documentos"
+  "settings_conflict_field_appliesToDocuments": "Disponible en documentos",
+  "documents_export_manifest_tags": "Etiquetas"
 }

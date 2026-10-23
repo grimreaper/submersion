@@ -55700,4 +55700,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get settings_conflict_field_appliesToDocuments => 'متاح للمستندات';
+
+  @override
+  String get documents_export_manifest_tags => 'الوسوم';
 }

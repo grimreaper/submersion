@@ -16186,5 +16186,6 @@
   "tags_bulk_undo": "ביטול",
   "tags_bulk_undoFailed": "לא ניתן לבטל את שינוי התגיות.",
   "settings_conflict_field_appliesToMedia": "זמין במדיה",
-  "settings_conflict_field_appliesToDocuments": "זמין במסמכים"
+  "settings_conflict_field_appliesToDocuments": "זמין במסמכים",
+  "documents_export_manifest_tags": "תגיות"
 }

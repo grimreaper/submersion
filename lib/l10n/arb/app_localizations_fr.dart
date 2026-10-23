@@ -55103,4 +55103,7 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get settings_conflict_field_appliesToDocuments =>
       'Proposé pour les documents';
+
+  @override
+  String get documents_export_manifest_tags => 'Étiquettes';
 }

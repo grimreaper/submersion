@@ -16186,5 +16186,6 @@
   "tags_bulk_undo": "Ongedaan maken",
   "tags_bulk_undoFailed": "Kan de tagwijziging niet ongedaan maken.",
   "settings_conflict_field_appliesToMedia": "Beschikbaar bij media",
-  "settings_conflict_field_appliesToDocuments": "Beschikbaar bij documenten"
+  "settings_conflict_field_appliesToDocuments": "Beschikbaar bij documenten",
+  "documents_export_manifest_tags": "Tags"
 }

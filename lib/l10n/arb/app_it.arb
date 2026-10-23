@@ -16186,5 +16186,6 @@
   "tags_bulk_undo": "Annulla",
   "tags_bulk_undoFailed": "Impossibile annullare la modifica dei tag.",
   "settings_conflict_field_appliesToMedia": "Disponibile per i media",
-  "settings_conflict_field_appliesToDocuments": "Disponibile per i documenti"
+  "settings_conflict_field_appliesToDocuments": "Disponibile per i documenti",
+  "documents_export_manifest_tags": "Tag"
 }

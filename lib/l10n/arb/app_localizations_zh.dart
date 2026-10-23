@@ -51596,12 +51596,12 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String tags_bulk_onAll(int count) {
-    return '全部 $count 件装备';
+    return '全部 $count 项';
   }
 
   @override
   String tags_bulk_onSome(int count, int total) {
-    return '$count/$total 件装备';
+    return '$count/$total 项';
   }
 
   @override
@@ -51632,4 +51632,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settings_conflict_field_appliesToDocuments => '可用于文档';
+
+  @override
+  String get documents_export_manifest_tags => '标签';
 }

@@ -16186,5 +16186,6 @@
   "tags_bulk_undo": "تراجع",
   "tags_bulk_undoFailed": "تعذر التراجع عن تغيير الوسوم.",
   "settings_conflict_field_appliesToMedia": "متاح للوسائط",
-  "settings_conflict_field_appliesToDocuments": "متاح للمستندات"
+  "settings_conflict_field_appliesToDocuments": "متاح للمستندات",
+  "documents_export_manifest_tags": "الوسوم"
 }

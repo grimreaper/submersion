@@ -54988,4 +54988,7 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get settings_conflict_field_appliesToDocuments =>
       'Disponibile per i documenti';
+
+  @override
+  String get documents_export_manifest_tags => 'Tag';
 }

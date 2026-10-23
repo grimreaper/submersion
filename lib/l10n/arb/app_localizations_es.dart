@@ -55027,4 +55027,7 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get settings_conflict_field_appliesToDocuments =>
       'Disponible en documentos';
+
+  @override
+  String get documents_export_manifest_tags => 'Etiquetas';
 }

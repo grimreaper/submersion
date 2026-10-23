@@ -54644,4 +54644,7 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get settings_conflict_field_appliesToDocuments =>
       'Beschikbaar bij documenten';
+
+  @override
+  String get documents_export_manifest_tags => 'Tags';
 }

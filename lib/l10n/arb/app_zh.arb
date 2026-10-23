@@ -16178,13 +16178,14 @@
   "tags_bulk_applied": "{count, plural, =1{已更新 1 件物品的标签} other{已更新 {count} 件物品的标签}}",
   "tags_bulk_confirmTitle": "应用更改？",
   "tags_bulk_failed": "无法更新标签：{error}",
-  "tags_bulk_onAll": "全部 {count} 件装备",
-  "tags_bulk_onSome": "{count}/{total} 件装备",
+  "tags_bulk_onAll": "全部 {count} 项",
+  "tags_bulk_onSome": "{count}/{total} 项",
   "tags_bulk_removing": "从全部移除",
   "tags_bulk_tagsLabel": "标签",
   "tags_bulk_title": "{count, plural, =1{编辑 1 件物品的标签} other{编辑 {count} 件物品的标签}}",
   "tags_bulk_undo": "撤消",
   "tags_bulk_undoFailed": "无法撤消标签更改。",
   "settings_conflict_field_appliesToMedia": "可用于媒体",
-  "settings_conflict_field_appliesToDocuments": "可用于文档"
+  "settings_conflict_field_appliesToDocuments": "可用于文档",
+  "documents_export_manifest_tags": "标签"
 }

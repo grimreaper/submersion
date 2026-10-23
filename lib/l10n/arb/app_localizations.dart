@@ -87148,6 +87148,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Offered on documents'**
   String get settings_conflict_field_appliesToDocuments;
+
+  /// No description provided for @documents_export_manifest_tags.
+  ///
+  /// In en, this message translates to:
+  /// **'Tags'**
+  String get documents_export_manifest_tags;
 }
 
 class _AppLocalizationsDelegate

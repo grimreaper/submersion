@@ -73,4 +73,14 @@ void main() {
   test('no tags selected leaves the library unfiltered', () async {
     expect(await ids(MediaLibraryFilter.none), hasLength(4));
   });
+
+  test('a tag that no longer exists is ignored, not matched', () async {
+    // With a live tag beside it, only the live tag filters.
+    expect(await ids(const MediaLibraryFilter(tagIds: {'gone', 'fish'})), [
+      'fish-video',
+      'both-photo',
+    ]);
+    // Alone, it leaves the library unfiltered rather than empty.
+    expect(await ids(const MediaLibraryFilter(tagIds: {'gone'})), hasLength(4));
+  });
 }

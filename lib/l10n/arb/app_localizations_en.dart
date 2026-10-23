@@ -54113,4 +54113,7 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settings_conflict_field_appliesToDocuments =>
       'Offered on documents';
+
+  @override
+  String get documents_export_manifest_tags => 'Tags';
 }
