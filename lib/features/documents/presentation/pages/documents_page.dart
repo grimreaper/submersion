@@ -161,9 +161,6 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
   /// Tags the list is filtered to, any of them matching (issue #1970).
   late Set<String> _tagIds = {?widget.initialTagId};
 
-  /// [_tagIds] less any tag that no longer exists, set on each build.
-  Set<String> _activeTagIds = const {};
-
   @override
   void didUpdateWidget(DocumentsListContent oldWidget) {
     super.didUpdateWidget(oldWidget);
@@ -189,12 +186,12 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
     DocumentListEntry e,
     UnitFormatter units,
     Map<String, List<Tag>> tagsByDocument,
+    Set<String> tagIds,
   ) {
     final d = e.document;
     if (_type != null && d.type != _type) return false;
     if (_personalOnly && !d.owner.isPersonal) return false;
     final tags = tagsByDocument[d.id] ?? const <Tag>[];
-    final tagIds = _activeTagIds;
     if (tagIds.isNotEmpty && !tags.any((t) => tagIds.contains(t.id))) {
       return false;
     }
@@ -238,7 +235,7 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
     final allTags = allTagsValue ?? const <Tag>[];
     // A selected tag that no longer exists (deleted, merged, or a stale
     // link) could not be shown as a chip to clear, so it stops filtering.
-    _activeTagIds = allTagsValue == null
+    final activeTagIds = allTagsValue == null
         ? _tagIds
         : {
             for (final t in allTags)
@@ -255,7 +252,7 @@ class _DocumentsListContentState extends ConsumerState<DocumentsListContent> {
         ];
         final presentTypes = {for (final e in entries) e.document.type};
         final shown = entries
-            .where((e) => _matches(e, units, tagsByDocument))
+            .where((e) => _matches(e, units, tagsByDocument, activeTagIds))
             .toList();
         final filterTags = _filterTags(entries, tagsByDocument, allTags);
         final listed = _expiringOnly

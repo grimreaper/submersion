@@ -25,6 +25,7 @@ import 'package:submersion/core/services/sync/view_config_merge.dart';
 import 'package:submersion/core/services/sync/changeset_log/sync_temp_dir.dart';
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/services/logger_service.dart';
+import 'package:submersion/features/media/data/repositories/smart_album_tag_repoint.dart';
 import 'package:submersion/features/dive_import/data/services/imported_file_reclaimer.dart';
 import 'package:submersion/features/dive_log/domain/codecs/profile_series_codec.dart';
 import 'package:submersion/features/dive_log/domain/codecs/profile_series_codec_exception.dart';
@@ -4399,6 +4400,14 @@ class SyncDataSerializer {
     for (final junction in tagScopeTables) {
       await _foldTagLinks(junction, loser: loser, survivor: survivor);
     }
+    // Saved smart albums filtered by the loser follow it too (issue #1970).
+    await repointSmartAlbumTags(
+      _db,
+      _syncRepository,
+      fromTagIds: [loser],
+      toTagId: survivor,
+      now: DateTime.now().millisecondsSinceEpoch,
+    );
     await (_db.delete(_db.tags)..where((t) => t.id.equals(loser))).go();
     _tagIdAliases[loser] = survivor;
   }

@@ -9,6 +9,8 @@ import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/services/database_service.dart';
 import 'package:submersion/core/services/sync/sync_data_serializer.dart';
 import 'package:submersion/core/services/sync/sync_service.dart';
+import 'package:submersion/features/media/data/repositories/media_smart_album_repository.dart';
+import 'package:submersion/features/media/domain/entities/media_library_filter.dart';
 import 'package:submersion/features/tags/data/repositories/tag_link_repository.dart';
 import 'package:submersion/features/tags/domain/entities/tag.dart' as domain;
 
@@ -331,5 +333,37 @@ void main() {
     expect(tag.name, 'Wrecks');
     expect(tag.appliesToMedia, isTrue);
     expect(tag.appliesToDocuments, isTrue);
+  });
+
+  test('a smart album on a folded tag follows it to the survivor', () async {
+    await db.customStatement(
+      'INSERT INTO tags (id, name, created_at, updated_at, applies_to_media) '
+      "VALUES ('zzz', 'Funny', 1, 1, 1)",
+    );
+    await MediaSmartAlbumRepository().create(
+      name: 'Funny',
+      filter: const MediaLibraryFilter(tagIds: {'zzz'}),
+    );
+
+    // A peer's same-name tag with a lower id wins the fold.
+    await serializer.applyInDeferredFkTransaction(
+      () => serializer.upsertRecord('tags', {
+        'id': 'aaa',
+        'diverId': null,
+        'name': 'funny',
+        'color': null,
+        'createdAt': 2,
+        'updatedAt': 2,
+        'hlc': null,
+        'appliesToDives': false,
+        'appliesToSites': false,
+        'appliesToEquipment': false,
+        'appliesToMedia': true,
+        'appliesToDocuments': false,
+      }),
+    );
+
+    final albums = await MediaSmartAlbumRepository().getAll();
+    expect(albums.single.filter.tagIds, {'aaa'});
   });
 }

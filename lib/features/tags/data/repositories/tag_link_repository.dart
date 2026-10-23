@@ -91,7 +91,7 @@ class TagLinkRepository {
     List<String> itemIds,
   ) async {
     final byItem = <String, List<String>>{};
-    for (final chunk in _chunks(itemIds.toSet().toList())) {
+    for (final chunk in seriesIdChunks(itemIds.toSet().toList())) {
       for (final r in await _linksIn(chunk)) {
         byItem
             .putIfAbsent(r.read<String>('item_id'), () => [])
@@ -106,7 +106,7 @@ class TagLinkRepository {
   /// tag), so the per-chunk counts sum exactly.
   Future<Map<String, int>> tagCountsFor(List<String> itemIds) async {
     final counts = <String, int>{};
-    for (final chunk in _chunks(itemIds.toSet().toList())) {
+    for (final chunk in seriesIdChunks(itemIds.toSet().toList())) {
       final rows = await _db
           .customSelect(
             'SELECT tag_id, COUNT(*) AS n FROM $_junction '
@@ -158,7 +158,7 @@ class TagLinkRepository {
     if (items.isEmpty || tags.isEmpty) return;
     await _db.transaction(() async {
       final have = <(String, String)>{};
-      for (final chunk in _chunks(items)) {
+      for (final chunk in seriesIdChunks(items)) {
         for (final r in await _linksIn(chunk)) {
           have.add((r.read<String>('item_id'), r.read<String>('tag_id')));
         }
@@ -184,7 +184,7 @@ class TagLinkRepository {
     final tags = tagIds.toSet();
     if (items.isEmpty || tags.isEmpty) return;
     await _db.transaction(() async {
-      for (final chunk in _chunks(items)) {
+      for (final chunk in seriesIdChunks(items)) {
         await _deleteLinks([
           for (final r in await _linksIn(chunk))
             if (tags.contains(r.read<String>('tag_id'))) r.read<String>('id'),
@@ -199,7 +199,7 @@ class TagLinkRepository {
   /// writes no tombstone, so a peer would keep them. Runs inside the
   /// caller's transaction and does not notify.
   Future<void> deleteLinksFor(List<String> itemIds) async {
-    for (final chunk in _chunks(itemIds.toSet().toList())) {
+    for (final chunk in seriesIdChunks(itemIds.toSet().toList())) {
       await _deleteLinks([
         for (final r in await _linksIn(chunk)) r.read<String>('id'),
       ]);
@@ -218,7 +218,7 @@ class TagLinkRepository {
 
   /// Deletes the links with [linkIds] and tombstones each.
   Future<void> _deleteLinks(List<String> linkIds) async {
-    for (final chunk in _chunks(linkIds)) {
+    for (final chunk in seriesIdChunks(linkIds)) {
       await _db.customUpdate(
         'DELETE FROM $_junction WHERE id IN (${_marks(chunk)})',
         variables: _vars(chunk),
@@ -269,7 +269,4 @@ class TagLinkRepository {
   static List<Variable<String>> _vars(List<String> ids) => [
     for (final id in ids) Variable.withString(id),
   ];
-
-  static Iterable<List<String>> _chunks(List<String> ids) =>
-      seriesIdChunks(ids);
 }
