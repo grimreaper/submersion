@@ -38,6 +38,7 @@ import 'package:submersion/features/import_wizard/domain/models/import_cancellat
 import 'package:submersion/features/import_wizard/domain/models/import_phase.dart';
 import 'package:submersion/features/import_wizard/domain/models/import_bundle.dart';
 import 'package:submersion/features/import_wizard/domain/models/import_notice.dart';
+import 'package:submersion/features/import_wizard/domain/models/diver_import_outcome.dart';
 import 'package:submersion/features/import_wizard/domain/models/import_target_choice.dart';
 import 'package:submersion/features/import_wizard/domain/models/unified_import_result.dart';
 import 'package:submersion/features/dive_log/domain/services/transmitter_serial.dart';
@@ -1018,6 +1019,7 @@ class DiveComputerAdapter
       diveRepository: _diveRepository,
       importedDiveIds: importedDiveIds,
     );
+    final diverOutcomes = await _diverOutcomes(importedDiveIds);
     return UnifiedImportResult(
       importedCounts: {ImportEntityType.dives: imported},
       consolidatedCount: consolidated,
@@ -1025,7 +1027,11 @@ class DiveComputerAdapter
       filledCount: filled,
       fillOutcomes: fillOutcomes,
       skippedCount: skipped,
-      importedDiveIds: importedDiveIds,
+      // "View Dives" and the quality count work in the active profile, so a
+      // download sent to another profile reports its dives only through
+      // diverOutcomes, as a multi-profile file import does (issue #2050).
+      importedDiveIds: diverOutcomes.isEmpty ? importedDiveIds : const [],
+      diverOutcomes: diverOutcomes,
       notices: [
         if (unmatched.isNotEmpty && writtenDives.isNotEmpty)
           ImportNotice(

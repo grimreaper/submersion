@@ -53,6 +53,26 @@ extension _DiveComputerAdapterTarget on DiveComputerAdapter {
     );
   }
 
+  /// The import's per-profile outcome when its dives went to a profile other
+  /// than the active one, so tagging, the logbook rules and the summary's
+  /// "By profile" section follow that profile. Empty otherwise, as for any
+  /// import into the active profile.
+  Future<List<DiverImportOutcome>> _diverOutcomes(
+    List<String> importedDiveIds,
+  ) async {
+    final target = targetDiverId;
+    if (_activeDiverId.isEmpty || target == _activeDiverId) return const [];
+    return [
+      DiverImportOutcome(
+        diverId: target,
+        name: await _lookUpDiverName(target) ?? '',
+        isNew: false,
+        isActive: false,
+        diveIds: importedDiveIds,
+      ),
+    ];
+  }
+
   /// The name of [diverId], or null when it is missing or cannot be read.
   Future<String?> _lookUpDiverName(String diverId) async {
     try {

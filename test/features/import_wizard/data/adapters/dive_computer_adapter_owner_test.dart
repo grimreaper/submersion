@@ -7,6 +7,7 @@ import 'package:submersion/features/dive_log/domain/entities/dive_computer.dart'
 import 'package:submersion/features/import_wizard/data/adapters/dive_computer_adapter.dart';
 import 'package:submersion/features/import_wizard/domain/models/import_bundle.dart';
 import 'package:submersion/features/import_wizard/domain/models/import_target_choice.dart';
+import 'package:submersion/features/import_wizard/domain/models/unified_import_result.dart';
 
 import 'dive_computer_adapter_test.mocks.dart';
 
@@ -284,6 +285,60 @@ void main() {
 
       verify(dives.getSourceKeysByDiveId(diverId: 'mitchell')).called(1);
       verify(dives.getPlannedDives(diverId: 'mitchell')).called(1);
+    });
+  });
+  group('the result', () {
+    Future<UnifiedImportResult> importOne(
+      DiveComputerAdapter a, {
+      String? chooseDiver,
+    }) async {
+      final dive = _dive();
+      a.setDownloadedDives([dive]);
+      await a.buildBundle();
+      if (chooseDiver != null) await a.setTargetDiver(chooseDiver);
+      final bundle = await a.buildBundle();
+      when(
+        importService.importSingleDiveAsNew(
+          dive,
+          computerId: anyNamed('computerId'),
+          diverId: anyNamed('diverId'),
+        ),
+      ).thenAnswer((_) async => 'new-1');
+      return a.performImport(bundle, {
+        ImportEntityType.dives: {0},
+      }, {});
+    }
+
+    test('names the chosen profile when it is not the active one', () async {
+      final result = await importOne(adapter(known: _computer()));
+
+      expect(result.diverOutcomes, hasLength(1));
+      final outcome = result.diverOutcomes.single;
+      expect(outcome.diverId, 'mitchell');
+      expect(outcome.name, 'Mitchell');
+      expect(outcome.isActive, isFalse);
+      expect(outcome.isNew, isFalse);
+      expect(outcome.diveIds, ['new-1']);
+      // "View Dives" and the quality count work in the active profile, so
+      // like a multi-profile file import they get only its dives: none.
+      expect(result.importedDiveIds, isEmpty);
+    });
+
+    test('carries no outcomes when the active profile was chosen', () async {
+      final result = await importOne(
+        adapter(known: _computer()),
+        chooseDiver: 'bill',
+      );
+
+      expect(result.diverOutcomes, isEmpty);
+    });
+
+    test("carries no outcomes for the active profile's own computer", () async {
+      final result = await importOne(
+        adapter(known: _computer(diverId: 'bill')),
+      );
+
+      expect(result.diverOutcomes, isEmpty);
     });
   });
 }
