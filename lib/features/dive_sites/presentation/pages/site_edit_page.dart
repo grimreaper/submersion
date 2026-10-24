@@ -10,6 +10,7 @@ import 'package:submersion/core/services/shared_library/shared_library_models.da
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/providers/location_service_provider.dart';
 import 'package:submersion/core/services/geocoding/place_lookup.dart';
+import 'package:submersion/core/services/logger_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -27,6 +28,7 @@ import 'package:submersion/features/dive_sites/domain/models/new_site_seed.dart'
 import 'package:submersion/features/dive_sites/domain/entities/site_classification.dart';
 import 'package:submersion/features/dive_sites/presentation/site_difficulty_display.dart';
 import 'package:submersion/features/dive_sites/domain/services/site_location_merge.dart';
+import 'package:submersion/features/dive_sites/presentation/providers/site_feature_providers.dart';
 import 'package:submersion/features/dive_sites/presentation/providers/site_providers.dart';
 import 'package:submersion/features/dive_sites/presentation/widgets/edit_sections/access_safety_section.dart';
 import 'package:submersion/features/dive_sites/presentation/widgets/edit_sections/dive_info_section.dart';
@@ -77,6 +79,11 @@ class SiteEditPage extends ConsumerStatefulWidget {
   /// searched the site picker for (#1501).
   final String? initialName;
 
+  /// Starts a new site from every field, type, tag and expected species of
+  /// this one, named as its copy; Save also copies its map features. Nothing
+  /// is written until then (issue #3575).
+  final String? duplicateOfId;
+
   /// A reader's view of a shared site library site (issue #2567): Save becomes
   /// Send and writes a suggestion instead of the site.
   final bool suggest;
@@ -91,6 +98,7 @@ class SiteEditPage extends ConsumerStatefulWidget {
     this.onDeleted,
     this.initialLocation,
     this.initialName,
+    this.duplicateOfId,
     this.suggest = false,
   }) : assert(
          siteId == null || mergeSiteIds == null,
@@ -103,16 +111,29 @@ class SiteEditPage extends ConsumerStatefulWidget {
        assert(
          initialName == null || (siteId == null && mergeSiteIds == null),
          'initialName is only valid when creating a new site',
+       ),
+       assert(
+         duplicateOfId == null || (siteId == null && mergeSiteIds == null),
+         'duplicateOfId is only valid when creating a new site',
        );
 
   /// The new-site form for the `/sites/new` route, seeded from its `extra`
-  /// as [NewSiteSeed.fromRouteExtra] reads it.
-  factory SiteEditPage.fromNewSiteExtra(Object? extra) {
+  /// as [NewSiteSeed.fromRouteExtra] reads it, or duplicating the site its
+  /// `duplicateOf` query names.
+  factory SiteEditPage.fromNewSiteExtra(
+    Object? extra, {
+    String? duplicateOfId,
+  }) {
     final seed = NewSiteSeed.fromRouteExtra(extra);
-    return SiteEditPage(initialLocation: seed.location, initialName: seed.name);
+    return SiteEditPage(
+      initialLocation: seed.location,
+      initialName: seed.name,
+      duplicateOfId: duplicateOfId,
+    );
   }
 
   bool get isEditing => siteId != null;
+  bool get isDuplicating => !isEditing && duplicateOfId != null;
   bool get isMerging => mergeSiteIds != null && mergeSiteIds!.length > 1;
 
   @override
@@ -120,6 +141,7 @@ class SiteEditPage extends ConsumerStatefulWidget {
 }
 
 class _SiteEditPageState extends ConsumerState<SiteEditPage> {
+  static final _log = LoggerService.forClass(SiteEditPage);
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -198,13 +220,18 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
     _latitudeController.addListener(_scheduleAltitudeLookup);
     _longitudeController.addListener(_scheduleAltitudeLookup);
     _mergeLoadFuture = widget.isMerging ? _loadMergeData() : null;
-    if (!widget.isEditing && !widget.isMerging) {
-      WidgetsBinding.instance.addPostFrameCallback((_) async {
-        final shareByDefault = await ref.read(shareByDefaultProvider.future);
-        if (!mounted) return;
-        setState(() => _isShared = shareByDefault);
-      });
+    // A duplicate keeps its original's sharing instead (issue #3575).
+    if (!widget.isEditing && !widget.isMerging && !widget.isDuplicating) {
+      _applyShareByDefault();
     }
+  }
+
+  void _applyShareByDefault() {
+    WidgetsBinding.instance.addPostFrameCallback((_) async {
+      final shareByDefault = await ref.read(shareByDefaultProvider.future);
+      if (!mounted) return;
+      setState(() => _isShared = shareByDefault);
+    });
   }
 
   void _onFieldChanged() {
@@ -355,6 +382,34 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
     if (_isInitialized) return;
     _isInitialized = true;
     _originalSite = site;
+    _fillForm(site, units);
+
+    // Load expected species
+    _loadExpectedSpecies(site.id);
+    _loadClassification(site.id);
+  }
+
+  /// Fills the form from [source] as a new site named as its copy (issue
+  /// #3575), with its types, tags and expected species picked. There is no
+  /// [_originalSite]: the save creates a site of the active diver's, and a
+  /// shared library site's copy is a personal one, shared as a new site is.
+  void _initializeFromDuplicate(DiveSite source, UnitFormatter units) {
+    if (_isInitialized) return;
+    _isInitialized = true;
+    _fillForm(
+      source.copyWith(
+        name: context.l10n.diveSites_edit_duplicateName(source.name),
+      ),
+      units,
+    );
+    if (source.isLibrarySite) _applyShareByDefault();
+    _loadExpectedSpecies(source.id);
+    _loadClassification(source.id);
+  }
+
+  /// Fills every form field from [site], as initial values that leave the
+  /// form clean.
+  void _fillForm(DiveSite site, UnitFormatter units) {
     _isApplyingInitialValues = true;
 
     _nameController.text = site.name;
@@ -387,10 +442,6 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
         ? _altitudeForInput(units.convertAltitude(site.altitude!))
         : '';
     _isApplyingInitialValues = false;
-
-    // Load expected species
-    _loadExpectedSpecies(site.id);
-    _loadClassification(site.id);
   }
 
   /// Loads the site's types and tags into the Type & Tags section.
@@ -714,8 +765,10 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
       );
     }
 
-    if (widget.isEditing) {
-      final siteAsync = ref.watch(siteProvider(widget.siteId!));
+    if (widget.isEditing || widget.isDuplicating) {
+      final siteAsync = ref.watch(
+        siteProvider(widget.siteId ?? widget.duplicateOfId!),
+      );
       return siteAsync.when(
         data: (site) {
           if (site == null) {
@@ -733,7 +786,11 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
               ),
             );
           }
-          _initializeFromSite(site, units);
+          if (widget.isEditing) {
+            _initializeFromSite(site, units);
+          } else {
+            _initializeFromDuplicate(site, units);
+          }
           return _buildForm(context, units);
         },
         loading: () {
@@ -1226,6 +1283,8 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
           ? context.l10n.diveSites_edit_appBar_editSite
           : widget.isMerging
           ? context.l10n.diveSites_edit_appBar_mergeSites
+          : widget.isDuplicating
+          ? context.l10n.diveSites_edit_appBar_duplicateSite
           : context.l10n.diveSites_edit_appBar_newSite,
       saveLabel: _suggestModeShown()
           ? context.l10n.sharedLibrary_suggest_send
@@ -2073,6 +2132,8 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
 
       final notifier = ref.read(siteListNotifierProvider.notifier);
       String savedId;
+      // Set when a duplicate saved but its map features did not copy.
+      var featuresNotCopied = false;
 
       // Types and tags (issue #1765) are written with the row, in one
       // transaction, only when the diver changed them on this page.
@@ -2135,6 +2196,27 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
           classification: classification,
         );
         savedId = newSite.id;
+        if (widget.isDuplicating) {
+          // The site is saved by now, so a failure here must not read as a
+          // failed save: saving again would make a second copy.
+          try {
+            await ref
+                .read(siteFeatureRepositoryProvider)
+                .copyFeatures(
+                  fromSiteId: widget.duplicateOfId!,
+                  toSiteId: savedId,
+                  actingDiverId: diverId,
+                );
+          } catch (e, stackTrace) {
+            _log.error(
+              'Could not copy the map features of site '
+              '${widget.duplicateOfId} to its duplicate $savedId',
+              error: e,
+              stackTrace: stackTrace,
+            );
+            featuresNotCopied = true;
+          }
+        }
       }
       ref.invalidate(siteTypesForSiteProvider(savedId));
       ref.invalidate(tagsForSiteProvider(savedId));
@@ -2173,6 +2255,21 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
         } else if (widget.isMerging) {
           context.pop(
             SiteMergeResult(survivorId: savedId, snapshot: mergeSnapshot),
+          );
+        } else if (widget.isDuplicating) {
+          // The copy, not the original, is what the diver goes on to rename
+          // and adjust, as an equipment clone does. Back still returns to
+          // the original; on desktop the detail route selects the copy in
+          // the master-detail list.
+          context.pushReplacement('/sites/$savedId');
+          ScaffoldMessenger.of(context).showSnackBar(
+            SnackBar(
+              content: Text(
+                featuresNotCopied
+                    ? context.l10n.diveSites_edit_snackbar_featuresNotCopied
+                    : context.l10n.diveSites_edit_snackbar_siteAdded,
+              ),
+            ),
           );
         } else {
           context.pop(savedId);

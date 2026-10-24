@@ -1,0 +1,360 @@
+import 'package:drift/drift.dart' show Value;
+import 'package:flutter/material.dart';
+import 'package:flutter_test/flutter_test.dart';
+import 'package:go_router/go_router.dart';
+import 'package:shared_preferences/shared_preferences.dart';
+import 'package:submersion/core/constants/enums.dart';
+import 'package:submersion/core/database/database.dart'
+    show AppDatabase, DiveSitesCompanion;
+import 'package:submersion/core/providers/provider.dart';
+import 'package:submersion/features/divers/domain/entities/diver.dart';
+import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
+import 'package:submersion/features/dive_sites/data/repositories/site_classification_repository.dart';
+import 'package:submersion/features/dive_sites/data/repositories/site_feature_repository.dart';
+import 'package:submersion/features/dive_sites/data/repositories/site_repository_impl.dart';
+import 'package:submersion/features/dive_sites/domain/entities/dive_site.dart';
+import 'package:submersion/features/dive_sites/domain/entities/site_classification.dart';
+import 'package:submersion/features/dive_sites/presentation/pages/site_edit_page.dart';
+import 'package:submersion/features/dive_sites/presentation/providers/site_providers.dart';
+import 'package:submersion/features/marine_life/data/repositories/species_repository.dart';
+import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
+import 'package:submersion/features/tags/data/repositories/tag_repository.dart';
+import 'package:submersion/features/tags/domain/entities/tag.dart';
+import 'package:submersion/l10n/arb/app_localizations.dart';
+
+import '../../../../helpers/test_database.dart';
+
+const _source = DiveSite(
+  id: 'site-1',
+  name: 'Salt Pier',
+  description: 'Pier pilings and a sandy slope',
+  location: GeoPoint(12.0818, -68.2805),
+  minDepth: 5,
+  maxDepth: 18,
+  difficulty: SiteDifficulty.intermediate,
+  waterType: WaterType.salt,
+  country: 'Bonaire',
+  region: 'Caribbean',
+  city: 'Kralendijk',
+  island: 'Bonaire',
+  bodyOfWater: 'Caribbean Sea',
+  rating: 4,
+  notes: 'Ask the pier office first',
+  hazards: 'Boat traffic',
+  accessNotes: 'Shore entry down the stairs',
+  mooringNumber: '7',
+  parkingInfo: 'Gravel lot',
+  altitude: 300,
+  entryMethods: [EntryMethod.shore],
+  exitMethods: [EntryMethod.ladder],
+);
+
+/// Duplicating a site (issue #3575): the form starts as a new, unsaved site
+/// carrying everything from the original, and nothing is written until Save.
+void main() {
+  late SharedPreferences prefs;
+  late AppDatabase db;
+  late String tagId;
+  late String speciesId;
+
+  setUp(() async {
+    SharedPreferences.setMockInitialValues({});
+    prefs = await SharedPreferences.getInstance();
+    db = await setUpTestDatabase();
+    final now = DateTime(2026, 10, 23);
+    tagId = (await TagRepository().createTag(
+      Tag(
+        id: 'tag-1',
+        name: 'Liveaboard',
+        createdAt: now,
+        updatedAt: now,
+        scopes: const {TagScope.sites},
+      ),
+    )).id;
+    await SiteRepository().createSite(
+      _source,
+      classification: SiteClassification(typeIds: ['wall'], tagIds: [tagId]),
+    );
+    final species = SpeciesRepository();
+    speciesId = (await species.createSpecies(
+      commonName: 'Seahorse',
+      category: SpeciesCategory.fish,
+    )).id;
+    await species.addExpectedSpecies(siteId: 'site-1', speciesId: speciesId);
+    await SiteFeatureRepository().addFeature(
+      siteId: 'site-1',
+      typeName: 'mooring',
+      name: 'North ball',
+      latitude: 12.0819,
+      longitude: -68.2806,
+    );
+  });
+
+  tearDown(tearDownTestDatabase);
+
+  // Riverpod does not re-export its sealed Override type (see testApp).
+  List<dynamic> overrides({bool shareByDefault = false}) => [
+    sharedPreferencesProvider.overrideWithValue(prefs),
+    allDiversProvider.overrideWith((_) async => const <Diver>[]),
+    shareByDefaultProvider.overrideWith((_) async => shareByDefault),
+    validatedCurrentDiverIdProvider.overrideWith((_) async => null),
+  ];
+
+  Future<void> pumpDuplicate(
+    WidgetTester tester, {
+    String sourceId = 'site-1',
+    void Function(String)? onSaved,
+    VoidCallback? onCancel,
+    bool shareByDefault = false,
+    bool sourceLoaded = false,
+  }) async {
+    tester.view.physicalSize = const Size(900, 3600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+
+    final container = ProviderContainer(
+      overrides: [...overrides(shareByDefault: shareByDefault)],
+    );
+    addTearDown(container.dispose);
+    // Opened from its detail page, the original is already loaded, so the
+    // form fills in its first frame rather than after a database read.
+    if (sourceLoaded) {
+      await tester.runAsync(
+        () => container.read(siteProvider(sourceId).future),
+      );
+    }
+    await tester.pumpWidget(
+      UncontrolledProviderScope(
+        container: container,
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
+          home: Scaffold(
+            body: SiteEditPage(
+              duplicateOfId: sourceId,
+              embedded: true,
+              onSaved: onSaved ?? (_) {},
+              onCancel: onCancel ?? () {},
+            ),
+          ),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+  }
+
+  Future<String> saveDuplicate(
+    WidgetTester tester, {
+    bool sourceLoaded = false,
+  }) async {
+    String? savedId;
+    await pumpDuplicate(
+      tester,
+      onSaved: (id) => savedId = id,
+      sourceLoaded: sourceLoaded,
+    );
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+    expect(savedId, isNotNull, reason: 'Save did not finish');
+    expect(savedId, isNot('site-1'));
+    return savedId!;
+  }
+
+  testWidgets('saving writes a new site carrying every field of the original', (
+    tester,
+  ) async {
+    final copyId = await saveDuplicate(tester);
+
+    final copy = (await tester.runAsync(
+      () => SiteRepository().getSiteById(copyId),
+    ))!;
+    expect(copy.name, 'Salt Pier (copy)');
+    expect(copy.description, _source.description);
+    expect(copy.location, _source.location);
+    expect(copy.minDepth, _source.minDepth);
+    expect(copy.maxDepth, _source.maxDepth);
+    expect(copy.difficulty, _source.difficulty);
+    expect(copy.waterType, _source.waterType);
+    expect(copy.country, _source.country);
+    expect(copy.region, _source.region);
+    expect(copy.city, _source.city);
+    expect(copy.island, _source.island);
+    expect(copy.bodyOfWater, _source.bodyOfWater);
+    expect(copy.rating, _source.rating);
+    expect(copy.notes, _source.notes);
+    expect(copy.hazards, _source.hazards);
+    expect(copy.accessNotes, _source.accessNotes);
+    expect(copy.mooringNumber, _source.mooringNumber);
+    expect(copy.parkingInfo, _source.parkingInfo);
+    expect(copy.altitude, _source.altitude);
+    expect(copy.entryMethods, _source.entryMethods);
+    expect(copy.exitMethods, _source.exitMethods);
+  });
+
+  testWidgets('the copy gets the original\'s types, tags and species', (
+    tester,
+  ) async {
+    final copyId = await saveDuplicate(tester);
+
+    final classification = SiteClassificationRepository();
+    final types = await tester.runAsync(
+      () => classification.getTypesForSite(copyId),
+    );
+    final tags = await tester.runAsync(
+      () => classification.getTagsForSite(copyId),
+    );
+    final species = await tester.runAsync(
+      () => SpeciesRepository().getExpectedSpeciesForSite(copyId),
+    );
+    expect(types!.map((t) => t.id), ['wall']);
+    expect(tags!.map((t) => t.id), [tagId]);
+    expect(species!.map((s) => s.speciesId), [speciesId]);
+  });
+
+  testWidgets('the copy gets the original\'s seascape features', (
+    tester,
+  ) async {
+    final copyId = await saveDuplicate(tester);
+
+    final features = await tester.runAsync(
+      () => SiteFeatureRepository().getFeaturesForSite(copyId),
+    );
+    expect(features!.single.typeName, 'mooring');
+    expect(features.single.name, 'North ball');
+  });
+
+  testWidgets('the original is left as it was', (tester) async {
+    await saveDuplicate(tester);
+
+    final original = (await tester.runAsync(
+      () => SiteRepository().getSiteById('site-1'),
+    ))!;
+    expect(original.name, 'Salt Pier');
+    final features = await tester.runAsync(
+      () => SiteFeatureRepository().getFeaturesForSite('site-1'),
+    );
+    expect(features, hasLength(1));
+  });
+
+  testWidgets('cancelling writes nothing and asks nothing', (tester) async {
+    var cancelled = false;
+    await pumpDuplicate(tester, onCancel: () => cancelled = true);
+
+    await tester.tap(find.text('Cancel'));
+    await tester.pumpAndSettle();
+
+    expect(find.text('Discard changes?'), findsNothing);
+    expect(cancelled, isTrue);
+    final sites = await tester.runAsync(() => SiteRepository().getAllSites());
+    expect(sites!.map((s) => s.id), ['site-1']);
+  });
+
+  testWidgets('the copy keeps the original\'s sharing', (tester) async {
+    await tester.runAsync(
+      () => (db.update(db.diveSites)..where((t) => t.id.equals('site-1')))
+          .write(const DiveSitesCompanion(isShared: Value(true))),
+    );
+
+    // Already loaded, the form fills before the new-site sharing default
+    // arrives, which must not then overwrite the original's sharing.
+    final copyId = await saveDuplicate(tester, sourceLoaded: true);
+
+    final copy = (await tester.runAsync(
+      () => SiteRepository().getSiteById(copyId),
+    ))!;
+    expect(copy.isShared, isTrue);
+  });
+
+  testWidgets('a shared library site duplicates as a personal site', (
+    tester,
+  ) async {
+    await tester.runAsync(
+      () => (db.update(db.diveSites)..where((t) => t.id.equals('site-1')))
+          .write(const DiveSitesCompanion(sharedLibraryId: Value('lib-1'))),
+    );
+
+    final copyId = await saveDuplicate(tester);
+
+    final copy = (await tester.runAsync(
+      () => SiteRepository().getSiteById(copyId),
+    ))!;
+    expect(copy.sharedLibraryId, isNull);
+    expect(copy.name, 'Salt Pier (copy)');
+  });
+
+  testWidgets('the page is titled Duplicate Site', (tester) async {
+    tester.view.physicalSize = const Size(900, 3600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [...overrides()],
+        child: MaterialApp(
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
+          home: SiteEditPage.fromNewSiteExtra(null, duplicateOfId: 'site-1'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+
+    expect(find.text('Duplicate Site'), findsOneWidget);
+    expect(find.text('New Site'), findsNothing);
+  });
+
+  testWidgets('saving the full-page form opens the new site', (tester) async {
+    tester.view.physicalSize = const Size(900, 3600);
+    tester.view.devicePixelRatio = 1.0;
+    addTearDown(tester.view.reset);
+    final router = GoRouter(
+      initialLocation: '/sites/site-1',
+      routes: [
+        GoRoute(
+          path: '/sites/new',
+          builder: (context, state) => SiteEditPage.fromNewSiteExtra(
+            state.extra,
+            duplicateOfId: state.uri.queryParameters['duplicateOf'],
+          ),
+        ),
+        GoRoute(
+          path: '/sites/:siteId',
+          builder: (context, state) =>
+              Scaffold(body: Text('detail ${state.pathParameters['siteId']}')),
+        ),
+      ],
+    );
+    addTearDown(router.dispose);
+    await tester.pumpWidget(
+      ProviderScope(
+        overrides: [...overrides()],
+        child: MaterialApp.router(
+          routerConfig: router,
+          localizationsDelegates: AppLocalizations.localizationsDelegates,
+          supportedLocales: AppLocalizations.supportedLocales,
+          locale: const Locale('en'),
+        ),
+      ),
+    );
+    await tester.pumpAndSettle();
+    router.push('/sites/new?duplicateOf=site-1');
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+
+    final sites = await tester.runAsync(() => SiteRepository().getAllSites());
+    final copyId = sites!.map((s) => s.id).singleWhere((id) => id != 'site-1');
+    expect(find.text('detail $copyId'), findsOneWidget);
+    expect(find.text('Site added'), findsOneWidget);
+    // Back returns to the original, not to the finished form.
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(find.text('detail site-1'), findsOneWidget);
+  });
+}

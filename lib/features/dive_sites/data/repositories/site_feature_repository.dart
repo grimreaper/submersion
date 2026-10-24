@@ -73,6 +73,29 @@ class SiteFeatureRepository {
     );
   }
 
+  /// Copies every feature on [fromSiteId] onto [toSiteId] as new rows, in
+  /// their creation order, for a duplicated site (issue #3575). Each copy
+  /// goes through [addFeature], so it carries the same write ritual.
+  Future<void> copyFeatures({
+    required String fromSiteId,
+    required String toSiteId,
+    String? actingDiverId,
+  }) async {
+    for (final feature in await getFeaturesForSite(fromSiteId)) {
+      await addFeature(
+        siteId: toSiteId,
+        typeName: feature.typeName,
+        latitude: feature.latitude,
+        longitude: feature.longitude,
+        bearingDeg: feature.bearingDeg,
+        depthMeters: feature.depthMeters,
+        name: feature.name,
+        notes: feature.notes,
+        actingDiverId: actingDiverId,
+      );
+    }
+  }
+
   Future<List<domain.SiteFeature>> getFeaturesForSite(String siteId) async {
     final rows =
         await (_db.select(_db.siteFeatures)
