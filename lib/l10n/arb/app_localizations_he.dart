@@ -11970,6 +11970,62 @@ class AppLocalizationsHe extends AppLocalizations {
   String get divelogsImport_signIn_usernameRequired => 'נדרש שם משתמש';
 
   @override
+  String get divers_misplacedLogbook_title =>
+      'הצלילות שלך נמצאות בפרופיל צולל אחר';
+
+  @override
+  String divers_misplacedLogbook_body(String target, int count, String active) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count צלילות',
+      one: 'צלילה אחת',
+    );
+    return 'ב-\"$target\" יש $_temp0. מכשיר זה מציג את \"$active\", שאין בו צלילות. זה יכול לקרות כשמכשיר יוצר פרופיל משלו לפני הסנכרון הראשון.';
+  }
+
+  @override
+  String get divers_misplacedLogbook_switchTo => 'החלף';
+
+  @override
+  String get divers_misplacedLogbook_merge => 'מזג';
+
+  @override
+  String get divers_misplacedLogbook_keepBoth => 'השאר את שניהם';
+
+  @override
+  String get divers_misplacedLogbook_confirmTitle => 'למזג פרופילי צוללים?';
+
+  @override
+  String divers_misplacedLogbook_confirmBody(String active, String target) {
+    return 'כל מה שב-\"$active\" יועבר אל \"$target\", ו-\"$active\" יוסר. \"$target\" שומר על השם וההגדרות שלו. ניתן לבטל פעולה זו מיד לאחר המיזוג.';
+  }
+
+  @override
+  String get divers_misplacedLogbook_confirmCancel => 'ביטול';
+
+  @override
+  String get divers_misplacedLogbook_confirmAction => 'מזג';
+
+  @override
+  String divers_misplacedLogbook_mergedSnack(String target) {
+    return 'מוזג אל $target';
+  }
+
+  @override
+  String get divers_misplacedLogbook_undo => 'בטל';
+
+  @override
+  String divers_misplacedLogbook_mergeFailed(String error) {
+    return 'המיזוג נכשל: $error';
+  }
+
+  @override
+  String divers_misplacedLogbook_undoFailed(String error) {
+    return 'הביטול נכשל: $error';
+  }
+
+  @override
   String get divers_detail_activeDiver => 'צולל פעיל';
 
   @override
@@ -19180,6 +19236,9 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
+  String get plannerCanvas_chart_removeWaypoint => 'הסרת נקודת הציון';
+
+  @override
   String get plannerCanvas_contingency_title => 'תוכניות חירום';
 
   @override
@@ -21090,6 +21149,20 @@ class AppLocalizationsHe extends AppLocalizations {
   String sharedLibrary_library_errorBanner(String error) {
     return 'הסנכרון האחרון נכשל: $error';
   }
+
+  @override
+  String get sharedLibrary_syncError_accountMissing =>
+      'החשבון של הספרייה הזו כבר לא נמצא במכשיר הזה. השתמשו בשינוי החיבור כדי לבחור אותו שוב.';
+
+  @override
+  String get sharedLibrary_syncError_accountSignedOut =>
+      'המכשיר הזה מנותק מהחשבון של הספרייה. התחברו אליו שוב בחשבונות מחוברים, או השתמשו בשינוי החיבור.';
+
+  @override
+  String get sharedLibrary_syncError_notALibrary => 'אין ספרייה במיקום הזה.';
+
+  @override
+  String get sharedLibrary_syncError_failed => 'משהו השתבש.';
 
   @override
   String get sharedLibrary_library_addMySites => 'הוספת האתרים שלי';
@@ -36151,30 +36224,6 @@ class AppLocalizationsHe extends AppLocalizations {
   String get diveLog_sources_compareIn3d => 'השוואה בתלת-ממד';
 
   @override
-  String get settings_setup_pendingTitle => 'השלם את הגדרת המכשיר הזה';
-
-  @override
-  String settings_setup_mediaStoreAttach(String hint) {
-    return 'חיבור אחסון מדיה ($hint)';
-  }
-
-  @override
-  String settings_setup_mediaStoreReconnect(String hint) {
-    return 'חיבור מחדש של אחסון מדיה ($hint)';
-  }
-
-  @override
-  String settings_setup_accountSignIn(String label) {
-    return 'התחברות אל $label';
-  }
-
-  @override
-  String get settings_setup_dismiss => 'התעלם';
-
-  @override
-  String get settings_photosMedia_guidedSetup => 'הגדרה מודרכת';
-
-  @override
   String get settings_photosMedia_photoSources_subtitle =>
       'גלריה, קבצים ואפשרויות ייבוא';
 
@@ -36222,43 +36271,6 @@ class AppLocalizationsHe extends AppLocalizations {
   @override
   String get settings_connectedAccounts_removeConfirmBody =>
       'החשבון מוסר מכל המכשירים המסונכרנים. אישורים השמורים במכשירים אחרים אינם נמחקים.';
-
-  @override
-  String get settings_setupGuide_title => 'הגדרת תמונות ומדיה';
-
-  @override
-  String get settings_setupGuide_intro =>
-      'חבר את מקורות התמונות ואת מקום שמירת העותקים. אפשר להריץ זאת שוב בכל עת.';
-
-  @override
-  String get settings_setupGuide_stepSources => 'מקורות תמונות';
-
-  @override
-  String get settings_setupGuide_stepSources_desc =>
-      'צרף תמונות מספריית התמונות, מקבצים או מ-Lightroom.';
-
-  @override
-  String get settings_setupGuide_stepStorage => 'אחסון מדיה';
-
-  @override
-  String get settings_setupGuide_stepStorage_desc =>
-      'שמור עותקים של התמונות בענן שלך כדי שכל מכשיר יוכל להציגן.';
-
-  @override
-  String get settings_setupGuide_stepSync => 'סנכרון ענן';
-
-  @override
-  String get settings_setupGuide_stepSync_desc =>
-      'סנכרן נתוני צלילה בין מכשירים.';
-
-  @override
-  String get settings_setupGuide_statusDone => 'מוגדר';
-
-  @override
-  String get settings_setupGuide_statusTodo => 'לא מוגדר';
-
-  @override
-  String get settings_setupGuide_open => 'פתח';
 
   @override
   String get settings_connectedAccounts_loadError => 'לא ניתן לטעון חשבונות';
@@ -53865,4 +53877,121 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get settings_conflict_field_remoteStoreId => 'הועלה אל';
+
+  @override
+  String settings_setUpDevice_title(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'הגדרת הטלפון הזה',
+      'tablet': 'הגדרת הטאבלט הזה',
+      'computer': 'הגדרת המחשב הזה',
+      'other': 'הגדרת המכשיר הזה',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_titleFinish(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'סיום ההגדרה של הטלפון הזה',
+      'tablet': 'סיום ההגדרה של הטאבלט הזה',
+      'computer': 'סיום ההגדרה של המחשב הזה',
+      'other': 'סיום ההגדרה של המכשיר הזה',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_again(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'הגדרת הטלפון הזה מחדש',
+      'tablet': 'הגדרת הטאבלט הזה מחדש',
+      'computer': 'הגדרת המחשב הזה מחדש',
+      'other': 'הגדרת המכשיר הזה מחדש',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_count(int done, int total) {
+    return '$done מתוך $total';
+  }
+
+  @override
+  String settings_setUpDevice_countSemantics(int done, int total) {
+    return 'שלבים שהושלמו: $done מתוך $total';
+  }
+
+  @override
+  String get settings_setUpDevice_hide => 'הסתרת הכרטיס הזה';
+
+  @override
+  String get settings_setUpDevice_step_account =>
+      'בחירת המקום שבו הנתונים נשמרים';
+
+  @override
+  String get settings_setUpDevice_step_sync => 'הצלילות בכל מכשיר';
+
+  @override
+  String get settings_setUpDevice_step_backups => 'גיבוי אוטומטי';
+
+  @override
+  String get settings_setUpDevice_step_photos =>
+      'שיתוף עותקים של תמונות (רשות)';
+
+  @override
+  String get settings_setUpDevice_mark_done => 'הושלם';
+
+  @override
+  String get settings_setUpDevice_mark_next => 'הבא';
+
+  @override
+  String get settings_setUpDevice_mark_notYet => 'עדיין לא';
+
+  @override
+  String get settings_setUpDevice_mark_skipped => 'דולג';
+
+  @override
+  String get settings_setUpDevice_item_signInAction => 'התחברות';
+
+  @override
+  String get settings_setUpDevice_item_reconnectAction => 'חיבור מחדש';
+
+  @override
+  String settings_setUpDevice_item_signIn(String account) {
+    return 'יש להתחבר שוב אל $account. הסנכרון והגיבויים מושהים עד אז.';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInShort(String account) {
+    return 'יש להתחבר שוב אל $account.';
+  }
+
+  @override
+  String settings_setUpDevice_item_attach(String account) {
+    return 'המכשירים האחרים שלך שומרים עותקים של תמונות ב-$account.';
+  }
+
+  @override
+  String settings_setUpDevice_item_reconnect(String account) {
+    return 'יש לחבר מחדש את עותקי התמונות ב-$account.';
+  }
+
+  @override
+  String get settings_setUpDevice_againSubtitle =>
+      'חשבון, סנכרון, גיבויים ותמונות';
+
+  @override
+  String settings_setUpDevice_stepSemantics(String step, String mark) {
+    return '$step: $mark';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInSync(String account) {
+    return 'יש להתחבר שוב אל $account. הסנכרון מושהה עד אז.';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInBackups(String account) {
+    return 'יש להתחבר שוב אל $account. הגיבויים מושהים עד אז.';
+  }
 }

@@ -93,7 +93,15 @@ Future<TankPresetEntity?> loadDefaultTankPresetForDownloads(
   final resolver = DefaultTankPresetResolver(
     repository: ref.read(tankPresetRepositoryProvider),
   );
-  return resolver.resolve(settings.defaultTankPreset);
+  // The preset is looked up among the same diver's own presets as the
+  // settings that name it (#3593), so another diver's download gets their
+  // cylinder, not the active diver's preset of the same name (#2050).
+  return resolver.resolve(
+    settings.defaultTankPreset,
+    diverId: otherDiver
+        ? diverId
+        : await ref.read(validatedCurrentDiverIdProvider.future),
+  );
 }
 
 /// Stream provider for download events from the service.

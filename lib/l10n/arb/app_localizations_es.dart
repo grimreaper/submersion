@@ -12231,6 +12231,63 @@ class AppLocalizationsEs extends AppLocalizations {
       'El nombre de usuario es obligatorio';
 
   @override
+  String get divers_misplacedLogbook_title =>
+      'Tus buceos están en otro perfil de buceador';
+
+  @override
+  String divers_misplacedLogbook_body(String target, int count, String active) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count buceos',
+      one: '$count buceo',
+    );
+    return '\"$target\" tiene $_temp0. Este dispositivo muestra \"$active\", que no tiene ninguno. Esto puede pasar cuando un dispositivo crea su propio perfil antes de su primera sincronización.';
+  }
+
+  @override
+  String get divers_misplacedLogbook_switchTo => 'Cambiar';
+
+  @override
+  String get divers_misplacedLogbook_merge => 'Fusionar';
+
+  @override
+  String get divers_misplacedLogbook_keepBoth => 'Conservar ambos';
+
+  @override
+  String get divers_misplacedLogbook_confirmTitle =>
+      '¿Fusionar perfiles de buceador?';
+
+  @override
+  String divers_misplacedLogbook_confirmBody(String active, String target) {
+    return 'Todo lo de \"$active\" se moverá a \"$target\" y \"$active\" se eliminará. \"$target\" conserva su nombre y sus ajustes. Se puede deshacer justo después de fusionar.';
+  }
+
+  @override
+  String get divers_misplacedLogbook_confirmCancel => 'Cancelar';
+
+  @override
+  String get divers_misplacedLogbook_confirmAction => 'Fusionar';
+
+  @override
+  String divers_misplacedLogbook_mergedSnack(String target) {
+    return 'Fusionado en $target';
+  }
+
+  @override
+  String get divers_misplacedLogbook_undo => 'Deshacer';
+
+  @override
+  String divers_misplacedLogbook_mergeFailed(String error) {
+    return 'Error al fusionar: $error';
+  }
+
+  @override
+  String divers_misplacedLogbook_undoFailed(String error) {
+    return 'No se pudo deshacer: $error';
+  }
+
+  @override
   String get divers_detail_activeDiver => 'Buceador activo';
 
   @override
@@ -19602,6 +19659,9 @@ class AppLocalizationsEs extends AppLocalizations {
   }
 
   @override
+  String get plannerCanvas_chart_removeWaypoint => 'Eliminar punto';
+
+  @override
   String get plannerCanvas_contingency_title => 'Contingencias';
 
   @override
@@ -21574,6 +21634,21 @@ class AppLocalizationsEs extends AppLocalizations {
   String sharedLibrary_library_errorBanner(String error) {
     return 'La última sincronización falló: $error';
   }
+
+  @override
+  String get sharedLibrary_syncError_accountMissing =>
+      'La cuenta de esta biblioteca ya no está en este dispositivo. Usa Cambiar conexión para elegirla de nuevo.';
+
+  @override
+  String get sharedLibrary_syncError_accountSignedOut =>
+      'Este dispositivo cerró la sesión de la cuenta de esta biblioteca. Vuelve a iniciar sesión en Cuentas conectadas o usa Cambiar conexión.';
+
+  @override
+  String get sharedLibrary_syncError_notALibrary =>
+      'No hay ninguna biblioteca en esta ubicación.';
+
+  @override
+  String get sharedLibrary_syncError_failed => 'Algo salió mal.';
 
   @override
   String get sharedLibrary_library_addMySites => 'Añadir mis puntos';
@@ -37093,31 +37168,6 @@ class AppLocalizationsEs extends AppLocalizations {
   String get diveLog_sources_compareIn3d => 'Comparar en 3D';
 
   @override
-  String get settings_setup_pendingTitle =>
-      'Termina de configurar este dispositivo';
-
-  @override
-  String settings_setup_mediaStoreAttach(String hint) {
-    return 'Conectar almacenamiento de medios ($hint)';
-  }
-
-  @override
-  String settings_setup_mediaStoreReconnect(String hint) {
-    return 'Volver a conectar el almacenamiento de medios ($hint)';
-  }
-
-  @override
-  String settings_setup_accountSignIn(String label) {
-    return 'Iniciar sesión en $label';
-  }
-
-  @override
-  String get settings_setup_dismiss => 'Descartar';
-
-  @override
-  String get settings_photosMedia_guidedSetup => 'Configuración guiada';
-
-  @override
   String get settings_photosMedia_photoSources_subtitle =>
       'Galería, archivos y opciones de importación';
 
@@ -37168,43 +37218,6 @@ class AppLocalizationsEs extends AppLocalizations {
   @override
   String get settings_connectedAccounts_removeConfirmBody =>
       'La cuenta se quita de todos los dispositivos sincronizados. Las credenciales guardadas en otros dispositivos no se eliminan.';
-
-  @override
-  String get settings_setupGuide_title => 'Configurar fotos y medios';
-
-  @override
-  String get settings_setupGuide_intro =>
-      'Conecta de dónde vienen tus fotos y dónde se guardan las copias. Puedes volver a ejecutar esto cuando quieras.';
-
-  @override
-  String get settings_setupGuide_stepSources => 'Fuentes de fotos';
-
-  @override
-  String get settings_setupGuide_stepSources_desc =>
-      'Adjunta fotos desde tu biblioteca, archivos o Lightroom.';
-
-  @override
-  String get settings_setupGuide_stepStorage => 'Almacenamiento de medios';
-
-  @override
-  String get settings_setupGuide_stepStorage_desc =>
-      'Guarda copias de tus fotos en tu propia nube para que todos los dispositivos puedan mostrarlas.';
-
-  @override
-  String get settings_setupGuide_stepSync => 'Sincronización en la nube';
-
-  @override
-  String get settings_setupGuide_stepSync_desc =>
-      'Sincroniza los datos de buceo entre dispositivos.';
-
-  @override
-  String get settings_setupGuide_statusDone => 'Configurado';
-
-  @override
-  String get settings_setupGuide_statusTodo => 'Sin configurar';
-
-  @override
-  String get settings_setupGuide_open => 'Abrir';
 
   @override
   String get settings_connectedAccounts_loadError =>
@@ -55053,4 +55066,123 @@ class AppLocalizationsEs extends AppLocalizations {
 
   @override
   String get settings_conflict_field_remoteStoreId => 'Subido a';
+
+  @override
+  String settings_setUpDevice_title(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'Configura este teléfono',
+      'tablet': 'Configura esta tableta',
+      'computer': 'Configura este ordenador',
+      'other': 'Configura este dispositivo',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_titleFinish(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'Termina de configurar este teléfono',
+      'tablet': 'Termina de configurar esta tableta',
+      'computer': 'Termina de configurar este ordenador',
+      'other': 'Termina de configurar este dispositivo',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_again(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'Vuelve a configurar este teléfono',
+      'tablet': 'Vuelve a configurar esta tableta',
+      'computer': 'Vuelve a configurar este ordenador',
+      'other': 'Vuelve a configurar este dispositivo',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_count(int done, int total) {
+    return '$done de $total';
+  }
+
+  @override
+  String settings_setUpDevice_countSemantics(int done, int total) {
+    return '$done de $total pasos hechos';
+  }
+
+  @override
+  String get settings_setUpDevice_hide => 'Ocultar esta tarjeta';
+
+  @override
+  String get settings_setUpDevice_step_account =>
+      'Elige dónde se guardan tus datos';
+
+  @override
+  String get settings_setUpDevice_step_sync =>
+      'Inmersiones en todos tus dispositivos';
+
+  @override
+  String get settings_setUpDevice_step_backups =>
+      'Copia de seguridad automática';
+
+  @override
+  String get settings_setUpDevice_step_photos =>
+      'Compartir copias de fotos (opcional)';
+
+  @override
+  String get settings_setUpDevice_mark_done => 'Hecho';
+
+  @override
+  String get settings_setUpDevice_mark_next => 'Siguiente';
+
+  @override
+  String get settings_setUpDevice_mark_notYet => 'Todavía no';
+
+  @override
+  String get settings_setUpDevice_mark_skipped => 'Omitido';
+
+  @override
+  String get settings_setUpDevice_item_signInAction => 'Iniciar sesión';
+
+  @override
+  String get settings_setUpDevice_item_reconnectAction => 'Reconectar';
+
+  @override
+  String settings_setUpDevice_item_signIn(String account) {
+    return 'Vuelve a iniciar sesión en $account. La sincronización y las copias de seguridad están en pausa hasta entonces.';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInShort(String account) {
+    return 'Vuelve a iniciar sesión en $account.';
+  }
+
+  @override
+  String settings_setUpDevice_item_attach(String account) {
+    return 'Tus otros dispositivos guardan copias de fotos en $account.';
+  }
+
+  @override
+  String settings_setUpDevice_item_reconnect(String account) {
+    return 'Hay que volver a conectar las copias de fotos de $account.';
+  }
+
+  @override
+  String get settings_setUpDevice_againSubtitle =>
+      'Cuenta, sincronización, copias de seguridad y fotos';
+
+  @override
+  String settings_setUpDevice_stepSemantics(String step, String mark) {
+    return '$step: $mark';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInSync(String account) {
+    return 'Vuelve a iniciar sesión en $account. La sincronización está en pausa hasta entonces.';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInBackups(String account) {
+    return 'Vuelve a iniciar sesión en $account. Las copias de seguridad están en pausa hasta entonces.';
+  }
 }

@@ -12238,6 +12238,63 @@ class AppLocalizationsDe extends AppLocalizations {
       'Benutzername ist erforderlich';
 
   @override
+  String get divers_misplacedLogbook_title =>
+      'Deine Tauchgänge sind in einem anderen Taucherprofil';
+
+  @override
+  String divers_misplacedLogbook_body(String target, int count, String active) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Tauchgänge',
+      one: '$count Tauchgang',
+    );
+    return '\"$target\" hat $_temp0. Dieses Gerät zeigt \"$active\" an, das keine hat. Das kann passieren, wenn ein Gerät vor seiner ersten Synchronisierung ein eigenes Profil erstellt.';
+  }
+
+  @override
+  String get divers_misplacedLogbook_switchTo => 'Wechseln';
+
+  @override
+  String get divers_misplacedLogbook_merge => 'Zusammenführen';
+
+  @override
+  String get divers_misplacedLogbook_keepBoth => 'Beide behalten';
+
+  @override
+  String get divers_misplacedLogbook_confirmTitle =>
+      'Taucherprofile zusammenführen?';
+
+  @override
+  String divers_misplacedLogbook_confirmBody(String active, String target) {
+    return 'Alles aus \"$active\" wird nach \"$target\" verschoben, und \"$active\" wird entfernt. \"$target\" behält seinen Namen und seine Einstellungen. Dies kann direkt nach dem Zusammenführen rückgängig gemacht werden.';
+  }
+
+  @override
+  String get divers_misplacedLogbook_confirmCancel => 'Abbrechen';
+
+  @override
+  String get divers_misplacedLogbook_confirmAction => 'Zusammenführen';
+
+  @override
+  String divers_misplacedLogbook_mergedSnack(String target) {
+    return 'Zusammengeführt in $target';
+  }
+
+  @override
+  String get divers_misplacedLogbook_undo => 'Rückgängig';
+
+  @override
+  String divers_misplacedLogbook_mergeFailed(String error) {
+    return 'Zusammenführung fehlgeschlagen: $error';
+  }
+
+  @override
+  String divers_misplacedLogbook_undoFailed(String error) {
+    return 'Rückgängig machen fehlgeschlagen: $error';
+  }
+
+  @override
   String get divers_detail_activeDiver => 'Aktiver Taucher';
 
   @override
@@ -19592,6 +19649,9 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
+  String get plannerCanvas_chart_removeWaypoint => 'Wegpunkt entfernen';
+
+  @override
   String get plannerCanvas_contingency_title => 'Eventualpläne';
 
   @override
@@ -21546,6 +21606,21 @@ class AppLocalizationsDe extends AppLocalizations {
   String sharedLibrary_library_errorBanner(String error) {
     return 'Letzte Synchronisierung fehlgeschlagen: $error';
   }
+
+  @override
+  String get sharedLibrary_syncError_accountMissing =>
+      'Das Konto dieser Bibliothek ist nicht mehr auf diesem Gerät. Wählen Sie es unter Verbindung ändern erneut aus.';
+
+  @override
+  String get sharedLibrary_syncError_accountSignedOut =>
+      'Dieses Gerät ist vom Konto dieser Bibliothek abgemeldet. Melden Sie sich unter Verbundene Konten wieder an, oder verwenden Sie Verbindung ändern.';
+
+  @override
+  String get sharedLibrary_syncError_notALibrary =>
+      'An diesem Ort gibt es keine Bibliothek.';
+
+  @override
+  String get sharedLibrary_syncError_failed => 'Etwas ist schiefgelaufen.';
 
   @override
   String get sharedLibrary_library_addMySites => 'Meine Tauchplätze hinzufügen';
@@ -36990,31 +37065,6 @@ class AppLocalizationsDe extends AppLocalizations {
   String get diveLog_sources_compareIn3d => 'In 3D vergleichen';
 
   @override
-  String get settings_setup_pendingTitle =>
-      'Einrichtung dieses Geräts abschließen';
-
-  @override
-  String settings_setup_mediaStoreAttach(String hint) {
-    return 'Medienspeicher verbinden ($hint)';
-  }
-
-  @override
-  String settings_setup_mediaStoreReconnect(String hint) {
-    return 'Medienspeicher erneut verbinden ($hint)';
-  }
-
-  @override
-  String settings_setup_accountSignIn(String label) {
-    return 'Bei $label anmelden';
-  }
-
-  @override
-  String get settings_setup_dismiss => 'Ausblenden';
-
-  @override
-  String get settings_photosMedia_guidedSetup => 'Geführte Einrichtung';
-
-  @override
   String get settings_photosMedia_photoSources_subtitle =>
       'Galerie, Dateien und Importoptionen';
 
@@ -37063,43 +37113,6 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get settings_connectedAccounts_removeConfirmBody =>
       'Das Konto wird von allen synchronisierten Geräten entfernt. Auf anderen Geräten gespeicherte Zugangsdaten werden nicht gelöscht.';
-
-  @override
-  String get settings_setupGuide_title => 'Fotos & Medien einrichten';
-
-  @override
-  String get settings_setupGuide_intro =>
-      'Verbinde die Quellen deiner Fotos und wo Kopien aufbewahrt werden. Du kannst dies jederzeit erneut ausführen.';
-
-  @override
-  String get settings_setupGuide_stepSources => 'Fotoquellen';
-
-  @override
-  String get settings_setupGuide_stepSources_desc =>
-      'Fotos aus deiner Fotobibliothek, Dateien oder Lightroom anhängen.';
-
-  @override
-  String get settings_setupGuide_stepStorage => 'Medienspeicher';
-
-  @override
-  String get settings_setupGuide_stepStorage_desc =>
-      'Bewahre Kopien deiner Fotos in deiner eigenen Cloud auf, damit jedes Gerät sie anzeigen kann.';
-
-  @override
-  String get settings_setupGuide_stepSync => 'Cloud-Synchronisierung';
-
-  @override
-  String get settings_setupGuide_stepSync_desc =>
-      'Tauchdaten zwischen Geräten synchronisieren.';
-
-  @override
-  String get settings_setupGuide_statusDone => 'Eingerichtet';
-
-  @override
-  String get settings_setupGuide_statusTodo => 'Nicht eingerichtet';
-
-  @override
-  String get settings_setupGuide_open => 'Öffnen';
 
   @override
   String get settings_connectedAccounts_loadError =>
@@ -54892,4 +54905,120 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get settings_conflict_field_remoteStoreId => 'Hochgeladen in';
+
+  @override
+  String settings_setUpDevice_title(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'Dieses Telefon einrichten',
+      'tablet': 'Dieses Tablet einrichten',
+      'computer': 'Diesen Computer einrichten',
+      'other': 'Dieses Gerät einrichten',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_titleFinish(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'Einrichtung dieses Telefons abschließen',
+      'tablet': 'Einrichtung dieses Tablets abschließen',
+      'computer': 'Einrichtung dieses Computers abschließen',
+      'other': 'Einrichtung dieses Geräts abschließen',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_again(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'Dieses Telefon erneut einrichten',
+      'tablet': 'Dieses Tablet erneut einrichten',
+      'computer': 'Diesen Computer erneut einrichten',
+      'other': 'Dieses Gerät erneut einrichten',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_count(int done, int total) {
+    return '$done von $total';
+  }
+
+  @override
+  String settings_setUpDevice_countSemantics(int done, int total) {
+    return '$done von $total Schritten erledigt';
+  }
+
+  @override
+  String get settings_setUpDevice_hide => 'Diese Karte ausblenden';
+
+  @override
+  String get settings_setUpDevice_step_account =>
+      'Wählen, wo Ihre Daten liegen';
+
+  @override
+  String get settings_setUpDevice_step_sync => 'Tauchgänge auf jedem Gerät';
+
+  @override
+  String get settings_setUpDevice_step_backups => 'Automatisch sichern';
+
+  @override
+  String get settings_setUpDevice_step_photos => 'Fotokopien teilen (optional)';
+
+  @override
+  String get settings_setUpDevice_mark_done => 'Erledigt';
+
+  @override
+  String get settings_setUpDevice_mark_next => 'Als Nächstes';
+
+  @override
+  String get settings_setUpDevice_mark_notYet => 'Noch nicht';
+
+  @override
+  String get settings_setUpDevice_mark_skipped => 'Übersprungen';
+
+  @override
+  String get settings_setUpDevice_item_signInAction => 'Anmelden';
+
+  @override
+  String get settings_setUpDevice_item_reconnectAction => 'Neu verbinden';
+
+  @override
+  String settings_setUpDevice_item_signIn(String account) {
+    return 'Melden Sie sich erneut bei $account an. Sync und Sicherungen sind bis dahin pausiert.';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInShort(String account) {
+    return 'Melden Sie sich erneut bei $account an.';
+  }
+
+  @override
+  String settings_setUpDevice_item_attach(String account) {
+    return 'Ihre anderen Geräte bewahren Fotokopien in $account auf.';
+  }
+
+  @override
+  String settings_setUpDevice_item_reconnect(String account) {
+    return 'Die Fotokopien in $account müssen neu verbunden werden.';
+  }
+
+  @override
+  String get settings_setUpDevice_againSubtitle =>
+      'Konto, Sync, Sicherungen und Fotos';
+
+  @override
+  String settings_setUpDevice_stepSemantics(String step, String mark) {
+    return '$step: $mark';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInSync(String account) {
+    return 'Melden Sie sich erneut bei $account an. Sync ist bis dahin pausiert.';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInBackups(String account) {
+    return 'Melden Sie sich erneut bei $account an. Sicherungen sind bis dahin pausiert.';
+  }
 }

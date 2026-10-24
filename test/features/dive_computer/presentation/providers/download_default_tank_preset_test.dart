@@ -5,6 +5,7 @@ import 'package:submersion/core/database/database.dart';
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/features/dive_computer/domain/entities/downloaded_dive.dart';
 import 'package:submersion/features/dive_computer/presentation/providers/download_providers.dart';
+import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/settings/data/repositories/diver_settings_repository.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
 import 'package:submersion/features/tank_presets/domain/entities/tank_preset_entity.dart';
@@ -29,11 +30,15 @@ void main() {
     await tearDownTestDatabase();
   });
 
-  Future<TankPresetEntity?> load(AppSettings settings) async {
+  Future<TankPresetEntity?> load(
+    AppSettings settings, {
+    String? diverId,
+  }) async {
     final container = ProviderContainer(
       overrides: [
         sharedPreferencesProvider.overrideWithValue(prefs),
         settingsProvider.overrideWith((ref) => MockSettingsNotifier(settings)),
+        validatedCurrentDiverIdProvider.overrideWith((ref) async => diverId),
       ],
     );
     addTearDown(container.dispose);
@@ -81,10 +86,16 @@ void main() {
   });
 
   group('for a diver other than the active one (issue #2050)', () {
-    Future<TankPresetEntity?> loadFor(String diverId) async {
+    Future<TankPresetEntity?> loadFor(
+      String diverId, {
+      String? activeDiverId,
+    }) async {
       final container = ProviderContainer(
         overrides: [
           sharedPreferencesProvider.overrideWithValue(prefs),
+          validatedCurrentDiverIdProvider.overrideWith(
+            (ref) async => activeDiverId,
+          ),
           settingsProvider.overrideWith(
             (ref) => MockSettingsNotifier(
               const AppSettings(applyDefaultTankToImports: false),
@@ -154,6 +165,90 @@ void main() {
 
       expect(await loadFor('mitchell'), isNull);
     });
+
+    test("resolves that diver's own custom preset, not the active "
+        "diver's", () async {
+      final now = DateTime.now().millisecondsSinceEpoch;
+      await addDiver('bill');
+      await addDiver('mitchell');
+      for (final (diverId, presetId, volume) in [
+        ('bill', 'dubbel_7', 14.0),
+        ('mitchell', 'dubbel_7_m1', 7.0),
+      ]) {
+        await db
+            .into(db.tankPresets)
+            .insert(
+              TankPresetsCompanion(
+                id: Value(presetId),
+                diverId: Value(diverId),
+                name: const Value('dubbel_7'),
+                displayName: const Value('Dubbel 7'),
+                volumeLiters: Value(volume),
+                workingPressureBar: const Value(232),
+                material: const Value('steel'),
+                createdAt: Value(now),
+                updatedAt: Value(now),
+              ),
+            );
+      }
+      await DiverSettingsRepository().createSettingsForDiver(
+        'mitchell',
+        settings: const AppSettings(
+          applyDefaultTankToImports: true,
+          defaultTankPreset: 'dubbel_7',
+        ),
+      );
+
+      final preset = await loadFor('mitchell', activeDiverId: 'bill');
+
+      expect(preset?.volumeLiters, 7.0);
+    });
+  });
+
+  test('resolves the active diver\'s own custom preset (#3343)', () async {
+    // A copied profile holds a preset of the same name: each diver's
+    // default names their own cylinder, never the other profile's.
+    final now = DateTime.now().millisecondsSinceEpoch;
+    for (final (diverId, presetId, volume) in [
+      ('diver-a', 'dubbel_7', 14.0),
+      ('diver-b', 'dubbel_7_1a2b3c4d', 7.0),
+    ]) {
+      await db
+          .into(db.divers)
+          .insert(
+            DiversCompanion(
+              id: Value(diverId),
+              name: Value(diverId),
+              createdAt: Value(now),
+              updatedAt: Value(now),
+            ),
+          );
+      await db
+          .into(db.tankPresets)
+          .insert(
+            TankPresetsCompanion(
+              id: Value(presetId),
+              diverId: Value(diverId),
+              name: const Value('dubbel_7'),
+              displayName: const Value('Dubbel 7'),
+              volumeLiters: Value(volume),
+              workingPressureBar: const Value(232),
+              material: const Value('steel'),
+              createdAt: Value(now),
+              updatedAt: Value(now),
+            ),
+          );
+    }
+    const settings = AppSettings(
+      applyDefaultTankToImports: true,
+      defaultTankPreset: 'dubbel_7',
+    );
+
+    final forA = await load(settings, diverId: 'diver-a');
+    final forB = await load(settings, diverId: 'diver-b');
+
+    expect(forA?.volumeLiters, 14.0);
+    expect(forB?.volumeLiters, 7.0);
   });
 
   group('end to end through diveImportServiceProvider', () {

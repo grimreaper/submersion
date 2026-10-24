@@ -11649,6 +11649,55 @@ class AppLocalizationsZh extends AppLocalizations {
   String get divelogsImport_signIn_usernameRequired => '请输入用户名';
 
   @override
+  String get divers_misplacedLogbook_title => '你的潜水记录在另一个潜水员档案中';
+
+  @override
+  String divers_misplacedLogbook_body(String target, int count, String active) {
+    return '「$target」中有 $count 次潜水。此设备显示的是「$active」，其中没有潜水记录。如果设备在首次同步之前创建了自己的档案，就可能出现这种情况。';
+  }
+
+  @override
+  String get divers_misplacedLogbook_switchTo => '切换';
+
+  @override
+  String get divers_misplacedLogbook_merge => '合并';
+
+  @override
+  String get divers_misplacedLogbook_keepBoth => '保留两者';
+
+  @override
+  String get divers_misplacedLogbook_confirmTitle => '合并潜水员档案？';
+
+  @override
+  String divers_misplacedLogbook_confirmBody(String active, String target) {
+    return '「$active」中的所有内容将移入「$target」，并删除「$active」。「$target」保留其名称和设置。合并后可立即撤销此操作。';
+  }
+
+  @override
+  String get divers_misplacedLogbook_confirmCancel => '取消';
+
+  @override
+  String get divers_misplacedLogbook_confirmAction => '合并';
+
+  @override
+  String divers_misplacedLogbook_mergedSnack(String target) {
+    return '已合并到 $target';
+  }
+
+  @override
+  String get divers_misplacedLogbook_undo => '撤销';
+
+  @override
+  String divers_misplacedLogbook_mergeFailed(String error) {
+    return '合并失败：$error';
+  }
+
+  @override
+  String divers_misplacedLogbook_undoFailed(String error) {
+    return '撤销失败：$error';
+  }
+
+  @override
   String get divers_detail_activeDiver => '当前潜水员';
 
   @override
@@ -18677,6 +18726,9 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get plannerCanvas_chart_removeWaypoint => '删除航点';
+
+  @override
   String get plannerCanvas_contingency_title => '应急计划';
 
   @override
@@ -20494,6 +20546,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String sharedLibrary_library_errorBanner(String error) {
     return '上次同步失败：$error';
   }
+
+  @override
+  String get sharedLibrary_syncError_accountMissing =>
+      '此库的账户已不在此设备上。请使用“更改连接”重新选择。';
+
+  @override
+  String get sharedLibrary_syncError_accountSignedOut =>
+      '此设备已退出此库的账户。请在“已连接账户”中重新登录，或使用“更改连接”。';
+
+  @override
+  String get sharedLibrary_syncError_notALibrary => '此位置没有库。';
+
+  @override
+  String get sharedLibrary_syncError_failed => '出现问题。';
 
   @override
   String get sharedLibrary_library_addMySites => '添加我的潜点';
@@ -34916,30 +34982,6 @@ class AppLocalizationsZh extends AppLocalizations {
   String get diveLog_sources_compareIn3d => '3D 比较';
 
   @override
-  String get settings_setup_pendingTitle => '完成此设备的设置';
-
-  @override
-  String settings_setup_mediaStoreAttach(String hint) {
-    return '连接媒体存储（$hint）';
-  }
-
-  @override
-  String settings_setup_mediaStoreReconnect(String hint) {
-    return '重新连接媒体存储（$hint）';
-  }
-
-  @override
-  String settings_setup_accountSignIn(String label) {
-    return '登录 $label';
-  }
-
-  @override
-  String get settings_setup_dismiss => '忽略';
-
-  @override
-  String get settings_photosMedia_guidedSetup => '引导设置';
-
-  @override
   String get settings_photosMedia_photoSources_subtitle => '图库、文件与导入选项';
 
   @override
@@ -34983,41 +35025,6 @@ class AppLocalizationsZh extends AppLocalizations {
   @override
   String get settings_connectedAccounts_removeConfirmBody =>
       '该账户将从所有同步设备中移除。存储在其他设备上的凭据不会被删除。';
-
-  @override
-  String get settings_setupGuide_title => '设置照片与媒体';
-
-  @override
-  String get settings_setupGuide_intro => '连接照片来源以及副本保存位置。你可以随时重新运行。';
-
-  @override
-  String get settings_setupGuide_stepSources => '照片来源';
-
-  @override
-  String get settings_setupGuide_stepSources_desc =>
-      '从照片图库、文件或 Lightroom 附加照片。';
-
-  @override
-  String get settings_setupGuide_stepStorage => '媒体存储';
-
-  @override
-  String get settings_setupGuide_stepStorage_desc =>
-      '将照片副本保存在你自己的云端，让每台设备都能显示。';
-
-  @override
-  String get settings_setupGuide_stepSync => '云同步';
-
-  @override
-  String get settings_setupGuide_stepSync_desc => '在设备之间同步潜水数据。';
-
-  @override
-  String get settings_setupGuide_statusDone => '已设置';
-
-  @override
-  String get settings_setupGuide_statusTodo => '未设置';
-
-  @override
-  String get settings_setupGuide_open => '打开';
 
   @override
   String get settings_connectedAccounts_loadError => '无法加载账户';
@@ -51666,4 +51673,118 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settings_conflict_field_remoteStoreId => '上传至';
+
+  @override
+  String settings_setUpDevice_title(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': '设置此手机',
+      'tablet': '设置此平板',
+      'computer': '设置此电脑',
+      'other': '设置此设备',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_titleFinish(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': '完成此手机的设置',
+      'tablet': '完成此平板的设置',
+      'computer': '完成此电脑的设置',
+      'other': '完成此设备的设置',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_again(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': '重新设置此手机',
+      'tablet': '重新设置此平板',
+      'computer': '重新设置此电脑',
+      'other': '重新设置此设备',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_count(int done, int total) {
+    return '$done/$total';
+  }
+
+  @override
+  String settings_setUpDevice_countSemantics(int done, int total) {
+    return '已完成 $done/$total 步';
+  }
+
+  @override
+  String get settings_setUpDevice_hide => '隐藏此卡片';
+
+  @override
+  String get settings_setUpDevice_step_account => '选择数据的存放位置';
+
+  @override
+  String get settings_setUpDevice_step_sync => '让每台设备都有潜水记录';
+
+  @override
+  String get settings_setUpDevice_step_backups => '自动备份';
+
+  @override
+  String get settings_setUpDevice_step_photos => '共享照片副本（可选）';
+
+  @override
+  String get settings_setUpDevice_mark_done => '已完成';
+
+  @override
+  String get settings_setUpDevice_mark_next => '下一步';
+
+  @override
+  String get settings_setUpDevice_mark_notYet => '尚未完成';
+
+  @override
+  String get settings_setUpDevice_mark_skipped => '已跳过';
+
+  @override
+  String get settings_setUpDevice_item_signInAction => '登录';
+
+  @override
+  String get settings_setUpDevice_item_reconnectAction => '重新连接';
+
+  @override
+  String settings_setUpDevice_item_signIn(String account) {
+    return '请重新登录 $account。在此之前，同步和备份已暂停。';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInShort(String account) {
+    return '请重新登录 $account。';
+  }
+
+  @override
+  String settings_setUpDevice_item_attach(String account) {
+    return '你的其他设备在 $account 中保存照片副本。';
+  }
+
+  @override
+  String settings_setUpDevice_item_reconnect(String account) {
+    return '$account 中的照片副本需要重新连接。';
+  }
+
+  @override
+  String get settings_setUpDevice_againSubtitle => '账户、同步、备份和照片';
+
+  @override
+  String settings_setUpDevice_stepSemantics(String step, String mark) {
+    return '$step：$mark';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInSync(String account) {
+    return '请重新登录 $account。在此之前，同步已暂停。';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInBackups(String account) {
+    return '请重新登录 $account。在此之前，备份已暂停。';
+  }
 }

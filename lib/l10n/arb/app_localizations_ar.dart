@@ -12405,6 +12405,64 @@ class AppLocalizationsAr extends AppLocalizations {
   String get divelogsImport_signIn_usernameRequired => 'اسم المستخدم مطلوب';
 
   @override
+  String get divers_misplacedLogbook_title => 'غطساتك موجودة في ملف غواص آخر';
+
+  @override
+  String divers_misplacedLogbook_body(String target, int count, String active) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count غطسة',
+      many: '$count غطسة',
+      few: '$count غطسات',
+      two: 'غطستان',
+      one: 'غطسة واحدة',
+    );
+    return 'في \"$target\" $_temp0. يعرض هذا الجهاز \"$active\"، الذي لا يحتوي على أي غطسات. قد يحدث هذا عندما ينشئ جهاز ملفه الشخصي قبل المزامنة الأولى.';
+  }
+
+  @override
+  String get divers_misplacedLogbook_switchTo => 'تبديل';
+
+  @override
+  String get divers_misplacedLogbook_merge => 'دمج';
+
+  @override
+  String get divers_misplacedLogbook_keepBoth => 'الاحتفاظ بكليهما';
+
+  @override
+  String get divers_misplacedLogbook_confirmTitle => 'دمج ملفات الغواصين؟';
+
+  @override
+  String divers_misplacedLogbook_confirmBody(String active, String target) {
+    return 'سيتم نقل كل ما في \"$active\" إلى \"$target\"، وستتم إزالة \"$active\". يحتفظ \"$target\" باسمه وإعداداته. يمكن التراجع عن هذا مباشرةً بعد الدمج.';
+  }
+
+  @override
+  String get divers_misplacedLogbook_confirmCancel => 'إلغاء';
+
+  @override
+  String get divers_misplacedLogbook_confirmAction => 'دمج';
+
+  @override
+  String divers_misplacedLogbook_mergedSnack(String target) {
+    return 'تم الدمج في $target';
+  }
+
+  @override
+  String get divers_misplacedLogbook_undo => 'تراجع';
+
+  @override
+  String divers_misplacedLogbook_mergeFailed(String error) {
+    return 'فشل الدمج: $error';
+  }
+
+  @override
+  String divers_misplacedLogbook_undoFailed(String error) {
+    return 'فشل التراجع: $error';
+  }
+
+  @override
   String get divers_detail_activeDiver => 'الغواص النشط';
 
   @override
@@ -19882,6 +19940,9 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get plannerCanvas_chart_removeWaypoint => 'إزالة نقطة الطريق';
+
+  @override
   String get plannerCanvas_contingency_title => 'خطط الطوارئ';
 
   @override
@@ -21850,6 +21911,21 @@ class AppLocalizationsAr extends AppLocalizations {
   String sharedLibrary_library_errorBanner(String error) {
     return 'فشلت آخر مزامنة: $error';
   }
+
+  @override
+  String get sharedLibrary_syncError_accountMissing =>
+      'لم يعد حساب هذه المكتبة على هذا الجهاز. استخدم تغيير الاتصال لاختياره مرة أخرى.';
+
+  @override
+  String get sharedLibrary_syncError_accountSignedOut =>
+      'تم تسجيل خروج هذا الجهاز من حساب هذه المكتبة. سجّل الدخول إليه مرة أخرى من الحسابات المتصلة، أو استخدم تغيير الاتصال.';
+
+  @override
+  String get sharedLibrary_syncError_notALibrary =>
+      'لا توجد مكتبة في هذا الموقع.';
+
+  @override
+  String get sharedLibrary_syncError_failed => 'حدث خطأ ما.';
 
   @override
   String get sharedLibrary_library_addMySites => 'إضافة مواقعي';
@@ -37577,30 +37653,6 @@ class AppLocalizationsAr extends AppLocalizations {
   String get diveLog_sources_compareIn3d => 'مقارنة ثلاثية الأبعاد';
 
   @override
-  String get settings_setup_pendingTitle => 'أكمل إعداد هذا الجهاز';
-
-  @override
-  String settings_setup_mediaStoreAttach(String hint) {
-    return 'الاتصال بتخزين الوسائط ($hint)';
-  }
-
-  @override
-  String settings_setup_mediaStoreReconnect(String hint) {
-    return 'إعادة الاتصال بتخزين الوسائط ($hint)';
-  }
-
-  @override
-  String settings_setup_accountSignIn(String label) {
-    return 'تسجيل الدخول إلى $label';
-  }
-
-  @override
-  String get settings_setup_dismiss => 'تجاهل';
-
-  @override
-  String get settings_photosMedia_guidedSetup => 'إعداد موجه';
-
-  @override
   String get settings_photosMedia_photoSources_subtitle =>
       'المعرض والملفات وخيارات الاستيراد';
 
@@ -37648,43 +37700,6 @@ class AppLocalizationsAr extends AppLocalizations {
   @override
   String get settings_connectedAccounts_removeConfirmBody =>
       'تتم إزالة الحساب من جميع الأجهزة المتزامنة. لا تُحذف بيانات الاعتماد المخزنة على الأجهزة الأخرى.';
-
-  @override
-  String get settings_setupGuide_title => 'إعداد الصور والوسائط';
-
-  @override
-  String get settings_setupGuide_intro =>
-      'اربط مصادر صورك وأماكن حفظ النسخ. يمكنك إعادة تشغيل هذا في أي وقت.';
-
-  @override
-  String get settings_setupGuide_stepSources => 'مصادر الصور';
-
-  @override
-  String get settings_setupGuide_stepSources_desc =>
-      'أرفق الصور من مكتبة الصور أو الملفات أو Lightroom.';
-
-  @override
-  String get settings_setupGuide_stepStorage => 'تخزين الوسائط';
-
-  @override
-  String get settings_setupGuide_stepStorage_desc =>
-      'احفظ نسخًا من صورك في سحابتك الخاصة حتى تعرضها جميع أجهزتك.';
-
-  @override
-  String get settings_setupGuide_stepSync => 'مزامنة سحابية';
-
-  @override
-  String get settings_setupGuide_stepSync_desc =>
-      'زامن بيانات الغوص بين الأجهزة.';
-
-  @override
-  String get settings_setupGuide_statusDone => 'تم الإعداد';
-
-  @override
-  String get settings_setupGuide_statusTodo => 'لم يتم الإعداد';
-
-  @override
-  String get settings_setupGuide_open => 'فتح';
 
   @override
   String get settings_connectedAccounts_loadError => 'تعذر تحميل الحسابات';
@@ -55762,4 +55777,119 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get settings_conflict_field_remoteStoreId => 'تم الرفع إلى';
+
+  @override
+  String settings_setUpDevice_title(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'إعداد هذا الهاتف',
+      'tablet': 'إعداد هذا الجهاز اللوحي',
+      'computer': 'إعداد هذا الحاسوب',
+      'other': 'إعداد هذا الجهاز',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_titleFinish(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'إكمال إعداد هذا الهاتف',
+      'tablet': 'إكمال إعداد هذا الجهاز اللوحي',
+      'computer': 'إكمال إعداد هذا الحاسوب',
+      'other': 'إكمال إعداد هذا الجهاز',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_again(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'إعداد هذا الهاتف مجددًا',
+      'tablet': 'إعداد هذا الجهاز اللوحي مجددًا',
+      'computer': 'إعداد هذا الحاسوب مجددًا',
+      'other': 'إعداد هذا الجهاز مجددًا',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_count(int done, int total) {
+    return '$done من $total';
+  }
+
+  @override
+  String settings_setUpDevice_countSemantics(int done, int total) {
+    return 'اكتملت $done من $total خطوات';
+  }
+
+  @override
+  String get settings_setUpDevice_hide => 'إخفاء هذه البطاقة';
+
+  @override
+  String get settings_setUpDevice_step_account => 'اختر مكان حفظ بياناتك';
+
+  @override
+  String get settings_setUpDevice_step_sync => 'الغطسات على كل جهاز';
+
+  @override
+  String get settings_setUpDevice_step_backups => 'النسخ الاحتياطي تلقائيًا';
+
+  @override
+  String get settings_setUpDevice_step_photos => 'مشاركة نسخ الصور (اختياري)';
+
+  @override
+  String get settings_setUpDevice_mark_done => 'تم';
+
+  @override
+  String get settings_setUpDevice_mark_next => 'التالي';
+
+  @override
+  String get settings_setUpDevice_mark_notYet => 'ليس بعد';
+
+  @override
+  String get settings_setUpDevice_mark_skipped => 'تم التخطي';
+
+  @override
+  String get settings_setUpDevice_item_signInAction => 'تسجيل الدخول';
+
+  @override
+  String get settings_setUpDevice_item_reconnectAction => 'إعادة الاتصال';
+
+  @override
+  String settings_setUpDevice_item_signIn(String account) {
+    return 'سجّل الدخول إلى $account مجددًا. المزامنة والنسخ الاحتياطي متوقفان مؤقتًا حتى تفعل.';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInShort(String account) {
+    return 'سجّل الدخول إلى $account مجددًا.';
+  }
+
+  @override
+  String settings_setUpDevice_item_attach(String account) {
+    return 'تحتفظ أجهزتك الأخرى بنسخ من الصور في $account.';
+  }
+
+  @override
+  String settings_setUpDevice_item_reconnect(String account) {
+    return 'يلزم إعادة توصيل نسخ الصور في $account.';
+  }
+
+  @override
+  String get settings_setUpDevice_againSubtitle =>
+      'الحساب والمزامنة والنسخ الاحتياطية والصور';
+
+  @override
+  String settings_setUpDevice_stepSemantics(String step, String mark) {
+    return '$step: $mark';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInSync(String account) {
+    return 'سجّل الدخول إلى $account مجددًا. المزامنة متوقفة مؤقتًا حتى تفعل.';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInBackups(String account) {
+    return 'سجّل الدخول إلى $account مجددًا. النسخ الاحتياطي متوقف مؤقتًا حتى تفعل.';
+  }
 }
