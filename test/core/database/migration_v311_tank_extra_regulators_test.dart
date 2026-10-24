@@ -2,10 +2,10 @@ import 'package:drift/native.dart';
 import 'package:flutter_test/flutter_test.dart';
 import 'package:submersion/core/database/database.dart';
 
-/// Schema v310: dive_tanks.extra_regulator_ids (issue #3375).
+/// Schema v311: dive_tanks.extra_regulator_ids (issue #3375).
 void main() {
-  /// A v309 database: `dive_tanks` with its first regulator and no extras.
-  NativeDatabase setupDb({int userVersion = 309}) {
+  /// A v310 database: `dive_tanks` with its first regulator and no extras.
+  NativeDatabase setupDb({int userVersion = 310}) {
     return NativeDatabase.memory(
       setup: (rawDb) {
         rawDb.execute('PRAGMA user_version = $userVersion');
@@ -32,9 +32,9 @@ void main() {
     return {for (final c in cols) c.read<String>('name'): c.data};
   }
 
-  test('v310 is the current schema version and in the ladder', () {
-    expect(AppDatabase.currentSchemaVersion, greaterThanOrEqualTo(310));
-    expect(AppDatabase.migrationVersions, contains(310));
+  test('v311 is the current schema version and in the ladder', () {
+    expect(AppDatabase.currentSchemaVersion, greaterThanOrEqualTo(311));
+    expect(AppDatabase.migrationVersions, contains(311));
   });
 
   test('the column is additive, so the sync floor does not move', () {
@@ -42,7 +42,7 @@ void main() {
   });
 
   test(
-    'upgrading from v309 adds the column and keeps the first regulator',
+    'upgrading from v310 adds the column and keeps the first regulator',
     () async {
       final db = AppDatabase(setupDb());
       addTearDown(db.close);
@@ -75,9 +75,9 @@ void main() {
   );
 
   test(
-    'a database stamped v310 without the column heals in beforeOpen',
+    'a database stamped v311 without the column heals in beforeOpen',
     () async {
-      final db = AppDatabase(setupDb(userVersion: 310));
+      final db = AppDatabase(setupDb(userVersion: 311));
       addTearDown(db.close);
 
       expect(

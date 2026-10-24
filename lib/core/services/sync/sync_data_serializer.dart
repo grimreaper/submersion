@@ -11267,6 +11267,7 @@ class SyncDataSerializer {
       'showMapBackgroundOnDiveCards': false,
       'groupTripsInDiveList': false,
       'autoTagImports': true,
+      'downloadsFollowComputerOwner': true,
       'showMapBackgroundOnSiteCards': false,
       // Dive profile markers
       'showMaxDepthMarker': true,

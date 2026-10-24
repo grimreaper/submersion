@@ -22646,6 +22646,10 @@ class AppLocalizationsFr extends AppLocalizations {
       'Étiqueter les plongées importées';
 
   @override
+  String get settings_conflict_field_downloadsFollowComputerOwner =>
+      'Ajouter les téléchargements au propriétaire de l\'ordinateur';
+
+  @override
   String get settings_conflict_field_avgSpeed => 'Vitesse moyenne';
 
   @override
@@ -30268,6 +30272,14 @@ class AppLocalizationsFr extends AppLocalizations {
       'Chaque nouvel import commence avec une étiquette indiquant la source et la date. Vous pouvez modifier cela pour un import donné dans ses options.';
 
   @override
+  String get settings_downloadsFollowOwner_title =>
+      'Ajouter les téléchargements au propriétaire de l\'ordinateur';
+
+  @override
+  String get settings_downloadsFollowOwner_subtitle =>
+      'Si un ordinateur de plongée appartient à un autre profil, ses plongées vont dans le carnet de ce profil. Vous pouvez le modifier sur l\'écran de vérification.';
+
+  @override
   String get tags_manage_searchHint => 'Rechercher des étiquettes...';
 
   @override
@@ -32819,6 +32831,9 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get universalImport_summary_newProfile => 'Nouveau profil';
+
+  @override
+  String get universalImport_summary_unnamedProfile => 'Profil sans nom';
 
   @override
   String universalImport_summary_switchToSee(String name) {
@@ -35820,6 +35835,14 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get universalImport_title_importOptions => 'Options d\'importation';
+
+  @override
+  String universalImport_computerOwner_notice(String owner, String chosen) {
+    return 'Cet ordinateur appartient à $owner. Les plongées seront ajoutées au carnet de $chosen.';
+  }
+
+  @override
+  String get universalImport_computerOwner_profileLabel => 'Profil';
 
   @override
   String get universalImport_label_options => 'Options';

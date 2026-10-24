@@ -219,9 +219,8 @@ whole-field last-writer-wins on the tank row, like `shared_computer_ids`.
 ### Schema
 
 One new rung on the ladder (`lib/core/database/migrations/`, never in
-`database.dart`), adding the column. Current version is 309; the builder
-takes the next free number when the branch is cut and renumbers on merge if
-main moved. A `beforeOpen` backstop for the column follows the existing
+`database.dart`), adding the column. Built as v310 and renumbered to v311
+when #3611 shipped v310 first; renumber again on merge if main moves. A `beforeOpen` backstop for the column follows the existing
 pattern for `dive_tanks` columns.
 
 ## Text

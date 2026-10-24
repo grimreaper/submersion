@@ -555,12 +555,19 @@ extension RungsFromV231 on AppDatabase {
     }
     if (from < 309) await reportProgress();
 
-    // v310: dive_tanks.extra_regulator_ids (issue #3375). Column only, no
+    // v310: diver_settings.downloads_follow_computer_owner (issue #2050).
+    // Column only, on by default; re-asserted in beforeOpen. Renumbered from
+    // 309 as #3605 shipped 309 first.
+    if (from < 310) await _assertDownloadOwnerColumn();
+    if (from < 310) await reportProgress();
+
+    // v311: dive_tanks.extra_regulator_ids (issue #3375). Column only, no
     // backfill: a tank's single regulator stays the first. Re-asserted in
-    // beforeOpen through _assertTankExtraRegulatorIds.
-    if (from < 310) {
+    // beforeOpen through _assertTankExtraRegulatorIds. Renumbered from 310
+    // as #3611 shipped 310 first.
+    if (from < 311) {
       await _assertTankExtraRegulatorIds();
     }
-    if (from < 310) await reportProgress();
+    if (from < 311) await reportProgress();
   }
 }

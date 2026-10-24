@@ -9,7 +9,7 @@ import 'package:submersion/features/equipment/presentation/utils/equipment_row_l
 import 'package:submersion/features/equipment/presentation/widgets/equipment_dropdown_label.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 
-/// The regulators breathed from one cylinder (v202, and from v310 more than
+/// The regulators breathed from one cylinder (v202, and from v311 more than
 /// one, issue #3375): a "Regulator" picker, then "Regulator 2", "Regulator
 /// 3" and so on, each removable, added through "Add regulator" once the
 /// first is chosen. A twin valve or a manifolded twin set carries two or

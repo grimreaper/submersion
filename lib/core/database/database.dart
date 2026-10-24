@@ -290,7 +290,7 @@ class AppDatabase extends _$AppDatabase {
 
   /// The current schema version as a static constant so that pre-open checks
   /// (e.g. version-mismatch guard) can reference it without an instance.
-  static const int currentSchemaVersion = 310;
+  static const int currentSchemaVersion = 311;
 
   /// The oldest schema whose reader can apply this build's sync payloads
   /// without loss or misinterpretation (the compatibility floor).
@@ -1387,10 +1387,15 @@ class AppDatabase extends _$AppDatabase {
     // media_tags and document_tags junctions with their unique indexes.
     // Additive only, so the compatibility floor stays.
     309,
-    // v310: dive_tanks.extra_regulator_ids, the regulators on a cylinder
+    // v310: diver_settings.downloads_follow_computer_owner (issue #2050).
+    // Additive, on by default; the floor does not move. Renumbered from 309
+    // as #3605 shipped 309 first.
+    310,
+    // v311: dive_tanks.extra_regulator_ids, the regulators on a cylinder
     // after the first (issue #3375). An additive nullable column, so the
     // floor stays: an older peer's payload omits it and the row keeps null.
-    310,
+    // Renumbered from 310 as #3611 shipped 310 first.
+    311,
   ];
 
   /// Returns the number of migration steps that will execute when upgrading

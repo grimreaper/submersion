@@ -48,7 +48,7 @@ extension TableBackstopsFromV217 on AppDatabase {
     // v248 backstop: trip_equipment and its item index (idempotent).
     await _assertTripEquipmentSchema();
 
-    // v310 backstop: dive_tanks.extra_regulator_ids (idempotent; #3375).
+    // v311 backstop: dive_tanks.extra_regulator_ids (idempotent; #3375).
     await _assertTankExtraRegulatorIds();
 
     // v297 backstop: trip_checklist_sections, trip_checklist_items.section_id

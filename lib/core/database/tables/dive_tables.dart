@@ -302,7 +302,7 @@ class DiveTanks extends Table {
     onDelete: KeyAction.setNull,
   )();
 
-  /// v310: the regulators on this cylinder after the first (issue #3375), a
+  /// v311: the regulators on this cylinder after the first (issue #3375), a
   /// JSON array of equipment ids (tank_extra_regulators.dart); null means
   /// none. User-authored like [regulatorEquipmentId]; downloads and
   /// re-parses never write it. A JSON column has no foreign key, so

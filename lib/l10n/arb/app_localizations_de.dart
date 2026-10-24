@@ -22555,6 +22555,10 @@ class AppLocalizationsDe extends AppLocalizations {
       'Importierte Tauchgänge markieren';
 
   @override
+  String get settings_conflict_field_downloadsFollowComputerOwner =>
+      'Downloads dem Besitzer des Computers zuordnen';
+
+  @override
   String get settings_conflict_field_avgSpeed => 'Durchschnittsgeschwindigkeit';
 
   @override
@@ -30104,6 +30108,14 @@ class AppLocalizationsDe extends AppLocalizations {
       'Jeder neue Import startet mit einem Tag, das Quelle und Datum nennt. Für einen einzelnen Import lässt sich dies in dessen Import-Optionen ändern.';
 
   @override
+  String get settings_downloadsFollowOwner_title =>
+      'Downloads dem Besitzer des Computers zuordnen';
+
+  @override
+  String get settings_downloadsFollowOwner_subtitle =>
+      'Gehört ein Tauchcomputer zu einem anderen Profil, landen seine Tauchgänge im Logbuch dieses Profils. Auf dem Prüfbildschirm lässt sich das ändern.';
+
+  @override
   String get tags_manage_searchHint => 'Tags suchen...';
 
   @override
@@ -32653,6 +32665,9 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get universalImport_summary_newProfile => 'Neues Profil';
+
+  @override
+  String get universalImport_summary_unnamedProfile => 'Unbenanntes Profil';
 
   @override
   String universalImport_summary_switchToSee(String name) {
@@ -35641,6 +35656,14 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get universalImport_title_importOptions => 'Importoptionen';
+
+  @override
+  String universalImport_computerOwner_notice(String owner, String chosen) {
+    return 'Dieser Computer gehört $owner. Die Tauchgänge werden dem Logbuch von $chosen hinzugefügt.';
+  }
+
+  @override
+  String get universalImport_computerOwner_profileLabel => 'Profil';
 
   @override
   String get universalImport_label_options => 'Optionen';

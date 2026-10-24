@@ -22067,6 +22067,10 @@ class AppLocalizationsHe extends AppLocalizations {
   String get settings_conflict_field_autoTagImports => 'תיוג צלילות מיובאות';
 
   @override
+  String get settings_conflict_field_downloadsFollowComputerOwner =>
+      'הוספת הורדות לבעלים של המחשב';
+
+  @override
   String get settings_conflict_field_avgSpeed => 'מהירות ממוצעת';
 
   @override
@@ -29406,6 +29410,14 @@ class AppLocalizationsHe extends AppLocalizations {
       'כל ייבוא חדש מתחיל עם תגית הנושאת את שם המקור והתאריך. אפשר לשנות זאת לייבוא בודד באפשרויות אותו ייבוא.';
 
   @override
+  String get settings_downloadsFollowOwner_title =>
+      'הוספת הורדות לבעלים של המחשב';
+
+  @override
+  String get settings_downloadsFollowOwner_subtitle =>
+      'כשמחשב צלילה שייך לפרופיל אחר, הצלילות שלו נכנסות ליומן של אותו פרופיל. אפשר לשנות זאת במסך הסקירה.';
+
+  @override
   String get tags_manage_searchHint => 'חיפוש תגיות...';
 
   @override
@@ -31909,6 +31921,9 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get universalImport_summary_newProfile => 'פרופיל חדש';
+
+  @override
+  String get universalImport_summary_unnamedProfile => 'פרופיל ללא שם';
 
   @override
   String universalImport_summary_switchToSee(String name) {
@@ -34830,6 +34845,14 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get universalImport_title_importOptions => 'אפשרויות ייבוא';
+
+  @override
+  String universalImport_computerOwner_notice(String owner, String chosen) {
+    return 'המחשב הזה שייך ל-$owner. הצלילות יתווספו ליומן של $chosen.';
+  }
+
+  @override
+  String get universalImport_computerOwner_profileLabel => 'פרופיל';
 
   @override
   String get universalImport_label_options => 'אפשרויות';
