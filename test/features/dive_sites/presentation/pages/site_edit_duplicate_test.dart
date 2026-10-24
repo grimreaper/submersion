@@ -1,3 +1,5 @@
+import 'dart:async';
+
 import 'package:drift/drift.dart' show Value;
 import 'package:flutter/material.dart';
 import 'package:flutter_test/flutter_test.dart';
@@ -110,6 +112,7 @@ void main() {
     bool shareByDefault = false,
     bool sourceLoaded = false,
     String? diverId,
+    List<dynamic> extraOverrides = const [],
   }) async {
     tester.view.physicalSize = const Size(900, 3600);
     tester.view.devicePixelRatio = 1.0;
@@ -118,6 +121,7 @@ void main() {
     final container = ProviderContainer(
       overrides: [
         ...overrides(shareByDefault: shareByDefault, diverId: diverId),
+        ...extraOverrides,
       ],
     );
     addTearDown(container.dispose);
@@ -285,6 +289,35 @@ void main() {
     );
     expect(types!.map((t) => t.id), unorderedEquals(['wall', myTypeId]));
     expect(tags!.map((t) => t.id), [tagId]);
+  });
+
+  testWidgets('a Save before the types load still copies them', (tester) async {
+    final stored = Completer<List<SiteTypeEntity>>();
+    String? savedId;
+    await pumpDuplicate(
+      tester,
+      onSaved: (id) => savedId = id,
+      extraOverrides: [
+        siteTypesForSiteProvider('site-1').overrideWith((_) => stored.future),
+      ],
+    );
+
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    stored.complete(
+      (await tester.runAsync(
+        () => SiteClassificationRepository().getTypesForSite('site-1'),
+      ))!,
+    );
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+
+    expect(savedId, isNotNull, reason: 'Save did not finish');
+    final types = await tester.runAsync(
+      () => SiteClassificationRepository().getTypesForSite(savedId!),
+    );
+    expect(types!.map((t) => t.id), ['wall']);
   });
 
   testWidgets('the copy gets the original\'s seascape features', (

@@ -283,12 +283,50 @@ void main() {
 
       await repo.copyFeatures(fromSiteId: 'site-1', toSiteId: 'site-2');
 
+      // Six quick writes can share a millisecond, so the original's order
+      // is whatever the listing defines; the copies must match it.
+      final original = await repo.getFeaturesForSite('site-1');
       final copies = await repo.getFeaturesForSite('site-2');
-      expect(copies.map((f) => f.typeName), types);
+      expect(copies.map((f) => f.typeName), original.map((f) => f.typeName));
       final after = await (db.select(
         db.diveSites,
       )..where((t) => t.id.equals('site-2'))).getSingle();
       expect(after.updatedAt, greaterThan(before.updatedAt));
+    });
+
+    test('features stamped in the same millisecond keep one order, and '
+        'their copies follow it', () async {
+      // Inserted out of id order with one shared stamp: only a tie-breaker
+      // makes the order defined.
+      for (final (id, type) in [('b', 'wreck'), ('a', 'mooring')]) {
+        await db
+            .into(db.siteFeatures)
+            .insert(
+              SiteFeaturesCompanion.insert(
+                id: id,
+                siteId: 'site-1',
+                type: type,
+                latitude: 12.1,
+                longitude: -68.3,
+                createdAt: 5,
+                updatedAt: 5,
+              ),
+            );
+      }
+
+      final original = await repo.getFeaturesForSite('site-1');
+      expect(original.map((f) => f.id), ['a', 'b']);
+      expect(
+        (await repo.getFeaturesForSites([
+          'site-1',
+        ]))['site-1']!.map((f) => f.id),
+        ['a', 'b'],
+      );
+
+      await repo.copyFeatures(fromSiteId: 'site-1', toSiteId: 'site-2');
+
+      final copies = await repo.getFeaturesForSite('site-2');
+      expect(copies.map((f) => f.typeName), ['mooring', 'wreck']);
     });
 
     test('a site with no features copies nothing', () async {

@@ -180,6 +180,10 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
   bool _isApplyingInitialValues = false;
   Timer? _altitudeLookupDebounce;
   DiveSite? _originalSite;
+
+  /// The duplicate's type, tag and species loads. A new site always writes
+  /// its picks, so Save waits for these rather than saving empty ones.
+  Future<void>? _duplicateLoads;
   List<Species> _expectedSpecies = [];
   Set<String> _originalExpectedSpeciesIds = {};
   // Site types and tags (issue #1765). A Set keeps insertion order, so types
@@ -409,8 +413,10 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
       units,
     );
     if (source.isLibrarySite) _applyShareByDefault();
-    _loadExpectedSpecies(source.id);
-    _loadClassification(source.id, ownOnly: true);
+    _duplicateLoads = Future.wait([
+      _loadExpectedSpecies(source.id),
+      _loadClassification(source.id, ownOnly: true),
+    ]);
   }
 
   /// Fills every form field from [site], as initial values that leave the
@@ -2058,6 +2064,17 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
+    try {
+      await _duplicateLoads;
+    } catch (e, stackTrace) {
+      // Save what did load; the diver can add the rest on the copy.
+      _log.error(
+        'Could not load the classification of site ${widget.duplicateOfId}',
+        error: e,
+        stackTrace: stackTrace,
+      );
+    }
+    if (!mounted) return;
     // A site created by hand gets its logbook rules (#3513); edits and
     // merges never run them. Read now: the diver can leave while the save
     // runs, and the new site gets them either way.

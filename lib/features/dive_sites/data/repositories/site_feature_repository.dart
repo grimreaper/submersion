@@ -128,7 +128,12 @@ class SiteFeatureRepository {
     final rows =
         await (_db.select(_db.siteFeatures)
               ..where((t) => t.siteId.equals(siteId))
-              ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+              ..orderBy([
+                (t) => OrderingTerm.asc(t.createdAt),
+                // Features stamped in the same millisecond still list in one
+                // order, which a duplicate's copies then follow.
+                (t) => OrderingTerm.asc(t.id),
+              ]))
             .get();
     return rows.map(_toDomain).toList();
   }
@@ -161,7 +166,12 @@ class SiteFeatureRepository {
       final rows =
           await (_db.select(_db.siteFeatures)
                 ..where((t) => t.siteId.isIn(chunk))
-                ..orderBy([(t) => OrderingTerm.asc(t.createdAt)]))
+                ..orderBy([
+                  (t) => OrderingTerm.asc(t.createdAt),
+                  // Features stamped in the same millisecond still list in one
+                  // order, which a duplicate's copies then follow.
+                  (t) => OrderingTerm.asc(t.id),
+                ]))
               .get();
       for (final row in rows) {
         (bySite[row.siteId] ??= []).add(_toDomain(row));
