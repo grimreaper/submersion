@@ -27,10 +27,14 @@ String tankNamesAnyRegulatorSql(String tank, String inList) =>
     '($tank.regulator_equipment_id IN ($inList) OR EXISTS (SELECT 1 FROM '
     'json_each(${tankExtraRegulatorsJson(tank)}) WHERE value IN ($inList)))';
 
-/// A `SELECT dive_id` of every dive with a tank naming [id].
+/// A `SELECT dive_id` of every dive with a tank naming [id]. Two branches,
+/// so the first regulator reads its index and the extras the partial index
+/// over tanks that have any; safe to correlate per item.
 String tankRegulatorDiveIdsSql(String id) =>
     'SELECT rt.dive_id FROM dive_tanks rt '
-    'WHERE ${tankNamesRegulatorSql('rt', id)}';
+    'WHERE rt.regulator_equipment_id = $id '
+    'UNION ALL SELECT dive_id FROM ($tankExtraRegulatorRowsSql) '
+    'WHERE regulator_id = $id';
 
 /// A `SELECT` of every regulator id on the tanks of dive [diveId].
 String tankRegulatorIdsOfDiveSql(String diveId) =>

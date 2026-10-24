@@ -1108,7 +1108,9 @@ class EquipmentRepository {
         WHERE (EXISTS (SELECT 1 FROM dive_equipment de
                        WHERE de.dive_id = d.id AND de.equipment_id = ?1)
             OR EXISTS (SELECT 1 FROM dive_tanks dt
-                       WHERE dt.dive_id = d.id AND dt.equipment_id = ?1))
+                       WHERE dt.dive_id = d.id AND dt.equipment_id = ?1)
+            -- A regulator on a tank, first or extra (#3375).
+            OR d.id IN (${tankRegulatorDiveIdsSql('?1')}))
           AND (?2 IS NULL OR d.diver_id = ?2)
       ''',
             variables: [
