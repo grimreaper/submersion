@@ -1188,16 +1188,17 @@ class _TankEditorState extends ConsumerState<TankEditor> {
     if (_regulatorEquipmentId != null) return;
     // A convenience, not a requirement: a host without a database (widget
     // tests, previews) must not break preset selection.
-    Future<String?> lookup;
+    Future<List<String>> lookup;
     try {
       lookup = ref
           .read(equipmentRepositoryProvider)
-          .getLastRegulatorForPreset(presetName);
+          .getLastRegulatorsForPreset(presetName);
     } catch (_) {
       return;
     }
     lookup
-        .then((reg) {
+        .then((regs) {
+          final reg = regs.firstOrNull;
           if (!mounted || reg == null || _regulatorEquipmentId != null) {
             return;
           }

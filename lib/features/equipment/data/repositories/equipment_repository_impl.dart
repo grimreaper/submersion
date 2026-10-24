@@ -29,6 +29,7 @@ import 'package:submersion/features/equipment/domain/services/equipment_ownershi
 import 'package:submersion/features/equipment/domain/entities/service_clock_status.dart';
 import 'package:submersion/features/equipment/domain/entities/service_schedule.dart';
 import 'package:submersion/features/dive_log/data/repositories/series_id_chunks.dart';
+import 'package:submersion/features/dive_log/domain/entities/tank_extra_regulators.dart';
 import 'package:submersion/features/equipment/data/repositories/cylinder_gear_links.dart';
 import 'package:submersion/features/safety/data/repositories/incident_repository.dart';
 import 'package:submersion/features/cylinder_passports/data/repositories/cylinder_fill_repository.dart';
@@ -1683,36 +1684,57 @@ class EquipmentRepository {
     return earliest;
   }
 
-  /// The regulator last paired with a cylinder preset, for prefilling the
-  /// tank editor: the newest dive whose tank of that preset names one.
-  /// Operational, not descriptive: an excluded dive still tells us which
-  /// regulator the diver hangs on that cylinder. Only a regulator still in
-  /// the kit, by the same test as [getActiveEquipment]: prefilling a new
-  /// tank with one since retired or sold would put it back in use (#3210).
+  /// The regulators last paired with a cylinder preset, for prefilling the
+  /// tank editor: the first and the extras (issue #3375) of the newest tank
+  /// of that preset that names one, in order. Operational, not descriptive:
+  /// an excluded dive still tells us which regulators the diver hangs on
+  /// that cylinder. Only regulators still in the kit, by the same test as
+  /// [getActiveEquipment]: prefilling a new tank with one since retired or
+  /// sold would put it back in use (#3210). A tank whose regulators have all
+  /// left the kit is skipped for the next newest.
   // stats-scope-exempt: editor prefill, not a statistic
-  Future<String?> getLastRegulatorForPreset(String presetName) async {
-    final rows = await _db
+  Future<List<String>> getLastRegulatorsForPreset(String presetName) async {
+    final tanks = await _db
         .customSelect(
           '''
-      SELECT t.regulator_equipment_id AS reg
+      SELECT t.regulator_equipment_id AS reg, t.extra_regulator_ids AS extras
       FROM dive_tanks t
       JOIN dives d ON d.id = t.dive_id
-      JOIN equipment e ON e.id = t.regulator_equipment_id
-      WHERE t.preset_name = ?1
-        AND e.is_active = 1
-        AND e.status NOT IN (?2, ?3, ?4)
+      WHERE t.preset_name = ?1 AND t.regulator_equipment_id IS NOT NULL
       ORDER BY d.dive_date_time DESC
-      LIMIT 1
     ''',
-          variables: [
-            Variable.withString(presetName),
-            Variable.withString(EquipmentStatus.retired.name),
-            Variable.withString(EquipmentStatus.sold.name),
-            Variable.withString(EquipmentStatus.wanted.name),
-          ],
+          variables: [Variable.withString(presetName)],
         )
         .get();
-    return rows.isEmpty ? null : rows.first.data['reg'] as String?;
+    if (tanks.isEmpty) return const [];
+    final inKit = {
+      for (final r
+          in await _db
+              .customSelect(
+                '''
+      SELECT id FROM equipment
+      WHERE is_active = 1 AND status NOT IN (?1, ?2, ?3)
+    ''',
+                variables: [
+                  Variable.withString(EquipmentStatus.retired.name),
+                  Variable.withString(EquipmentStatus.sold.name),
+                  Variable.withString(EquipmentStatus.wanted.name),
+                ],
+              )
+              .get())
+        r.read<String>('id'),
+    };
+    for (final row in tanks) {
+      final kept = normalizeTankRegulators(null, [
+        for (final id in [
+          row.read<String>('reg'),
+          ...decodeExtraRegulatorIds(row.readNullable<String>('extras')),
+        ])
+          if (inKit.contains(id)) id,
+      ]);
+      if (kept.first case final first?) return [first, ...kept.extras];
+    }
+    return const [];
   }
 
   /// Get trip count for equipment item (unique trips from dives using this equipment)
