@@ -10017,6 +10017,17 @@ class AppLocalizationsNl extends AppLocalizations {
       'Ademautomaten die uit gebruik of verkocht zijn tonen';
 
   @override
+  String get diveLog_tank_addRegulator => 'Ademautomaat toevoegen';
+
+  @override
+  String diveLog_tank_regulatorNumbered(int number) {
+    return 'Ademautomaat $number';
+  }
+
+  @override
+  String get diveLog_tank_removeRegulator => 'Ademautomaat verwijderen';
+
+  @override
   String get diveLog_tank_tripCylinderLabel => 'Fles van de reis';
 
   @override
@@ -23913,6 +23924,9 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get settings_conflict_field_sharedComputerIds =>
       'Gedeeld met computers';
+
+  @override
+  String get settings_conflict_field_extraRegulatorIds => 'Extra ademautomaten';
 
   @override
   String get settings_conflict_field_shoreSwimM => 'Zwemmen naar de kant';

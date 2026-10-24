@@ -10059,6 +10059,17 @@ class AppLocalizationsHu extends AppLocalizations {
       'Kivont és eladott reduktorok megjelenítése';
 
   @override
+  String get diveLog_tank_addRegulator => 'Reduktor hozzáadása';
+
+  @override
+  String diveLog_tank_regulatorNumbered(int number) {
+    return '$number. reduktor';
+  }
+
+  @override
+  String get diveLog_tank_removeRegulator => 'Reduktor eltávolítása';
+
+  @override
   String get diveLog_tank_tripCylinderLabel => 'Az utazás palackja';
 
   @override
@@ -23957,6 +23968,9 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get settings_conflict_field_sharedComputerIds =>
       'Megosztva komputerekkel';
+
+  @override
+  String get settings_conflict_field_extraRegulatorIds => 'További reduktorok';
 
   @override
   String get settings_conflict_field_shoreSwimM => 'Úszás a partig';

@@ -9862,6 +9862,17 @@ class AppLocalizationsHe extends AppLocalizations {
       'הצג וסתים שהוצאו משימוש ושנמכרו';
 
   @override
+  String get diveLog_tank_addRegulator => 'הוסף וסת';
+
+  @override
+  String diveLog_tank_regulatorNumbered(int number) {
+    return 'וסת $number';
+  }
+
+  @override
+  String get diveLog_tank_removeRegulator => 'הסר וסת';
+
+  @override
   String get diveLog_tank_tripCylinderLabel => 'מכל הטיול';
 
   @override
@@ -23468,6 +23479,9 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get settings_conflict_field_sharedComputerIds => 'משותף עם מחשבים';
+
+  @override
+  String get settings_conflict_field_extraRegulatorIds => 'וסתים נוספים';
 
   @override
   String get settings_conflict_field_shoreSwimM => 'שחייה לחוף';

@@ -5686,6 +5686,16 @@
   "diveLog_tank_regulatorLabel": "Regulator",
   "diveLog_tank_regulatorNone": "None",
   "diveLog_tank_regulatorShowLeftKit": "Show retired and sold regulators",
+  "diveLog_tank_addRegulator": "Add regulator",
+  "diveLog_tank_regulatorNumbered": "Regulator {number}",
+  "@diveLog_tank_regulatorNumbered": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "diveLog_tank_removeRegulator": "Remove regulator",
   "diveLog_tank_tripCylinderLabel": "Trip cylinder",
   "diveLog_tank_tripCylinderNone": "None",
   "diveLog_tank_tripCylinderMissing": "No longer on this trip",
@@ -14182,6 +14192,7 @@
   "settings_conflict_field_settings_value": "Value",
   "settings_conflict_field_shallowAscentRate": "Ascent rate between shallow stops",
   "settings_conflict_field_sharedComputerIds": "Shared with computers",
+  "settings_conflict_field_extraRegulatorIds": "Extra regulators",
   "settings_conflict_field_shoreSwimM": "Shore swim",
   "settings_conflict_field_shoreWalkM": "Shore walk",
   "settings_conflict_field_shortName": "Short name",

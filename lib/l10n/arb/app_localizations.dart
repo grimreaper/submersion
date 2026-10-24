@@ -16117,6 +16117,24 @@ abstract class AppLocalizations {
   /// **'Show retired and sold regulators'**
   String get diveLog_tank_regulatorShowLeftKit;
 
+  /// No description provided for @diveLog_tank_addRegulator.
+  ///
+  /// In en, this message translates to:
+  /// **'Add regulator'**
+  String get diveLog_tank_addRegulator;
+
+  /// No description provided for @diveLog_tank_regulatorNumbered.
+  ///
+  /// In en, this message translates to:
+  /// **'Regulator {number}'**
+  String diveLog_tank_regulatorNumbered(int number);
+
+  /// No description provided for @diveLog_tank_removeRegulator.
+  ///
+  /// In en, this message translates to:
+  /// **'Remove regulator'**
+  String get diveLog_tank_removeRegulator;
+
   /// No description provided for @diveLog_tank_tripCylinderLabel.
   ///
   /// In en, this message translates to:
@@ -38555,6 +38573,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Shared with computers'**
   String get settings_conflict_field_sharedComputerIds;
+
+  /// No description provided for @settings_conflict_field_extraRegulatorIds.
+  ///
+  /// In en, this message translates to:
+  /// **'Extra regulators'**
+  String get settings_conflict_field_extraRegulatorIds;
 
   /// No description provided for @settings_conflict_field_shoreSwimM.
   ///

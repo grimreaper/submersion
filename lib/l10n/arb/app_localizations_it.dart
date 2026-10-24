@@ -10082,6 +10082,17 @@ class AppLocalizationsIt extends AppLocalizations {
       'Mostra erogatori dismessi e venduti';
 
   @override
+  String get diveLog_tank_addRegulator => 'Aggiungi erogatore';
+
+  @override
+  String diveLog_tank_regulatorNumbered(int number) {
+    return 'Erogatore $number';
+  }
+
+  @override
+  String get diveLog_tank_removeRegulator => 'Rimuovi erogatore';
+
+  @override
   String get diveLog_tank_tripCylinderLabel => 'Bombola del viaggio';
 
   @override
@@ -24079,6 +24090,10 @@ class AppLocalizationsIt extends AppLocalizations {
   @override
   String get settings_conflict_field_sharedComputerIds =>
       'Condiviso con i computer';
+
+  @override
+  String get settings_conflict_field_extraRegulatorIds =>
+      'Erogatori aggiuntivi';
 
   @override
   String get settings_conflict_field_shoreSwimM => 'Nuoto fino alla riva';

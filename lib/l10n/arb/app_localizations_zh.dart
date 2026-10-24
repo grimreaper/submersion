@@ -9593,6 +9593,17 @@ class AppLocalizationsZh extends AppLocalizations {
   String get diveLog_tank_regulatorShowLeftKit => '显示已退役和已售出的调节器';
 
   @override
+  String get diveLog_tank_addRegulator => '添加调节器';
+
+  @override
+  String diveLog_tank_regulatorNumbered(int number) {
+    return '调节器 $number';
+  }
+
+  @override
+  String get diveLog_tank_removeRegulator => '移除调节器';
+
+  @override
   String get diveLog_tank_tripCylinderLabel => '行程气瓶';
 
   @override
@@ -22748,6 +22759,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get settings_conflict_field_sharedComputerIds => '与电脑共享';
+
+  @override
+  String get settings_conflict_field_extraRegulatorIds => '额外调节器';
 
   @override
   String get settings_conflict_field_shoreSwimM => '游回岸边';

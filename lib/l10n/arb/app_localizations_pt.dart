@@ -10080,6 +10080,17 @@ class AppLocalizationsPt extends AppLocalizations {
       'Mostrar reguladores aposentados e vendidos';
 
   @override
+  String get diveLog_tank_addRegulator => 'Adicionar regulador';
+
+  @override
+  String diveLog_tank_regulatorNumbered(int number) {
+    return 'Regulador $number';
+  }
+
+  @override
+  String get diveLog_tank_removeRegulator => 'Remover regulador';
+
+  @override
   String get diveLog_tank_tripCylinderLabel => 'Cilindro da viagem';
 
   @override
@@ -24058,6 +24069,10 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get settings_conflict_field_sharedComputerIds =>
       'Compartilhado com computadores';
+
+  @override
+  String get settings_conflict_field_extraRegulatorIds =>
+      'Reguladores adicionais';
 
   @override
   String get settings_conflict_field_shoreSwimM => 'Natação até a margem';

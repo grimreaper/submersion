@@ -9923,6 +9923,17 @@ class AppLocalizationsEn extends AppLocalizations {
       'Show retired and sold regulators';
 
   @override
+  String get diveLog_tank_addRegulator => 'Add regulator';
+
+  @override
+  String diveLog_tank_regulatorNumbered(int number) {
+    return 'Regulator $number';
+  }
+
+  @override
+  String get diveLog_tank_removeRegulator => 'Remove regulator';
+
+  @override
   String get diveLog_tank_tripCylinderLabel => 'Trip cylinder';
 
   @override
@@ -23664,6 +23675,9 @@ class AppLocalizationsEn extends AppLocalizations {
   @override
   String get settings_conflict_field_sharedComputerIds =>
       'Shared with computers';
+
+  @override
+  String get settings_conflict_field_extraRegulatorIds => 'Extra regulators';
 
   @override
   String get settings_conflict_field_shoreSwimM => 'Shore swim';
