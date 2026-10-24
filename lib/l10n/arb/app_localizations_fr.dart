@@ -36888,31 +36888,6 @@ class AppLocalizationsFr extends AppLocalizations {
   String get diveLog_sources_compareIn3d => 'Comparer en 3D';
 
   @override
-  String get settings_setup_pendingTitle =>
-      'Terminez la configuration de cet appareil';
-
-  @override
-  String settings_setup_mediaStoreAttach(String hint) {
-    return 'Connecter le stockage multimédia ($hint)';
-  }
-
-  @override
-  String settings_setup_mediaStoreReconnect(String hint) {
-    return 'Reconnecter le stockage multimédia ($hint)';
-  }
-
-  @override
-  String settings_setup_accountSignIn(String label) {
-    return 'Se connecter à $label';
-  }
-
-  @override
-  String get settings_setup_dismiss => 'Ignorer';
-
-  @override
-  String get settings_photosMedia_guidedSetup => 'Configuration guidée';
-
-  @override
   String get settings_photosMedia_photoSources_subtitle =>
       'Galerie, fichiers et options d\'import';
 
@@ -36962,43 +36937,6 @@ class AppLocalizationsFr extends AppLocalizations {
   @override
   String get settings_connectedAccounts_removeConfirmBody =>
       'Le compte est retiré de tous les appareils synchronisés. Les identifiants stockés sur les autres appareils ne sont pas supprimés.';
-
-  @override
-  String get settings_setupGuide_title => 'Configurer photos et médias';
-
-  @override
-  String get settings_setupGuide_intro =>
-      'Connectez la provenance de vos photos et l\'emplacement des copies. Vous pouvez relancer cet assistant à tout moment.';
-
-  @override
-  String get settings_setupGuide_stepSources => 'Sources de photos';
-
-  @override
-  String get settings_setupGuide_stepSources_desc =>
-      'Joignez des photos depuis votre photothèque, vos fichiers ou Lightroom.';
-
-  @override
-  String get settings_setupGuide_stepStorage => 'Stockage multimédia';
-
-  @override
-  String get settings_setupGuide_stepStorage_desc =>
-      'Conservez des copies de vos photos dans votre propre cloud pour que chaque appareil puisse les afficher.';
-
-  @override
-  String get settings_setupGuide_stepSync => 'Synchronisation cloud';
-
-  @override
-  String get settings_setupGuide_stepSync_desc =>
-      'Synchronisez les données de plongée entre appareils.';
-
-  @override
-  String get settings_setupGuide_statusDone => 'Configuré';
-
-  @override
-  String get settings_setupGuide_statusTodo => 'Non configuré';
-
-  @override
-  String get settings_setupGuide_open => 'Ouvrir';
 
   @override
   String get settings_connectedAccounts_loadError =>
@@ -55106,4 +55044,122 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get documents_export_manifest_tags => 'Étiquettes';
+
+  @override
+  String settings_setUpDevice_title(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'Configurer ce téléphone',
+      'tablet': 'Configurer cette tablette',
+      'computer': 'Configurer cet ordinateur',
+      'other': 'Configurer cet appareil',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_titleFinish(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'Terminer la configuration de ce téléphone',
+      'tablet': 'Terminer la configuration de cette tablette',
+      'computer': 'Terminer la configuration de cet ordinateur',
+      'other': 'Terminer la configuration de cet appareil',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_again(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'Reconfigurer ce téléphone',
+      'tablet': 'Reconfigurer cette tablette',
+      'computer': 'Reconfigurer cet ordinateur',
+      'other': 'Reconfigurer cet appareil',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_count(int done, int total) {
+    return '$done sur $total';
+  }
+
+  @override
+  String settings_setUpDevice_countSemantics(int done, int total) {
+    return 'Étapes terminées : $done sur $total';
+  }
+
+  @override
+  String get settings_setUpDevice_hide => 'Masquer cette carte';
+
+  @override
+  String get settings_setUpDevice_step_account =>
+      'Choisir où vos données sont conservées';
+
+  @override
+  String get settings_setUpDevice_step_sync =>
+      'Les plongées sur chaque appareil';
+
+  @override
+  String get settings_setUpDevice_step_backups => 'Sauvegarder automatiquement';
+
+  @override
+  String get settings_setUpDevice_step_photos =>
+      'Partager des copies des photos (facultatif)';
+
+  @override
+  String get settings_setUpDevice_mark_done => 'Terminé';
+
+  @override
+  String get settings_setUpDevice_mark_next => 'Suivant';
+
+  @override
+  String get settings_setUpDevice_mark_notYet => 'Pas encore';
+
+  @override
+  String get settings_setUpDevice_mark_skipped => 'Ignoré';
+
+  @override
+  String get settings_setUpDevice_item_signInAction => 'Se connecter';
+
+  @override
+  String get settings_setUpDevice_item_reconnectAction => 'Reconnecter';
+
+  @override
+  String settings_setUpDevice_item_signIn(String account) {
+    return 'Reconnectez-vous à $account. La synchronisation et les sauvegardes sont en pause d\'ici là.';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInShort(String account) {
+    return 'Reconnectez-vous à $account.';
+  }
+
+  @override
+  String settings_setUpDevice_item_attach(String account) {
+    return 'Vos autres appareils conservent des copies des photos dans $account.';
+  }
+
+  @override
+  String settings_setUpDevice_item_reconnect(String account) {
+    return 'Les copies des photos dans $account doivent être reconnectées.';
+  }
+
+  @override
+  String get settings_setUpDevice_againSubtitle =>
+      'Compte, synchronisation, sauvegardes et photos';
+
+  @override
+  String settings_setUpDevice_stepSemantics(String step, String mark) {
+    return '$step : $mark';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInSync(String account) {
+    return 'Reconnectez-vous à $account. La synchronisation est en pause d\'ici là.';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInBackups(String account) {
+    return 'Reconnectez-vous à $account. Les sauvegardes sont en pause d\'ici là.';
+  }
 }

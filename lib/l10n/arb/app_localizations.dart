@@ -58152,42 +58152,6 @@ abstract class AppLocalizations {
   /// **'Compare in 3D'**
   String get diveLog_sources_compareIn3d;
 
-  /// No description provided for @settings_setup_pendingTitle.
-  ///
-  /// In en, this message translates to:
-  /// **'Finish setting up this device'**
-  String get settings_setup_pendingTitle;
-
-  /// No description provided for @settings_setup_mediaStoreAttach.
-  ///
-  /// In en, this message translates to:
-  /// **'Connect media storage ({hint})'**
-  String settings_setup_mediaStoreAttach(String hint);
-
-  /// Pending setup item when the media store no longer carries this device's marker
-  ///
-  /// In en, this message translates to:
-  /// **'Reconnect media storage ({hint})'**
-  String settings_setup_mediaStoreReconnect(String hint);
-
-  /// No description provided for @settings_setup_accountSignIn.
-  ///
-  /// In en, this message translates to:
-  /// **'Sign in to {label}'**
-  String settings_setup_accountSignIn(String label);
-
-  /// No description provided for @settings_setup_dismiss.
-  ///
-  /// In en, this message translates to:
-  /// **'Dismiss'**
-  String get settings_setup_dismiss;
-
-  /// No description provided for @settings_photosMedia_guidedSetup.
-  ///
-  /// In en, this message translates to:
-  /// **'Guided setup'**
-  String get settings_photosMedia_guidedSetup;
-
   /// No description provided for @settings_photosMedia_photoSources_subtitle.
   ///
   /// In en, this message translates to:
@@ -58271,72 +58235,6 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'The account is removed from every synced device. Credentials stored on other devices are not deleted.'**
   String get settings_connectedAccounts_removeConfirmBody;
-
-  /// No description provided for @settings_setupGuide_title.
-  ///
-  /// In en, this message translates to:
-  /// **'Set up photos & media'**
-  String get settings_setupGuide_title;
-
-  /// No description provided for @settings_setupGuide_intro.
-  ///
-  /// In en, this message translates to:
-  /// **'Connect where your photos come from and where copies are kept. You can re-run this any time.'**
-  String get settings_setupGuide_intro;
-
-  /// No description provided for @settings_setupGuide_stepSources.
-  ///
-  /// In en, this message translates to:
-  /// **'Photo sources'**
-  String get settings_setupGuide_stepSources;
-
-  /// No description provided for @settings_setupGuide_stepSources_desc.
-  ///
-  /// In en, this message translates to:
-  /// **'Attach photos from your photo library, files, or Lightroom.'**
-  String get settings_setupGuide_stepSources_desc;
-
-  /// No description provided for @settings_setupGuide_stepStorage.
-  ///
-  /// In en, this message translates to:
-  /// **'Media storage'**
-  String get settings_setupGuide_stepStorage;
-
-  /// No description provided for @settings_setupGuide_stepStorage_desc.
-  ///
-  /// In en, this message translates to:
-  /// **'Keep copies of your photos in your own cloud so every device can show them.'**
-  String get settings_setupGuide_stepStorage_desc;
-
-  /// No description provided for @settings_setupGuide_stepSync.
-  ///
-  /// In en, this message translates to:
-  /// **'Cloud sync'**
-  String get settings_setupGuide_stepSync;
-
-  /// No description provided for @settings_setupGuide_stepSync_desc.
-  ///
-  /// In en, this message translates to:
-  /// **'Sync dive data between devices.'**
-  String get settings_setupGuide_stepSync_desc;
-
-  /// No description provided for @settings_setupGuide_statusDone.
-  ///
-  /// In en, this message translates to:
-  /// **'Set up'**
-  String get settings_setupGuide_statusDone;
-
-  /// No description provided for @settings_setupGuide_statusTodo.
-  ///
-  /// In en, this message translates to:
-  /// **'Not set up'**
-  String get settings_setupGuide_statusTodo;
-
-  /// No description provided for @settings_setupGuide_open.
-  ///
-  /// In en, this message translates to:
-  /// **'Open'**
-  String get settings_setupGuide_open;
 
   /// No description provided for @settings_connectedAccounts_loadError.
   ///
@@ -87154,6 +87052,150 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Tags'**
   String get documents_export_manifest_tags;
+
+  /// Title of the Set up this device card and flow; the device word comes from the platform
+  ///
+  /// In en, this message translates to:
+  /// **'{device, select, phone{Set up this phone} tablet{Set up this tablet} computer{Set up this computer} other{Set up this device}}'**
+  String settings_setUpDevice_title(String device);
+
+  /// Card title once at least one step is done
+  ///
+  /// In en, this message translates to:
+  /// **'{device, select, phone{Finish setting up this phone} tablet{Finish setting up this tablet} computer{Finish setting up this computer} other{Finish setting up this device}}'**
+  String settings_setUpDevice_titleFinish(String device);
+
+  /// Advanced row that reopens the setup flow from step 1
+  ///
+  /// In en, this message translates to:
+  /// **'{device, select, phone{Set up this phone again} tablet{Set up this tablet again} computer{Set up this computer again} other{Set up this device again}}'**
+  String settings_setUpDevice_again(String device);
+
+  /// How many setup steps are settled, e.g. 2 of 4
+  ///
+  /// In en, this message translates to:
+  /// **'{done} of {total}'**
+  String settings_setUpDevice_count(int done, int total);
+
+  /// Screen reader label for the step count
+  ///
+  /// In en, this message translates to:
+  /// **'{done} of {total} steps done'**
+  String settings_setUpDevice_countSemantics(int done, int total);
+
+  /// Card menu item that hides the card on this device
+  ///
+  /// In en, this message translates to:
+  /// **'Hide this card'**
+  String get settings_setUpDevice_hide;
+
+  /// Setup step 1 on the card
+  ///
+  /// In en, this message translates to:
+  /// **'Choose where your data is kept'**
+  String get settings_setUpDevice_step_account;
+
+  /// Setup step 2 on the card
+  ///
+  /// In en, this message translates to:
+  /// **'Keep dives on every device'**
+  String get settings_setUpDevice_step_sync;
+
+  /// Setup step 3 on the card
+  ///
+  /// In en, this message translates to:
+  /// **'Back up automatically'**
+  String get settings_setUpDevice_step_backups;
+
+  /// Setup step 4 on the card; the step can be skipped
+  ///
+  /// In en, this message translates to:
+  /// **'Share photo copies (optional)'**
+  String get settings_setUpDevice_step_photos;
+
+  /// Screen reader label for a done step
+  ///
+  /// In en, this message translates to:
+  /// **'Done'**
+  String get settings_setUpDevice_mark_done;
+
+  /// Screen reader label for the step Continue opens
+  ///
+  /// In en, this message translates to:
+  /// **'Next'**
+  String get settings_setUpDevice_mark_next;
+
+  /// Screen reader label for a later step
+  ///
+  /// In en, this message translates to:
+  /// **'Not yet'**
+  String get settings_setUpDevice_mark_notYet;
+
+  /// Screen reader label for a skipped step
+  ///
+  /// In en, this message translates to:
+  /// **'Skipped'**
+  String get settings_setUpDevice_mark_skipped;
+
+  /// Button on a card item that signs in to an account
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in'**
+  String get settings_setUpDevice_item_signInAction;
+
+  /// Button on a card item that opens Photos and videos to reconnect
+  ///
+  /// In en, this message translates to:
+  /// **'Reconnect'**
+  String get settings_setUpDevice_item_reconnectAction;
+
+  /// Card item for an account sync or backups use that needs signing in again
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to {account} again. Sync and backups are paused until you do.'**
+  String settings_setUpDevice_item_signIn(String account);
+
+  /// Card item for another account that needs signing in again
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to {account} again.'**
+  String settings_setUpDevice_item_signInShort(String account);
+
+  /// Card item: the library keeps photo copies in an account this device has not joined
+  ///
+  /// In en, this message translates to:
+  /// **'Your other devices keep photo copies in {account}.'**
+  String settings_setUpDevice_item_attach(String account);
+
+  /// Card item: the photo copies' storage no longer matches and needs reconnecting
+  ///
+  /// In en, this message translates to:
+  /// **'The photo copies in {account} need reconnecting.'**
+  String settings_setUpDevice_item_reconnect(String account);
+
+  /// Subtitle of the Advanced row that reopens the setup flow
+  ///
+  /// In en, this message translates to:
+  /// **'Account, sync, backups and photos'**
+  String get settings_setUpDevice_againSubtitle;
+
+  /// Screen reader label for one setup step: its name and its mark (Done, Next, Not yet, Skipped)
+  ///
+  /// In en, this message translates to:
+  /// **'{step}: {mark}'**
+  String settings_setUpDevice_stepSemantics(String step, String mark);
+
+  /// Card item for an account sync uses (not the backup copy) that needs signing in again
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to {account} again. Sync is paused until you do.'**
+  String settings_setUpDevice_item_signInSync(String account);
+
+  /// Card item for an account the backup copy uses (not sync) that needs signing in again
+  ///
+  /// In en, this message translates to:
+  /// **'Sign in to {account} again. Backups are paused until you do.'**
+  String settings_setUpDevice_item_signInBackups(String account);
 }
 
 class _AppLocalizationsDelegate

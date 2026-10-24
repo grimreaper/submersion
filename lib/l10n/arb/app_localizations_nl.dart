@@ -36530,31 +36530,6 @@ class AppLocalizationsNl extends AppLocalizations {
   String get diveLog_sources_compareIn3d => 'Vergelijken in 3D';
 
   @override
-  String get settings_setup_pendingTitle =>
-      'Voltooi het instellen van dit apparaat';
-
-  @override
-  String settings_setup_mediaStoreAttach(String hint) {
-    return 'Mediaopslag koppelen ($hint)';
-  }
-
-  @override
-  String settings_setup_mediaStoreReconnect(String hint) {
-    return 'Mediaopslag opnieuw koppelen ($hint)';
-  }
-
-  @override
-  String settings_setup_accountSignIn(String label) {
-    return 'Aanmelden bij $label';
-  }
-
-  @override
-  String get settings_setup_dismiss => 'Negeren';
-
-  @override
-  String get settings_photosMedia_guidedSetup => 'Begeleide installatie';
-
-  @override
   String get settings_photosMedia_photoSources_subtitle =>
       'Galerij, bestanden en importopties';
 
@@ -36603,43 +36578,6 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get settings_connectedAccounts_removeConfirmBody =>
       'Het account wordt van elk gesynchroniseerd apparaat verwijderd. Op andere apparaten opgeslagen inloggegevens worden niet gewist.';
-
-  @override
-  String get settings_setupGuide_title => 'Foto\'s en media instellen';
-
-  @override
-  String get settings_setupGuide_intro =>
-      'Koppel waar je foto\'s vandaan komen en waar kopieën worden bewaard. Je kunt dit altijd opnieuw uitvoeren.';
-
-  @override
-  String get settings_setupGuide_stepSources => 'Fotobronnen';
-
-  @override
-  String get settings_setupGuide_stepSources_desc =>
-      'Voeg foto\'s toe uit je fotobibliotheek, bestanden of Lightroom.';
-
-  @override
-  String get settings_setupGuide_stepStorage => 'Mediaopslag';
-
-  @override
-  String get settings_setupGuide_stepStorage_desc =>
-      'Bewaar kopieën van je foto\'s in je eigen cloud zodat elk apparaat ze kan tonen.';
-
-  @override
-  String get settings_setupGuide_stepSync => 'Cloudsynchronisatie';
-
-  @override
-  String get settings_setupGuide_stepSync_desc =>
-      'Synchroniseer duikgegevens tussen apparaten.';
-
-  @override
-  String get settings_setupGuide_statusDone => 'Ingesteld';
-
-  @override
-  String get settings_setupGuide_statusTodo => 'Niet ingesteld';
-
-  @override
-  String get settings_setupGuide_open => 'Openen';
 
   @override
   String get settings_connectedAccounts_loadError =>
@@ -54647,4 +54585,121 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get documents_export_manifest_tags => 'Tags';
+
+  @override
+  String settings_setUpDevice_title(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'Deze telefoon instellen',
+      'tablet': 'Deze tablet instellen',
+      'computer': 'Deze computer instellen',
+      'other': 'Dit apparaat instellen',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_titleFinish(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'Het instellen van deze telefoon afronden',
+      'tablet': 'Het instellen van deze tablet afronden',
+      'computer': 'Het instellen van deze computer afronden',
+      'other': 'Het instellen van dit apparaat afronden',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_again(String device) {
+    String _temp0 = intl.Intl.selectLogic(device, {
+      'phone': 'Deze telefoon opnieuw instellen',
+      'tablet': 'Deze tablet opnieuw instellen',
+      'computer': 'Deze computer opnieuw instellen',
+      'other': 'Dit apparaat opnieuw instellen',
+    });
+    return '$_temp0';
+  }
+
+  @override
+  String settings_setUpDevice_count(int done, int total) {
+    return '$done van $total';
+  }
+
+  @override
+  String settings_setUpDevice_countSemantics(int done, int total) {
+    return '$done van $total stappen klaar';
+  }
+
+  @override
+  String get settings_setUpDevice_hide => 'Deze kaart verbergen';
+
+  @override
+  String get settings_setUpDevice_step_account => 'Kies waar je gegevens staan';
+
+  @override
+  String get settings_setUpDevice_step_sync => 'Duiken op elk apparaat';
+
+  @override
+  String get settings_setUpDevice_step_backups =>
+      'Automatisch een back-up maken';
+
+  @override
+  String get settings_setUpDevice_step_photos =>
+      'Fotokopieën delen (optioneel)';
+
+  @override
+  String get settings_setUpDevice_mark_done => 'Klaar';
+
+  @override
+  String get settings_setUpDevice_mark_next => 'Volgende';
+
+  @override
+  String get settings_setUpDevice_mark_notYet => 'Nog niet';
+
+  @override
+  String get settings_setUpDevice_mark_skipped => 'Overgeslagen';
+
+  @override
+  String get settings_setUpDevice_item_signInAction => 'Inloggen';
+
+  @override
+  String get settings_setUpDevice_item_reconnectAction => 'Opnieuw verbinden';
+
+  @override
+  String settings_setUpDevice_item_signIn(String account) {
+    return 'Log opnieuw in bij $account. Synchronisatie en back-ups staan tot dan stil.';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInShort(String account) {
+    return 'Log opnieuw in bij $account.';
+  }
+
+  @override
+  String settings_setUpDevice_item_attach(String account) {
+    return 'Je andere apparaten bewaren fotokopieën in $account.';
+  }
+
+  @override
+  String settings_setUpDevice_item_reconnect(String account) {
+    return 'De fotokopieën in $account moeten opnieuw worden verbonden.';
+  }
+
+  @override
+  String get settings_setUpDevice_againSubtitle =>
+      'Account, synchronisatie, back-ups en foto\'s';
+
+  @override
+  String settings_setUpDevice_stepSemantics(String step, String mark) {
+    return '$step: $mark';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInSync(String account) {
+    return 'Log opnieuw in bij $account. Synchronisatie staat tot dan stil.';
+  }
+
+  @override
+  String settings_setUpDevice_item_signInBackups(String account) {
+    return 'Log opnieuw in bij $account. Back-ups staan tot dan stil.';
+  }
 }
