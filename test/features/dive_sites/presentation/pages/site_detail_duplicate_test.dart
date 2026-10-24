@@ -12,21 +12,59 @@ import 'package:submersion/l10n/arb/app_localizations.dart';
 
 import '../../../../helpers/mock_providers.dart';
 
-/// The detail page's Duplicate action (issue #3575) opens the new-site form
-/// filled from this site, from the phone page and the desktop pane alike.
+/// Where the detail page's Duplicate action (issue #3575) opens the form
+/// from, and where the saved copy shows: the opener knows where it is.
+enum _Opener {
+  /// The phone page, pushed over the list.
+  phonePage,
+
+  /// The Sites list's own side pane on desktop (list or table view).
+  sitesPane,
+
+  /// A site shown in the Dives section's side pane on desktop.
+  divesPane,
+}
+
 void main() {
   const site = DiveSite(id: 'site-1', name: 'Salt Pier');
 
-  Future<void> pumpDetail(WidgetTester tester, {required bool embedded}) async {
+  Widget pane(String label) => Scaffold(
+    body: Row(
+      children: [
+        SizedBox(
+          width: 300,
+          child: Consumer(
+            builder: (context, ref, _) {
+              final state = GoRouterState.of(context);
+              return Column(
+                children: [
+                  Text(label),
+                  Text('selected ${state.uri.queryParameters['selected']}'),
+                  Text('highlighted ${ref.watch(highlightedSiteIdProvider)}'),
+                ],
+              );
+            },
+          ),
+        ),
+        const Expanded(child: SiteDetailPage(siteId: 'site-1', embedded: true)),
+      ],
+    ),
+  );
+
+  Future<GoRouter> pumpDetail(WidgetTester tester, _Opener opener) async {
     tester.view.devicePixelRatio = 1.0;
-    tester.view.physicalSize = embedded
-        ? const Size(1400, 900)
-        : const Size(400, 900);
+    tester.view.physicalSize = opener == _Opener.phonePage
+        ? const Size(400, 900)
+        : const Size(1400, 900);
     addTearDown(tester.view.reset);
 
     final overrides = await getBaseOverrides();
     final router = GoRouter(
-      initialLocation: '/other',
+      initialLocation: switch (opener) {
+        _Opener.phonePage => '/other',
+        _Opener.sitesPane => '/sites?selected=site-1',
+        _Opener.divesPane => '/dives',
+      },
       routes: [
         GoRoute(
           path: '/other',
@@ -37,19 +75,33 @@ void main() {
             ),
           ),
         ),
+        GoRoute(path: '/dives', builder: (context, state) => pane('dives')),
         GoRoute(
-          path: '/sites/new',
-          builder: (context, state) => Scaffold(
-            body: Text('new from ${state.uri.queryParameters['duplicateOf']}'),
-          ),
-        ),
-        GoRoute(
-          path: '/sites/site-1',
-          builder: (context, state) => embedded
-              ? const Scaffold(
-                  body: SiteDetailPage(siteId: 'site-1', embedded: true),
-                )
-              : const SiteDetailPage(siteId: 'site-1'),
+          path: '/sites',
+          builder: (context, state) => pane('sites'),
+          routes: [
+            GoRoute(
+              path: 'new',
+              builder: (context, state) => Scaffold(
+                body: ElevatedButton(
+                  // Stands in for the form: Save pops the copy's id.
+                  onPressed: () => context.pop('copy-1'),
+                  child: Text(
+                    'save copy of ${state.uri.queryParameters['duplicateOf']}',
+                  ),
+                ),
+              ),
+            ),
+            GoRoute(
+              path: ':siteId',
+              builder: (context, state) {
+                final id = state.pathParameters['siteId']!;
+                return id == 'site-1'
+                    ? const SiteDetailPage(siteId: 'site-1')
+                    : Scaffold(body: Text('detail $id'));
+              },
+            ),
+          ],
         ),
       ],
     );
@@ -72,26 +124,78 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    // Pushed, so the phone page does not redirect into the list.
-    await tester.tap(find.text('GO'));
+    if (opener == _Opener.phonePage) {
+      // Pushed, so the phone page does not redirect into the list.
+      await tester.tap(find.text('GO'));
+      await tester.pumpAndSettle();
+    }
+    return router;
+  }
+
+  /// Chooses Duplicate, checks the form opened for this site, and saves it.
+  Future<void> duplicateAndSave(WidgetTester tester) async {
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    expect(find.byIcon(Icons.copy), findsOneWidget);
+    await tester.tap(find.text('Duplicate'));
+    await tester.pumpAndSettle();
+
+    await tester.tap(find.text('save copy of site-1'));
     await tester.pumpAndSettle();
   }
 
-  for (final embedded in [false, true]) {
-    final where = embedded ? 'the desktop pane' : 'the phone page';
+  testWidgets('on a phone the saved copy opens over the original', (
+    tester,
+  ) async {
+    final router = await pumpDetail(tester, _Opener.phonePage);
 
-    testWidgets('Duplicate on $where opens the new-site form from this site', (
-      tester,
-    ) async {
-      await pumpDetail(tester, embedded: embedded);
+    await duplicateAndSave(tester);
 
-      await tester.tap(find.byIcon(Icons.more_vert));
-      await tester.pumpAndSettle();
-      expect(find.byIcon(Icons.copy), findsOneWidget);
-      await tester.tap(find.text('Duplicate'));
-      await tester.pumpAndSettle();
+    expect(find.text('detail copy-1'), findsOneWidget);
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(find.byType(SiteDetailPage), findsOneWidget);
+  });
 
-      expect(find.text('new from site-1'), findsOneWidget);
-    });
-  }
+  testWidgets('in the Sites pane the saved copy is selected and highlighted', (
+    tester,
+  ) async {
+    await pumpDetail(tester, _Opener.sitesPane);
+
+    await duplicateAndSave(tester);
+
+    // The list view follows the URL; the table view lights the
+    // highlighted row.
+    expect(find.text('selected copy-1'), findsOneWidget);
+    expect(find.text('highlighted copy-1'), findsOneWidget);
+  });
+
+  testWidgets('from a dive\'s site pane the saved copy opens over the dives, '
+      'which Back returns to', (tester) async {
+    final router = await pumpDetail(tester, _Opener.divesPane);
+
+    await duplicateAndSave(tester);
+
+    expect(find.text('detail copy-1'), findsOneWidget);
+    router.pop();
+    await tester.pumpAndSettle();
+    expect(find.text('dives'), findsOneWidget);
+    expect(find.text('highlighted null'), findsOneWidget);
+  });
+
+  testWidgets('cancelling the form leaves the original where it was', (
+    tester,
+  ) async {
+    final router = await pumpDetail(tester, _Opener.sitesPane);
+    await tester.tap(find.byIcon(Icons.more_vert));
+    await tester.pumpAndSettle();
+    await tester.tap(find.text('Duplicate'));
+    await tester.pumpAndSettle();
+
+    router.pop();
+    await tester.pumpAndSettle();
+
+    expect(find.text('selected site-1'), findsOneWidget);
+    expect(find.text('highlighted null'), findsOneWidget);
+  });
 }

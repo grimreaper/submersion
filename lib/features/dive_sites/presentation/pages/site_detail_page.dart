@@ -808,7 +808,7 @@ class _SiteDetailContentState extends ConsumerState<_SiteDetailContent> {
       return;
     }
     if (action == kDuplicateSiteAction) {
-      openDuplicateSite(context, site.id);
+      await openDuplicateSite(context, ref, site.id);
       return;
     }
     if (action == 'remove') {

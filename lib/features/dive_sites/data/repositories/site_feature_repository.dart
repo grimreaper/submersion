@@ -41,20 +41,18 @@ class SiteFeatureRepository {
       throw StateError('site $siteId is not this profile to edit');
     }
     final now = DateTime.now().millisecondsSinceEpoch;
-    final feature = await _insertFeature(
-      domain.SiteFeature(
-        id: _uuid.v4(),
-        siteId: siteId,
-        typeName: typeName,
-        name: name,
-        latitude: latitude,
-        longitude: longitude,
-        bearingDeg: bearingDeg,
-        depthMeters: depthMeters,
-        notes: notes,
-      ),
-      now,
+    final feature = domain.SiteFeature(
+      id: _uuid.v4(),
+      siteId: siteId,
+      typeName: typeName,
+      name: name,
+      latitude: latitude,
+      longitude: longitude,
+      bearingDeg: bearingDeg,
+      depthMeters: depthMeters,
+      notes: notes,
     );
+    await _insertFeature(feature, now);
     await _markPendingAndBumpSite(feature.id, siteId, now, actingDiverId);
     return feature;
   }
@@ -81,13 +79,14 @@ class SiteFeatureRepository {
     final last = start + features.length - 1;
     await _db.transaction(() async {
       for (final (i, feature) in features.indexed) {
-        final copy = await _insertFeature(
-          feature.copyWith(id: _uuid.v4(), siteId: toSiteId),
+        final copyId = _uuid.v4();
+        await _insertFeature(
+          feature.copyWith(id: copyId, siteId: toSiteId),
           start + i,
         );
         await _syncRepository.markRecordPending(
           entityType: 'siteFeatures',
-          recordId: copy.id,
+          recordId: copyId,
           localUpdatedAt: start + i,
         );
       }
@@ -99,11 +98,8 @@ class SiteFeatureRepository {
     SyncEventBus.notifyLocalChange();
   }
 
-  /// Writes [feature] as a new row stamped [now], and returns it.
-  Future<domain.SiteFeature> _insertFeature(
-    domain.SiteFeature feature,
-    int now,
-  ) async {
+  /// Writes [feature] as a new row stamped [now].
+  Future<void> _insertFeature(domain.SiteFeature feature, int now) async {
     await _db
         .into(_db.siteFeatures)
         .insert(
@@ -121,7 +117,6 @@ class SiteFeatureRepository {
             updatedAt: now,
           ),
         );
-    return feature;
   }
 
   Future<List<domain.SiteFeature>> getFeaturesForSite(String siteId) async {

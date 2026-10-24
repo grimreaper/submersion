@@ -437,39 +437,25 @@ void main() {
     expect(find.text('New Site'), findsNothing);
   });
 
-  /// Pushes the duplicate form over the original's page at [width], saves
-  /// it, and returns the router and the copy's id.
-  Future<(GoRouter, String)> saveRouted(
+  /// Pushes the duplicate form from an opener page, saves it, and returns
+  /// the copy's id. The opener shows what the form popped.
+  Future<String> saveFromOpener(
     WidgetTester tester, {
-    required double width,
     List<dynamic> extraOverrides = const [],
   }) async {
-    tester.view.physicalSize = Size(width, 3600);
+    tester.view.physicalSize = const Size(400, 3600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     final router = GoRouter(
-      initialLocation: '/sites/site-1',
+      initialLocation: '/opener',
       routes: [
+        GoRoute(path: '/opener', builder: (context, state) => const _Opener()),
         GoRoute(
-          path: '/sites',
-          builder: (context, state) => Scaffold(
-            body: Text('list ${state.uri.queryParameters['selected']}'),
+          path: '/sites/new',
+          builder: (context, state) => SiteEditPage.fromNewSiteExtra(
+            state.extra,
+            duplicateOfId: state.uri.queryParameters['duplicateOf'],
           ),
-          routes: [
-            GoRoute(
-              path: 'new',
-              builder: (context, state) => SiteEditPage.fromNewSiteExtra(
-                state.extra,
-                duplicateOfId: state.uri.queryParameters['duplicateOf'],
-              ),
-            ),
-            GoRoute(
-              path: ':siteId',
-              builder: (context, state) => Scaffold(
-                body: Text('detail ${state.pathParameters['siteId']}'),
-              ),
-            ),
-          ],
         ),
       ],
     );
@@ -486,7 +472,7 @@ void main() {
       ),
     );
     await tester.pumpAndSettle();
-    router.push('/sites/new?duplicateOf=site-1');
+    await tester.tap(find.text('DUPLICATE'));
     await tester.pumpAndSettle();
 
     await tester.tap(find.text('Save'));
@@ -495,37 +481,23 @@ void main() {
     await tester.pumpAndSettle();
 
     final sites = await tester.runAsync(() => SiteRepository().getAllSites());
-    final copyId = sites!.map((s) => s.id).singleWhere((id) => id != 'site-1');
-    return (router, copyId);
+    return sites!.map((s) => s.id).singleWhere((id) => id != 'site-1');
   }
 
-  testWidgets('saving on a phone opens the new site over the original', (
+  testWidgets('saving the full-page form returns the copy to its opener', (
     tester,
   ) async {
-    final (router, copyId) = await saveRouted(tester, width: 400);
+    final copyId = await saveFromOpener(tester);
 
-    expect(find.text('detail $copyId'), findsOneWidget);
-    expect(find.text('Site added'), findsOneWidget);
-    // Back returns to the original, not to the finished form.
-    router.pop();
-    await tester.pumpAndSettle();
-    expect(find.text('detail site-1'), findsOneWidget);
-  });
-
-  testWidgets('saving on desktop selects the new site in the list', (
-    tester,
-  ) async {
-    final (_, copyId) = await saveRouted(tester, width: 1400);
-
-    expect(find.text('list $copyId'), findsOneWidget);
+    // The opener knows where it is, so it decides where the copy shows.
+    expect(find.text('popped $copyId'), findsOneWidget);
     expect(find.text('Site added'), findsOneWidget);
   });
 
-  testWidgets('features that fail to copy still open the saved copy, and '
+  testWidgets('features that fail to copy still return the saved copy, and '
       'say so', (tester) async {
-    final (_, copyId) = await saveRouted(
+    final copyId = await saveFromOpener(
       tester,
-      width: 400,
       extraOverrides: [
         siteFeatureRepositoryProvider.overrideWithValue(
           _FailingCopyRepository(),
@@ -533,15 +505,45 @@ void main() {
       ],
     );
 
-    // The site saved, so the diver is on it rather than left on a form whose
-    // second Save would make another copy.
-    expect(find.text('detail $copyId'), findsOneWidget);
+    // The site saved, so the form closes rather than leaving the diver on a
+    // form whose second Save would make another copy.
+    expect(find.text('popped $copyId'), findsOneWidget);
     expect(
       find.text('Site added, but its map features could not be copied.'),
       findsOneWidget,
     );
     expect(find.text('Site added'), findsNothing);
   });
+}
+
+/// Pushes the duplicate form and shows the id it pops.
+class _Opener extends StatefulWidget {
+  const _Opener();
+
+  @override
+  State<_Opener> createState() => _OpenerState();
+}
+
+class _OpenerState extends State<_Opener> {
+  String? _popped;
+
+  @override
+  Widget build(BuildContext context) => Scaffold(
+    body: Column(
+      children: [
+        ElevatedButton(
+          onPressed: () async {
+            final id = await context.push<String>(
+              '/sites/new?duplicateOf=site-1',
+            );
+            setState(() => _popped = id);
+          },
+          child: const Text('DUPLICATE'),
+        ),
+        Text('popped $_popped'),
+      ],
+    ),
+  );
 }
 
 /// Copies nothing and fails, as a write error part-way would.

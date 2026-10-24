@@ -47,7 +47,6 @@ import 'package:submersion/features/marine_life/presentation/widgets/species_pic
 import 'package:submersion/features/weather/presentation/providers/weather_providers.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 import 'package:submersion/shared/widgets/forms/edit_form_scaffold.dart';
-import 'package:submersion/shared/widgets/master_detail/responsive_breakpoints.dart';
 import 'package:submersion/shared/widgets/shared_items/shared_item_dialogs.dart';
 import 'package:submersion/shared/widgets/forms/responsive_form_columns.dart';
 import 'package:submersion/shared/widgets/forms/number_input_validation.dart';
@@ -484,7 +483,7 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
     if (ownOnly) {
       final diverId = await ref.read(validatedCurrentDiverIdProvider.future);
       bool mine(String? owner) =>
-          diverId == null || owner == null || owner == diverId;
+          isOwnOrUnowned(ownerId: owner, activeDiverId: diverId);
       types = [
         for (final t in types)
           if (mine(t.diverId)) t,
@@ -2074,14 +2073,14 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
-    await _duplicateLoads;
-    if (!mounted) return;
     // A site created by hand gets its logbook rules (#3513); edits and
     // merges never run them. Read now: the diver can leave while the save
     // runs, and the new site gets them either way.
     final rulesAfterCreate = widget.isEditing || widget.isMerging
         ? null
         : captureRulesAfterCreate(context, ref);
+    await _duplicateLoads;
+    if (!mounted) return;
 
     try {
       final settings = ref.read(settingsProvider);
@@ -2300,34 +2299,17 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
           context.pop(
             SiteMergeResult(survivorId: savedId, snapshot: mergeSnapshot),
           );
-        } else if (widget.isDuplicating) {
-          // The copy, not the original, is what the diver goes on to rename
-          // and adjust, as an equipment clone does. On a phone Back still
-          // returns to the original. On desktop the copy opens selected in
-          // the master-detail list: a pushed detail page never moves itself
-          // there, so replacing the form would leave it standing over the
-          // list with the original still selected.
-          if (ResponsiveBreakpoints.isMasterDetail(context)) {
-            context.go('/sites?selected=$savedId');
-          } else {
-            context.pushReplacement('/sites/$savedId');
-          }
-          ScaffoldMessenger.of(context).showSnackBar(
-            SnackBar(
-              content: Text(
-                featuresNotCopied
-                    ? context.l10n.diveSites_edit_snackbar_featuresNotCopied
-                    : context.l10n.diveSites_edit_snackbar_siteAdded,
-              ),
-            ),
-          );
         } else {
+          // A duplicate's opener takes the id and shows the copy where it
+          // shows sites (openDuplicateSite).
           context.pop(savedId);
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(
                 widget.isEditing
                     ? context.l10n.diveSites_edit_snackbar_siteUpdated
+                    : featuresNotCopied
+                    ? context.l10n.diveSites_edit_snackbar_featuresNotCopied
                     : context.l10n.diveSites_edit_snackbar_siteAdded,
               ),
             ),
