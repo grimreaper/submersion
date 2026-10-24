@@ -112,6 +112,22 @@ void main() {
     expect([for (final r in rows) r.read<String>('id')], ['d1']);
   });
 
+  test('non-string entries are no regulators', () async {
+    await addTank('k6', 'd1', null, '[1,null,"r3"]');
+    final ids = await db
+        .customSelect("SELECT * FROM (${tankRegulatorIdsOfDiveSql("'d1'")})")
+        .get();
+    expect([
+      for (final r in ids) r.data.values.single,
+    ], everyElement(isA<String>()));
+    final rows = await db
+        .customSelect('SELECT regulator_id FROM ($tankExtraRegulatorRowsSql)')
+        .get();
+    expect([
+      for (final r in rows) r.data['regulator_id'],
+    ], everyElement(isA<String>()));
+  });
+
   test('every regulator on a dive\'s tanks', () async {
     final rows = await db
         .customSelect(

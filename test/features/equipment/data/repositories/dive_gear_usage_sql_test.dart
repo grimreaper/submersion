@@ -146,4 +146,12 @@ void main() {
       ('b1', 'reg2', 'tankRegulator'),
     });
   });
+
+  test('a non-string entry in the list is no regulator (#3375)', () async {
+    await addTank('t1', 'b1', regulator: 'reg', extras: '["reg2",1,null]');
+    expect(asSet(await gearUsageForDives(db, ['b1'])), {
+      ('b1', 'reg', 'tankRegulator'),
+      ('b1', 'reg2', 'tankRegulator'),
+    });
+  });
 }

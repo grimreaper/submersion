@@ -13,7 +13,10 @@ library;
 /// JSON, and one bad row from a peer must not break every equipment page.
 /// A JSON scalar or object is valid but is no list (decodeExtraRegulatorIds
 /// reads it as none), so SQL reads it as none too. Nested so json_type never
-/// sees invalid text.
+/// sees invalid text. A reader that emits the ids keeps only text elements
+/// (`typeof(value) = 'text'`), as the decoder drops non-strings; a reader
+/// that compares them to an id needs no filter, since no number or null
+/// equals one.
 String tankExtraRegulatorsJson(String tank) =>
     'CASE WHEN json_valid($tank.extra_regulator_ids) THEN '
     "CASE WHEN json_type($tank.extra_regulator_ids) = 'array' "
@@ -40,7 +43,7 @@ String tankRegulatorIdsOfDiveSql(String diveId) =>
     'WHERE rt.dive_id = $diveId AND rt.regulator_equipment_id IS NOT NULL '
     'UNION SELECT rj.value FROM dive_tanks rt, '
     'json_each(${tankExtraRegulatorsJson('rt')}) rj '
-    'WHERE rt.dive_id = $diveId';
+    "WHERE rt.dive_id = $diveId AND typeof(rj.value) = 'text'";
 
 /// One row per extra regulator on a tank: `dive_id`, `o2_percent` and
 /// `regulator_id`. Read as its own UNION branch rather than an OR inside a
@@ -50,7 +53,7 @@ String tankRegulatorIdsOfDiveSql(String diveId) =>
 final String tankExtraRegulatorRowsSql =
     'SELECT xt.dive_id, xt.o2_percent, xj.value AS regulator_id '
     'FROM dive_tanks xt, json_each(${tankExtraRegulatorsJson('xt')}) xj '
-    'WHERE xt.extra_regulator_ids IS NOT NULL';
+    "WHERE xt.extra_regulator_ids IS NOT NULL AND typeof(xj.value) = 'text'";
 
 /// A `SELECT dive_id, equipment_id` of every (dive, regulator) pair on the
 /// tanks, first and extra, for the gear unions that rank items by dives.

@@ -30,7 +30,7 @@ SELECT dive_id, regulator_equipment_id, 'tankRegulator' FROM dive_tanks
 UNION ALL
 SELECT t.dive_id, j.value, 'tankRegulator'
   FROM dive_tanks t, json_each(${tankExtraRegulatorsJson('t')}) j
-  WHERE 1 = 1${where('t.dive_id')}
+  WHERE typeof(j.value) = 'text'${where('t.dive_id')}
 UNION ALL
 SELECT t.dive_id, r.transmitter_equipment_id, 'transmitter'
   FROM dive_tanks t
