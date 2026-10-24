@@ -60,6 +60,17 @@ void main() {
           .getSingle();
       expect(row.data['regulator_equipment_id'], 'reg-1');
       expect(row.data['extra_regulator_ids'], isNull);
+
+      final index = await db
+          .customSelect(
+            "SELECT sql FROM sqlite_master WHERE type = 'index' "
+            "AND name = 'idx_dive_tanks_extra_regulators'",
+          )
+          .getSingleOrNull();
+      expect(
+        index?.read<String>('sql'),
+        contains('WHERE extra_regulator_ids IS NOT NULL'),
+      );
     },
   );
 

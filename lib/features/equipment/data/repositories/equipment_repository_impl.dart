@@ -17,6 +17,7 @@ import 'package:submersion/features/equipment/data/repositories/equipment_share_
 import 'package:submersion/features/equipment/data/repositories/equipment_tag_repository.dart';
 import 'package:submersion/features/equipment/data/repositories/equipment_visibility_queries.dart';
 import 'package:submersion/features/equipment/data/repositories/service_schedule_repository.dart';
+import 'package:submersion/features/equipment/data/repositories/tank_regulator_sql.dart';
 import 'package:submersion/features/media/data/repositories/media_repository.dart';
 import 'package:submersion/features/media_store/data/media_deletion_coordinator.dart';
 import 'package:submersion/features/media_store/data/media_transfer_queue_repository.dart';
@@ -1182,6 +1183,9 @@ class EquipmentRepository {
           SELECT dive_id, o2_percent, 0 FROM dive_tanks
             WHERE equipment_id = ?1 OR regulator_equipment_id = ?1
           UNION ALL
+          SELECT dive_id, o2_percent, 0
+            FROM ($tankExtraRegulatorRowsSql) WHERE regulator_id = ?1
+          UNION ALL
           SELECT de.dive_id, t.o2_percent, 0
             FROM dive_equipment de
             JOIN dive_tanks t ON t.dive_id = de.dive_id
@@ -1206,6 +1210,9 @@ class EquipmentRepository {
           UNION ALL
           SELECT dive_id, o2_percent, 1 FROM dive_tanks
             WHERE equipment_id = ?2 OR regulator_equipment_id = ?2
+          UNION ALL
+          SELECT dive_id, o2_percent, 1
+            FROM ($tankExtraRegulatorRowsSql) WHERE regulator_id = ?2
           UNION ALL
           SELECT de.dive_id, t.o2_percent, 1
             FROM dive_equipment de
@@ -1535,7 +1542,9 @@ class EquipmentRepository {
               '''
         WITH owners(owner_id, parent_id, installed_since, rebreather) AS (
           VALUES $values
-        )
+        ),
+        -- Extra tank regulators (#3375), parsed once for every owner.
+        extra_regs AS ($tankExtraRegulatorRowsSql)
         SELECT je.owner_id AS owner_id,
                d.id AS dive_id,
                -- The dive and its synced series (#1769): the stamp a
@@ -1561,6 +1570,10 @@ class EquipmentRepository {
             FROM owners o
             JOIN dive_tanks t ON t.equipment_id = o.owner_id
               OR t.regulator_equipment_id = o.owner_id
+          UNION ALL
+          SELECT o.owner_id, x.dive_id, x.o2_percent, 0
+            FROM owners o
+            JOIN extra_regs x ON x.regulator_id = o.owner_id
           UNION ALL
           SELECT o.owner_id, de.dive_id, t.o2_percent, 0
             FROM owners o
@@ -1588,6 +1601,10 @@ class EquipmentRepository {
             FROM owners o
             JOIN dive_tanks t ON t.equipment_id = o.parent_id
               OR t.regulator_equipment_id = o.parent_id
+          UNION ALL
+          SELECT o.owner_id, x.dive_id, x.o2_percent, 1
+            FROM owners o
+            JOIN extra_regs x ON x.regulator_id = o.parent_id
           UNION ALL
           SELECT o.owner_id, de.dive_id, t.o2_percent, 1
             FROM owners o
