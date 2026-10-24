@@ -2360,8 +2360,8 @@ class AppLocalizationsFr extends AppLocalizations {
       'Redimensionner le panneau principal';
 
   @override
-  String get accessibility_label_sharedWithAllProfiles =>
-      'Partagé avec tous les profils de plongée';
+  String get accessibility_label_sharedWithProfiles =>
+      'Partagé avec d’autres profils de plongée';
 
   @override
   String get accessibility_label_showList => 'Afficher la liste';
@@ -9421,6 +9421,11 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get diveLog_search_jumpTitle => 'Aller à la plongée';
+
+  @override
+  String diveLog_search_jumpNumberTitle(int number, String title) {
+    return 'n°$number · $title';
+  }
 
   @override
   String diveLog_ask_row(String text) {
@@ -18722,8 +18727,40 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
-  String media_photoPicker_files_diveGroupTitle(String diveId) {
-    return 'Plongée $diveId';
+  String media_photoPicker_files_diveGroupNumberSite(int number, String site) {
+    return 'Plongée n°$number · $site';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupNumber(int number) {
+    return 'Plongée n°$number';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupSite(String site) {
+    return 'Plongée · $site';
+  }
+
+  @override
+  String get media_photoPicker_files_diveGroupUnnamed => 'Plongée';
+
+  @override
+  String media_photoPicker_files_diveGroupWindow(
+    String date,
+    String start,
+    String end,
+  ) {
+    return '$date · $start – $end';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupStart(String date, String start) {
+    return '$date · $start';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupSubtitle(String when, String files) {
+    return '$when · $files';
   }
 
   @override
@@ -18997,6 +19034,36 @@ class AppLocalizationsFr extends AppLocalizations {
   String media_photoViewer_failedToShare(Object error) {
     return 'Échec du partage : $error';
   }
+
+  @override
+  String get media_share_preparingVideo => 'Préparation de la vidéo';
+
+  @override
+  String media_share_preparingVideoOf(int current, int total) {
+    return 'Préparation de la vidéo $current sur $total';
+  }
+
+  @override
+  String get media_share_correctionFailedTitle =>
+      'Impossible d\'appliquer la correction des couleurs';
+
+  @override
+  String media_share_correctionFailedBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count vidéos peuvent quand même être partagées sans elle.',
+      one: 'Cette vidéo peut quand même être partagée sans elle.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_share_shareOriginal => 'Partager l\'original';
+
+  @override
+  String get media_share_videoInterrupted =>
+      'La préparation de la vidéo s\'est arrêtée lorsque Submersion est passé en arrière-plan. Partagez à nouveau pour recommencer.';
 
   @override
   String get media_photoViewer_failedToWriteMetadata =>
@@ -35911,29 +35978,19 @@ class AppLocalizationsFr extends AppLocalizations {
       'Partager les nouveaux sites et voyages par défaut';
 
   @override
-  String get settings_shareAllSites_title => 'Partager tous mes sites';
+  String get settings_shareAllSites_title => 'Partager tous mes sites...';
 
   @override
-  String get settings_shareAllTrips_title => 'Partager tous mes voyages';
+  String get settings_shareAllTrips_title => 'Partager tous mes voyages...';
 
   @override
   String settings_shareAllSites_confirm(int count) {
-    return 'Rendre vos $count sites visibles pour tous les profils de plongée de cette app ? Vous pourrez annuler le partage de sites individuels plus tard.';
+    return 'Choisissez qui voit vos $count sites. Pour modifier un site plus tard, ouvrez-le et touchez Partagé avec.';
   }
 
   @override
   String settings_shareAllTrips_confirm(int count) {
-    return 'Rendre vos $count voyages visibles pour tous les profils de plongée de cette app ? Vous pourrez annuler le partage de voyages individuels plus tard.';
-  }
-
-  @override
-  String settings_shareAllSites_snackbar(int count) {
-    return '$count sites partagés avec tous les profils de plongée.';
-  }
-
-  @override
-  String settings_shareAllTrips_snackbar(int count) {
-    return '$count voyages partagés avec tous les profils de plongée.';
+    return 'Choisissez qui voit vos $count voyages. Pour modifier un voyage plus tard, ouvrez-le et touchez Partagé avec.';
   }
 
   @override
@@ -35969,7 +36026,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String trips_unshareConfirm_body(String name) {
-    return '« $name » sera retiré des vues des autres profils de plongée. Vous pourrez le partager à nouveau plus tard.';
+    return 'Les profils que vous retirez ne verront plus « $name ». Leurs plongées y restent liées, et vous pourrez le partager à nouveau avec eux plus tard.';
   }
 
   @override
@@ -35977,7 +36034,7 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String sites_unshareConfirm_body(String name) {
-    return '« $name » sera retiré des vues des autres profils de plongée. Vous pourrez le partager à nouveau plus tard.';
+    return 'Les profils que vous retirez ne verront plus « $name ». Leurs plongées y restent liées, et vous pourrez le partager à nouveau avec eux plus tard.';
   }
 
   @override
@@ -36053,6 +36110,31 @@ class AppLocalizationsFr extends AppLocalizations {
       one: 'Retirer $count élément de votre profil ?',
     );
     return '$_temp0';
+  }
+
+  @override
+  String get sharedItems_bulkShare_action => 'Partager avec...';
+
+  @override
+  String sharedItems_bulkShare_done(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count éléments partagés',
+      one: '$count élément partagé',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String sharedItems_bulkShare_doneSkipped(int count, int skipped) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count éléments partagés',
+      one: '$count élément partagé',
+    );
+    return '$_temp0, $skipped ignorés qui ne vous appartiennent pas';
   }
 
   @override
@@ -36153,6 +36235,21 @@ class AppLocalizationsFr extends AppLocalizations {
   String get sharedItems_removedSnackbar => 'Retiré de votre profil';
 
   @override
+  String get sharedItems_shareDialog_everyoneSubtitle =>
+      'Tous les profils de plongée, y compris ceux ajoutés plus tard';
+
+  @override
+  String get sharedItems_shareDialog_siteBody =>
+      'Les profils que vous choisissez voient ce site et peuvent y enregistrer leurs propres plongées. Vous seul pouvez le supprimer ou modifier avec qui il est partagé.';
+
+  @override
+  String get sharedItems_shareDialog_title => 'Partager avec';
+
+  @override
+  String get sharedItems_shareDialog_tripBody =>
+      'Les profils que vous choisissez voient ce voyage et peuvent y ajouter leurs propres plongées. Vous seul pouvez le supprimer ou modifier avec qui il est partagé.';
+
+  @override
   String sharedItems_shareOwnerOnly(String owner) {
     return 'Seul $owner peut modifier le partage';
   }
@@ -36161,6 +36258,15 @@ class AppLocalizationsFr extends AppLocalizations {
   String sharedItems_sharedBy(String owner) {
     return 'Partagé par $owner';
   }
+
+  @override
+  String get sharedItems_sharedWith_everyone => 'Tout le monde';
+
+  @override
+  String get sharedItems_sharedWith_label => 'Partagé avec';
+
+  @override
+  String get sharedItems_sharedWith_none => 'Non partagé';
 
   @override
   String get sharedItems_undo => 'Annuler';
@@ -36191,6 +36297,19 @@ class AppLocalizationsFr extends AppLocalizations {
       one: 'site partagé',
     );
     return 'Plongeur supprimé. $trips $_temp0 et $sites $_temp1 réattribués à $name.';
+  }
+
+  @override
+  String divers_delete_handedOver(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count voyages et sites partagés sont allés aux profils avec lesquels ils étaient partagés.',
+      one:
+          '$count voyage ou site partagé est allé au profil avec lequel il était partagé.',
+    );
+    return '$_temp0';
   }
 
   @override

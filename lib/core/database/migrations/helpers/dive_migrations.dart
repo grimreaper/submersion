@@ -24,7 +24,7 @@ extension DiveMigrations on AppDatabase {
     }
   }
 
-  /// v311: dive_tanks.extra_regulator_ids (issue #3375), and a partial index
+  /// v312: dive_tanks.extra_regulator_ids (issue #3375), and a partial index
   /// over the few tanks that have extras, so the regulator lookups
   /// (tank_regulator_sql.dart) read those rows instead of scanning every
   /// tank. Idempotent, so it is safe to call from both onUpgrade and the

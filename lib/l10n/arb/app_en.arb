@@ -1339,9 +1339,9 @@
   "@accessibility_label_resizeMasterPane": {
     "description": "Semantics label for the draggable divider between the master and detail panes in master-detail scaffold"
   },
-  "accessibility_label_sharedWithAllProfiles": "Shared with all dive profiles",
-  "@accessibility_label_sharedWithAllProfiles": {
-    "description": "Screen-reader / tooltip label for the people icon shown on trip and site list tiles when a record is shared across dive profiles. Descriptive form (state), distinct from the imperative form used on the edit-page switch."
+  "accessibility_label_sharedWithProfiles": "Shared with other dive profiles",
+  "@accessibility_label_sharedWithProfiles": {
+    "description": "Screen-reader / tooltip label for the people icon shown on trip and site list tiles when a record is shared with other dive profiles, with every profile or with chosen ones. Descriptive form (state)."
   },
   "accessibility_label_showList": "Show List",
   "accessibility_label_showMapView": "Show Map View",
@@ -5478,6 +5478,8 @@
   "diveLog_search_scopeWithin": "Within filters",
   "diveLog_search_scopeAll": "All dives",
   "diveLog_search_jumpTitle": "Jump to dive",
+  "diveLog_search_jumpNumberTitle": "#{number} · {title}",
+  "@diveLog_search_jumpNumberTitle": {"placeholders": {"number": {"type": "int"}, "title": {"type": "String"}}},
   "diveLog_ask_row": "Ask: {text}",
   "@diveLog_ask_row": {"placeholders": {"text": {"type": "String"}}},
   "diveLog_ask_running": "Asking the on-device model",
@@ -11219,10 +11221,66 @@
       }
     }
   },
-  "media_photoPicker_files_diveGroupTitle": "Dive {diveId}",
-  "@media_photoPicker_files_diveGroupTitle": {
+  "media_photoPicker_files_diveGroupNumberSite": "Dive #{number} · {site}",
+  "@media_photoPicker_files_diveGroupNumberSite": {
     "placeholders": {
-      "diveId": {
+      "number": {
+        "type": "int"
+      },
+      "site": {
+        "type": "String"
+      }
+    }
+  },
+  "media_photoPicker_files_diveGroupNumber": "Dive #{number}",
+  "@media_photoPicker_files_diveGroupNumber": {
+    "placeholders": {
+      "number": {
+        "type": "int"
+      }
+    }
+  },
+  "media_photoPicker_files_diveGroupSite": "Dive · {site}",
+  "@media_photoPicker_files_diveGroupSite": {
+    "placeholders": {
+      "site": {
+        "type": "String"
+      }
+    }
+  },
+  "media_photoPicker_files_diveGroupUnnamed": "Dive",
+  "media_photoPicker_files_diveGroupWindow": "{date} · {start} – {end}",
+  "@media_photoPicker_files_diveGroupWindow": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "start": {
+        "type": "String"
+      },
+      "end": {
+        "type": "String"
+      }
+    }
+  },
+  "media_photoPicker_files_diveGroupStart": "{date} · {start}",
+  "@media_photoPicker_files_diveGroupStart": {
+    "placeholders": {
+      "date": {
+        "type": "String"
+      },
+      "start": {
+        "type": "String"
+      }
+    }
+  },
+  "media_photoPicker_files_diveGroupSubtitle": "{when} · {files}",
+  "@media_photoPicker_files_diveGroupSubtitle": {
+    "placeholders": {
+      "when": {
+        "type": "String"
+      },
+      "files": {
         "type": "String"
       }
     }
@@ -11360,6 +11418,14 @@
   "media_photoViewer_errorLoadingPhotos": "Error loading photos: {error}",
   "media_photoViewer_failedToLoadVideo": "Failed to load video",
   "media_photoViewer_failedToShare": "Failed to share: {error}",
+  "media_share_preparingVideo": "Preparing video",
+  "media_share_preparingVideoOf": "Preparing video {current} of {total}",
+  "@media_share_preparingVideoOf": {"placeholders": {"current": {"type": "int"}, "total": {"type": "int"}}},
+  "media_share_correctionFailedTitle": "Couldn't apply the color correction",
+  "media_share_correctionFailedBody": "{count, plural, =1{This video can still be shared without it.} other{{count} videos can still be shared without it.}}",
+  "@media_share_correctionFailedBody": {"placeholders": {"count": {"type": "int"}}},
+  "media_share_shareOriginal": "Share original",
+  "media_share_videoInterrupted": "Preparing the video stopped when Submersion went into the background. Share again to start over.",
   "media_photoViewer_failedToWriteMetadata": "Failed to write metadata",
   "media_photoViewer_failedToWriteMetadataError": "Failed to write metadata: {error}",
   "media_photoViewer_nextTooltip": "Next media",
@@ -21609,15 +21675,15 @@
   "@settings_shareByDefault_title": {
     "description": "Global setting: when ON, newly created trips and sites are shared with all dive profiles by default."
   },
-  "settings_shareAllSites_title": "Share all my sites",
+  "settings_shareAllSites_title": "Share all my sites...",
   "@settings_shareAllSites_title": {
     "description": "Button/menu item to share all sites at once"
   },
-  "settings_shareAllTrips_title": "Share all my trips",
+  "settings_shareAllTrips_title": "Share all my trips...",
   "@settings_shareAllTrips_title": {
     "description": "Button/menu item to share all trips at once"
   },
-  "settings_shareAllSites_confirm": "Make all {count} of your sites visible to every dive profile in this app? You can unshare individual sites later.",
+  "settings_shareAllSites_confirm": "Choose who sees all {count} of your sites. To change one site later, open it and tap Shared with.",
   "@settings_shareAllSites_confirm": {
     "placeholders": {
       "count": {
@@ -21626,26 +21692,8 @@
       }
     }
   },
-  "settings_shareAllTrips_confirm": "Make all {count} of your trips visible to every dive profile in this app? You can unshare individual trips later.",
+  "settings_shareAllTrips_confirm": "Choose who sees all {count} of your trips. To change one trip later, open it and tap Shared with.",
   "@settings_shareAllTrips_confirm": {
-    "placeholders": {
-      "count": {
-        "type": "int",
-        "example": "12"
-      }
-    }
-  },
-  "settings_shareAllSites_snackbar": "Shared {count} sites with all dive profiles.",
-  "@settings_shareAllSites_snackbar": {
-    "placeholders": {
-      "count": {
-        "type": "int",
-        "example": "12"
-      }
-    }
-  },
-  "settings_shareAllTrips_snackbar": "Shared {count} trips with all dive profiles.",
-  "@settings_shareAllTrips_snackbar": {
     "placeholders": {
       "count": {
         "type": "int",
@@ -21693,7 +21741,7 @@
   "@trips_unshareConfirm_title": {
     "description": "Title of the confirmation dialog shown before un-sharing a trip that is currently shared with all profiles."
   },
-  "trips_unshareConfirm_body": "This will remove '{name}' from other dive profiles' views. You can re-share it later.",
+  "trips_unshareConfirm_body": "Profiles you take off will no longer see '{name}'. Their dives stay linked to it, and you can share it with them again later.",
   "@trips_unshareConfirm_body": {
     "description": "Body of the confirmation dialog shown before un-sharing a trip.",
     "placeholders": {
@@ -21707,7 +21755,7 @@
   "@sites_unshareConfirm_title": {
     "description": "Title of the confirmation dialog shown before un-sharing a dive site that is currently shared with all profiles."
   },
-  "sites_unshareConfirm_body": "This will remove '{name}' from other dive profiles' views. You can re-share it later.",
+  "sites_unshareConfirm_body": "Profiles you take off will no longer see '{name}'. Their dives stay linked to it, and you can share it with them again later.",
   "@sites_unshareConfirm_body": {
     "description": "Body of the confirmation dialog shown before un-sharing a dive site.",
     "placeholders": {
@@ -21788,6 +21836,31 @@
       "count": {
         "type": "int",
         "example": "2"
+      }
+    }
+  },
+  "sharedItems_bulkShare_action": "Share with...",
+  "@sharedItems_bulkShare_action": {
+    "description": "Trip or site list selection action: share the selected items with chosen profiles."
+  },
+  "sharedItems_bulkShare_done": "{count, plural, one{Shared {count} item} other{Shared {count} items}}",
+  "@sharedItems_bulkShare_done": {
+    "description": "Snackbar after a bulk share of trips or sites.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      }
+    }
+  },
+  "sharedItems_bulkShare_doneSkipped": "{count, plural, one{Shared {count} item} other{Shared {count} items}}, skipped {skipped} you do not own",
+  "@sharedItems_bulkShare_doneSkipped": {
+    "description": "Snackbar after a bulk share of trips or sites that skipped items another profile owns.",
+    "placeholders": {
+      "count": {
+        "type": "int"
+      },
+      "skipped": {
+        "type": "int"
       }
     }
   },
@@ -21893,6 +21966,22 @@
   "@sharedItems_removedSnackbar": {
     "description": "Snackbar after hiding a shared trip or site from the active profile."
   },
+  "sharedItems_shareDialog_everyoneSubtitle": "Every dive profile, including ones added later",
+  "@sharedItems_shareDialog_everyoneSubtitle": {
+    "description": "Subtitle of the Everyone choice in the share dialog for a trip or site."
+  },
+  "sharedItems_shareDialog_siteBody": "Profiles you choose see this site and can log their own dives at it. Only you can delete it or change who it is shared with.",
+  "@sharedItems_shareDialog_siteBody": {
+    "description": "Body of the dialog that picks who a dive site is shared with."
+  },
+  "sharedItems_shareDialog_title": "Share with",
+  "@sharedItems_shareDialog_title": {
+    "description": "Title of the dialog that picks who a trip or site is shared with."
+  },
+  "sharedItems_shareDialog_tripBody": "Profiles you choose see this trip and can add their own dives to it. Only you can delete it or change who it is shared with.",
+  "@sharedItems_shareDialog_tripBody": {
+    "description": "Body of the dialog that picks who a trip is shared with."
+  },
   "sharedItems_shareOwnerOnly": "Only {owner} can change sharing",
   "@sharedItems_shareOwnerOnly": {
     "description": "Helper under the disabled share switch when another profile owns the trip or site.",
@@ -21912,6 +22001,18 @@
         "example": "Alice"
       }
     }
+  },
+  "sharedItems_sharedWith_everyone": "Everyone",
+  "@sharedItems_sharedWith_everyone": {
+    "description": "A trip or site shared with every dive profile."
+  },
+  "sharedItems_sharedWith_label": "Shared with",
+  "@sharedItems_sharedWith_label": {
+    "description": "Label of the row on a trip or site page showing who it is shared with."
+  },
+  "sharedItems_sharedWith_none": "Not shared",
+  "@sharedItems_sharedWith_none": {
+    "description": "A trip or site shared with nobody."
   },
   "sharedItems_undo": "Undo",
   "@sharedItems_undo": {
@@ -21950,6 +22051,16 @@
       "name": {
         "type": "String",
         "example": "Alice"
+      }
+    }
+  },
+  "divers_delete_handedOver": "{count, plural, one{{count} shared trip or site went to the profile it was shared with.} other{{count} shared trips and sites went to the profiles they were shared with.}}",
+  "@divers_delete_handedOver": {
+    "description": "Sentence in the snackbar after deleting a profile whose trips and sites shared with chosen profiles went to those profiles.",
+    "placeholders": {
+      "count": {
+        "type": "int",
+        "example": "2"
       }
     }
   },

@@ -12,7 +12,7 @@
 
 ## Global Constraints
 
-- Schema: shipped as v311 (planned as v310 when main was at 309, renumbered after #3611 took v310); additive nullable column, so `minimumCompatibleSchemaVersion` stays 308. Renumber again on merge if main moves.
+- Schema: shipped as v312 (planned as v310 when main was at 309, renumbered after #3611 and #2151 took v310 and v311); additive nullable column, so `minimumCompatibleSchemaVersion` stays 308. Renumber again on merge if main moves.
 - Never add a table or rung to `database.dart` beyond `currentSchemaVersion` and the `migrationVersions` entry; the rung goes in `migrations/ladder/rungs_v231_onward.dart`, the helper in `migrations/helpers/dive_migrations.dart`, the backstop in `migrations/before_open_table_backstops.dart` (`before_open.dart` is at the 800-line guard).
 - Stored form of "no extras" is SQL NULL (never `[]`). The encoder returns null for an empty list; the decoder reads null, blank, `[]` and unreadable text as an empty list.
 - Invariants on every write: no id twice, none equal to the first, no blank ids, and no extras while the first is null (the first extra is promoted).
@@ -30,7 +30,7 @@
 
 ---
 
-### Task 1: Schema v311, the `extra_regulator_ids` column
+### Task 1: Schema v312, the `extra_regulator_ids` column
 
 **Files:**
 - Modify: `lib/core/database/tables/dive_tables.dart` (after `regulatorEquipmentId`)
@@ -38,20 +38,20 @@
 - Modify: `lib/core/database/migrations/helpers/dive_migrations.dart`
 - Modify: `lib/core/database/migrations/ladder/rungs_v231_onward.dart`
 - Modify: `lib/core/database/migrations/before_open_table_backstops.dart`
-- Test: `test/core/database/migration_v311_tank_extra_regulators_test.dart`
+- Test: `test/core/database/migration_v312_tank_extra_regulators_test.dart`
 
 **Interfaces:**
 - Produces: Drift column `DiveTanks.extraRegulatorIds` (`TextColumn`, nullable), generated `DiveTank.extraRegulatorIds` (`String?`) and `DiveTanksCompanion.extraRegulatorIds`; helper `Future<void> _assertTankExtraRegulatorIds()` on `DiveMigrations`.
 
-- [ ] **Step 1: Write the failing test** modelled on `migration_v309_media_document_tags_test.dart`: a raw v310 `dive_tanks` fixture (`id`, `dive_id`, `regulator_equipment_id`), then:
-  - `'v311 is the current schema version and in the ladder'`: `currentSchemaVersion` >= 311, `migrationVersions` contains 311.
+- [ ] **Step 1: Write the failing test** modelled on `migration_v309_media_document_tags_test.dart`: a raw v311 `dive_tanks` fixture (`id`, `dive_id`, `regulator_equipment_id`), then:
+  - `'v312 is the current schema version and in the ladder'`: `currentSchemaVersion` >= 312, `migrationVersions` contains 312.
   - `'the floor does not move'`: `minimumCompatibleSchemaVersion` == 308.
-  - `'upgrading from v310 adds the column and keeps the first regulator'`: after open, `PRAGMA table_info('dive_tanks')` has `extra_regulator_ids` (type TEXT, nullable) and the fixture row's `regulator_equipment_id` is unchanged, `extra_regulator_ids` IS NULL.
-  - `'a database stamped v311 without the column heals in beforeOpen'`.
-- [ ] **Step 2:** `flutter test test/core/database/migration_v311_tank_extra_regulators_test.dart`; expect FAIL (311 not in ladder).
-- [ ] **Step 3: Implement.** Column doc comment: "v311: the regulators on this cylinder after the first (issue #3375), a JSON array of equipment ids; null means none. User-authored like [regulatorEquipmentId]; downloads and re-parses never write it." Helper is `_addColumnIfMissing('dive_tanks', 'extra_regulator_ids', 'TEXT')`. Rung `if (from < 311) { await _assertTankExtraRegulatorIds(); }` then `reportProgress()`, with a comment matching the v309 style. Add `311` to `migrationVersions` with a comment saying the column is additive and the floor stays. Backstop call in `_tableBackstopsFromV217`. Run codegen (`dart run build_runner b...` via the scratchpad script).
+  - `'upgrading from v311 adds the column and keeps the first regulator'`: after open, `PRAGMA table_info('dive_tanks')` has `extra_regulator_ids` (type TEXT, nullable) and the fixture row's `regulator_equipment_id` is unchanged, `extra_regulator_ids` IS NULL.
+  - `'a database stamped v312 without the column heals in beforeOpen'`.
+- [ ] **Step 2:** `flutter test test/core/database/migration_v312_tank_extra_regulators_test.dart`; expect FAIL (312 not in ladder).
+- [ ] **Step 3: Implement.** Column doc comment: "v312: the regulators on this cylinder after the first (issue #3375), a JSON array of equipment ids; null means none. User-authored like [regulatorEquipmentId]; downloads and re-parses never write it." Helper is `_addColumnIfMissing('dive_tanks', 'extra_regulator_ids', 'TEXT')`. Rung `if (from < 312) { await _assertTankExtraRegulatorIds(); }` then `reportProgress()`, with a comment matching the v309 style. Add `312` to `migrationVersions` with a comment saying the column is additive and the floor stays. Backstop call in `_tableBackstopsFromV217`. Run codegen (`dart run build_runner b...` via the scratchpad script).
 - [ ] **Step 4:** rerun the test, plus `test/core/database/migration_v309_media_document_tags_test.dart`; expect PASS.
-- [ ] **Step 5: Commit** `feat(dive-log): add dive_tanks.extra_regulator_ids (v311)`.
+- [ ] **Step 5: Commit** `feat(dive-log): add dive_tanks.extra_regulator_ids (v312)`.
 
 ### Task 2: Domain, the regulator list on `DiveTank`
 

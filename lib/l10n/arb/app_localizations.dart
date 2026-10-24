@@ -3643,11 +3643,11 @@ abstract class AppLocalizations {
   /// **'Resize master pane'**
   String get accessibility_label_resizeMasterPane;
 
-  /// Screen-reader / tooltip label for the people icon shown on trip and site list tiles when a record is shared across dive profiles. Descriptive form (state), distinct from the imperative form used on the edit-page switch.
+  /// Screen-reader / tooltip label for the people icon shown on trip and site list tiles when a record is shared with other dive profiles, with every profile or with chosen ones. Descriptive form (state).
   ///
   /// In en, this message translates to:
-  /// **'Shared with all dive profiles'**
-  String get accessibility_label_sharedWithAllProfiles;
+  /// **'Shared with other dive profiles'**
+  String get accessibility_label_sharedWithProfiles;
 
   /// Tooltip for the button that shows the list pane when collapsed
   ///
@@ -14928,6 +14928,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Jump to dive'**
   String get diveLog_search_jumpTitle;
+
+  /// No description provided for @diveLog_search_jumpNumberTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'#{number} · {title}'**
+  String diveLog_search_jumpNumberTitle(int number, String title);
 
   /// No description provided for @diveLog_ask_row.
   ///
@@ -29823,11 +29829,51 @@ abstract class AppLocalizations {
   /// **'{count, plural, =1{1 item} other{{count} items}}'**
   String media_photoPicker_files_itemCount(int count);
 
-  /// No description provided for @media_photoPicker_files_diveGroupTitle.
+  /// No description provided for @media_photoPicker_files_diveGroupNumberSite.
   ///
   /// In en, this message translates to:
-  /// **'Dive {diveId}'**
-  String media_photoPicker_files_diveGroupTitle(String diveId);
+  /// **'Dive #{number} · {site}'**
+  String media_photoPicker_files_diveGroupNumberSite(int number, String site);
+
+  /// No description provided for @media_photoPicker_files_diveGroupNumber.
+  ///
+  /// In en, this message translates to:
+  /// **'Dive #{number}'**
+  String media_photoPicker_files_diveGroupNumber(int number);
+
+  /// No description provided for @media_photoPicker_files_diveGroupSite.
+  ///
+  /// In en, this message translates to:
+  /// **'Dive · {site}'**
+  String media_photoPicker_files_diveGroupSite(String site);
+
+  /// No description provided for @media_photoPicker_files_diveGroupUnnamed.
+  ///
+  /// In en, this message translates to:
+  /// **'Dive'**
+  String get media_photoPicker_files_diveGroupUnnamed;
+
+  /// No description provided for @media_photoPicker_files_diveGroupWindow.
+  ///
+  /// In en, this message translates to:
+  /// **'{date} · {start} – {end}'**
+  String media_photoPicker_files_diveGroupWindow(
+    String date,
+    String start,
+    String end,
+  );
+
+  /// No description provided for @media_photoPicker_files_diveGroupStart.
+  ///
+  /// In en, this message translates to:
+  /// **'{date} · {start}'**
+  String media_photoPicker_files_diveGroupStart(String date, String start);
+
+  /// No description provided for @media_photoPicker_files_diveGroupSubtitle.
+  ///
+  /// In en, this message translates to:
+  /// **'{when} · {files}'**
+  String media_photoPicker_files_diveGroupSubtitle(String when, String files);
 
   /// No description provided for @media_photoPicker_files_groupCount.
   ///
@@ -30212,6 +30258,42 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Failed to share: {error}'**
   String media_photoViewer_failedToShare(Object error);
+
+  /// No description provided for @media_share_preparingVideo.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing video'**
+  String get media_share_preparingVideo;
+
+  /// No description provided for @media_share_preparingVideoOf.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing video {current} of {total}'**
+  String media_share_preparingVideoOf(int current, int total);
+
+  /// No description provided for @media_share_correctionFailedTitle.
+  ///
+  /// In en, this message translates to:
+  /// **'Couldn\'t apply the color correction'**
+  String get media_share_correctionFailedTitle;
+
+  /// No description provided for @media_share_correctionFailedBody.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, =1{This video can still be shared without it.} other{{count} videos can still be shared without it.}}'**
+  String media_share_correctionFailedBody(int count);
+
+  /// No description provided for @media_share_shareOriginal.
+  ///
+  /// In en, this message translates to:
+  /// **'Share original'**
+  String get media_share_shareOriginal;
+
+  /// No description provided for @media_share_videoInterrupted.
+  ///
+  /// In en, this message translates to:
+  /// **'Preparing the video stopped when Submersion went into the background. Share again to start over.'**
+  String get media_share_videoInterrupted;
 
   /// No description provided for @media_photoViewer_failedToWriteMetadata.
   ///
@@ -56719,38 +56801,26 @@ abstract class AppLocalizations {
   /// Button/menu item to share all sites at once
   ///
   /// In en, this message translates to:
-  /// **'Share all my sites'**
+  /// **'Share all my sites...'**
   String get settings_shareAllSites_title;
 
   /// Button/menu item to share all trips at once
   ///
   /// In en, this message translates to:
-  /// **'Share all my trips'**
+  /// **'Share all my trips...'**
   String get settings_shareAllTrips_title;
 
   /// No description provided for @settings_shareAllSites_confirm.
   ///
   /// In en, this message translates to:
-  /// **'Make all {count} of your sites visible to every dive profile in this app? You can unshare individual sites later.'**
+  /// **'Choose who sees all {count} of your sites. To change one site later, open it and tap Shared with.'**
   String settings_shareAllSites_confirm(int count);
 
   /// No description provided for @settings_shareAllTrips_confirm.
   ///
   /// In en, this message translates to:
-  /// **'Make all {count} of your trips visible to every dive profile in this app? You can unshare individual trips later.'**
+  /// **'Choose who sees all {count} of your trips. To change one trip later, open it and tap Shared with.'**
   String settings_shareAllTrips_confirm(int count);
-
-  /// No description provided for @settings_shareAllSites_snackbar.
-  ///
-  /// In en, this message translates to:
-  /// **'Shared {count} sites with all dive profiles.'**
-  String settings_shareAllSites_snackbar(int count);
-
-  /// No description provided for @settings_shareAllTrips_snackbar.
-  ///
-  /// In en, this message translates to:
-  /// **'Shared {count} trips with all dive profiles.'**
-  String settings_shareAllTrips_snackbar(int count);
 
   /// Message shown when there are no sites/trips to share
   ///
@@ -56815,7 +56885,7 @@ abstract class AppLocalizations {
   /// Body of the confirmation dialog shown before un-sharing a trip.
   ///
   /// In en, this message translates to:
-  /// **'This will remove \'{name}\' from other dive profiles\' views. You can re-share it later.'**
+  /// **'Profiles you take off will no longer see \'{name}\'. Their dives stay linked to it, and you can share it with them again later.'**
   String trips_unshareConfirm_body(String name);
 
   /// Title of the confirmation dialog shown before un-sharing a dive site that is currently shared with all profiles.
@@ -56827,7 +56897,7 @@ abstract class AppLocalizations {
   /// Body of the confirmation dialog shown before un-sharing a dive site.
   ///
   /// In en, this message translates to:
-  /// **'This will remove \'{name}\' from other dive profiles\' views. You can re-share it later.'**
+  /// **'Profiles you take off will no longer see \'{name}\'. Their dives stay linked to it, and you can share it with them again later.'**
   String sites_unshareConfirm_body(String name);
 
   /// Title of the strengthened delete confirmation dialog shown when the trip being deleted is shared with other dive profiles.
@@ -56877,6 +56947,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'{count, plural, one{Remove {count} item from your profile?} other{Remove {count} items from your profile?}}'**
   String sharedItems_bulkRemoveTitle(int count);
+
+  /// Trip or site list selection action: share the selected items with chosen profiles.
+  ///
+  /// In en, this message translates to:
+  /// **'Share with...'**
+  String get sharedItems_bulkShare_action;
+
+  /// Snackbar after a bulk share of trips or sites.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Shared {count} item} other{Shared {count} items}}'**
+  String sharedItems_bulkShare_done(int count);
+
+  /// Snackbar after a bulk share of trips or sites that skipped items another profile owns.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{Shared {count} item} other{Shared {count} items}}, skipped {skipped} you do not own'**
+  String sharedItems_bulkShare_doneSkipped(int count, int skipped);
 
   /// Bulk delete confirmation line counting the deleted sites that are shared, so deleted for every profile.
   ///
@@ -56968,6 +57056,30 @@ abstract class AppLocalizations {
   /// **'Removed from your profile'**
   String get sharedItems_removedSnackbar;
 
+  /// Subtitle of the Everyone choice in the share dialog for a trip or site.
+  ///
+  /// In en, this message translates to:
+  /// **'Every dive profile, including ones added later'**
+  String get sharedItems_shareDialog_everyoneSubtitle;
+
+  /// Body of the dialog that picks who a dive site is shared with.
+  ///
+  /// In en, this message translates to:
+  /// **'Profiles you choose see this site and can log their own dives at it. Only you can delete it or change who it is shared with.'**
+  String get sharedItems_shareDialog_siteBody;
+
+  /// Title of the dialog that picks who a trip or site is shared with.
+  ///
+  /// In en, this message translates to:
+  /// **'Share with'**
+  String get sharedItems_shareDialog_title;
+
+  /// Body of the dialog that picks who a trip is shared with.
+  ///
+  /// In en, this message translates to:
+  /// **'Profiles you choose see this trip and can add their own dives to it. Only you can delete it or change who it is shared with.'**
+  String get sharedItems_shareDialog_tripBody;
+
   /// Helper under the disabled share switch when another profile owns the trip or site.
   ///
   /// In en, this message translates to:
@@ -56979,6 +57091,24 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Shared by {owner}'**
   String sharedItems_sharedBy(String owner);
+
+  /// A trip or site shared with every dive profile.
+  ///
+  /// In en, this message translates to:
+  /// **'Everyone'**
+  String get sharedItems_sharedWith_everyone;
+
+  /// Label of the row on a trip or site page showing who it is shared with.
+  ///
+  /// In en, this message translates to:
+  /// **'Shared with'**
+  String get sharedItems_sharedWith_label;
+
+  /// A trip or site shared with nobody.
+  ///
+  /// In en, this message translates to:
+  /// **'Not shared'**
+  String get sharedItems_sharedWith_none;
 
   /// Snackbar action that undoes hiding a shared trip or site.
   ///
@@ -57009,6 +57139,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Diver deleted. {trips} shared {trips, plural, one{trip} other{trips}} and {sites} shared {sites, plural, one{site} other{sites}} reassigned to {name}.'**
   String divers_delete_reassigned_snackbar(int trips, int sites, String name);
+
+  /// Sentence in the snackbar after deleting a profile whose trips and sites shared with chosen profiles went to those profiles.
+  ///
+  /// In en, this message translates to:
+  /// **'{count, plural, one{{count} shared trip or site went to the profile it was shared with.} other{{count} shared trips and sites went to the profiles they were shared with.}}'**
+  String divers_delete_handedOver(int count);
 
   /// Line in the delete-profile confirmation when some of the profile's gear is used by other profiles and will be handed to them.
   ///

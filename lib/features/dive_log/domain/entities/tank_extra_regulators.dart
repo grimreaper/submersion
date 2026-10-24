@@ -1,6 +1,6 @@
 import 'dart:convert';
 
-/// The `dive_tanks.extra_regulator_ids` column (v311, issue #3375): the
+/// The `dive_tanks.extra_regulator_ids` column (v312, issue #3375): the
 /// regulators on a cylinder after the first, which stays in
 /// `regulator_equipment_id`. A twin valve or a manifolded twin set carries
 /// two or more, and every one of them is on the dive.

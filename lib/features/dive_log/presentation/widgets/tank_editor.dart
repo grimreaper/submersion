@@ -132,7 +132,7 @@ class _TankEditorState extends ConsumerState<TankEditor> {
   int _specChoice = 0;
 
   /// The regulators breathed from this cylinder (v202; more than one from
-  /// v311, issue #3375): the first, then the extras. Empty until the diver
+  /// v312, issue #3375): the first, then the extras. Empty until the diver
   /// picks one or a preset prefills them from the last pairing.
   List<String> _regulatorIds = const [];
 

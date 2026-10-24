@@ -2409,8 +2409,8 @@ class AppLocalizationsAr extends AppLocalizations {
       'تغيير حجم اللوحة الرئيسية';
 
   @override
-  String get accessibility_label_sharedWithAllProfiles =>
-      'مشترك مع جميع ملفات الغوص';
+  String get accessibility_label_sharedWithProfiles =>
+      'مشترك مع ملفات غوص أخرى';
 
   @override
   String get accessibility_label_showList => 'عرض القائمة';
@@ -9520,6 +9520,11 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get diveLog_search_jumpTitle => 'الانتقال إلى غوصة';
+
+  @override
+  String diveLog_search_jumpNumberTitle(int number, String title) {
+    return '#$number · $title';
+  }
 
   @override
   String diveLog_ask_row(String text) {
@@ -18929,8 +18934,40 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
-  String media_photoPicker_files_diveGroupTitle(String diveId) {
-    return 'الغوصة $diveId';
+  String media_photoPicker_files_diveGroupNumberSite(int number, String site) {
+    return 'غوصة #$number · $site';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupNumber(int number) {
+    return 'غوصة #$number';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupSite(String site) {
+    return 'غوصة · $site';
+  }
+
+  @override
+  String get media_photoPicker_files_diveGroupUnnamed => 'غوصة';
+
+  @override
+  String media_photoPicker_files_diveGroupWindow(
+    String date,
+    String start,
+    String end,
+  ) {
+    return '$date · $start – $end';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupStart(String date, String start) {
+    return '$date · $start';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupSubtitle(String when, String files) {
+    return '$when · $files';
   }
 
   @override
@@ -19216,6 +19253,38 @@ class AppLocalizationsAr extends AppLocalizations {
   String media_photoViewer_failedToShare(Object error) {
     return 'فشل في المشاركة: $error';
   }
+
+  @override
+  String get media_share_preparingVideo => 'جارٍ تجهيز الفيديو';
+
+  @override
+  String media_share_preparingVideoOf(int current, int total) {
+    return 'جارٍ تجهيز الفيديو $current من $total';
+  }
+
+  @override
+  String get media_share_correctionFailedTitle => 'تعذّر تطبيق تصحيح الألوان';
+
+  @override
+  String media_share_correctionFailedBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'لا يزال من الممكن مشاركة $count مقطع فيديو بدونه.',
+      many: 'لا يزال من الممكن مشاركة $count مقطع فيديو بدونه.',
+      few: 'لا يزال من الممكن مشاركة $count مقاطع فيديو بدونه.',
+      two: 'لا يزال من الممكن مشاركة مقطعي الفيديو بدونه.',
+      one: 'لا يزال من الممكن مشاركة هذا الفيديو بدونه.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_share_shareOriginal => 'مشاركة الأصل';
+
+  @override
+  String get media_share_videoInterrupted =>
+      'توقف تجهيز الفيديو عندما انتقل Submersion إلى الخلفية. شارك مرة أخرى للبدء من جديد.';
 
   @override
   String get media_photoViewer_failedToWriteMetadata =>
@@ -36193,29 +36262,19 @@ class AppLocalizationsAr extends AppLocalizations {
       'مشاركة المواقع والرحلات الجديدة تلقائيًا';
 
   @override
-  String get settings_shareAllSites_title => 'مشاركة جميع مواقعي';
+  String get settings_shareAllSites_title => 'مشاركة جميع مواقعي...';
 
   @override
-  String get settings_shareAllTrips_title => 'مشاركة جميع رحلاتي';
+  String get settings_shareAllTrips_title => 'مشاركة جميع رحلاتي...';
 
   @override
   String settings_shareAllSites_confirm(int count) {
-    return 'هل تريد جعل كل $count من مواقعك مرئية لكل ملفات الغوص في هذا التطبيق؟ يمكنك إلغاء مشاركة مواقع فردية لاحقًا.';
+    return 'اختر من يرى كل $count من مواقعك. لتغيير موقع واحد لاحقًا، افتحه واضغط على مُشارَك مع.';
   }
 
   @override
   String settings_shareAllTrips_confirm(int count) {
-    return 'هل تريد جعل كل $count من رحلاتك مرئية لكل ملفات الغوص في هذا التطبيق؟ يمكنك إلغاء مشاركة رحلات فردية لاحقًا.';
-  }
-
-  @override
-  String settings_shareAllSites_snackbar(int count) {
-    return 'تمت مشاركة $count من المواقع مع جميع ملفات الغوص.';
-  }
-
-  @override
-  String settings_shareAllTrips_snackbar(int count) {
-    return 'تمت مشاركة $count من الرحلات مع جميع ملفات الغوص.';
+    return 'اختر من يرى كل $count من رحلاتك. لتغيير رحلة واحدة لاحقًا، افتحها واضغط على مُشارَك مع.';
   }
 
   @override
@@ -36251,7 +36310,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String trips_unshareConfirm_body(String name) {
-    return 'سيؤدي هذا إلى إزالة «$name» من عروض ملفات الغوص الأخرى. يمكنك مشاركتها مرة أخرى لاحقًا.';
+    return 'لن ترى الملفات التي تزيلها «$name» بعد الآن. تبقى غطساتها مرتبطة بها، ويمكنك مشاركتها معها مجددًا لاحقًا.';
   }
 
   @override
@@ -36259,7 +36318,7 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String sites_unshareConfirm_body(String name) {
-    return 'سيؤدي هذا إلى إزالة «$name» من عروض ملفات الغوص الأخرى. يمكنك مشاركته مرة أخرى لاحقًا.';
+    return 'لن ترى الملفات التي تزيلها «$name» بعد الآن. تبقى غطساتها مرتبطة به، ويمكنك مشاركته معها مجددًا لاحقًا.';
   }
 
   @override
@@ -36352,6 +36411,39 @@ class AppLocalizationsAr extends AppLocalizations {
       one: 'إزالة $count عنصر من ملفك؟',
     );
     return '$_temp0';
+  }
+
+  @override
+  String get sharedItems_bulkShare_action => 'مشاركة مع...';
+
+  @override
+  String sharedItems_bulkShare_done(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'تمت مشاركة $count عنصر',
+      many: 'تمت مشاركة $count عنصرًا',
+      few: 'تمت مشاركة $count عناصر',
+      two: 'تمت مشاركة عنصرين',
+      one: 'تمت مشاركة عنصر واحد',
+      zero: 'لم تتم مشاركة أي عنصر',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String sharedItems_bulkShare_doneSkipped(int count, int skipped) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'تمت مشاركة $count عنصر',
+      many: 'تمت مشاركة $count عنصرًا',
+      few: 'تمت مشاركة $count عناصر',
+      two: 'تمت مشاركة عنصرين',
+      one: 'تمت مشاركة عنصر واحد',
+      zero: 'لم تتم مشاركة أي عنصر',
+    );
+    return '$_temp0، وتم تخطي $skipped لا تملكها';
   }
 
   @override
@@ -36461,6 +36553,21 @@ class AppLocalizationsAr extends AppLocalizations {
   String get sharedItems_removedSnackbar => 'تمت الإزالة من ملفك';
 
   @override
+  String get sharedItems_shareDialog_everyoneSubtitle =>
+      'كل ملفات الغوص، بما فيها التي تُضاف لاحقًا';
+
+  @override
+  String get sharedItems_shareDialog_siteBody =>
+      'ترى الملفات التي تختارها هذا الموقع ويمكنها تسجيل غطساتها فيه. أنت وحدك يمكنك حذفه أو تغيير من يُشارَك معه.';
+
+  @override
+  String get sharedItems_shareDialog_title => 'مشاركة مع';
+
+  @override
+  String get sharedItems_shareDialog_tripBody =>
+      'ترى الملفات التي تختارها هذه الرحلة ويمكنها إضافة غطساتها إليها. أنت وحدك يمكنك حذفها أو تغيير من تُشارَك معه.';
+
+  @override
   String sharedItems_shareOwnerOnly(String owner) {
     return 'يمكن لـ $owner فقط تغيير المشاركة';
   }
@@ -36469,6 +36576,15 @@ class AppLocalizationsAr extends AppLocalizations {
   String sharedItems_sharedBy(String owner) {
     return 'تمت المشاركة بواسطة $owner';
   }
+
+  @override
+  String get sharedItems_sharedWith_everyone => 'الجميع';
+
+  @override
+  String get sharedItems_sharedWith_label => 'مُشارَك مع';
+
+  @override
+  String get sharedItems_sharedWith_none => 'غير مُشارَك';
 
   @override
   String get sharedItems_undo => 'تراجع';
@@ -36505,6 +36621,21 @@ class AppLocalizationsAr extends AppLocalizations {
       one: 'موقع مشترك واحد',
     );
     return 'تم حذف الغواص. $_temp0 و$_temp1 أُعيد تعيينها إلى $name.';
+  }
+
+  @override
+  String divers_delete_handedOver(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'انتقلت $count رحلة وموقع مشترك إلى الملفات التي شوركت معها.',
+      many: 'انتقلت $count رحلة وموقعًا مشتركًا إلى الملفات التي شوركت معها.',
+      few: 'انتقلت $count رحلات ومواقع مشتركة إلى الملفات التي شوركت معها.',
+      two: 'انتقلت رحلتان أو موقعان مشتركان إلى الملفات التي شوركت معها.',
+      one: 'انتقلت رحلة أو موقع مشترك واحد إلى الملف الذي شورك معه.',
+      zero: 'لم تنتقل أي رحلة أو موقع مشترك.',
+    );
+    return '$_temp0';
   }
 
   @override

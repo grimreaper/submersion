@@ -1232,7 +1232,7 @@ class DiveTank extends Equatable {
   /// tank editor sets it and downloads never touch it.
   final String? regulatorEquipmentId;
 
-  /// The regulators on this cylinder after [regulatorEquipmentId] (v311,
+  /// The regulators on this cylinder after [regulatorEquipmentId] (v312,
   /// issue #3375): a twin valve or twin set carries more than one, and each
   /// counts as on the dive. User-authored like [regulatorEquipmentId].
   /// The repository normalises the pair on write

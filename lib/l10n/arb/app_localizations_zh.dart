@@ -2241,7 +2241,7 @@ class AppLocalizationsZh extends AppLocalizations {
   String get accessibility_label_resizeMasterPane => '调整主窗格大小';
 
   @override
-  String get accessibility_label_sharedWithAllProfiles => '已与所有潜水员资料共享';
+  String get accessibility_label_sharedWithProfiles => '已与其他潜水员资料共享';
 
   @override
   String get accessibility_label_showList => '显示列表';
@@ -8928,6 +8928,11 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get diveLog_search_jumpTitle => '跳转到潜水';
+
+  @override
+  String diveLog_search_jumpNumberTitle(int number, String title) {
+    return '#$number · $title';
+  }
 
   @override
   String diveLog_ask_row(String text) {
@@ -17777,8 +17782,40 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
-  String media_photoPicker_files_diveGroupTitle(String diveId) {
-    return '潜水 $diveId';
+  String media_photoPicker_files_diveGroupNumberSite(int number, String site) {
+    return '潜水 #$number · $site';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupNumber(int number) {
+    return '潜水 #$number';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupSite(String site) {
+    return '潜水 · $site';
+  }
+
+  @override
+  String get media_photoPicker_files_diveGroupUnnamed => '潜水';
+
+  @override
+  String media_photoPicker_files_diveGroupWindow(
+    String date,
+    String start,
+    String end,
+  ) {
+    return '$date · $start – $end';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupStart(String date, String start) {
+    return '$date · $start';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupSubtitle(String when, String files) {
+    return '$when · $files';
   }
 
   @override
@@ -18030,6 +18067,35 @@ class AppLocalizationsZh extends AppLocalizations {
   String media_photoViewer_failedToShare(Object error) {
     return '分享失败: $error';
   }
+
+  @override
+  String get media_share_preparingVideo => '正在准备视频';
+
+  @override
+  String media_share_preparingVideoOf(int current, int total) {
+    return '正在准备第 $current 个视频，共 $total 个';
+  }
+
+  @override
+  String get media_share_correctionFailedTitle => '无法应用色彩校正';
+
+  @override
+  String media_share_correctionFailedBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 个视频仍可在不校正的情况下分享。',
+      one: '此视频仍可在不校正的情况下分享。',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_share_shareOriginal => '分享原始文件';
+
+  @override
+  String get media_share_videoInterrupted =>
+      'Submersion 转入后台时视频准备已停止。请重新分享以重新开始。';
 
   @override
   String get media_photoViewer_failedToWriteMetadata => '写入元数据失败';
@@ -33715,29 +33781,19 @@ class AppLocalizationsZh extends AppLocalizations {
   String get settings_shareByDefault_title => '默认共享新潜点和行程';
 
   @override
-  String get settings_shareAllSites_title => '共享我的所有潜点';
+  String get settings_shareAllSites_title => '共享我的所有潜点...';
 
   @override
-  String get settings_shareAllTrips_title => '共享我的所有行程';
+  String get settings_shareAllTrips_title => '共享我的所有行程...';
 
   @override
   String settings_shareAllSites_confirm(int count) {
-    return '将您的全部 $count 个潜点向此应用中的每个潜水员资料开放？您之后可以单独取消共享。';
+    return '选择谁可以看到你的全部 $count 个潜点。之后要更改某个潜点，打开它并点按“共享给”。';
   }
 
   @override
   String settings_shareAllTrips_confirm(int count) {
-    return '将您的全部 $count 个行程向此应用中的每个潜水员资料开放？您之后可以单独取消共享。';
-  }
-
-  @override
-  String settings_shareAllSites_snackbar(int count) {
-    return '已将 $count 个潜点与所有潜水员资料共享。';
-  }
-
-  @override
-  String settings_shareAllTrips_snackbar(int count) {
-    return '已将 $count 个行程与所有潜水员资料共享。';
+    return '选择谁可以看到你的全部 $count 个行程。之后要更改某个行程，打开它并点按“共享给”。';
   }
 
   @override
@@ -33772,7 +33828,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String trips_unshareConfirm_body(String name) {
-    return '此操作会将「$name」从其他潜水员资料的视图中移除。您之后可以再次共享。';
+    return '你移除的资料将不再看到“$name”。他们的潜水仍与其关联，你之后可以再次与他们共享。';
   }
 
   @override
@@ -33780,7 +33836,7 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String sites_unshareConfirm_body(String name) {
-    return '此操作会将「$name」从其他潜水员资料的视图中移除。您之后可以再次共享。';
+    return '你移除的资料将不再看到“$name”。他们的潜水仍与其关联，你之后可以再次与他们共享。';
   }
 
   @override
@@ -33849,6 +33905,31 @@ class AppLocalizationsZh extends AppLocalizations {
       other: '要从您的资料中移除 $count 项吗？',
     );
     return '$_temp0';
+  }
+
+  @override
+  String get sharedItems_bulkShare_action => '共享给...';
+
+  @override
+  String sharedItems_bulkShare_done(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '已共享 $count 项',
+      one: '已共享 $count 项',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String sharedItems_bulkShare_doneSkipped(int count, int skipped) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '已共享 $count 项',
+      one: '已共享 $count 项',
+    );
+    return '$_temp0，跳过 $skipped 项非你所有的内容';
   }
 
   @override
@@ -33937,6 +34018,20 @@ class AppLocalizationsZh extends AppLocalizations {
   String get sharedItems_removedSnackbar => '已从您的资料中移除';
 
   @override
+  String get sharedItems_shareDialog_everyoneSubtitle => '所有潜水员资料，包括之后添加的资料';
+
+  @override
+  String get sharedItems_shareDialog_siteBody =>
+      '你选择的资料可以看到此潜点，并可在此记录自己的潜水。只有你可以删除它或更改共享对象。';
+
+  @override
+  String get sharedItems_shareDialog_title => '共享给';
+
+  @override
+  String get sharedItems_shareDialog_tripBody =>
+      '你选择的资料可以看到此行程，并可添加自己的潜水。只有你可以删除它或更改共享对象。';
+
+  @override
   String sharedItems_shareOwnerOnly(String owner) {
     return '只有 $owner 可以更改共享设置';
   }
@@ -33945,6 +34040,15 @@ class AppLocalizationsZh extends AppLocalizations {
   String sharedItems_sharedBy(String owner) {
     return '由 $owner 共享';
   }
+
+  @override
+  String get sharedItems_sharedWith_everyone => '所有人';
+
+  @override
+  String get sharedItems_sharedWith_label => '共享给';
+
+  @override
+  String get sharedItems_sharedWith_none => '未共享';
 
   @override
   String get sharedItems_undo => '撤消';
@@ -33975,6 +34079,16 @@ class AppLocalizationsZh extends AppLocalizations {
       one: '潜点',
     );
     return '已删除潜水员。$trips 个共享$_temp0和 $sites 个共享$_temp1已重新分配给 $name。';
+  }
+
+  @override
+  String divers_delete_handedOver(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count 个共享的行程和潜点已转给与之共享的资料。',
+    );
+    return '$_temp0';
   }
 
   @override
