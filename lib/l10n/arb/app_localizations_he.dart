@@ -8469,6 +8469,17 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
+  String get diveSites_detail_duplicateMenu_label => 'שכפל';
+
+  @override
+  String get diveSites_edit_appBar_duplicateSite => 'שכפל אתר';
+
+  @override
+  String diveSites_edit_duplicateName(String name) {
+    return '$name (עותק)';
+  }
+
+  @override
   String get diveSites_edit_group_accessSafety => 'גישה ובטיחות';
 
   @override
@@ -8485,6 +8496,10 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get diveSites_edit_group_typeTags => 'סוג ותגיות';
+
+  @override
+  String get diveSites_edit_snackbar_featuresNotCopied =>
+      'האתר נוסף, אך לא ניתן היה להעתיק את המאפיינים שלו במפה.';
 
   @override
   String get diveSites_edit_typeTags_manageTypes => 'ניהול סוגים';

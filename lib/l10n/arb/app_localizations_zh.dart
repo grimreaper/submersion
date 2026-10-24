@@ -8225,6 +8225,17 @@ class AppLocalizationsZh extends AppLocalizations {
   }
 
   @override
+  String get diveSites_detail_duplicateMenu_label => '复制';
+
+  @override
+  String get diveSites_edit_appBar_duplicateSite => '复制潜水点';
+
+  @override
+  String diveSites_edit_duplicateName(String name) {
+    return '$name（副本）';
+  }
+
+  @override
   String get diveSites_edit_group_accessSafety => '通行与安全';
 
   @override
@@ -8241,6 +8252,9 @@ class AppLocalizationsZh extends AppLocalizations {
 
   @override
   String get diveSites_edit_group_typeTags => '类型和标签';
+
+  @override
+  String get diveSites_edit_snackbar_featuresNotCopied => '潜水点已添加，但无法复制其地图特征。';
 
   @override
   String get diveSites_edit_typeTags_manageTypes => '管理类型';

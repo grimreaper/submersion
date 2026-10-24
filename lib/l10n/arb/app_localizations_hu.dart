@@ -8633,6 +8633,17 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
+  String get diveSites_detail_duplicateMenu_label => 'Duplikálás';
+
+  @override
+  String get diveSites_edit_appBar_duplicateSite => 'Helyszín duplikálása';
+
+  @override
+  String diveSites_edit_duplicateName(String name) {
+    return '$name (másolat)';
+  }
+
+  @override
   String get diveSites_edit_group_accessSafety => 'Megközelítés és biztonság';
 
   @override
@@ -8649,6 +8660,10 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get diveSites_edit_group_typeTags => 'Típus és címkék';
+
+  @override
+  String get diveSites_edit_snackbar_featuresNotCopied =>
+      'Helyszín hozzáadva, de a térképen jelölt jellemzőit nem sikerült átmásolni.';
 
   @override
   String get diveSites_edit_typeTags_manageTypes => 'Típusok kezelése';

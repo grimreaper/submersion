@@ -8682,6 +8682,17 @@ class AppLocalizationsFr extends AppLocalizations {
   }
 
   @override
+  String get diveSites_detail_duplicateMenu_label => 'Dupliquer';
+
+  @override
+  String get diveSites_edit_appBar_duplicateSite => 'Dupliquer le site';
+
+  @override
+  String diveSites_edit_duplicateName(String name) {
+    return '$name (copie)';
+  }
+
+  @override
   String get diveSites_edit_group_accessSafety => 'Accès et sécurité';
 
   @override
@@ -8698,6 +8709,10 @@ class AppLocalizationsFr extends AppLocalizations {
 
   @override
   String get diveSites_edit_group_typeTags => 'Type et étiquettes';
+
+  @override
+  String get diveSites_edit_snackbar_featuresNotCopied =>
+      'Site ajouté, mais ses éléments de carte n\'ont pas pu être copiés.';
 
   @override
   String get diveSites_edit_typeTags_manageTypes => 'Gérer les types';

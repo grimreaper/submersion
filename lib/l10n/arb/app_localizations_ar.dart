@@ -8776,6 +8776,17 @@ class AppLocalizationsAr extends AppLocalizations {
   }
 
   @override
+  String get diveSites_detail_duplicateMenu_label => 'تكرار';
+
+  @override
+  String get diveSites_edit_appBar_duplicateSite => 'تكرار الموقع';
+
+  @override
+  String diveSites_edit_duplicateName(String name) {
+    return '$name (نسخة)';
+  }
+
+  @override
   String get diveSites_edit_group_accessSafety => 'الوصول والسلامة';
 
   @override
@@ -8792,6 +8803,10 @@ class AppLocalizationsAr extends AppLocalizations {
 
   @override
   String get diveSites_edit_group_typeTags => 'النوع والوسوم';
+
+  @override
+  String get diveSites_edit_snackbar_featuresNotCopied =>
+      'تمت إضافة الموقع، لكن تعذر نسخ معالمه على الخريطة.';
 
   @override
   String get diveSites_edit_typeTags_manageTypes => 'إدارة الأنواع';

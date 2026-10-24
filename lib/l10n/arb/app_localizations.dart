@@ -13711,6 +13711,24 @@ abstract class AppLocalizations {
   /// **'Error adding dive role: {error}'**
   String diveRoles_snackbar_errorAdding(Object error);
 
+  /// Site detail menu action that opens a new site pre-filled from this one
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate'**
+  String get diveSites_detail_duplicateMenu_label;
+
+  /// Title of the site form while it is filled from another site, before it is saved
+  ///
+  /// In en, this message translates to:
+  /// **'Duplicate Site'**
+  String get diveSites_edit_appBar_duplicateSite;
+
+  /// Name a duplicated site starts with; name is the original site's name
+  ///
+  /// In en, this message translates to:
+  /// **'{name} (copy)'**
+  String diveSites_edit_duplicateName(String name);
+
   /// Site form group: access, mooring, parking, hazards
   ///
   /// In en, this message translates to:
@@ -13746,6 +13764,12 @@ abstract class AppLocalizations {
   /// In en, this message translates to:
   /// **'Type & Tags'**
   String get diveSites_edit_group_typeTags;
+
+  /// Shown after a duplicated site saved but copying the original's map features failed
+  ///
+  /// In en, this message translates to:
+  /// **'Site added, but its map features could not be copied.'**
+  String get diveSites_edit_snackbar_featuresNotCopied;
 
   /// No description provided for @diveSites_edit_typeTags_manageTypes.
   ///

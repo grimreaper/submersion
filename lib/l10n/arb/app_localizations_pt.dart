@@ -8651,6 +8651,17 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
+  String get diveSites_detail_duplicateMenu_label => 'Duplicar';
+
+  @override
+  String get diveSites_edit_appBar_duplicateSite => 'Duplicar Ponto';
+
+  @override
+  String diveSites_edit_duplicateName(String name) {
+    return '$name (cópia)';
+  }
+
+  @override
   String get diveSites_edit_group_accessSafety => 'Acesso e segurança';
 
   @override
@@ -8667,6 +8678,10 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get diveSites_edit_group_typeTags => 'Tipo e etiquetas';
+
+  @override
+  String get diveSites_edit_snackbar_featuresNotCopied =>
+      'Ponto adicionado, mas não foi possível copiar seus elementos do mapa.';
 
   @override
   String get diveSites_edit_typeTags_manageTypes => 'Gerir tipos';

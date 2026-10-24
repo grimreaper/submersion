@@ -8597,6 +8597,17 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
+  String get diveSites_detail_duplicateMenu_label => 'Dupliceren';
+
+  @override
+  String get diveSites_edit_appBar_duplicateSite => 'Stek dupliceren';
+
+  @override
+  String diveSites_edit_duplicateName(String name) {
+    return '$name (kopie)';
+  }
+
+  @override
   String get diveSites_edit_group_accessSafety => 'Toegang & veiligheid';
 
   @override
@@ -8613,6 +8624,10 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get diveSites_edit_group_typeTags => 'Type & labels';
+
+  @override
+  String get diveSites_edit_snackbar_featuresNotCopied =>
+      'Stek toegevoegd, maar de kenmerken op de kaart konden niet worden gekopieerd.';
 
   @override
   String get diveSites_edit_typeTags_manageTypes => 'Types beheren';
