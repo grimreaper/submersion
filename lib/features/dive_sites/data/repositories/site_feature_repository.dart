@@ -40,60 +40,88 @@ class SiteFeatureRepository {
     if (!await _libraryStamper.mayEdit(siteId, actingDiverId: actingDiverId)) {
       throw StateError('site $siteId is not this profile to edit');
     }
-    final id = _uuid.v4();
     final now = DateTime.now().millisecondsSinceEpoch;
-    await _db
-        .into(_db.siteFeatures)
-        .insert(
-          SiteFeaturesCompanion.insert(
-            id: id,
-            siteId: siteId,
-            type: typeName,
-            latitude: latitude,
-            longitude: longitude,
-            name: Value(name),
-            bearingDeg: Value(bearingDeg),
-            depthMeters: Value(depthMeters),
-            notes: Value(notes),
-            createdAt: now,
-            updatedAt: now,
-          ),
-        );
-    await _markPendingAndBumpSite(id, siteId, now, actingDiverId);
-    return domain.SiteFeature(
-      id: id,
-      siteId: siteId,
-      typeName: typeName,
-      name: name,
-      latitude: latitude,
-      longitude: longitude,
-      bearingDeg: bearingDeg,
-      depthMeters: depthMeters,
-      notes: notes,
+    final feature = await _insertFeature(
+      domain.SiteFeature(
+        id: _uuid.v4(),
+        siteId: siteId,
+        typeName: typeName,
+        name: name,
+        latitude: latitude,
+        longitude: longitude,
+        bearingDeg: bearingDeg,
+        depthMeters: depthMeters,
+        notes: notes,
+      ),
+      now,
     );
+    await _markPendingAndBumpSite(feature.id, siteId, now, actingDiverId);
+    return feature;
   }
 
   /// Copies every feature on [fromSiteId] onto [toSiteId] as new rows, in
-  /// their creation order, for a duplicated site (issue #3575). Each copy
-  /// goes through [addFeature], so it carries the same write ritual.
+  /// their creation order, for a duplicated site (issue #3575). All or
+  /// nothing: one transaction, with the parent bumped and stamped once.
   Future<void> copyFeatures({
     required String fromSiteId,
     required String toSiteId,
     String? actingDiverId,
   }) async {
-    for (final feature in await getFeaturesForSite(fromSiteId)) {
-      await addFeature(
-        siteId: toSiteId,
-        typeName: feature.typeName,
-        latitude: feature.latitude,
-        longitude: feature.longitude,
-        bearingDeg: feature.bearingDeg,
-        depthMeters: feature.depthMeters,
-        name: feature.name,
-        notes: feature.notes,
-        actingDiverId: actingDiverId,
-      );
+    if (!await _libraryStamper.mayEdit(
+      toSiteId,
+      actingDiverId: actingDiverId,
+    )) {
+      throw StateError('site $toSiteId is not this profile to edit');
     }
+    final features = await getFeaturesForSite(fromSiteId);
+    if (features.isEmpty) return;
+    final start = DateTime.now().millisecondsSinceEpoch;
+    // One millisecond apart: features list by creation time, so tied stamps
+    // could come back in any order.
+    final last = start + features.length - 1;
+    await _db.transaction(() async {
+      for (final (i, feature) in features.indexed) {
+        final copy = await _insertFeature(
+          feature.copyWith(id: _uuid.v4(), siteId: toSiteId),
+          start + i,
+        );
+        await _syncRepository.markRecordPending(
+          entityType: 'siteFeatures',
+          recordId: copy.id,
+          localUpdatedAt: start + i,
+        );
+      }
+      await _bumpSite(toSiteId, last);
+      await _libraryStamper.stamp(toSiteId, {
+        'features',
+      }, actingDiverId: actingDiverId);
+    });
+    SyncEventBus.notifyLocalChange();
+  }
+
+  /// Writes [feature] as a new row stamped [now], and returns it.
+  Future<domain.SiteFeature> _insertFeature(
+    domain.SiteFeature feature,
+    int now,
+  ) async {
+    await _db
+        .into(_db.siteFeatures)
+        .insert(
+          SiteFeaturesCompanion.insert(
+            id: feature.id,
+            siteId: feature.siteId,
+            type: feature.typeName,
+            latitude: feature.latitude,
+            longitude: feature.longitude,
+            name: Value(feature.name),
+            bearingDeg: Value(feature.bearingDeg),
+            depthMeters: Value(feature.depthMeters),
+            notes: Value(feature.notes),
+            createdAt: now,
+            updatedAt: now,
+          ),
+        );
+    return feature;
   }
 
   Future<List<domain.SiteFeature>> getFeaturesForSite(String siteId) async {

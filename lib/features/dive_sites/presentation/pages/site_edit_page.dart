@@ -47,6 +47,7 @@ import 'package:submersion/features/marine_life/presentation/widgets/species_pic
 import 'package:submersion/features/weather/presentation/providers/weather_providers.dart';
 import 'package:submersion/l10n/l10n_extension.dart';
 import 'package:submersion/shared/widgets/forms/edit_form_scaffold.dart';
+import 'package:submersion/shared/widgets/master_detail/responsive_breakpoints.dart';
 import 'package:submersion/shared/widgets/shared_items/shared_item_dialogs.dart';
 import 'package:submersion/shared/widgets/forms/responsive_form_columns.dart';
 import 'package:submersion/shared/widgets/forms/number_input_validation.dart';
@@ -115,6 +116,11 @@ class SiteEditPage extends ConsumerStatefulWidget {
        assert(
          duplicateOfId == null || (siteId == null && mergeSiteIds == null),
          'duplicateOfId is only valid when creating a new site',
+       ),
+       assert(
+         duplicateOfId == null ||
+             (initialLocation == null && initialName == null),
+         'a duplicate takes its name and location from the original',
        );
 
   /// The new-site form for the `/sites/new` route, seeded from its `extra`
@@ -2258,10 +2264,16 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
           );
         } else if (widget.isDuplicating) {
           // The copy, not the original, is what the diver goes on to rename
-          // and adjust, as an equipment clone does. Back still returns to
-          // the original; on desktop the detail route selects the copy in
-          // the master-detail list.
-          context.pushReplacement('/sites/$savedId');
+          // and adjust, as an equipment clone does. On a phone Back still
+          // returns to the original. On desktop the copy opens selected in
+          // the master-detail list: a pushed detail page never moves itself
+          // there, so replacing the form would leave it standing over the
+          // list with the original still selected.
+          if (ResponsiveBreakpoints.isMasterDetail(context)) {
+            context.go('/sites?selected=$savedId');
+          } else {
+            context.pushReplacement('/sites/$savedId');
+          }
           ScaffoldMessenger.of(context).showSnackBar(
             SnackBar(
               content: Text(

@@ -306,24 +306,38 @@ void main() {
     expect(find.text('New Site'), findsNothing);
   });
 
-  testWidgets('saving the full-page form opens the new site', (tester) async {
-    tester.view.physicalSize = const Size(900, 3600);
+  /// Pushes the duplicate form over the original's page at [width], saves
+  /// it, and returns the router and the copy's id.
+  Future<(GoRouter, String)> saveRouted(
+    WidgetTester tester, {
+    required double width,
+  }) async {
+    tester.view.physicalSize = Size(width, 3600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
     final router = GoRouter(
       initialLocation: '/sites/site-1',
       routes: [
         GoRoute(
-          path: '/sites/new',
-          builder: (context, state) => SiteEditPage.fromNewSiteExtra(
-            state.extra,
-            duplicateOfId: state.uri.queryParameters['duplicateOf'],
+          path: '/sites',
+          builder: (context, state) => Scaffold(
+            body: Text('list ${state.uri.queryParameters['selected']}'),
           ),
-        ),
-        GoRoute(
-          path: '/sites/:siteId',
-          builder: (context, state) =>
-              Scaffold(body: Text('detail ${state.pathParameters['siteId']}')),
+          routes: [
+            GoRoute(
+              path: 'new',
+              builder: (context, state) => SiteEditPage.fromNewSiteExtra(
+                state.extra,
+                duplicateOfId: state.uri.queryParameters['duplicateOf'],
+              ),
+            ),
+            GoRoute(
+              path: ':siteId',
+              builder: (context, state) => Scaffold(
+                body: Text('detail ${state.pathParameters['siteId']}'),
+              ),
+            ),
+          ],
         ),
       ],
     );
@@ -350,11 +364,28 @@ void main() {
 
     final sites = await tester.runAsync(() => SiteRepository().getAllSites());
     final copyId = sites!.map((s) => s.id).singleWhere((id) => id != 'site-1');
+    return (router, copyId);
+  }
+
+  testWidgets('saving on a phone opens the new site over the original', (
+    tester,
+  ) async {
+    final (router, copyId) = await saveRouted(tester, width: 400);
+
     expect(find.text('detail $copyId'), findsOneWidget);
     expect(find.text('Site added'), findsOneWidget);
     // Back returns to the original, not to the finished form.
     router.pop();
     await tester.pumpAndSettle();
     expect(find.text('detail site-1'), findsOneWidget);
+  });
+
+  testWidgets('saving on desktop selects the new site in the list', (
+    tester,
+  ) async {
+    final (_, copyId) = await saveRouted(tester, width: 1400);
+
+    expect(find.text('list $copyId'), findsOneWidget);
+    expect(find.text('Site added'), findsOneWidget);
   });
 }

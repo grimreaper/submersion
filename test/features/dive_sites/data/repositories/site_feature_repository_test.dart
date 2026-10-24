@@ -267,6 +267,30 @@ void main() {
       );
     });
 
+    test('many copies keep their order and bump the parent once', () async {
+      const types = ['entry', 'exit', 'mooring', 'wreck', 'hazard', 'current'];
+      for (final type in types) {
+        await repo.addFeature(
+          siteId: 'site-1',
+          typeName: type,
+          latitude: 12.1,
+          longitude: -68.3,
+        );
+      }
+      final before = await (db.select(
+        db.diveSites,
+      )..where((t) => t.id.equals('site-2'))).getSingle();
+
+      await repo.copyFeatures(fromSiteId: 'site-1', toSiteId: 'site-2');
+
+      final copies = await repo.getFeaturesForSite('site-2');
+      expect(copies.map((f) => f.typeName), types);
+      final after = await (db.select(
+        db.diveSites,
+      )..where((t) => t.id.equals('site-2'))).getSingle();
+      expect(after.updatedAt, greaterThan(before.updatedAt));
+    });
+
     test('a site with no features copies nothing', () async {
       await repo.copyFeatures(fromSiteId: 'site-1', toSiteId: 'site-2');
 
