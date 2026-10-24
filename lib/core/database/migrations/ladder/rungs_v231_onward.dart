@@ -554,5 +554,13 @@ extension RungsFromV231 on AppDatabase {
       await _assertMediaAndDocumentTagSchema();
     }
     if (from < 309) await reportProgress();
+
+    // v310: dive_tanks.extra_regulator_ids (issue #3375). Column only, no
+    // backfill: a tank's single regulator stays the first. Re-asserted in
+    // beforeOpen through _assertTankExtraRegulatorIds.
+    if (from < 310) {
+      await _assertTankExtraRegulatorIds();
+    }
+    if (from < 310) await reportProgress();
   }
 }

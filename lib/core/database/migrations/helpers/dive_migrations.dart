@@ -24,6 +24,13 @@ extension DiveMigrations on AppDatabase {
     }
   }
 
+  /// v310: dive_tanks.extra_regulator_ids (issue #3375). Idempotent, so it is
+  /// safe to call from both onUpgrade and the beforeOpen backstop, and a
+  /// no-op when the table does not exist yet. No backfill: an existing
+  /// tank's single regulator stays in regulator_equipment_id.
+  Future<void> _assertTankExtraRegulatorIds() =>
+      _addColumnIfMissing('dive_tanks', 'extra_regulator_ids', 'TEXT');
+
   /// v256: dives.computer_tissue_json. Idempotent, so it is safe to call
   /// from both onUpgrade and the beforeOpen backstop, and a no-op when the
   /// table does not exist yet.
