@@ -35,6 +35,7 @@ import 'package:submersion/features/dive_log/domain/entities/computer_tissue_sna
 import 'package:submersion/features/dive_log/domain/entities/dive_text_suggestion_field.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive.dart'
     as domain;
+import 'package:submersion/features/dive_log/domain/entities/tank_extra_regulators.dart';
 import 'package:submersion/features/dive_log/domain/entities/tank_shared_computers.dart';
 import 'package:submersion/features/dive_log/domain/entities/weight_label.dart';
 import 'package:submersion/features/dive_log/domain/entities/dive_data_source.dart';
@@ -1901,7 +1902,8 @@ class DiveRepository {
                 presetName: Value(tank.presetName),
                 computerId: Value(tank.computerId),
                 transmitterSerial: Value(tank.transmitterSerial),
-                regulatorEquipmentId: Value(tank.regulatorEquipmentId),
+                regulatorEquipmentId: _regulatorValues(tank).first,
+                extraRegulatorIds: _regulatorValues(tank).extras,
                 tripCylinderId: Value(
                   validTripCylinderLink(tank.tripCylinderId, validSlots),
                 ),
@@ -2240,7 +2242,8 @@ class DiveRepository {
                 // duration (#1496) is import-owned for the same reason.
                 // The regulator link is user-authored, unlike the two above,
                 // so an edit does write it.
-                regulatorEquipmentId: Value(tank.regulatorEquipmentId),
+                regulatorEquipmentId: _regulatorValues(tank).first,
+                extraRegulatorIds: _regulatorValues(tank).extras,
                 // The slot link is user-authored like the regulator, so an
                 // edit writes it; every rebuild site must carry it.
                 tripCylinderId: Value(
@@ -2281,7 +2284,8 @@ class DiveRepository {
                     presetName: Value(tank.presetName),
                     computerId: Value(tank.computerId),
                     transmitterSerial: Value(tank.transmitterSerial),
-                    regulatorEquipmentId: Value(tank.regulatorEquipmentId),
+                    regulatorEquipmentId: _regulatorValues(tank).first,
+                    extraRegulatorIds: _regulatorValues(tank).extras,
                     tripCylinderId: Value(
                       validTripCylinderLink(tank.tripCylinderId, validSlots),
                     ),
@@ -4326,6 +4330,7 @@ class DiveRepository {
               transmitterSerial: t.transmitterSerial,
               sourceId: t.sourceId,
               regulatorEquipmentId: t.regulatorEquipmentId,
+              extraRegulatorIds: decodeExtraRegulatorIds(t.extraRegulatorIds),
               tripCylinderId: t.tripCylinderId,
               passportId: t.passportId,
               equipmentId: t.equipmentId,
@@ -4782,6 +4787,7 @@ class DiveRepository {
           transmitterSerial: t.transmitterSerial,
           sourceId: t.sourceId,
           regulatorEquipmentId: t.regulatorEquipmentId,
+          extraRegulatorIds: decodeExtraRegulatorIds(t.extraRegulatorIds),
           tripCylinderId: t.tripCylinderId,
           passportId: t.passportId,
           equipmentId: t.equipmentId,
@@ -7343,7 +7349,8 @@ class DiveRepository {
     presetName: Value(t.presetName),
     computerId: Value(t.computerId),
     transmitterSerial: Value(t.transmitterSerial),
-    regulatorEquipmentId: Value(t.regulatorEquipmentId),
+    regulatorEquipmentId: _regulatorValues(t).first,
+    extraRegulatorIds: _regulatorValues(t).extras,
     sourceTankIndex: Value(t.sourceTankIndex),
     // The trip cylinder slot, kept out of templates for the same reason as
     // the registry link: only a restore writes it.
@@ -7417,6 +7424,21 @@ class DiveRepository {
     domain.DiveTank tank, {
     bool onlyIfEmpty = false,
   }) => bulkAddTanks(diveIds, [tank], onlyIfEmpty: onlyIfEmpty);
+
+  /// [t]'s regulators as every write stores them: normalised, with the
+  /// extras as JSON or null (tank_extra_regulators.dart, issue #3375).
+  ({Value<String?> first, Value<String?> extras}) _regulatorValues(
+    domain.DiveTank t,
+  ) {
+    final regs = normalizeTankRegulators(
+      t.regulatorEquipmentId,
+      t.extraRegulatorIds,
+    );
+    return (
+      first: Value(regs.first),
+      extras: Value(encodeExtraRegulatorIds(regs.extras)),
+    );
+  }
 
   /// A companion carrying only the columns named in [fields]. Every other
   /// column stays absent, so the generated UPDATE never mentions it and the
