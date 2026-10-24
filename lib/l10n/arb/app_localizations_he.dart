@@ -19284,6 +19284,24 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
+  String get plannerCanvas_gas_noTurnRule => 'לא הוגדר כלל לחץ פנייה';
+
+  @override
+  String get plannerCanvas_gas_turnNoStartPressure =>
+      'נקודת הפנייה דורשת לחץ התחלתי';
+
+  @override
+  String get plannerCanvas_gas_minGasNoStartPressure =>
+      'גז מינימלי דורש לחץ התחלתי';
+
+  @override
+  String get plannerCanvas_gas_minGasNoVolume => 'גז מינימלי דורש גודל מכל';
+
+  @override
+  String get plannerCanvas_gas_limitsNoStartPressure =>
+      'נקודת הפנייה והגז המינימלי דורשים לחץ התחלתי';
+
+  @override
   String plannerCanvas_gas_usedReading(String reading) {
     return 'בשימוש: $reading';
   }
@@ -19451,6 +19469,15 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get plannerCanvas_slate_turn => 'נקודת חזרה';
+
+  @override
+  String get plannerCanvas_slate_noTurnRule => 'אין כלל';
+
+  @override
+  String get plannerCanvas_slate_noStartPressure => 'אין לחץ התחלתי';
+
+  @override
+  String get plannerCanvas_slate_noVolume => 'אין גודל';
 
   @override
   String get plannerCanvas_table_depth => 'עומק';
@@ -29453,7 +29480,7 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get tags_manage_scopeRequired =>
-      'בחר לפחות אחד: צלילות, אתרים או ציוד';
+      'בחר לפחות אחד: צלילות, אתרים, ציוד, מדיה או מסמכים';
 
   @override
   String get tags_manage_scope_dives => 'צלילות';
@@ -29524,27 +29551,6 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
-  String tags_manage_deleteMessage_divesAndSites(
-    String tagName,
-    int diveCount,
-    int siteCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount צלילות',
-      one: 'צלילה אחת',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount אתרים',
-      one: 'אתר אחד',
-    );
-    return '\"$tagName\" תוסר מ-$_temp0 ומ-$_temp1. לא ניתן לבטל פעולה זו.';
-  }
-
-  @override
   String tags_manage_deleteMessage_equipment(String tagName, int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -29556,78 +29562,8 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
-  String tags_manage_deleteMessage_divesAndEquipment(
-    String tagName,
-    int diveCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount צלילות',
-      one: 'צלילה אחת',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount פריטי ציוד',
-      one: 'פריט ציוד אחד',
-    );
-    return '\"$tagName\" תוסר מ-$_temp0 ומ-$_temp1. לא ניתן לבטל פעולה זו.';
-  }
-
-  @override
-  String tags_manage_deleteMessage_sitesAndEquipment(
-    String tagName,
-    int siteCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount אתרים',
-      one: 'אתר אחד',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount פריטי ציוד',
-      one: 'פריט ציוד אחד',
-    );
-    return '\"$tagName\" תוסר מ-$_temp0 ומ-$_temp1. לא ניתן לבטל פעולה זו.';
-  }
-
-  @override
-  String tags_manage_deleteMessage_all(
-    String tagName,
-    int diveCount,
-    int siteCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount צלילות',
-      one: 'צלילה אחת',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount אתרים',
-      one: 'אתר אחד',
-    );
-    String _temp2 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount פריטי ציוד',
-      one: 'פריט ציוד אחד',
-    );
-    return '\"$tagName\" תוסר מ-$_temp0, מ-$_temp1 ומ-$_temp2. לא ניתן לבטל פעולה זו.';
-  }
-
-  @override
   String tags_manage_deleteMessage_unused(String tagName) {
-    return '\"$tagName\" אינה בשימוש באף צלילה, אתר או פריט ציוד. לא ניתן לבטל פעולה זו.';
+    return '\"$tagName\" אינה בשימוש בשום מקום. לא ניתן לבטל פעולה זו.';
   }
 
   @override
@@ -29659,26 +29595,6 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
-  String tags_manage_bulkDeleteMessage_divesAndSites(
-    int diveCount,
-    int siteCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount צלילות',
-      one: 'צלילה אחת',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount אתרים',
-      one: 'אתר אחד',
-    );
-    return 'תגיות אלו יוסרו מ-$_temp0 ומ-$_temp1 בסך הכל. לא ניתן לבטל פעולה זו.';
-  }
-
-  @override
   String tags_manage_bulkDeleteMessage_equipment(int equipmentCount) {
     String _temp0 = intl.Intl.pluralLogic(
       equipmentCount,
@@ -29690,75 +29606,8 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
-  String tags_manage_bulkDeleteMessage_divesAndEquipment(
-    int diveCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount צלילות',
-      one: 'צלילה אחת',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount פריטי ציוד',
-      one: 'פריט ציוד אחד',
-    );
-    return 'תגיות אלו יוסרו מ-$_temp0 ומ-$_temp1 בסך הכל. לא ניתן לבטל פעולה זו.';
-  }
-
-  @override
-  String tags_manage_bulkDeleteMessage_sitesAndEquipment(
-    int siteCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount אתרים',
-      one: 'אתר אחד',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount פריטי ציוד',
-      one: 'פריט ציוד אחד',
-    );
-    return 'תגיות אלו יוסרו מ-$_temp0 ומ-$_temp1 בסך הכל. לא ניתן לבטל פעולה זו.';
-  }
-
-  @override
-  String tags_manage_bulkDeleteMessage_all(
-    int diveCount,
-    int siteCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount צלילות',
-      one: 'צלילה אחת',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount אתרים',
-      one: 'אתר אחד',
-    );
-    String _temp2 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount פריטי ציוד',
-      one: 'פריט ציוד אחד',
-    );
-    return 'תגיות אלו יוסרו מ-$_temp0, מ-$_temp1 ומ-$_temp2 בסך הכל. לא ניתן לבטל פעולה זו.';
-  }
-
-  @override
   String get tags_manage_bulkDeleteMessage_unused =>
-      'תגיות אלו אינן בשימוש באף צלילה, אתר או פריט ציוד. לא ניתן לבטל פעולה זו.';
+      'תגיות אלו אינן בשימוש בשום מקום. לא ניתן לבטל פעולה זו.';
 
   @override
   String tags_manage_mergeTitle(int count) {
@@ -29795,23 +29644,6 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
-  String tags_manage_mergeAffected_divesAndSites(int diveCount, int siteCount) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount צלילות',
-      one: 'צלילה אחת',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount אתרים',
-      one: 'אתר אחד',
-    );
-    return 'פעולה זו תשפיע על $_temp0 ועל $_temp1 בסך הכל.';
-  }
-
-  @override
   String tags_manage_mergeAffected_equipment(int count) {
     String _temp0 = intl.Intl.pluralLogic(
       count,
@@ -29823,75 +29655,8 @@ class AppLocalizationsHe extends AppLocalizations {
   }
 
   @override
-  String tags_manage_mergeAffected_divesAndEquipment(
-    int diveCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount צלילות',
-      one: 'צלילה אחת',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount פריטי ציוד',
-      one: 'פריט ציוד אחד',
-    );
-    return 'פעולה זו תשפיע על $_temp0 ועל $_temp1 בסך הכל.';
-  }
-
-  @override
-  String tags_manage_mergeAffected_sitesAndEquipment(
-    int siteCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount אתרים',
-      one: 'אתר אחד',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount פריטי ציוד',
-      one: 'פריט ציוד אחד',
-    );
-    return 'פעולה זו תשפיע על $_temp0 ועל $_temp1 בסך הכל.';
-  }
-
-  @override
-  String tags_manage_mergeAffected_all(
-    int diveCount,
-    int siteCount,
-    int equipmentCount,
-  ) {
-    String _temp0 = intl.Intl.pluralLogic(
-      diveCount,
-      locale: localeName,
-      other: '$diveCount צלילות',
-      one: 'צלילה אחת',
-    );
-    String _temp1 = intl.Intl.pluralLogic(
-      siteCount,
-      locale: localeName,
-      other: '$siteCount אתרים',
-      one: 'אתר אחד',
-    );
-    String _temp2 = intl.Intl.pluralLogic(
-      equipmentCount,
-      locale: localeName,
-      other: '$equipmentCount פריטי ציוד',
-      one: 'פריט ציוד אחד',
-    );
-    return 'פעולה זו תשפיע על $_temp0, על $_temp1 ועל $_temp2 בסך הכל.';
-  }
-
-  @override
   String get tags_manage_mergeAffected_unused =>
-      'תגיות אלו אינן בשימוש באף צלילה, אתר או פריט ציוד.';
+      'תגיות אלו אינן בשימוש בשום מקום.';
 
   @override
   String get tags_manage_mergeAction => 'מיזוג';
@@ -53877,6 +53642,264 @@ class AppLocalizationsHe extends AppLocalizations {
 
   @override
   String get settings_conflict_field_remoteStoreId => 'הועלה אל';
+
+  @override
+  String get tags_manage_scope_media => 'מדיה';
+
+  @override
+  String get tags_manage_scope_documents => 'מסמכים';
+
+  @override
+  String get tags_manage_useForMedia => 'שימוש למדיה';
+
+  @override
+  String get tags_manage_useForDocuments => 'שימוש למסמכים';
+
+  @override
+  String tags_manage_mediaCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count פריטי מדיה',
+      one: 'פריט מדיה אחד',
+      zero: '0 פריטי מדיה',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String tags_manage_documentCount(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count מסמכים',
+      one: 'מסמך אחד',
+      zero: '0 מסמכים',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String tags_manage_narrowDialog_media(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'התגית הזו מופיעה ב-$count פריטי מדיה. כיבוי \"שימוש למדיה\" יסיר אותה מפריטים אלה.',
+      one:
+          'התגית הזו מופיעה בפריט מדיה אחד. כיבוי \"שימוש למדיה\" יסיר אותה מפריט זה.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String tags_manage_narrowDialog_documents(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          'התגית הזו מופיעה ב-$count מסמכים. כיבוי \"שימוש למסמכים\" יסיר אותה ממסמכים אלה.',
+      one:
+          'התגית הזו מופיעה במסמך אחד. כיבוי \"שימוש למסמכים\" יסיר אותה ממסמך זה.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String tags_manage_deleteMessage_media(String tagName, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count פריטי מדיה',
+      one: 'פריט מדיה אחד',
+    );
+    return '\"$tagName\" תוסר מ-$_temp0. לא ניתן לבטל פעולה זו.';
+  }
+
+  @override
+  String tags_manage_deleteMessage_documents(String tagName, int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count מסמכים',
+      one: 'מסמך אחד',
+    );
+    return '\"$tagName\" תוסר מ-$_temp0. לא ניתן לבטל פעולה זו.';
+  }
+
+  @override
+  String tags_manage_bulkDeleteMessage_media(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count פריטי מדיה',
+      one: 'פריט מדיה אחד',
+    );
+    return 'תגיות אלו יוסרו מ-$_temp0 בסך הכל. לא ניתן לבטל פעולה זו.';
+  }
+
+  @override
+  String tags_manage_bulkDeleteMessage_documents(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count מסמכים',
+      one: 'מסמך אחד',
+    );
+    return 'תגיות אלו יוסרו מ-$_temp0 בסך הכל. לא ניתן לבטל פעולה זו.';
+  }
+
+  @override
+  String tags_manage_mergeAffected_media(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count פריטי מדיה',
+      one: 'פריט מדיה אחד',
+    );
+    return 'פעולה זו תשפיע על $_temp0 בסך הכל.';
+  }
+
+  @override
+  String tags_manage_mergeAffected_documents(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count מסמכים',
+      one: 'מסמך אחד',
+    );
+    return 'פעולה זו תשפיע על $_temp0 בסך הכל.';
+  }
+
+  @override
+  String tags_manage_deleteMessage_several(String tagName) {
+    return '\"$tagName\" תוסר מ:';
+  }
+
+  @override
+  String get tags_manage_bulkDeleteMessage_several => 'תגיות אלו יוסרו מ:';
+
+  @override
+  String get tags_manage_mergeAffected_several => 'פעולה זו תשפיע על:';
+
+  @override
+  String get tags_manage_cannotUndo => 'לא ניתן לבטל פעולה זו.';
+
+  @override
+  String get tags_action_edit => 'עריכת תגיות';
+
+  @override
+  String get media_info_tags => 'תגיות';
+
+  @override
+  String get media_info_noTags => 'אין תגיות עדיין';
+
+  @override
+  String media_info_showWithTag(String tagName) {
+    return 'הצג מדיה עם התגית $tagName';
+  }
+
+  @override
+  String get media_library_filter_tags => 'תגיות';
+
+  @override
+  String media_bulkTags_confirmAdding(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'הוספה לכל $count פריטי המדיה',
+      one: 'הוספה לפריט מדיה אחד',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String media_bulkTags_confirmRemoving(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'הסרה מכל $count פריטי המדיה',
+      one: 'הסרה מפריט מדיה אחד',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_bulkTags_empty => 'אין תגיות מדיה עדיין';
+
+  @override
+  String get documents_field_tags => 'תגיות';
+
+  @override
+  String documents_detail_showWithTag(String tagName) {
+    return 'הצג מסמכים עם התגית $tagName';
+  }
+
+  @override
+  String tags_bulk_adding(int total) {
+    return 'מוסיף לכל $total';
+  }
+
+  @override
+  String tags_bulk_applied(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'התגיות של $count פריטים עודכנו',
+      one: 'התגיות של פריט אחד עודכנו',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_confirmTitle => 'להחיל שינויים?';
+
+  @override
+  String tags_bulk_failed(String error) {
+    return 'לא ניתן לעדכן את התגיות: $error';
+  }
+
+  @override
+  String tags_bulk_onAll(int count) {
+    return 'בכל $count';
+  }
+
+  @override
+  String tags_bulk_onSome(int count, int total) {
+    return 'ב-$count מתוך $total';
+  }
+
+  @override
+  String get tags_bulk_removing => 'מסיר מהכול';
+
+  @override
+  String get tags_bulk_tagsLabel => 'תגיות';
+
+  @override
+  String tags_bulk_title(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: 'עריכת תגיות של $count פריטים',
+      one: 'עריכת תגיות של פריט אחד',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get tags_bulk_undo => 'ביטול';
+
+  @override
+  String get tags_bulk_undoFailed => 'לא ניתן לבטל את שינוי התגיות.';
+
+  @override
+  String get settings_conflict_field_appliesToMedia => 'זמין במדיה';
+
+  @override
+  String get settings_conflict_field_appliesToDocuments => 'זמין במסמכים';
+
+  @override
+  String get documents_export_manifest_tags => 'תגיות';
 
   @override
   String settings_setUpDevice_title(String device) {

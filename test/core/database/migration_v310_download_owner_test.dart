@@ -3,9 +3,10 @@ import 'package:flutter_test/flutter_test.dart';
 
 import 'package:submersion/core/database/database.dart';
 
-/// Schema v309: diver_settings gains downloads_follow_computer_owner (issue
-/// #2050), on for every existing diver so a download from a computer that
-/// belongs to another profile goes to that profile by default.
+/// Schema v310 (renumbered from 309 as #3605 shipped 309 first):
+/// diver_settings gains downloads_follow_computer_owner (issue #2050), on for
+/// every existing diver so a download from a computer that belongs to another
+/// profile goes to that profile by default.
 void main() {
   NativeDatabase dbAt(int version) => NativeDatabase.memory(
     setup: (rawDb) {
@@ -20,23 +21,23 @@ void main() {
     },
   );
 
-  test('v309 is in the ladder', () {
-    expect(AppDatabase.currentSchemaVersion, greaterThanOrEqualTo(309));
-    expect(AppDatabase.migrationVersions, contains(309));
+  test('v310 is in the ladder', () {
+    expect(AppDatabase.currentSchemaVersion, greaterThanOrEqualTo(310));
+    expect(AppDatabase.migrationVersions, contains(310));
     expect(
-      AppDatabase.migrationStepCount(308),
-      AppDatabase.migrationStepCount(309) + 1,
+      AppDatabase.migrationStepCount(309),
+      AppDatabase.migrationStepCount(310) + 1,
     );
   });
 
   test('the column is additive and did not move the sync floor', () {
-    expect(AppDatabase.minimumCompatibleSchemaVersion, isNot(309));
+    expect(AppDatabase.minimumCompatibleSchemaVersion, isNot(310));
   });
 
   test(
-    'upgrading from v308 turns the switch on for an existing diver',
+    'upgrading from v309 turns the switch on for an existing diver',
     () async {
-      final db = AppDatabase(dbAt(308));
+      final db = AppDatabase(dbAt(309));
       addTearDown(db.close);
       final row = await db
           .customSelect(
@@ -47,8 +48,8 @@ void main() {
     },
   );
 
-  test('beforeOpen heals a database already at v309 that lacks it', () async {
-    final db = AppDatabase(dbAt(309));
+  test('beforeOpen heals a database already at v310 that lacks it', () async {
+    final db = AppDatabase(dbAt(310));
     addTearDown(db.close);
     final columns =
         (await db.customSelect("PRAGMA table_info('diver_settings')").get())

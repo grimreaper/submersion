@@ -12,7 +12,7 @@ extension BeforeOpenSettingsColumns on AppDatabase {
     // v308 backstop: dive_plans reserve_pressure/gf_low/gf_high made
     // nullable, diver_settings.planner_reserve_pressure added.
     await _assertDivePlanReserveAndGfNullable();
-    // v309 backstop: diver_settings.downloads_follow_computer_owner.
+    // v310 backstop: diver_settings.downloads_follow_computer_owner.
     await _assertDownloadOwnerColumn();
   }
 }

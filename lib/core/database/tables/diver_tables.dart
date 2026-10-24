@@ -320,7 +320,7 @@ class DiverSettings extends Table {
       boolean().withDefault(const Constant(true))();
 
   /// Whether a dive computer download defaults to the computer's owner when
-  /// that is another profile (v309, issue #2050). Only the review step's
+  /// that is another profile (v310, issue #2050). Only the review step's
   /// starting choice: the computer is recognised either way.
   BoolColumn get downloadsFollowComputerOwner =>
       boolean().withDefault(const Constant(true))();

@@ -546,9 +546,19 @@ extension RungsFromV231 on AppDatabase {
     }
     if (from < 308) await reportProgress();
 
-    // v309: diver_settings.downloads_follow_computer_owner (issue #2050).
-    // Column only, on by default; re-asserted in beforeOpen.
-    if (from < 309) await _assertDownloadOwnerColumn();
+    // v309: media and document tags (issue #1970). Column-and-table rung, no
+    // backfill: existing tags stay off media and documents. Re-asserted in
+    // beforeOpen through _assertMediaAndDocumentTagSchema.
+    if (from < 309) {
+      await _assertTagScopeColumns();
+      await _assertMediaAndDocumentTagSchema();
+    }
     if (from < 309) await reportProgress();
+
+    // v310: diver_settings.downloads_follow_computer_owner (issue #2050).
+    // Column only, on by default; re-asserted in beforeOpen. Renumbered from
+    // 309 as #3605 shipped 309 first.
+    if (from < 310) await _assertDownloadOwnerColumn();
+    if (from < 310) await reportProgress();
   }
 }

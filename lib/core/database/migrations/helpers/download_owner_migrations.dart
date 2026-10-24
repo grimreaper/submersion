@@ -4,7 +4,7 @@ part of '../app_database_migrations.dart';
 /// #2050). On for every diver, existing ones included: the column is new, so
 /// no saved choice is overwritten.
 extension DownloadOwnerMigrations on AppDatabase {
-  /// v309: diver_settings.downloads_follow_computer_owner. Idempotent; called
+  /// v310: diver_settings.downloads_follow_computer_owner. Idempotent; called
   /// from the rung and the beforeOpen backstop.
   Future<void> _assertDownloadOwnerColumn() async {
     await _addColumnIfMissing(

@@ -70,7 +70,8 @@ target diver instead of reading the active profile.
 - Modify: `lib/features/settings/presentation/conflicts/catalogue/diver_settings_fields.dart`
 - Modify: `lib/features/settings/presentation/widgets/import_preferences_group.dart`
 - Modify: `lib/l10n/arb/app_*.arb` (11 files)
-- Test: `test/core/database/migration_v309_download_owner_test.dart`
+- Test: `test/core/database/migration_v310_download_owner_test.dart` (shipped
+  as v310: #3605 took 309 first)
 - Test: `test/features/settings/data/repositories/diver_settings_repository_download_owner_test.dart`
 - Test: `test/features/settings/presentation/widgets/import_preferences_group_download_owner_test.dart`
 
