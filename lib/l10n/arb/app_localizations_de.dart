@@ -2353,8 +2353,8 @@ class AppLocalizationsDe extends AppLocalizations {
       'Hauptbereich in der Größe ändern';
 
   @override
-  String get accessibility_label_sharedWithAllProfiles =>
-      'Mit allen Taucherprofilen geteilt';
+  String get accessibility_label_sharedWithProfiles =>
+      'Mit anderen Taucherprofilen geteilt';
 
   @override
   String get accessibility_label_showList => 'Liste anzeigen';
@@ -9402,6 +9402,11 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get diveLog_search_jumpTitle => 'Zum Tauchgang springen';
+
+  @override
+  String diveLog_search_jumpNumberTitle(int number, String title) {
+    return '#$number · $title';
+  }
 
   @override
   String diveLog_ask_row(String text) {
@@ -18654,8 +18659,40 @@ class AppLocalizationsDe extends AppLocalizations {
   }
 
   @override
-  String media_photoPicker_files_diveGroupTitle(String diveId) {
-    return 'Tauchgang $diveId';
+  String media_photoPicker_files_diveGroupNumberSite(int number, String site) {
+    return 'Tauchgang #$number · $site';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupNumber(int number) {
+    return 'Tauchgang #$number';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupSite(String site) {
+    return 'Tauchgang · $site';
+  }
+
+  @override
+  String get media_photoPicker_files_diveGroupUnnamed => 'Tauchgang';
+
+  @override
+  String media_photoPicker_files_diveGroupWindow(
+    String date,
+    String start,
+    String end,
+  ) {
+    return '$date · $start – $end';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupStart(String date, String start) {
+    return '$date · $start';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupSubtitle(String when, String files) {
+    return '$when · $files';
   }
 
   @override
@@ -18928,6 +18965,36 @@ class AppLocalizationsDe extends AppLocalizations {
   String media_photoViewer_failedToShare(Object error) {
     return 'Teilen fehlgeschlagen: $error';
   }
+
+  @override
+  String get media_share_preparingVideo => 'Video wird vorbereitet';
+
+  @override
+  String media_share_preparingVideoOf(int current, int total) {
+    return 'Video $current von $total wird vorbereitet';
+  }
+
+  @override
+  String get media_share_correctionFailedTitle =>
+      'Farbkorrektur konnte nicht angewendet werden';
+
+  @override
+  String media_share_correctionFailedBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Videos können trotzdem ohne sie geteilt werden.',
+      one: 'Dieses Video kann trotzdem ohne sie geteilt werden.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_share_shareOriginal => 'Original teilen';
+
+  @override
+  String get media_share_videoInterrupted =>
+      'Die Videovorbereitung wurde angehalten, als Submersion in den Hintergrund wechselte. Teile erneut, um neu zu beginnen.';
 
   @override
   String get media_photoViewer_failedToWriteMetadata =>
@@ -22557,6 +22624,10 @@ class AppLocalizationsDe extends AppLocalizations {
   @override
   String get settings_conflict_field_autoTagImports =>
       'Importierte Tauchgänge markieren';
+
+  @override
+  String get settings_conflict_field_downloadsFollowComputerOwner =>
+      'Downloads dem Besitzer des Computers zuordnen';
 
   @override
   String get settings_conflict_field_avgSpeed => 'Durchschnittsgeschwindigkeit';
@@ -30104,6 +30175,14 @@ class AppLocalizationsDe extends AppLocalizations {
       'Jeder neue Import startet mit einem Tag, das Quelle und Datum nennt. Für einen einzelnen Import lässt sich dies in dessen Import-Optionen ändern.';
 
   @override
+  String get settings_downloadsFollowOwner_title =>
+      'Downloads dem Besitzer des Computers zuordnen';
+
+  @override
+  String get settings_downloadsFollowOwner_subtitle =>
+      'Gehört ein Tauchcomputer zu einem anderen Profil, landen seine Tauchgänge im Logbuch dieses Profils. Auf dem Prüfbildschirm lässt sich das ändern.';
+
+  @override
   String get tags_manage_searchHint => 'Tags suchen...';
 
   @override
@@ -32653,6 +32732,9 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String get universalImport_summary_newProfile => 'Neues Profil';
+
+  @override
+  String get universalImport_summary_unnamedProfile => 'Unbenanntes Profil';
 
   @override
   String universalImport_summary_switchToSee(String name) {
@@ -35643,6 +35725,14 @@ class AppLocalizationsDe extends AppLocalizations {
   String get universalImport_title_importOptions => 'Importoptionen';
 
   @override
+  String universalImport_computerOwner_notice(String owner, String chosen) {
+    return 'Dieser Computer gehört $owner. Die Tauchgänge werden dem Logbuch von $chosen hinzugefügt.';
+  }
+
+  @override
+  String get universalImport_computerOwner_profileLabel => 'Profil';
+
+  @override
   String get universalImport_label_options => 'Optionen';
 
   @override
@@ -35708,29 +35798,19 @@ class AppLocalizationsDe extends AppLocalizations {
       'Neue Orte und Reisen standardmäßig teilen';
 
   @override
-  String get settings_shareAllSites_title => 'Alle meine Orte teilen';
+  String get settings_shareAllSites_title => 'Alle meine Tauchplätze teilen...';
 
   @override
-  String get settings_shareAllTrips_title => 'Alle meine Reisen teilen';
+  String get settings_shareAllTrips_title => 'Alle meine Reisen teilen...';
 
   @override
   String settings_shareAllSites_confirm(int count) {
-    return 'Alle $count deiner Orte für jedes Taucherprofil in dieser App sichtbar machen? Du kannst einzelne Orte später wieder privat machen.';
+    return 'Wähle aus, wer alle $count deiner Tauchplätze sieht. Um einen Tauchplatz später zu ändern, öffne ihn und tippe auf Geteilt mit.';
   }
 
   @override
   String settings_shareAllTrips_confirm(int count) {
-    return 'Alle $count deiner Reisen für jedes Taucherprofil in dieser App sichtbar machen? Du kannst einzelne Reisen später wieder privat machen.';
-  }
-
-  @override
-  String settings_shareAllSites_snackbar(int count) {
-    return '$count Orte mit allen Taucherprofilen geteilt.';
-  }
-
-  @override
-  String settings_shareAllTrips_snackbar(int count) {
-    return '$count Reisen mit allen Taucherprofilen geteilt.';
+    return 'Wähle aus, wer alle $count deiner Reisen sieht. Um eine Reise später zu ändern, öffne sie und tippe auf Geteilt mit.';
   }
 
   @override
@@ -35767,7 +35847,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String trips_unshareConfirm_body(String name) {
-    return '„$name\" wird aus den Ansichten anderer Taucherprofile entfernt. Du kannst die Reise später wieder teilen.';
+    return 'Profile, die du entfernst, sehen „$name\" nicht mehr. Ihre Tauchgänge bleiben damit verknüpft, und du kannst die Reise später wieder mit ihnen teilen.';
   }
 
   @override
@@ -35775,7 +35855,7 @@ class AppLocalizationsDe extends AppLocalizations {
 
   @override
   String sites_unshareConfirm_body(String name) {
-    return '„$name\" wird aus den Ansichten anderer Taucherprofile entfernt. Du kannst den Ort später wieder teilen.';
+    return 'Profile, die du entfernst, sehen „$name\" nicht mehr. Ihre Tauchgänge bleiben damit verknüpft, und du kannst den Tauchplatz später wieder mit ihnen teilen.';
   }
 
   @override
@@ -35850,6 +35930,31 @@ class AppLocalizationsDe extends AppLocalizations {
       one: '$count Eintrag aus deinem Profil entfernen?',
     );
     return '$_temp0';
+  }
+
+  @override
+  String get sharedItems_bulkShare_action => 'Teilen mit...';
+
+  @override
+  String sharedItems_bulkShare_done(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Elemente geteilt',
+      one: '$count Element geteilt',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String sharedItems_bulkShare_doneSkipped(int count, int skipped) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count Elemente geteilt',
+      one: '$count Element geteilt',
+    );
+    return '$_temp0, $skipped übersprungen, die dir nicht gehören';
   }
 
   @override
@@ -35950,6 +36055,21 @@ class AppLocalizationsDe extends AppLocalizations {
   String get sharedItems_removedSnackbar => 'Aus deinem Profil entfernt';
 
   @override
+  String get sharedItems_shareDialog_everyoneSubtitle =>
+      'Jedes Taucherprofil, auch später hinzugefügte';
+
+  @override
+  String get sharedItems_shareDialog_siteBody =>
+      'Die Profile, die du auswählst, sehen diesen Tauchplatz und können eigene Tauchgänge dort eintragen. Nur du kannst ihn löschen oder ändern, mit wem er geteilt wird.';
+
+  @override
+  String get sharedItems_shareDialog_title => 'Teilen mit';
+
+  @override
+  String get sharedItems_shareDialog_tripBody =>
+      'Die Profile, die du auswählst, sehen diese Reise und können eigene Tauchgänge hinzufügen. Nur du kannst sie löschen oder ändern, mit wem sie geteilt wird.';
+
+  @override
   String sharedItems_shareOwnerOnly(String owner) {
     return 'Nur $owner kann das Teilen ändern';
   }
@@ -35958,6 +36078,15 @@ class AppLocalizationsDe extends AppLocalizations {
   String sharedItems_sharedBy(String owner) {
     return 'Geteilt von $owner';
   }
+
+  @override
+  String get sharedItems_sharedWith_everyone => 'Alle';
+
+  @override
+  String get sharedItems_sharedWith_label => 'Geteilt mit';
+
+  @override
+  String get sharedItems_sharedWith_none => 'Nicht geteilt';
 
   @override
   String get sharedItems_undo => 'Rückgängig';
@@ -35988,6 +36117,19 @@ class AppLocalizationsDe extends AppLocalizations {
       one: 'geteilter Ort',
     );
     return 'Taucher gelöscht. $trips $_temp0 und $sites $_temp1 wurden $name zugewiesen.';
+  }
+
+  @override
+  String divers_delete_handedOver(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count geteilte Reisen und Orte gingen an die Profile, mit denen sie geteilt waren.',
+      one:
+          '$count geteilte Reise oder geteilter Ort ging an das Profil, mit dem sie geteilt war.',
+    );
+    return '$_temp0';
   }
 
   @override

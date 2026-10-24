@@ -2343,8 +2343,8 @@ class AppLocalizationsNl extends AppLocalizations {
       'Hoofdvenster formaat aanpassen';
 
   @override
-  String get accessibility_label_sharedWithAllProfiles =>
-      'Gedeeld met alle duikersprofielen';
+  String get accessibility_label_sharedWithProfiles =>
+      'Gedeeld met andere duikersprofielen';
 
   @override
   String get accessibility_label_showList => 'Lijst tonen';
@@ -9343,6 +9343,11 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get diveLog_search_jumpTitle => 'Naar duik springen';
+
+  @override
+  String diveLog_search_jumpNumberTitle(int number, String title) {
+    return '#$number · $title';
+  }
 
   @override
   String diveLog_ask_row(String text) {
@@ -18551,8 +18556,40 @@ class AppLocalizationsNl extends AppLocalizations {
   }
 
   @override
-  String media_photoPicker_files_diveGroupTitle(String diveId) {
-    return 'Duik $diveId';
+  String media_photoPicker_files_diveGroupNumberSite(int number, String site) {
+    return 'Duik #$number · $site';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupNumber(int number) {
+    return 'Duik #$number';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupSite(String site) {
+    return 'Duik · $site';
+  }
+
+  @override
+  String get media_photoPicker_files_diveGroupUnnamed => 'Duik';
+
+  @override
+  String media_photoPicker_files_diveGroupWindow(
+    String date,
+    String start,
+    String end,
+  ) {
+    return '$date · $start – $end';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupStart(String date, String start) {
+    return '$date · $start';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupSubtitle(String when, String files) {
+    return '$when · $files';
   }
 
   @override
@@ -18823,6 +18860,36 @@ class AppLocalizationsNl extends AppLocalizations {
   String media_photoViewer_failedToShare(Object error) {
     return 'Delen mislukt: $error';
   }
+
+  @override
+  String get media_share_preparingVideo => 'Video voorbereiden';
+
+  @override
+  String media_share_preparingVideoOf(int current, int total) {
+    return 'Video $current van $total voorbereiden';
+  }
+
+  @override
+  String get media_share_correctionFailedTitle =>
+      'Kleurcorrectie kon niet worden toegepast';
+
+  @override
+  String media_share_correctionFailedBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count video\'s kunnen nog steeds zonder worden gedeeld.',
+      one: 'Deze video kan nog steeds zonder worden gedeeld.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_share_shareOriginal => 'Origineel delen';
+
+  @override
+  String get media_share_videoInterrupted =>
+      'Het voorbereiden van de video stopte toen Submersion naar de achtergrond ging. Deel opnieuw om opnieuw te beginnen.';
 
   @override
   String get media_photoViewer_failedToWriteMetadata =>
@@ -22445,6 +22512,10 @@ class AppLocalizationsNl extends AppLocalizations {
   @override
   String get settings_conflict_field_autoTagImports =>
       'Geïmporteerde duiken labelen';
+
+  @override
+  String get settings_conflict_field_downloadsFollowComputerOwner =>
+      'Downloads toevoegen aan de eigenaar van de computer';
 
   @override
   String get settings_conflict_field_avgSpeed => 'Gemiddelde snelheid';
@@ -29964,6 +30035,14 @@ class AppLocalizationsNl extends AppLocalizations {
       'Elke nieuwe import begint met een tag die de bron en datum vermeldt. Dit kan voor één import worden aangepast in de opties van die import.';
 
   @override
+  String get settings_downloadsFollowOwner_title =>
+      'Downloads toevoegen aan de eigenaar van de computer';
+
+  @override
+  String get settings_downloadsFollowOwner_subtitle =>
+      'Hoort een duikcomputer bij een ander profiel, dan gaan de duiken naar het logboek van dat profiel. Je kunt dit wijzigen op het controlescherm.';
+
+  @override
   String get tags_manage_searchHint => 'Tags zoeken...';
 
   @override
@@ -32498,6 +32577,9 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String get universalImport_summary_newProfile => 'Nieuw profiel';
+
+  @override
+  String get universalImport_summary_unnamedProfile => 'Naamloos profiel';
 
   @override
   String universalImport_summary_switchToSee(String name) {
@@ -35471,6 +35553,14 @@ class AppLocalizationsNl extends AppLocalizations {
   String get universalImport_title_importOptions => 'Importopties';
 
   @override
+  String universalImport_computerOwner_notice(String owner, String chosen) {
+    return 'Deze computer is van $owner. De duiken worden toegevoegd aan het logboek van $chosen.';
+  }
+
+  @override
+  String get universalImport_computerOwner_profileLabel => 'Profiel';
+
+  @override
   String get universalImport_label_options => 'Opties';
 
   @override
@@ -35537,29 +35627,19 @@ class AppLocalizationsNl extends AppLocalizations {
       'Nieuwe sites en trips standaard delen';
 
   @override
-  String get settings_shareAllSites_title => 'Al mijn sites delen';
+  String get settings_shareAllSites_title => 'Al mijn duikplekken delen...';
 
   @override
-  String get settings_shareAllTrips_title => 'Al mijn trips delen';
+  String get settings_shareAllTrips_title => 'Al mijn trips delen...';
 
   @override
   String settings_shareAllSites_confirm(int count) {
-    return 'Al je $count sites zichtbaar maken voor elk duikersprofiel in deze app? Je kunt individuele sites later ontdelen.';
+    return 'Kies wie al je $count duikplekken ziet. Om één duikplek later te wijzigen, open je hem en tik je op Gedeeld met.';
   }
 
   @override
   String settings_shareAllTrips_confirm(int count) {
-    return 'Al je $count trips zichtbaar maken voor elk duikersprofiel in deze app? Je kunt individuele trips later ontdelen.';
-  }
-
-  @override
-  String settings_shareAllSites_snackbar(int count) {
-    return '$count sites gedeeld met alle duikersprofielen.';
-  }
-
-  @override
-  String settings_shareAllTrips_snackbar(int count) {
-    return '$count trips gedeeld met alle duikersprofielen.';
+    return 'Kies wie al je $count trips ziet. Om één trip later te wijzigen, open je hem en tik je op Gedeeld met.';
   }
 
   @override
@@ -35596,7 +35676,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String trips_unshareConfirm_body(String name) {
-    return 'Hiermee wordt ‘$name’ uit de weergaven van andere duikersprofielen verwijderd. Je kunt het later weer delen.';
+    return 'Profielen die je weghaalt zien „$name\" niet meer. Hun duiken blijven eraan gekoppeld en je kunt de trip later weer met ze delen.';
   }
 
   @override
@@ -35604,7 +35684,7 @@ class AppLocalizationsNl extends AppLocalizations {
 
   @override
   String sites_unshareConfirm_body(String name) {
-    return 'Hiermee wordt ‘$name’ uit de weergaven van andere duikersprofielen verwijderd. Je kunt het later weer delen.';
+    return 'Profielen die je weghaalt zien „$name\" niet meer. Hun duiken blijven eraan gekoppeld en je kunt de duikplek later weer met ze delen.';
   }
 
   @override
@@ -35679,6 +35759,31 @@ class AppLocalizationsNl extends AppLocalizations {
       one: '$count item uit je profiel verwijderen?',
     );
     return '$_temp0';
+  }
+
+  @override
+  String get sharedItems_bulkShare_action => 'Delen met...';
+
+  @override
+  String sharedItems_bulkShare_done(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count items gedeeld',
+      one: '$count item gedeeld',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String sharedItems_bulkShare_doneSkipped(int count, int skipped) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count items gedeeld',
+      one: '$count item gedeeld',
+    );
+    return '$_temp0, $skipped overgeslagen die niet van jou zijn';
   }
 
   @override
@@ -35779,6 +35884,21 @@ class AppLocalizationsNl extends AppLocalizations {
   String get sharedItems_removedSnackbar => 'Uit je profiel verwijderd';
 
   @override
+  String get sharedItems_shareDialog_everyoneSubtitle =>
+      'Elk duikersprofiel, ook profielen die later worden toegevoegd';
+
+  @override
+  String get sharedItems_shareDialog_siteBody =>
+      'De profielen die je kiest zien deze duikplek en kunnen er hun eigen duiken op vastleggen. Alleen jij kunt hem verwijderen of wijzigen met wie hij wordt gedeeld.';
+
+  @override
+  String get sharedItems_shareDialog_title => 'Delen met';
+
+  @override
+  String get sharedItems_shareDialog_tripBody =>
+      'De profielen die je kiest zien deze trip en kunnen er hun eigen duiken aan toevoegen. Alleen jij kunt hem verwijderen of wijzigen met wie hij wordt gedeeld.';
+
+  @override
   String sharedItems_shareOwnerOnly(String owner) {
     return 'Alleen $owner kan het delen wijzigen';
   }
@@ -35787,6 +35907,15 @@ class AppLocalizationsNl extends AppLocalizations {
   String sharedItems_sharedBy(String owner) {
     return 'Gedeeld door $owner';
   }
+
+  @override
+  String get sharedItems_sharedWith_everyone => 'Iedereen';
+
+  @override
+  String get sharedItems_sharedWith_label => 'Gedeeld met';
+
+  @override
+  String get sharedItems_sharedWith_none => 'Niet gedeeld';
 
   @override
   String get sharedItems_undo => 'Ongedaan maken';
@@ -35817,6 +35946,19 @@ class AppLocalizationsNl extends AppLocalizations {
       one: 'site',
     );
     return 'Duiker verwijderd. $trips gedeelde $_temp0 en $sites gedeelde $_temp1 toegewezen aan $name.';
+  }
+
+  @override
+  String divers_delete_handedOver(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count gedeelde trips en sites gingen naar de profielen waarmee ze gedeeld waren.',
+      one:
+          '$count gedeelde trip of site ging naar het profiel waarmee hij gedeeld was.',
+    );
+    return '$_temp0';
   }
 
   @override

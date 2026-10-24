@@ -2347,8 +2347,8 @@ class AppLocalizationsHu extends AppLocalizations {
   String get accessibility_label_resizeMasterPane => 'Fő panel átméretezése';
 
   @override
-  String get accessibility_label_sharedWithAllProfiles =>
-      'Megosztva az összes búvárprofillal';
+  String get accessibility_label_sharedWithProfiles =>
+      'Megosztva más búvárprofilokkal';
 
   @override
   String get accessibility_label_showList => 'Lista megjelenítése';
@@ -9382,6 +9382,11 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get diveLog_search_jumpTitle => 'Ugrás a merüléshez';
+
+  @override
+  String diveLog_search_jumpNumberTitle(int number, String title) {
+    return '#$number. · $title';
+  }
 
   @override
   String diveLog_ask_row(String text) {
@@ -18608,8 +18613,40 @@ class AppLocalizationsHu extends AppLocalizations {
   }
 
   @override
-  String media_photoPicker_files_diveGroupTitle(String diveId) {
-    return 'Merülés $diveId';
+  String media_photoPicker_files_diveGroupNumberSite(int number, String site) {
+    return '#$number. merülés · $site';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupNumber(int number) {
+    return '#$number. merülés';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupSite(String site) {
+    return 'Merülés · $site';
+  }
+
+  @override
+  String get media_photoPicker_files_diveGroupUnnamed => 'Merülés';
+
+  @override
+  String media_photoPicker_files_diveGroupWindow(
+    String date,
+    String start,
+    String end,
+  ) {
+    return '$date · $start – $end';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupStart(String date, String start) {
+    return '$date · $start';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupSubtitle(String when, String files) {
+    return '$when · $files';
   }
 
   @override
@@ -18881,6 +18918,36 @@ class AppLocalizationsHu extends AppLocalizations {
   String media_photoViewer_failedToShare(Object error) {
     return 'Nem sikerült a megosztás: $error';
   }
+
+  @override
+  String get media_share_preparingVideo => 'Videó előkészítése';
+
+  @override
+  String media_share_preparingVideoOf(int current, int total) {
+    return '$current. videó előkészítése ($total közül)';
+  }
+
+  @override
+  String get media_share_correctionFailedTitle =>
+      'Nem sikerült alkalmazni a színkorrekciót';
+
+  @override
+  String media_share_correctionFailedBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count videó enélkül is megosztható.',
+      one: 'Ez a videó enélkül is megosztható.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_share_shareOriginal => 'Eredeti megosztása';
+
+  @override
+  String get media_share_videoInterrupted =>
+      'A videó előkészítése leállt, amikor a Submersion a háttérbe került. Oszd meg újra az újrakezdéshez.';
 
   @override
   String get media_photoViewer_failedToWriteMetadata =>
@@ -22510,6 +22577,10 @@ class AppLocalizationsHu extends AppLocalizations {
   @override
   String get settings_conflict_field_autoTagImports =>
       'Importált merülések címkézése';
+
+  @override
+  String get settings_conflict_field_downloadsFollowComputerOwner =>
+      'Letöltések hozzáadása a komputer tulajdonosához';
 
   @override
   String get settings_conflict_field_avgSpeed => 'Átlagsebesség';
@@ -30009,6 +30080,14 @@ class AppLocalizationsHu extends AppLocalizations {
       'Minden új import egy, a forrást és a dátumot megnevező címkével kezdődik. Ez egyetlen importra megváltoztatható az adott import beállításaiban.';
 
   @override
+  String get settings_downloadsFollowOwner_title =>
+      'Letöltések hozzáadása a komputer tulajdonosához';
+
+  @override
+  String get settings_downloadsFollowOwner_subtitle =>
+      'Ha egy búvárkomputer egy másik profilhoz tartozik, a merülései annak a profilnak a naplójába kerülnek. Ezt az ellenőrző képernyőn módosíthatod.';
+
+  @override
   String get tags_manage_searchHint => 'Címkék keresése...';
 
   @override
@@ -32543,6 +32622,9 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String get universalImport_summary_newProfile => 'Új profil';
+
+  @override
+  String get universalImport_summary_unnamedProfile => 'Névtelen profil';
 
   @override
   String universalImport_summary_switchToSee(String name) {
@@ -35519,6 +35601,14 @@ class AppLocalizationsHu extends AppLocalizations {
   String get universalImport_title_importOptions => 'Importálási beállítások';
 
   @override
+  String universalImport_computerOwner_notice(String owner, String chosen) {
+    return 'Ez a komputer $owner tulajdona. A merülések $chosen naplójába kerülnek.';
+  }
+
+  @override
+  String get universalImport_computerOwner_profileLabel => 'Profil';
+
+  @override
   String get universalImport_label_options => 'Beállítások';
 
   @override
@@ -35585,29 +35675,20 @@ class AppLocalizationsHu extends AppLocalizations {
       'Új helyszínek és túrák megosztása alapértelmezetten';
 
   @override
-  String get settings_shareAllSites_title => 'Az összes helyszínem megosztása';
+  String get settings_shareAllSites_title =>
+      'Az összes merülőhelyem megosztása...';
 
   @override
-  String get settings_shareAllTrips_title => 'Az összes túrám megosztása';
+  String get settings_shareAllTrips_title => 'Az összes túrám megosztása...';
 
   @override
   String settings_shareAllSites_confirm(int count) {
-    return 'Mind a(z) $count helyszínedet láthatóvá teszed minden búvárprofilnak az alkalmazásban? Később egyesével megszüntetheted a megosztást.';
+    return 'Válaszd ki, ki lássa mind a(z) $count merülőhelyedet. Ha később egy helyet módosítanál, nyisd meg, és koppints a Megosztva elemre.';
   }
 
   @override
   String settings_shareAllTrips_confirm(int count) {
-    return 'Mind a(z) $count túrádat láthatóvá teszed minden búvárprofilnak az alkalmazásban? Később egyesével megszüntetheted a megosztást.';
-  }
-
-  @override
-  String settings_shareAllSites_snackbar(int count) {
-    return '$count helyszín megosztva minden búvárprofillal.';
-  }
-
-  @override
-  String settings_shareAllTrips_snackbar(int count) {
-    return '$count túra megosztva minden búvárprofillal.';
+    return 'Válaszd ki, ki lássa mind a(z) $count túrádat. Ha később egy túrát módosítanál, nyisd meg, és koppints a Megosztva elemre.';
   }
 
   @override
@@ -35644,7 +35725,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String trips_unshareConfirm_body(String name) {
-    return 'Ez eltávolítja a(z) „$name\" elemet a többi búvárprofil nézetéből. Később újra megoszthatod.';
+    return 'Az eltávolított profilok többé nem látják ezt: „$name\". A merüléseik továbbra is hozzá kapcsolódnak, és később újra megoszthatod velük.';
   }
 
   @override
@@ -35653,7 +35734,7 @@ class AppLocalizationsHu extends AppLocalizations {
 
   @override
   String sites_unshareConfirm_body(String name) {
-    return 'Ez eltávolítja a(z) „$name\" elemet a többi búvárprofil nézetéből. Később újra megoszthatod.';
+    return 'Az eltávolított profilok többé nem látják ezt: „$name\". A merüléseik továbbra is hozzá kapcsolódnak, és később újra megoszthatod velük.';
   }
 
   @override
@@ -35728,6 +35809,31 @@ class AppLocalizationsHu extends AppLocalizations {
       one: 'Eltávolítasz $count elemet a profilodból?',
     );
     return '$_temp0';
+  }
+
+  @override
+  String get sharedItems_bulkShare_action => 'Megosztás...';
+
+  @override
+  String sharedItems_bulkShare_done(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count elem megosztva',
+      one: '$count elem megosztva',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String sharedItems_bulkShare_doneSkipped(int count, int skipped) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count elem megosztva',
+      one: '$count elem megosztva',
+    );
+    return '$_temp0, $skipped kihagyva, amely nem a tiéd';
   }
 
   @override
@@ -35828,6 +35934,21 @@ class AppLocalizationsHu extends AppLocalizations {
   String get sharedItems_removedSnackbar => 'Eltávolítva a profilodból';
 
   @override
+  String get sharedItems_shareDialog_everyoneSubtitle =>
+      'Minden búvárprofil, a később hozzáadottak is';
+
+  @override
+  String get sharedItems_shareDialog_siteBody =>
+      'A kiválasztott profilok látják ezt a merülőhelyet, és rögzíthetik itt a saját merüléseiket. Csak te törölheted, vagy módosíthatod, kivel van megosztva.';
+
+  @override
+  String get sharedItems_shareDialog_title => 'Megosztás';
+
+  @override
+  String get sharedItems_shareDialog_tripBody =>
+      'A kiválasztott profilok látják ezt a túrát, és hozzáadhatják a saját merüléseiket. Csak te törölheted, vagy módosíthatod, kivel van megosztva.';
+
+  @override
   String sharedItems_shareOwnerOnly(String owner) {
     return 'Csak $owner módosíthatja a megosztást';
   }
@@ -35836,6 +35957,15 @@ class AppLocalizationsHu extends AppLocalizations {
   String sharedItems_sharedBy(String owner) {
     return 'Megosztotta: $owner';
   }
+
+  @override
+  String get sharedItems_sharedWith_everyone => 'Mindenki';
+
+  @override
+  String get sharedItems_sharedWith_label => 'Megosztva';
+
+  @override
+  String get sharedItems_sharedWith_none => 'Nincs megosztva';
 
   @override
   String get sharedItems_undo => 'Visszavonás';
@@ -35866,6 +35996,19 @@ class AppLocalizationsHu extends AppLocalizations {
       one: 'helyszín',
     );
     return 'Búvár törölve. $trips megosztott $_temp0 és $sites megosztott $_temp1 átrendelve ehhez: $name.';
+  }
+
+  @override
+  String divers_delete_handedOver(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count megosztott túra és helyszín azokhoz a profilokhoz került, amelyekkel meg voltak osztva.',
+      one:
+          '$count megosztott túra vagy helyszín ahhoz a profilhoz került, amellyel meg volt osztva.',
+    );
+    return '$_temp0';
   }
 
   @override

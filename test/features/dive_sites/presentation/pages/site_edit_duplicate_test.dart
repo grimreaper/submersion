@@ -6,10 +6,13 @@ import 'package:flutter_test/flutter_test.dart';
 import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:submersion/core/constants/enums.dart';
+import 'package:submersion/core/data/visibility/item_sharing.dart';
+import 'package:submersion/core/data/visibility/shared_item_policy.dart';
 import 'package:submersion/core/database/database.dart'
     show AppDatabase, DiveSitesCompanion, DiversCompanion;
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/features/divers/domain/entities/diver.dart';
+import 'package:submersion/features/divers/data/repositories/item_shares_repository.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
 import 'package:submersion/features/dive_sites/data/repositories/site_classification_repository.dart';
 import 'package:submersion/features/dive_sites/data/repositories/site_feature_repository.dart';
@@ -397,6 +400,70 @@ void main() {
       () => SiteRepository().getSiteById(copyId),
     ))!;
     expect(copy.isShared, isTrue);
+  });
+
+  /// Adds diver profiles, which share rows and owners refer to.
+  Future<void> addDivers(WidgetTester tester, List<String> ids) async {
+    final now = DateTime(2026, 10, 23).millisecondsSinceEpoch;
+    await tester.runAsync(() async {
+      for (final id in ids) {
+        await db
+            .into(db.divers)
+            .insert(
+              DiversCompanion.insert(
+                id: id,
+                name: id,
+                createdAt: now,
+                updatedAt: now,
+              ),
+            );
+      }
+    });
+  }
+
+  testWidgets('my own site\'s copy is shared with the same profiles by name '
+      '(issue #2151)', (tester) async {
+    await addDivers(tester, ['me', 'buddy']);
+    await tester.runAsync(() async {
+      await (db.update(db.diveSites)..where((t) => t.id.equals('site-1')))
+          .write(const DiveSitesCompanion(diverId: Value('me')));
+      await ItemSharesRepository().setSharing(
+        SharedItemKind.site,
+        'site-1',
+        const ItemSharing(profileIds: {'buddy'}),
+        actingDiverId: 'me',
+      );
+    });
+
+    final copyId = await saveDuplicate(tester, diverId: 'me');
+
+    final shared = await tester.runAsync(
+      () =>
+          ItemSharesRepository().storedProfileIds(SharedItemKind.site, copyId),
+    );
+    expect(shared, {'buddy'});
+  });
+
+  testWidgets('another profile\'s shared site copies as a new site is '
+      'shared, not as its owner chose', (tester) async {
+    await addDivers(tester, ['me', 'owner', 'buddy']);
+    await tester.runAsync(() async {
+      await (db.update(
+        db.diveSites,
+      )..where((t) => t.id.equals('site-1'))).write(
+        const DiveSitesCompanion(
+          diverId: Value('owner'),
+          isShared: Value(true),
+        ),
+      );
+    });
+
+    final copyId = await saveDuplicate(tester, diverId: 'me');
+
+    final copy = (await tester.runAsync(
+      () => SiteRepository().getSiteById(copyId),
+    ))!;
+    expect(copy.isShared, isFalse);
   });
 
   testWidgets('a shared library site duplicates as a personal site', (

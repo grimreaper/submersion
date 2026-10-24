@@ -33,8 +33,10 @@ bool canDestroySharedItem({
     isOwnOrUnowned(ownerId: ownerId, activeDiverId: activeDiverId);
 
 /// The active profile sees the item only because another profile shared
-/// it, so it may hide it from itself. For any owned shared item exactly one
-/// of this and [canDestroySharedItem] holds.
+/// it, so it may hide it from itself. [isShared] means shared with the
+/// active profile: with everyone, or by a share row naming it (issue
+/// #2151). For any owned shared item exactly one of this and
+/// [canDestroySharedItem] holds.
 bool canHideSharedItem({
   required String? ownerId,
   required bool isShared,

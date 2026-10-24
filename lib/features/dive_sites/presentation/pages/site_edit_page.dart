@@ -10,7 +10,6 @@ import 'package:submersion/core/services/shared_library/shared_library_models.da
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/core/providers/location_service_provider.dart';
 import 'package:submersion/core/services/geocoding/place_lookup.dart';
-import 'package:submersion/core/services/logger_service.dart';
 import 'package:go_router/go_router.dart';
 import 'package:latlong2/latlong.dart';
 
@@ -54,6 +53,12 @@ import 'package:submersion/features/shared_library/presentation/providers/shared
 import 'package:submersion/features/site_types/data/repositories/site_type_repository.dart';
 import 'package:submersion/features/rules/presentation/run_rules_flow.dart';
 import 'package:submersion/features/rules/domain/rule_subject.dart';
+import 'package:submersion/core/data/visibility/item_sharing.dart';
+import 'package:submersion/features/divers/presentation/providers/item_shares_providers.dart';
+import 'package:submersion/shared/widgets/shared_items/item_sharing_row.dart';
+import 'package:submersion/core/services/logger_service.dart';
+
+const _log = LoggerService('siteEditPage');
 
 /// Seeds a depth field at the single decimal place it has always shown, and an
 /// altitude field at the whole units it has always shown, both in the active
@@ -146,7 +151,6 @@ class SiteEditPage extends ConsumerStatefulWidget {
 }
 
 class _SiteEditPageState extends ConsumerState<SiteEditPage> {
-  static final _log = LoggerService.forClass(SiteEditPage);
   final _formKey = GlobalKey<FormState>();
   final _nameController = TextEditingController();
   final _descriptionController = TextEditingController();
@@ -174,7 +178,22 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
   bool _isLoading = false;
   bool _isInitialized = false;
   bool _hasChanges = false;
-  bool _isShared = false;
+  // Who the site is shared with (issue #2151): the pending choice, and what
+  // is stored, so a save writes only a change.
+  ItemSharing _sharing = ItemSharing.none;
+  ItemSharing _originalSharing = ItemSharing.none;
+
+  /// The stored sharing could not be read: the field stays locked, so a
+  /// save never overwrites sharing the page never saw.
+  bool _sharingUnread = false;
+
+  /// An existing site's share rows have been read; until then the field
+  /// stays locked, so a pick is never confirmed against a stale original.
+  bool _sharingLoaded = false;
+
+  /// Share rows stored beside the everyone flag (a sync race): an owner's
+  /// save clears them, or a later unshare would bring them back.
+  bool _staleShareRows = false;
   final _suggestionNote = TextEditingController();
   bool _isApplyingInitialValues = false;
   Timer? _altitudeLookupDebounce;
@@ -229,7 +248,7 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
     _latitudeController.addListener(_scheduleAltitudeLookup);
     _longitudeController.addListener(_scheduleAltitudeLookup);
     _mergeLoadFuture = widget.isMerging ? _loadMergeData() : null;
-    // A duplicate keeps its original's sharing instead (issue #3575).
+    // A duplicate decides its own sharing instead (issue #3575).
     if (!widget.isEditing && !widget.isMerging && !widget.isDuplicating) {
       _applyShareByDefault();
     }
@@ -239,7 +258,9 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
     WidgetsBinding.instance.addPostFrameCallback((_) async {
       final shareByDefault = await ref.read(shareByDefaultProvider.future);
       if (!mounted) return;
-      setState(() => _isShared = shareByDefault);
+      setState(
+        () => _sharing = shareByDefault ? ItemSharing.all : ItemSharing.none,
+      );
     });
   }
 
@@ -394,6 +415,7 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
     _fillForm(site, units);
 
     // Load expected species
+    _loadSharing(site);
     _loadExpectedSpecies(site.id);
     _loadClassification(site.id);
   }
@@ -402,6 +424,9 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
   /// #3575), with its types, tags and expected species picked. There is no
   /// [_originalSite]: the save creates a site of the active diver's, and a
   /// shared library site's copy is a personal one, shared as a new site is.
+  /// The copy keeps the sharing of a site that is the diver's own, everyone
+  /// and named profiles alike (issue #2151); another profile's site is its
+  /// owner's audience, so that copy is shared as a new site is too.
   void _initializeFromDuplicate(DiveSite source, UnitFormatter units) {
     if (_isInitialized) return;
     _isInitialized = true;
@@ -411,21 +436,50 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
       ),
       units,
     );
-    if (source.isLibrarySite) _applyShareByDefault();
+    // Nothing is stored for the copy yet, so Save writes its sharing. A
+    // library site's copy is shared as a new site is.
+    _originalSharing = ItemSharing.none;
+    if (source.isLibrarySite) {
+      _sharing = ItemSharing.none;
+      _applyShareByDefault();
+    }
     // Handled here, not only at Save: the diver may never press it. A load
-    // that fails leaves its picks empty for the diver to add on the copy.
+    // that fails leaves its picks as they are for the diver to adjust.
     _duplicateLoads =
         Future.wait([
           _loadExpectedSpecies(source.id),
           _loadClassification(source.id, ownOnly: true),
+          if (!source.isLibrarySite) _loadDuplicateSharing(source),
         ]).then<void>(
           (_) {},
           onError: (Object e, StackTrace stackTrace) => _log.error(
-            'Could not load the classification of site ${source.id}',
+            'Could not load what site ${source.id} carries to its copy',
             error: e,
             stackTrace: stackTrace,
           ),
         );
+  }
+
+  /// Settles the copy's sharing once the active profile is known: the
+  /// diver's own site adds the profiles it is shared with by name, and
+  /// another profile's site is shared as a new site is. A choice the diver
+  /// made meanwhile is kept.
+  Future<void> _loadDuplicateSharing(DiveSite source) async {
+    final provisional = ItemSharing(everyone: source.isShared);
+    final diverId = await ref.read(validatedCurrentDiverIdProvider.future);
+    final ItemSharing settled;
+    if (isOwnOrUnowned(ownerId: source.diverId, activeDiverId: diverId)) {
+      final stored = await ref
+          .read(itemSharesRepositoryProvider)
+          .storedProfileIds(SharedItemKind.site, source.id);
+      settled = ItemSharing(everyone: source.isShared, profileIds: stored);
+    } else {
+      settled = await ref.read(shareByDefaultProvider.future)
+          ? ItemSharing.all
+          : ItemSharing.none;
+    }
+    if (!mounted || _sharing != provisional) return;
+    setState(() => _sharing = settled);
   }
 
   /// Fills every form field from [site], as initial values that leave the
@@ -458,11 +512,36 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
     _waterType = site.waterType;
     _entryMethods = site.entryMethods;
     _exitMethods = site.exitMethods;
-    _isShared = site.isShared;
+    _sharing = _originalSharing = ItemSharing(everyone: site.isShared);
     _altitudeController.text = site.altitude != null
         ? _altitudeForInput(units.convertAltitude(site.altitude!))
         : '';
     _isApplyingInitialValues = false;
+  }
+
+  /// Reads the profiles the site is shared with by name (issue #2151); the
+  /// everyone flag came with the site. A failed read locks the field.
+  Future<void> _loadSharing(DiveSite site) async {
+    try {
+      final stored = await ref
+          .read(itemSharesRepositoryProvider)
+          .storedProfileIds(SharedItemKind.site, site.id);
+      if (!mounted) return;
+      setState(() {
+        final loaded = ItemSharing(everyone: site.isShared, profileIds: stored);
+        _staleShareRows = site.isShared && stored.isNotEmpty;
+        _sharing = loaded;
+        _originalSharing = loaded;
+        _sharingLoaded = true;
+      });
+    } catch (e, stackTrace) {
+      _log.warning(
+        'Could not read who site ${site.id} is shared with',
+        error: e,
+        stackTrace: stackTrace,
+      );
+      if (mounted) setState(() => _sharingUnread = true);
+    }
   }
 
   /// Loads the site's types and tags into the Type & Tags section.
@@ -506,7 +585,9 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
     if (_isInitialized) return;
     _isInitialized = true;
     _originalSite = data.sites.first;
-    _isShared = data.sites.first.isShared;
+    _sharing = _originalSharing = ItemSharing(
+      everyone: data.sites.first.isShared,
+    );
     _expectedSpecies = data.expectedSpecies;
     _originalExpectedSpeciesIds = _expectedSpecies.map((s) => s.id).toSet();
     _isApplyingInitialValues = true;
@@ -1129,20 +1210,8 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
       context.l10n.diveLog_edit_summary_species(_expectedSpecies.length),
     if (_notesController.text.trim().isNotEmpty)
       context.l10n.diveLog_edit_summary_notes,
-    if (_isShared) context.l10n.diveSites_edit_summary_shared,
+    if (_sharing.isShared) context.l10n.diveSites_edit_summary_shared,
   ].join(' · ');
-
-  Future<void> _onShareToggled(bool v) async {
-    if (!v && widget.isEditing && (_originalSite?.isShared ?? false)) {
-      final confirmed = await _showUnshareConfirmDialog(context);
-      if (!mounted) return;
-      if (confirmed != true) return;
-    }
-    setState(() {
-      _isShared = v;
-      _hasChanges = true;
-    });
-  }
 
   Widget _buildForm(BuildContext context, UnitFormatter units) {
     final allSites = ref.watch(sitesProvider).value ?? const <DiveSite>[];
@@ -1291,15 +1360,32 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
             }),
             notesController: _notesController,
             mergeExtras: widget.isMerging ? _mergeExtras : null,
-            showShareToggle:
-                !(_originalSite?.isLibrarySite ?? false) &&
-                ref
-                    .watch(allDiversProvider)
-                    .maybeWhen(data: (d) => d.length >= 2, orElse: () => false),
-            isShared: _isShared,
-            onShareChanged: _onShareToggled,
-            shareLocked: _mayShare() != true,
-            shareLockedReason: _shareLockedReason(),
+            // A merge keeps each site's sharing (issue #2151), and a
+            // shared site library site follows its library.
+            shareField:
+                !widget.isMerging &&
+                    !(_originalSite?.isLibrarySite ?? false) &&
+                    (ref.watch(allDiversProvider).value?.length ?? 0) >= 2
+                ? ItemSharingField(
+                    kind: SharedItemKind.site,
+                    value: _sharing,
+                    original: _originalSharing,
+                    mayShare:
+                        _sharingUnread || (widget.isEditing && !_sharingLoaded)
+                        ? null
+                        : _mayShare(),
+                    ownerId:
+                        _originalSite?.diverId ??
+                        ref.watch(validatedCurrentDiverIdProvider).value,
+                    itemName: _nameController.text.trim().isNotEmpty
+                        ? _nameController.text.trim()
+                        : (_originalSite?.name ?? ''),
+                    onChanged: (v) => setState(() {
+                      _sharing = v;
+                      _hasChanges = true;
+                    }),
+                  )
+                : null,
           ),
           if (_suggestModeShown()) ...[
             const SizedBox(height: 16),
@@ -1372,7 +1458,14 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
                 ]),
               ),
             )
-          else if (_mayShare() == false)
+          // Remove only while the site reaches this profile (issue #2151).
+          else if (_mayShare() == false &&
+              watchReachesHere(
+                ref,
+                SharedItemKind.site,
+                widget.siteId!,
+                libraryId: _originalSite?.sharedLibraryId,
+              ))
             IconButton(
               icon: const Icon(Icons.visibility_off_outlined),
               tooltip: context.l10n.sharedItems_removeAction,
@@ -1383,54 +1476,31 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
     );
   }
 
+  /// [_mayShare] for a callback, which reads rather than watches.
+  bool _mayShareNow() =>
+      canDestroySharedItemOnceKnown(
+        ref.read(validatedCurrentDiverIdProvider),
+        ownerId: _originalSite?.diverId,
+        isLibrarySite: _originalSite?.isLibrarySite ?? false,
+      ) ==
+      true;
+
   /// Whether the active profile may change this site's sharing (and so
   /// delete it): always for a new site, and only the owner for an existing
   /// one (issue #2594); null while the profile is unknown (issue #2682).
   /// Read during build, so it watches the active profile.
   bool? _mayShare() {
-    if (!widget.isEditing && !widget.isMerging) return true;
+    // A new site is the active profile's; until that profile is known the
+    // picker could offer it to itself, so sharing waits (issue #2151).
+    if (!widget.isEditing && !widget.isMerging) {
+      return ref.watch(validatedCurrentDiverIdProvider).hasValue ? true : null;
+    }
     return canDestroySharedItemOnceKnown(
       ref.watch(validatedCurrentDiverIdProvider),
       ownerId: _originalSite?.diverId,
       // A shared site library site is deleted through its role-gated action on
       // the detail page, never through the personal delete (issue #2567).
       isLibrarySite: _originalSite?.isLibrarySite ?? false,
-    );
-  }
-
-  /// Why the Share switch is locked: another profile owns the site (issue
-  /// #2594). Null when the active profile may change sharing, and while the
-  /// profile is unknown, which locks it without naming an owner.
-  String? _shareLockedReason() {
-    if (_mayShare() != false) return null;
-    final divers = ref.watch(allDiversProvider).value ?? const [];
-    return context.l10n.sharedItems_shareOwnerOnly(
-      sharedItemOwnerName(divers, _originalSite?.diverId, context.l10n),
-    );
-  }
-
-  /// Asks the user to confirm un-sharing an existing shared site.
-  /// Returns [true] if confirmed, [false] or [null] to cancel.
-  Future<bool?> _showUnshareConfirmDialog(BuildContext ctx) {
-    final siteName = _nameController.text.trim().isNotEmpty
-        ? _nameController.text.trim()
-        : (_originalSite?.name ?? '');
-    return showDialog<bool>(
-      context: ctx,
-      builder: (dialogCtx) => AlertDialog(
-        title: Text(dialogCtx.l10n.sites_unshareConfirm_title),
-        content: Text(dialogCtx.l10n.sites_unshareConfirm_body(siteName)),
-        actions: [
-          TextButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(false),
-            child: Text(MaterialLocalizations.of(dialogCtx).cancelButtonLabel),
-          ),
-          FilledButton(
-            onPressed: () => Navigator.of(dialogCtx).pop(true),
-            child: Text(dialogCtx.l10n.common_action_unshare),
-          ),
-        ],
-      ),
     );
   }
 
@@ -2170,7 +2240,7 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
         waterType: _waterType,
         entryMethods: _entryMethods,
         exitMethods: _exitMethods,
-        isShared: _isShared,
+        isShared: _sharing.everyone,
       );
 
       final notifier = ref.read(siteListNotifierProvider.notifier);
@@ -2261,6 +2331,26 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
           }
         }
       }
+      // The chosen profiles (issue #2151), only when the owner changed
+      // them; the save above already wrote the everyone flag. Checked in
+      // this order so an unchanged save never reads the active profile. A
+      // merge carries each site's sharing itself.
+      if (!widget.isMerging &&
+          !_sharingUnread &&
+          (_sharing != _originalSharing ||
+              (_staleShareRows && _sharing.everyone)) &&
+          (!widget.isEditing || _mayShareNow())) {
+        await ref
+            .read(itemSharesRepositoryProvider)
+            .setSharing(
+              SharedItemKind.site,
+              savedId,
+              _sharing,
+              // The profile acting now, which the repository checks; never
+              // the owner on its behalf.
+              actingDiverId: ref.read(validatedCurrentDiverIdProvider).value,
+            );
+      }
       ref.invalidate(siteTypesForSiteProvider(savedId));
       ref.invalidate(tagsForSiteProvider(savedId));
 
@@ -2339,8 +2429,19 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
     // A shared site's delete warns that it goes for every profile, and how
     // many of their dives lose it, as the detail page does (issue #2594).
     final divers = await ref.read(allDiversProvider.future);
-    final isSharedDelete =
-        (_originalSite?.isShared ?? false) && divers.length >= 2;
+    if (!mounted) return;
+    // Shared with everyone or with chosen profiles (issue #2151), read
+    // afresh: this page's own read may not have finished.
+    final shared = divers.length < 2
+        ? false
+        : await readSharedWithAnyone(
+            ref,
+            context,
+            SharedItemKind.site,
+            widget.siteId!,
+          );
+    if (shared == null) return;
+    final isSharedDelete = shared;
     final others = isSharedDelete
         ? (await readDiveLinkCounts(
             ref,

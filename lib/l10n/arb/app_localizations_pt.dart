@@ -2351,8 +2351,8 @@ class AppLocalizationsPt extends AppLocalizations {
       'Redimensionar painel principal';
 
   @override
-  String get accessibility_label_sharedWithAllProfiles =>
-      'Partilhado com todos os perfis de mergulho';
+  String get accessibility_label_sharedWithProfiles =>
+      'Partilhado com outros perfis de mergulho';
 
   @override
   String get accessibility_label_showList => 'Mostrar Lista';
@@ -9401,6 +9401,11 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get diveLog_search_jumpTitle => 'Ir para o mergulho';
+
+  @override
+  String diveLog_search_jumpNumberTitle(int number, String title) {
+    return '#$number · $title';
+  }
 
   @override
   String diveLog_ask_row(String text) {
@@ -18669,8 +18674,40 @@ class AppLocalizationsPt extends AppLocalizations {
   }
 
   @override
-  String media_photoPicker_files_diveGroupTitle(String diveId) {
-    return 'Mergulho $diveId';
+  String media_photoPicker_files_diveGroupNumberSite(int number, String site) {
+    return 'Mergulho #$number · $site';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupNumber(int number) {
+    return 'Mergulho #$number';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupSite(String site) {
+    return 'Mergulho · $site';
+  }
+
+  @override
+  String get media_photoPicker_files_diveGroupUnnamed => 'Mergulho';
+
+  @override
+  String media_photoPicker_files_diveGroupWindow(
+    String date,
+    String start,
+    String end,
+  ) {
+    return '$date · $start – $end';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupStart(String date, String start) {
+    return '$date · $start';
+  }
+
+  @override
+  String media_photoPicker_files_diveGroupSubtitle(String when, String files) {
+    return '$when · $files';
   }
 
   @override
@@ -18943,6 +18980,36 @@ class AppLocalizationsPt extends AppLocalizations {
   String media_photoViewer_failedToShare(Object error) {
     return 'Falha ao compartilhar: $error';
   }
+
+  @override
+  String get media_share_preparingVideo => 'Preparando vídeo';
+
+  @override
+  String media_share_preparingVideoOf(int current, int total) {
+    return 'Preparando vídeo $current de $total';
+  }
+
+  @override
+  String get media_share_correctionFailedTitle =>
+      'Não foi possível aplicar a correção de cor';
+
+  @override
+  String media_share_correctionFailedBody(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count vídeos ainda podem ser compartilhados sem ela.',
+      one: 'Este vídeo ainda pode ser compartilhado sem ela.',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String get media_share_shareOriginal => 'Compartilhar original';
+
+  @override
+  String get media_share_videoInterrupted =>
+      'A preparação do vídeo parou quando o Submersion foi para segundo plano. Compartilhe novamente para recomeçar.';
 
   @override
   String get media_photoViewer_failedToWriteMetadata =>
@@ -22584,6 +22651,10 @@ class AppLocalizationsPt extends AppLocalizations {
   @override
   String get settings_conflict_field_autoTagImports =>
       'Etiquetar mergulhos importados';
+
+  @override
+  String get settings_conflict_field_downloadsFollowComputerOwner =>
+      'Adicionar downloads ao dono do computador';
 
   @override
   String get settings_conflict_field_avgSpeed => 'Velocidade média';
@@ -30162,6 +30233,14 @@ class AppLocalizationsPt extends AppLocalizations {
       'Cada nova importação começa com uma etiqueta que indica a origem e a data. Pode alterar isto para uma única importação nas opções dessa importação.';
 
   @override
+  String get settings_downloadsFollowOwner_title =>
+      'Adicionar downloads ao dono do computador';
+
+  @override
+  String get settings_downloadsFollowOwner_subtitle =>
+      'Quando um computador de mergulho pertence a outro perfil, os mergulhos dele vão para o registro desse perfil. Você pode mudar isso na tela de revisão.';
+
+  @override
   String get tags_manage_searchHint => 'Buscar etiquetas...';
 
   @override
@@ -32715,6 +32794,9 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String get universalImport_summary_newProfile => 'Novo perfil';
+
+  @override
+  String get universalImport_summary_unnamedProfile => 'Perfil sem nome';
 
   @override
   String universalImport_summary_switchToSee(String name) {
@@ -35704,6 +35786,14 @@ class AppLocalizationsPt extends AppLocalizations {
   String get universalImport_title_importOptions => 'Opções de Importação';
 
   @override
+  String universalImport_computerOwner_notice(String owner, String chosen) {
+    return 'Este computador pertence a $owner. Os mergulhos serão adicionados ao registro de $chosen.';
+  }
+
+  @override
+  String get universalImport_computerOwner_profileLabel => 'Perfil';
+
+  @override
   String get universalImport_label_options => 'Opções';
 
   @override
@@ -35771,30 +35861,21 @@ class AppLocalizationsPt extends AppLocalizations {
       'Partilhar novos locais e viagens por predefinição';
 
   @override
-  String get settings_shareAllSites_title => 'Partilhar todos os meus locais';
+  String get settings_shareAllSites_title =>
+      'Partilhar todos os meus locais...';
 
   @override
   String get settings_shareAllTrips_title =>
-      'Partilhar todas as minhas viagens';
+      'Partilhar todas as minhas viagens...';
 
   @override
   String settings_shareAllSites_confirm(int count) {
-    return 'Tornar os teus $count locais visíveis a todos os perfis de mergulho desta app? Poderás deixar de partilhar locais individuais mais tarde.';
+    return 'Escolhe quem vê os teus $count locais. Para alterar um local mais tarde, abre-o e toca em Partilhado com.';
   }
 
   @override
   String settings_shareAllTrips_confirm(int count) {
-    return 'Tornar as tuas $count viagens visíveis a todos os perfis de mergulho desta app? Poderás deixar de partilhar viagens individuais mais tarde.';
-  }
-
-  @override
-  String settings_shareAllSites_snackbar(int count) {
-    return '$count locais partilhados com todos os perfis de mergulho.';
-  }
-
-  @override
-  String settings_shareAllTrips_snackbar(int count) {
-    return '$count viagens partilhadas com todos os perfis de mergulho.';
+    return 'Escolhe quem vê as tuas $count viagens. Para alterar uma viagem mais tarde, abre-a e toca em Partilhado com.';
   }
 
   @override
@@ -35830,7 +35911,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String trips_unshareConfirm_body(String name) {
-    return 'Isto irá remover «$name» das vistas dos outros perfis de mergulho. Poderás voltar a partilhar mais tarde.';
+    return 'Os perfis que retirares deixam de ver «$name». Os mergulhos deles continuam ligados a ela e poderás voltar a partilhá-la com eles mais tarde.';
   }
 
   @override
@@ -35838,7 +35919,7 @@ class AppLocalizationsPt extends AppLocalizations {
 
   @override
   String sites_unshareConfirm_body(String name) {
-    return 'Isto irá remover «$name» das vistas dos outros perfis de mergulho. Poderás voltar a partilhar mais tarde.';
+    return 'Os perfis que retirares deixam de ver «$name». Os mergulhos deles continuam ligados a ele e poderás voltar a partilhá-lo com eles mais tarde.';
   }
 
   @override
@@ -35913,6 +35994,31 @@ class AppLocalizationsPt extends AppLocalizations {
       one: 'Remover $count item do teu perfil?',
     );
     return '$_temp0';
+  }
+
+  @override
+  String get sharedItems_bulkShare_action => 'Partilhar com...';
+
+  @override
+  String sharedItems_bulkShare_done(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count itens partilhados',
+      one: '$count item partilhado',
+    );
+    return '$_temp0';
+  }
+
+  @override
+  String sharedItems_bulkShare_doneSkipped(int count, int skipped) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other: '$count itens partilhados',
+      one: '$count item partilhado',
+    );
+    return '$_temp0, $skipped ignorados que não são seus';
   }
 
   @override
@@ -36013,6 +36119,21 @@ class AppLocalizationsPt extends AppLocalizations {
   String get sharedItems_removedSnackbar => 'Removido do teu perfil';
 
   @override
+  String get sharedItems_shareDialog_everyoneSubtitle =>
+      'Todos os perfis de mergulho, incluindo os adicionados mais tarde';
+
+  @override
+  String get sharedItems_shareDialog_siteBody =>
+      'Os perfis que escolheres veem este local e podem registar nele os seus próprios mergulhos. Só tu podes eliminá-lo ou alterar com quem é partilhado.';
+
+  @override
+  String get sharedItems_shareDialog_title => 'Partilhar com';
+
+  @override
+  String get sharedItems_shareDialog_tripBody =>
+      'Os perfis que escolheres veem esta viagem e podem adicionar-lhe os seus próprios mergulhos. Só tu podes eliminá-la ou alterar com quem é partilhada.';
+
+  @override
   String sharedItems_shareOwnerOnly(String owner) {
     return 'Só $owner pode alterar a partilha';
   }
@@ -36021,6 +36142,15 @@ class AppLocalizationsPt extends AppLocalizations {
   String sharedItems_sharedBy(String owner) {
     return 'Partilhado por $owner';
   }
+
+  @override
+  String get sharedItems_sharedWith_everyone => 'Todos';
+
+  @override
+  String get sharedItems_sharedWith_label => 'Partilhado com';
+
+  @override
+  String get sharedItems_sharedWith_none => 'Não partilhado';
 
   @override
   String get sharedItems_undo => 'Desfazer';
@@ -36051,6 +36181,19 @@ class AppLocalizationsPt extends AppLocalizations {
       one: 'local partilhado',
     );
     return 'Mergulhador eliminado. $trips $_temp0 e $sites $_temp1 reatribuídos a $name.';
+  }
+
+  @override
+  String divers_delete_handedOver(int count) {
+    String _temp0 = intl.Intl.pluralLogic(
+      count,
+      locale: localeName,
+      other:
+          '$count viagens e locais partilhados passaram para os perfis com que estavam partilhados.',
+      one:
+          '$count viagem ou local partilhado passou para o perfil com que estava partilhado.',
+    );
+    return '$_temp0';
   }
 
   @override
