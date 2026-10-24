@@ -21,8 +21,9 @@ const _chunkSize = 300;
 ///
 /// Call it inside the deleting transaction, before the items go. The schema
 /// sets the two id links null on delete (v202, v210), but that write reaches
-/// no peer, and the extras are a JSON list with no foreign key at all. `dive_tanks` has no `updated_at`; staging a tank stamps its `hlc`,
-/// and a pending tank is exported on its own
+/// no peer, and the extras are a JSON list with no foreign key at all.
+/// `dive_tanks` has no `updated_at`; staging a tank stamps its `hlc`, and a
+/// pending tank is exported on its own
 /// (SyncDataSerializer.parentGatedChildEntities). The parent dive is
 /// deliberately NOT staged: re-stamping it would make this device's whole
 /// dive row win under last-writer-wins and overwrite a newer edit to that
@@ -60,11 +61,25 @@ Future<void> clearCylinderGearLinks(
     )..where((t) => t.equipmentId.isIn(chunk))).write(
       DiveTanksCompanion(equipmentId: const Value(null), hlc: Value(clearedAt)),
     );
+    // A tank with no extras only loses its first regulator: one statement
+    // per chunk, as before extras existed.
+    await (db.update(db.diveTanks)..where(
+          (t) =>
+              t.regulatorEquipmentId.isIn(chunk) & t.extraRegulatorIds.isNull(),
+        ))
+        .write(
+          DiveTanksCompanion(
+            regulatorEquipmentId: const Value(null),
+            hlc: Value(clearedAt),
+          ),
+        );
+    // A tank with extras is rebuilt from its survivors, so the next extra
+    // moves up when the first goes.
     for (final row in tanks) {
+      final raw = row.readNullable<String>('extra_regulator_ids');
+      if (raw == null) continue;
       final first = row.readNullable<String>('regulator_equipment_id');
-      final extras = decodeExtraRegulatorIds(
-        row.readNullable<String>('extra_regulator_ids'),
-      );
+      final extras = decodeExtraRegulatorIds(raw);
       if (!deleted.contains(first) && !extras.any(deleted.contains)) {
         continue;
       }
