@@ -51,6 +51,10 @@ void main() {
     await addTank('k1', 'd1', 'r1', '["r2"]');
     await addTank('k2', 'd2', null, 'not json');
     await addTank('k3', 'd2', 'r3', null);
+    // Valid JSON that is not an array: Dart reads it as no extras, so SQL
+    // must too.
+    await addTank('k4', 'd2', null, '"r9"');
+    await addTank('k5', 'd2', null, '{"a":"r9"}');
   });
   tearDown(tearDownTestDatabase);
 
@@ -75,6 +79,10 @@ void main() {
 
   test('a malformed list reads as no extras instead of failing', () async {
     expect(await tanksNaming('not json'), isEmpty);
+  });
+
+  test('valid JSON that is not an array names nothing', () async {
+    expect(await tanksNaming('r9'), isEmpty);
   });
 
   test('any of several ids', () async {

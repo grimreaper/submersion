@@ -8,13 +8,16 @@
 /// user input.
 library;
 
-/// The tank's extras as JSON `json_each` can read, or NULL when the stored
-/// text is not valid JSON: `json_each` fails the whole statement on
-/// malformed JSON, and one bad row from a peer must not break every
-/// equipment page.
+/// The tank's extras as JSON `json_each` can read, or NULL unless the stored
+/// text is a JSON array: `json_each` fails the whole statement on malformed
+/// JSON, and one bad row from a peer must not break every equipment page.
+/// A JSON scalar or object is valid but is no list (decodeExtraRegulatorIds
+/// reads it as none), so SQL reads it as none too. Nested so json_type never
+/// sees invalid text.
 String tankExtraRegulatorsJson(String tank) =>
-    'CASE WHEN json_valid($tank.extra_regulator_ids) '
-    'THEN $tank.extra_regulator_ids END';
+    'CASE WHEN json_valid($tank.extra_regulator_ids) THEN '
+    "CASE WHEN json_type($tank.extra_regulator_ids) = 'array' "
+    'THEN $tank.extra_regulator_ids END END';
 
 /// True when [tank] names [id] as its first regulator or an extra.
 String tankNamesRegulatorSql(String tank, String id) =>
@@ -53,3 +56,10 @@ final String tankExtraRegulatorRowsSql =
     'SELECT xt.dive_id, xt.o2_percent, xj.value AS regulator_id '
     'FROM dive_tanks xt, json_each(${tankExtraRegulatorsJson('xt')}) xj '
     'WHERE xt.extra_regulator_ids IS NOT NULL';
+
+/// A `SELECT dive_id, equipment_id` of every (dive, regulator) pair on the
+/// tanks, first and extra, for the gear unions that rank items by dives.
+final String tankRegulatorPairsSql =
+    'SELECT dive_id, regulator_equipment_id AS equipment_id FROM dive_tanks '
+    'WHERE regulator_equipment_id IS NOT NULL '
+    'UNION SELECT dive_id, regulator_id FROM ($tankExtraRegulatorRowsSql)';

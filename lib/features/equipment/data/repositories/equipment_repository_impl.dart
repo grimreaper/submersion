@@ -1686,55 +1686,63 @@ class EquipmentRepository {
 
   /// The regulators last paired with a cylinder preset, for prefilling the
   /// tank editor: the first and the extras (issue #3375) of the newest tank
-  /// of that preset that names one, in order. Operational, not descriptive:
-  /// an excluded dive still tells us which regulators the diver hangs on
-  /// that cylinder. Only regulators still in the kit, by the same test as
-  /// [getActiveEquipment]: prefilling a new tank with one since retired or
-  /// sold would put it back in use (#3210). A tank whose regulators have all
-  /// left the kit is skipped for the next newest.
+  /// of that preset that names one still in the kit, in order. Operational,
+  /// not descriptive: an excluded dive still tells us which regulators the
+  /// diver hangs on that cylinder. Only regulators still in the kit, by the
+  /// same test as [getActiveEquipment]: prefilling a new tank with one since
+  /// retired or sold would put it back in use (#3210).
   // stats-scope-exempt: editor prefill, not a statistic
   Future<List<String>> getLastRegulatorsForPreset(String presetName) async {
-    final tanks = await _db
+    const inKit = '''
+      e.is_active = 1 AND e.status NOT IN (?2, ?3, ?4)
+    ''';
+    final kitVars = [
+      Variable.withString(EquipmentStatus.retired.name),
+      Variable.withString(EquipmentStatus.sold.name),
+      Variable.withString(EquipmentStatus.wanted.name),
+    ];
+    final tank = await _db
         .customSelect(
           '''
       SELECT t.regulator_equipment_id AS reg, t.extra_regulator_ids AS extras
       FROM dive_tanks t
       JOIN dives d ON d.id = t.dive_id
-      WHERE t.preset_name = ?1 AND t.regulator_equipment_id IS NOT NULL
+      WHERE t.preset_name = ?1
+        AND (EXISTS (SELECT 1 FROM equipment e
+                     WHERE e.id = t.regulator_equipment_id AND $inKit)
+          OR EXISTS (SELECT 1 FROM json_each(${tankExtraRegulatorsJson('t')}) j
+                     JOIN equipment e ON e.id = j.value WHERE $inKit))
       ORDER BY d.dive_date_time DESC
+      LIMIT 1
     ''',
-          variables: [Variable.withString(presetName)],
+          variables: [Variable.withString(presetName), ...kitVars],
         )
-        .get();
-    if (tanks.isEmpty) return const [];
-    final inKit = {
+        .getSingleOrNull();
+    if (tank == null) return const [];
+    final named = normalizeTankRegulators(
+      tank.readNullable<String>('reg'),
+      decodeExtraRegulatorIds(tank.readNullable<String>('extras')),
+    );
+    final ids = [?named.first, ...named.extras];
+    final marks = List.filled(ids.length, '?').join(', ');
+    final kept = {
       for (final r
           in await _db
               .customSelect(
-                '''
-      SELECT id FROM equipment
-      WHERE is_active = 1 AND status NOT IN (?1, ?2, ?3)
-    ''',
+                'SELECT e.id FROM equipment e WHERE e.id IN ($marks) '
+                'AND e.is_active = 1 AND e.status NOT IN (?, ?, ?)',
                 variables: [
-                  Variable.withString(EquipmentStatus.retired.name),
-                  Variable.withString(EquipmentStatus.sold.name),
-                  Variable.withString(EquipmentStatus.wanted.name),
+                  for (final id in ids) Variable.withString(id),
+                  ...kitVars,
                 ],
               )
               .get())
         r.read<String>('id'),
     };
-    for (final row in tanks) {
-      final kept = normalizeTankRegulators(null, [
-        for (final id in [
-          row.read<String>('reg'),
-          ...decodeExtraRegulatorIds(row.readNullable<String>('extras')),
-        ])
-          if (inKit.contains(id)) id,
-      ]);
-      if (kept.first case final first?) return [first, ...kept.extras];
-    }
-    return const [];
+    return [
+      for (final id in ids)
+        if (kept.contains(id)) id,
+    ];
   }
 
   /// Get trip count for equipment item (unique trips from dives using this equipment)

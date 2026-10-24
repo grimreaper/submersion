@@ -49,9 +49,9 @@ Future<List<({String diveId, String equipmentId, String linkKind})>>
 gearUsageForDives(AppDatabase db, Iterable<String> diveIds) async {
   final ids = diveIds.toSet().toList()..sort();
   final out = <({String diveId, String equipmentId, String linkKind})>[];
-  // The ids repeat once per branch: 240 x 5 stays under SQLite's oldest
+  // The ids repeat once per branch: 190 x 5 stays under SQLite's oldest
   // variable limit (999).
-  for (final chunk in seriesIdChunks(ids, size: 240)) {
+  for (final chunk in seriesIdChunks(ids, size: 190)) {
     final marks = List.filled(chunk.length, '?').join(', ');
     final vars = [for (final id in chunk) Variable.withString(id)];
     final rows = await db

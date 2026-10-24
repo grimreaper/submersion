@@ -46,6 +46,14 @@ class _TankRegulatorPickersState extends ConsumerState<TankRegulatorPickers> {
   static const _showLeftKitValue = '__show-left-kit-regulators__';
 
   @override
+  void didUpdateWidget(TankRegulatorPickers oldWidget) {
+    super.didUpdateWidget(oldWidget);
+    // With no regulator left there is nothing to add to: an empty picker
+    // added before must not reappear when a prefill fills the list.
+    if (widget.regulatorIds.isEmpty) _adding = false;
+  }
+
+  @override
   Widget build(BuildContext context) {
     final ids = widget.regulatorIds;
     final regs =

@@ -521,5 +521,29 @@ void main() {
       expect(changed?.regulatorIds, ['reg-a', 'reg-b']);
       expect(find.text('Regulator 2'), findsOneWidget);
     });
+
+    testWidgets('clearing the last regulator also drops an empty added '
+        'picker', (tester) async {
+      await _pump(
+        tester,
+        equipment: const [_apeks, _reg2],
+        tank: const DiveTank(id: 'tank-1', regulatorEquipmentId: 'reg-a'),
+        repository: _LastRegulators(const ['reg-a', 'reg-b']),
+      );
+      await tester.tap(find.byKey(addKey));
+      await tester.pumpAndSettle();
+      await choose(tester, const Key('tank-regulator-picker'), 'None');
+
+      // A preset now prefills both regulators: no empty third picker.
+      final preset = find.byKey(const Key('tank-preset-dropdown'));
+      await tester.ensureVisible(preset);
+      await tester.tap(preset);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text('AL80').last);
+      await tester.pumpAndSettle();
+
+      expect(find.text('Regulator 2'), findsOneWidget);
+      expect(find.text('Regulator 3'), findsNothing);
+    });
   });
 }

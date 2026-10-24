@@ -178,5 +178,32 @@ void main() {
         'r1',
       ]);
     });
+
+    test('a tank with extras but no first regulator is still read', () async {
+      // Normalised on every local write, but a synced row can arrive this
+      // way; its extras are still the regulators on that cylinder.
+      await reg('r1');
+      await db
+          .into(db.dives)
+          .insert(
+            DivesCompanion.insert(
+              id: 'a',
+              diveDateTime: 1000,
+              createdAt: 1000,
+              updatedAt: 1000,
+            ),
+          );
+      await db
+          .into(db.diveTanks)
+          .insert(
+            DiveTanksCompanion.insert(id: 't-a', diveId: 'a').copyWith(
+              presetName: const Value('d12'),
+              extraRegulatorIds: const Value('["r1"]'),
+            ),
+          );
+      expect(await EquipmentRepository().getLastRegulatorsForPreset('d12'), [
+        'r1',
+      ]);
+    });
   });
 }

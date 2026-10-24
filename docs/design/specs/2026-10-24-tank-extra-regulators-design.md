@@ -124,6 +124,9 @@ regulator links:
   `tables` list stays accurate.
 - `_gearDiveLink` and the `dives` relation in `equipment_query_entity.dart`,
   so the equipment side of the query language agrees with the dive side.
+- Explore's per-item dive counts (`explore_repository.dart`) and the
+  Insights most-used gear ranking (`insights_repository.dart`), which read
+  the same gear union.
 
 These definitions should agree with one another and with the `tankRegulator`
 branch of `diveGearUsageSql`; one shared SQL fragment for "the regulators of
@@ -204,8 +207,14 @@ whole-field last-writer-wins on the tank row, like `shared_computer_ids`.
   UI, as `regulatorEquipmentId` is resolved today
   (`conflict_reference.dart`, `conflict_reference_labels.dart`). The builder
   decides how a list renders there.
-- An incoming record that names an equipment id this device does not have
-  keeps it, as the single field does today.
+- Sync does not normalise incoming rows. The single field is cleared when
+  it names an equipment id this device does not have (`SyncService`'s parent
+  references); the extras are not, and an older peer's edit or a remote
+  equipment delete can leave a tank whose extras break the invariants above.
+  Every SQL reader and the editor tolerate that (a dangling id shows as an
+  empty, removable picker), and the next local save normalises the row.
+  (Builder's call: stripping the list inside the sync merge was judged
+  riskier than the state it would prevent.)
 
 ### Schema
 
