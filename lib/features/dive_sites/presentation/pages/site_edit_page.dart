@@ -413,10 +413,20 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
       units,
     );
     if (source.isLibrarySite) _applyShareByDefault();
-    _duplicateLoads = Future.wait([
-      _loadExpectedSpecies(source.id),
-      _loadClassification(source.id, ownOnly: true),
-    ]);
+    // Handled here, not only at Save: the diver may never press it. A load
+    // that fails leaves its picks empty for the diver to add on the copy.
+    _duplicateLoads =
+        Future.wait([
+          _loadExpectedSpecies(source.id),
+          _loadClassification(source.id, ownOnly: true),
+        ]).then<void>(
+          (_) {},
+          onError: (Object e, StackTrace stackTrace) => _log.error(
+            'Could not load the classification of site ${source.id}',
+            error: e,
+            stackTrace: stackTrace,
+          ),
+        );
   }
 
   /// Fills every form field from [site], as initial values that leave the
@@ -2064,16 +2074,7 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
     if (!_formKey.currentState!.validate()) return;
 
     setState(() => _isLoading = true);
-    try {
-      await _duplicateLoads;
-    } catch (e, stackTrace) {
-      // Save what did load; the diver can add the rest on the copy.
-      _log.error(
-        'Could not load the classification of site ${widget.duplicateOfId}',
-        error: e,
-        stackTrace: stackTrace,
-      );
-    }
+    await _duplicateLoads;
     if (!mounted) return;
     // A site created by hand gets its logbook rules (#3513); edits and
     // merges never run them. Read now: the diver can leave while the save

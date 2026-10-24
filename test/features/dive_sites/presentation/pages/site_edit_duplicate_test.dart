@@ -17,6 +17,7 @@ import 'package:submersion/features/dive_sites/data/repositories/site_repository
 import 'package:submersion/features/dive_sites/domain/entities/dive_site.dart';
 import 'package:submersion/features/dive_sites/domain/entities/site_classification.dart';
 import 'package:submersion/features/dive_sites/presentation/pages/site_edit_page.dart';
+import 'package:submersion/features/dive_sites/presentation/providers/site_feature_providers.dart';
 import 'package:submersion/features/dive_sites/presentation/providers/site_providers.dart';
 import 'package:submersion/features/marine_life/data/repositories/species_repository.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
@@ -320,6 +321,30 @@ void main() {
     expect(types!.map((t) => t.id), ['wall']);
   });
 
+  testWidgets('tags that fail to load still let the copy save', (tester) async {
+    String? savedId;
+    await pumpDuplicate(
+      tester,
+      onSaved: (id) => savedId = id,
+      extraOverrides: [
+        tagsForSiteProvider(
+          'site-1',
+        ).overrideWith((_) async => throw StateError('db locked')),
+      ],
+    );
+
+    await tester.tap(find.text('Save'));
+    await tester.pump();
+    await tester.pump(const Duration(milliseconds: 500));
+    await tester.pumpAndSettle();
+
+    expect(savedId, isNotNull, reason: 'Save did not finish');
+    final copy = (await tester.runAsync(
+      () => SiteRepository().getSiteById(savedId!),
+    ))!;
+    expect(copy.name, 'Salt Pier (copy)');
+  });
+
   testWidgets('the copy gets the original\'s seascape features', (
     tester,
   ) async {
@@ -417,6 +442,7 @@ void main() {
   Future<(GoRouter, String)> saveRouted(
     WidgetTester tester, {
     required double width,
+    List<dynamic> extraOverrides = const [],
   }) async {
     tester.view.physicalSize = Size(width, 3600);
     tester.view.devicePixelRatio = 1.0;
@@ -450,7 +476,7 @@ void main() {
     addTearDown(router.dispose);
     await tester.pumpWidget(
       ProviderScope(
-        overrides: [...overrides()],
+        overrides: [...overrides(), ...extraOverrides],
         child: MaterialApp.router(
           routerConfig: router,
           localizationsDelegates: AppLocalizations.localizationsDelegates,
@@ -494,4 +520,36 @@ void main() {
     expect(find.text('list $copyId'), findsOneWidget);
     expect(find.text('Site added'), findsOneWidget);
   });
+
+  testWidgets('features that fail to copy still open the saved copy, and '
+      'say so', (tester) async {
+    final (_, copyId) = await saveRouted(
+      tester,
+      width: 400,
+      extraOverrides: [
+        siteFeatureRepositoryProvider.overrideWithValue(
+          _FailingCopyRepository(),
+        ),
+      ],
+    );
+
+    // The site saved, so the diver is on it rather than left on a form whose
+    // second Save would make another copy.
+    expect(find.text('detail $copyId'), findsOneWidget);
+    expect(
+      find.text('Site added, but its map features could not be copied.'),
+      findsOneWidget,
+    );
+    expect(find.text('Site added'), findsNothing);
+  });
+}
+
+/// Copies nothing and fails, as a write error part-way would.
+class _FailingCopyRepository extends SiteFeatureRepository {
+  @override
+  Future<void> copyFeatures({
+    required String fromSiteId,
+    required String toSiteId,
+    String? actingDiverId,
+  }) async => throw StateError('disk full');
 }
