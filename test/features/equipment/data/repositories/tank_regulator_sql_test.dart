@@ -63,7 +63,7 @@ void main() {
         in await db
             .customSelect(
               'SELECT t.id FROM dive_tanks t '
-              'WHERE ${tankNamesRegulatorSql('t', '?1')}',
+              'WHERE ${tankNamesAnyRegulatorSql('t', '?1')}',
               variables: [Variable.withString(id)],
             )
             .get())

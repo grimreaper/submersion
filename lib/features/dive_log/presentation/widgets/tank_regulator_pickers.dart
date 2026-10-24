@@ -83,8 +83,12 @@ class _TankRegulatorPickersState extends ConsumerState<TankRegulatorPickers> {
     // Labelled as one list, so regulators sharing a name show their ID and,
     // if that is not enough, the next detail that differs (#1549, #3191).
     final labels = equipmentRowLabelsOf(context, ref, all);
+    // Retired and sold ones count too: the added picker offers them through
+    // its show item, so a dive logged with one can still list it.
     final canAdd =
-        ids.isNotEmpty && !_adding && all.any((r) => !ids.contains(r.id));
+        ids.isNotEmpty &&
+        !_adding &&
+        [...regs, ...leftKit].any((r) => !ids.contains(r.id));
 
     Widget picker(int index) {
       final value = index < ids.length ? ids[index] : null;

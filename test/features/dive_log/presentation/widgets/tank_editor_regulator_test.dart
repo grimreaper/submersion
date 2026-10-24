@@ -308,6 +308,37 @@ void main() {
       expect(find.text('None'), findsNothing);
     });
 
+    testWidgets('an added picker offers them on request too (#3375)', (
+      tester,
+    ) async {
+      DiveTank? changed;
+      await _pump(
+        tester,
+        equipment: const [_apeks, oldReg],
+        tank: const DiveTank(id: 'tank-1', regulatorEquipmentId: 'reg-a'),
+        onChanged: (t) => changed = t,
+      );
+      await tester.tap(find.byKey(const Key('tank-add-regulator')));
+      await tester.pumpAndSettle();
+
+      final extra = find.byKey(const Key('tank-regulator-picker-2'));
+      await tester.tap(extra);
+      await tester.pumpAndSettle();
+      await tester.tap(find.text(showLabel).hitTestable());
+      await tester.pumpAndSettle();
+      // Asking to see them is not a choice, and keeps the added picker.
+      expect(changed, isNull);
+      expect(find.text('Regulator 2'), findsOneWidget);
+
+      await tester.tap(extra);
+      await tester.pumpAndSettle();
+      await tester.tap(
+        find.textContaining('Old Mk25', findRichText: true).hitTestable().last,
+      );
+      await tester.pumpAndSettle();
+      expect(changed?.regulatorIds, ['reg-a', 'reg-old']);
+    });
+
     testWidgets('are offered only once the diver asks for them', (
       tester,
     ) async {

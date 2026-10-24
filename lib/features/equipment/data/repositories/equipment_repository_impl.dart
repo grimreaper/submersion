@@ -1724,16 +1724,18 @@ class EquipmentRepository {
       decodeExtraRegulatorIds(tank.readNullable<String>('extras')),
     );
     final ids = [?named.first, ...named.extras];
-    final marks = List.filled(ids.length, '?').join(', ');
+    // The same variables as the tank pick, so the same in-kit test reads
+    // ?2-?4; the ids follow from ?5.
+    final marks = [for (var i = 0; i < ids.length; i++) '?${i + 5}'].join(', ');
     final kept = {
       for (final r
           in await _db
               .customSelect(
-                'SELECT e.id FROM equipment e WHERE e.id IN ($marks) '
-                'AND e.is_active = 1 AND e.status NOT IN (?, ?, ?)',
+                'SELECT e.id FROM equipment e WHERE e.id IN ($marks) AND $inKit',
                 variables: [
-                  for (final id in ids) Variable.withString(id),
+                  Variable.withString(presetName),
                   ...kitVars,
+                  for (final id in ids) Variable.withString(id),
                 ],
               )
               .get())

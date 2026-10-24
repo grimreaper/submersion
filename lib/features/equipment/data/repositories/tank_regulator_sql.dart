@@ -19,11 +19,6 @@ String tankExtraRegulatorsJson(String tank) =>
     "CASE WHEN json_type($tank.extra_regulator_ids) = 'array' "
     'THEN $tank.extra_regulator_ids END END';
 
-/// True when [tank] names [id] as its first regulator or an extra.
-String tankNamesRegulatorSql(String tank, String id) =>
-    '($tank.regulator_equipment_id = $id OR EXISTS (SELECT 1 FROM '
-    'json_each(${tankExtraRegulatorsJson(tank)}) WHERE value = $id))';
-
 /// True when [tank] names any id in [inList] (the inside of an `IN (...)`).
 /// The list appears twice, so anonymous `?` markers in it are bound twice.
 String tankNamesAnyRegulatorSql(String tank, String inList) =>
@@ -48,10 +43,10 @@ String tankRegulatorIdsOfDiveSql(String diveId) =>
     'WHERE rt.dive_id = $diveId';
 
 /// One row per extra regulator on a tank: `dive_id`, `o2_percent` and
-/// `regulator_id`. For queries that look up many regulators at once: read
-/// once (a MATERIALIZED CTE) and joined, the JSON is parsed once per tank
-/// rather than once per tank per regulator, and the first regulator keeps
-/// its index on `regulator_equipment_id`.
+/// `regulator_id`. Read as its own UNION branch rather than an OR inside a
+/// join, so the first regulator keeps its index on `regulator_equipment_id`
+/// and this branch reads only the tanks the partial index on
+/// `extra_regulator_ids` holds.
 final String tankExtraRegulatorRowsSql =
     'SELECT xt.dive_id, xt.o2_percent, xj.value AS regulator_id '
     'FROM dive_tanks xt, json_each(${tankExtraRegulatorsJson('xt')}) xj '
