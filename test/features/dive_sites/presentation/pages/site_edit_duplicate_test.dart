@@ -5,7 +5,7 @@ import 'package:go_router/go_router.dart';
 import 'package:shared_preferences/shared_preferences.dart';
 import 'package:submersion/core/constants/enums.dart';
 import 'package:submersion/core/database/database.dart'
-    show AppDatabase, DiveSitesCompanion;
+    show AppDatabase, DiveSitesCompanion, DiversCompanion;
 import 'package:submersion/core/providers/provider.dart';
 import 'package:submersion/features/divers/domain/entities/diver.dart';
 import 'package:submersion/features/divers/presentation/providers/diver_providers.dart';
@@ -18,6 +18,8 @@ import 'package:submersion/features/dive_sites/presentation/pages/site_edit_page
 import 'package:submersion/features/dive_sites/presentation/providers/site_providers.dart';
 import 'package:submersion/features/marine_life/data/repositories/species_repository.dart';
 import 'package:submersion/features/settings/presentation/providers/settings_providers.dart';
+import 'package:submersion/features/site_types/data/repositories/site_type_repository.dart';
+import 'package:submersion/features/site_types/domain/entities/site_type_entity.dart';
 import 'package:submersion/features/tags/data/repositories/tag_repository.dart';
 import 'package:submersion/features/tags/domain/entities/tag.dart';
 import 'package:submersion/l10n/arb/app_localizations.dart';
@@ -93,11 +95,11 @@ void main() {
   tearDown(tearDownTestDatabase);
 
   // Riverpod does not re-export its sealed Override type (see testApp).
-  List<dynamic> overrides({bool shareByDefault = false}) => [
+  List<dynamic> overrides({bool shareByDefault = false, String? diverId}) => [
     sharedPreferencesProvider.overrideWithValue(prefs),
     allDiversProvider.overrideWith((_) async => const <Diver>[]),
     shareByDefaultProvider.overrideWith((_) async => shareByDefault),
-    validatedCurrentDiverIdProvider.overrideWith((_) async => null),
+    validatedCurrentDiverIdProvider.overrideWith((_) async => diverId),
   ];
 
   Future<void> pumpDuplicate(
@@ -107,13 +109,16 @@ void main() {
     VoidCallback? onCancel,
     bool shareByDefault = false,
     bool sourceLoaded = false,
+    String? diverId,
   }) async {
     tester.view.physicalSize = const Size(900, 3600);
     tester.view.devicePixelRatio = 1.0;
     addTearDown(tester.view.reset);
 
     final container = ProviderContainer(
-      overrides: [...overrides(shareByDefault: shareByDefault)],
+      overrides: [
+        ...overrides(shareByDefault: shareByDefault, diverId: diverId),
+      ],
     );
     addTearDown(container.dispose);
     // Opened from its detail page, the original is already loaded, so the
@@ -147,12 +152,14 @@ void main() {
   Future<String> saveDuplicate(
     WidgetTester tester, {
     bool sourceLoaded = false,
+    String? diverId,
   }) async {
     String? savedId;
     await pumpDuplicate(
       tester,
       onSaved: (id) => savedId = id,
       sourceLoaded: sourceLoaded,
+      diverId: diverId,
     );
     await tester.tap(find.text('Save'));
     await tester.pump();
@@ -212,6 +219,72 @@ void main() {
     expect(types!.map((t) => t.id), ['wall']);
     expect(tags!.map((t) => t.id), [tagId]);
     expect(species!.map((s) => s.speciesId), [speciesId]);
+  });
+
+  testWidgets('another profile\'s shared site copies only my own types and '
+      'tags', (tester) async {
+    // Like an equipment clone (#2046): the owner's custom types and tags
+    // must not come along onto the copy the active diver makes.
+    final now = DateTime(2026, 10, 23);
+    late String ownerTypeId;
+    late String myTypeId;
+    await tester.runAsync(() async {
+      for (final id in ['me', 'owner']) {
+        await db
+            .into(db.divers)
+            .insert(
+              DiversCompanion.insert(
+                id: id,
+                name: id,
+                createdAt: now.millisecondsSinceEpoch,
+                updatedAt: now.millisecondsSinceEpoch,
+              ),
+            );
+      }
+      // The repository suffixes each id, so keep the ones it returns.
+      final types = SiteTypeRepository();
+      Future<String> custom(String name, String owner) async =>
+          (await types.createSiteType(
+            SiteTypeEntity(
+              id: '',
+              diverId: owner,
+              name: name,
+              createdAt: now,
+              updatedAt: now,
+            ),
+          )).id;
+      ownerTypeId = await custom('Owner reef', 'owner');
+      myTypeId = await custom('My reef', 'me');
+      await TagRepository().createTag(
+        Tag(
+          id: 'tag-owner',
+          diverId: 'owner',
+          name: 'Owner only',
+          createdAt: now,
+          updatedAt: now,
+          scopes: const {TagScope.sites},
+        ),
+      );
+      final classification = SiteClassificationRepository();
+      await classification.replaceTypes('site-1', [
+        'wall',
+        ownerTypeId,
+        myTypeId,
+      ]);
+      await classification.replaceTags('site-1', [tagId, 'tag-owner']);
+    });
+
+    final copyId = await saveDuplicate(tester, diverId: 'me');
+
+    final classification = SiteClassificationRepository();
+    final types = await tester.runAsync(
+      () => classification.getTypesForSite(copyId),
+    );
+    final tags = await tester.runAsync(
+      () => classification.getTagsForSite(copyId),
+    );
+    expect(types!.map((t) => t.id), unorderedEquals(['wall', myTypeId]));
+    expect(tags!.map((t) => t.id), [tagId]);
   });
 
   testWidgets('the copy gets the original\'s seascape features', (

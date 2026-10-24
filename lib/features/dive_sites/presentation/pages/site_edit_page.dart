@@ -410,7 +410,7 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
     );
     if (source.isLibrarySite) _applyShareByDefault();
     _loadExpectedSpecies(source.id);
-    _loadClassification(source.id);
+    _loadClassification(source.id, ownOnly: true);
   }
 
   /// Fills every form field from [site], as initial values that leave the
@@ -455,9 +455,29 @@ class _SiteEditPageState extends ConsumerState<SiteEditPage> {
   /// The stored values always become the baseline a save compares against,
   /// but they fill the section only if the diver has not already edited it:
   /// a pick made before the load finished is what the diver saw and chose.
-  Future<void> _loadClassification(String siteId) async {
-    final types = await ref.read(siteTypesForSiteProvider(siteId).future);
-    final tags = await ref.read(tagsForSiteProvider(siteId).future);
+  ///
+  /// With [ownOnly] (a duplicate) only built-ins and the active diver's own
+  /// types and tags are kept: another profile's shared site must not bring
+  /// its owner's vocabulary onto the copy, as an equipment clone (#2046).
+  Future<void> _loadClassification(
+    String siteId, {
+    bool ownOnly = false,
+  }) async {
+    var types = await ref.read(siteTypesForSiteProvider(siteId).future);
+    var tags = await ref.read(tagsForSiteProvider(siteId).future);
+    if (ownOnly) {
+      final diverId = await ref.read(validatedCurrentDiverIdProvider.future);
+      bool mine(String? owner) =>
+          diverId == null || owner == null || owner == diverId;
+      types = [
+        for (final t in types)
+          if (mine(t.diverId)) t,
+      ];
+      tags = [
+        for (final t in tags)
+          if (mine(t.diverId)) t,
+      ];
+    }
     if (!mounted) return;
     setState(() {
       _originalTypeIds = {for (final t in types) t.id};
