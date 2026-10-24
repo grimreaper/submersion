@@ -503,6 +503,27 @@ void main() {
       expect(find.text('Poseidon Xstream'), findsOneWidget);
     });
 
+    testWidgets('removing an added picker before choosing drops it', (
+      tester,
+    ) async {
+      DiveTank? changed;
+      await _pump(
+        tester,
+        equipment: const [_apeks, _reg2],
+        tank: const DiveTank(id: 'tank-1', regulatorEquipmentId: 'reg-a'),
+        onChanged: (t) => changed = t,
+      );
+      await tester.tap(find.byKey(addKey));
+      await tester.pumpAndSettle();
+      expect(find.byKey(addKey), findsNothing);
+
+      await tester.tap(find.byKey(const Key('tank-remove-regulator-2')));
+      await tester.pumpAndSettle();
+      expect(find.text('Regulator 2'), findsNothing);
+      expect(find.byKey(addKey), findsOneWidget);
+      expect(changed, isNull, reason: 'an empty picker never reported');
+    });
+
     testWidgets('an added picker left empty is not reported', (tester) async {
       DiveTank? changed;
       await _pump(
